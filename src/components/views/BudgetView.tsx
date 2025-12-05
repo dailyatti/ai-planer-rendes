@@ -96,12 +96,12 @@ const BudgetView: React.FC = () => {
             </div>
             {t('nav.budgetTracker')}
           </h1>
-          <p className="view-subtitle">Professzionális pénzügyi követés</p>
+          <p className="view-subtitle">{t('budget.subtitle')}</p>
         </div>
 
         <button onClick={() => setShowAddModal(true)} className="btn-primary">
           <Plus size={16} />
-          Tranzakció hozzáadása
+          {t('budget.addTransaction')}
         </button>
       </div>
 
@@ -110,7 +110,7 @@ const BudgetView: React.FC = () => {
         <div className="stat-card stat-card-success">
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium opacity-90">Egyenleg</span>
+              <span className="text-xs font-medium opacity-90">{t('budget.balance')}</span>
               <Wallet size={16} className="opacity-80" />
             </div>
             <div className="text-2xl font-bold">€{totalBalance.toFixed(2)}</div>
@@ -120,7 +120,7 @@ const BudgetView: React.FC = () => {
         <div className="stat-card stat-card-primary">
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium opacity-90">Bevétel</span>
+              <span className="text-xs font-medium opacity-90">{t('budget.income')}</span>
               <TrendingUp size={16} className="opacity-80" />
             </div>
             <div className="text-2xl font-bold">€{totalIncome.toFixed(2)}</div>
@@ -130,7 +130,7 @@ const BudgetView: React.FC = () => {
         <div className="stat-card stat-card-warning">
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium opacity-90">Kiadás</span>
+              <span className="text-xs font-medium opacity-90">{t('budget.expense')}</span>
               <TrendingDown size={16} className="opacity-80" />
             </div>
             <div className="text-2xl font-bold">€{totalExpense.toFixed(2)}</div>
@@ -142,7 +142,7 @@ const BudgetView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         {/* Cash Flow Chart */}
         <div className="card lg:col-span-2">
-          <h3 className="section-title mb-3">Pénzforgalom</h3>
+          <h3 className="section-title mb-3">{t('budget.cashFlow')}</h3>
           <div className="h-[220px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={cashFlowData}>
@@ -170,7 +170,7 @@ const BudgetView: React.FC = () => {
 
         {/* Expense Breakdown */}
         <div className="card">
-          <h3 className="section-title mb-3">Kiadás kategóriák</h3>
+          <h3 className="section-title mb-3">{t('budget.expenseCategories')}</h3>
           <div className="h-[220px] w-full flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -190,7 +190,7 @@ const BudgetView: React.FC = () => {
       {/* Recent Transactions */}
       <div className="card">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="section-title mb-0">Tranzakciók</h3>
+          <h3 className="section-title mb-0">{t('budget.transactions')}</h3>
           <span className="text-xs text-gray-500">{transactions.length} db</span>
         </div>
 
@@ -228,7 +228,7 @@ const BudgetView: React.FC = () => {
 
           {transactions.length === 0 && (
             <div className="text-center py-6 text-gray-500 text-sm">
-              Még nincs tranzakció. Add hozzá az elsőt!
+              {t('budget.noTransactions')}
             </div>
           )}
         </div>
@@ -239,7 +239,7 @@ const BudgetView: React.FC = () => {
         <div className="modal-backdrop" onClick={() => setShowAddModal(false)}>
           <div className="modal-panel p-5 w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Tranzakció hozzáadása</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('budget.addTransaction')}</h3>
               <button onClick={() => setShowAddModal(false)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                 <X size={18} className="text-gray-500" />
               </button>
@@ -252,29 +252,29 @@ const BudgetView: React.FC = () => {
                   type="button"
                   onClick={() => setNewTransaction({ ...newTransaction, type: 'expense' })}
                   className={`flex-1 p-2.5 rounded-xl font-medium text-sm transition-all ${newTransaction.type === 'expense'
-                      ? 'bg-red-100 text-red-600 border-2 border-red-500'
-                      : 'bg-gray-100 text-gray-600 border-2 border-transparent'
+                    ? 'bg-red-100 text-red-600 border-2 border-red-500'
+                    : 'bg-gray-100 text-gray-600 border-2 border-transparent'
                     }`}
                 >
                   <ArrowDownRight size={16} className="inline mr-1" />
-                  Kiadás
+                  {t('budget.expense')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setNewTransaction({ ...newTransaction, type: 'income' })}
                   className={`flex-1 p-2.5 rounded-xl font-medium text-sm transition-all ${newTransaction.type === 'income'
-                      ? 'bg-green-100 text-green-600 border-2 border-green-500'
-                      : 'bg-gray-100 text-gray-600 border-2 border-transparent'
+                    ? 'bg-green-100 text-green-600 border-2 border-green-500'
+                    : 'bg-gray-100 text-gray-600 border-2 border-transparent'
                     }`}
                 >
                   <ArrowUpRight size={16} className="inline mr-1" />
-                  Bevétel
+                  {t('budget.income')}
                 </button>
               </div>
 
               {/* Name */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Megnevezés</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{t('budget.name')}</label>
                 <input
                   type="text"
                   value={newTransaction.name}
@@ -286,7 +286,7 @@ const BudgetView: React.FC = () => {
 
               {/* Amount */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Összeg (€)</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{t('budget.amount')}</label>
                 <input
                   type="number"
                   step="0.01"
@@ -299,7 +299,7 @@ const BudgetView: React.FC = () => {
 
               {/* Category */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Kategória</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{t('budget.category')}</label>
                 <select
                   value={newTransaction.category}
                   onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value })}
@@ -313,10 +313,10 @@ const BudgetView: React.FC = () => {
             </div>
 
             <div className="flex gap-2 mt-4">
-              <button onClick={() => setShowAddModal(false)} className="btn-ghost flex-1 text-sm">Mégsem</button>
+              <button onClick={() => setShowAddModal(false)} className="btn-ghost flex-1 text-sm">{t('common.cancel')}</button>
               <button onClick={handleAddTransaction} className="btn-success flex-1 text-sm">
                 <Plus size={16} />
-                Hozzáadás
+                {t('budget.addTransaction')}
               </button>
             </div>
           </div>
