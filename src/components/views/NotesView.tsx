@@ -3,9 +3,11 @@ import { Plus, StickyNote, Edit2, Trash2, Search, Tag, Link } from 'lucide-react
 import { useData } from '../../contexts/DataContext';
 import { Note } from '../../types/planner';
 import LinkifiedText from '../common/LinkifiedText';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const NotesView: React.FC = () => {
   const { notes, addNote, updateNote, deleteNote } = useData();
+  const { t } = useLanguage();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -17,10 +19,10 @@ const NotesView: React.FC = () => {
   });
 
   const allTags = Array.from(new Set(notes.flatMap(note => note.tags)));
-  
+
   const filteredNotes = notes.filter(note => {
     const matchesSearch = note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         note.content.toLowerCase().includes(searchTerm.toLowerCase());
+      note.content.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTag = !selectedTag || note.tags.includes(selectedTag);
     return matchesSearch && matchesTag;
   }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -70,10 +72,10 @@ const NotesView: React.FC = () => {
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
               <StickyNote className="text-yellow-500" size={32} />
-              Smart Notes
+              {t('notes.title')}
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-2">
-              Ideas, references and inspiration organized
+              {t('notes.subtitle')}
             </p>
           </div>
 
@@ -82,7 +84,7 @@ const NotesView: React.FC = () => {
             className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors duration-200 shadow-md hover:shadow-lg"
           >
             <Plus size={20} />
-            New Note
+            {t('notes.newNote')}
           </button>
         </div>
 
@@ -92,7 +94,7 @@ const NotesView: React.FC = () => {
             <Search className="absolute left-3 top-3 text-gray-400" size={18} />
             <input
               type="text"
-              placeholder="Search in notes..."
+              placeholder={t('notes.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
@@ -104,7 +106,7 @@ const NotesView: React.FC = () => {
             onChange={(e) => setSelectedTag(e.target.value)}
             className="px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
           >
-            <option value="">All Tags</option>
+            <option value="">{t('notes.allTags')}</option>
             {allTags.map(tag => (
               <option key={tag} value={tag}>{tag}</option>
             ))}
@@ -116,13 +118,13 @@ const NotesView: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              {editingId ? 'Edit Note' : 'Create New Note'}
+              {editingId ? t('notes.editNote') : t('notes.createNote')}
             </h3>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Title
+                  {t('notes.titleLabel')}
                 </label>
                 <input
                   type="text"
@@ -130,34 +132,34 @@ const NotesView: React.FC = () => {
                   onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500"
                   required
-                  placeholder="Note title..."
+                  placeholder={t('notes.createNote')}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Content
+                  {t('notes.contentLabel')}
                 </label>
                 <textarea
                   value={newNote.content}
                   onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500"
                   rows={8}
-                  placeholder="Write anything here... Links will be automatically detected!"
+                  placeholder={t('notes.contentPlaceholder')}
                   required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Tags (comma separated)
+                  {t('notes.tagsLabel')}
                 </label>
                 <input
                   type="text"
                   value={newNote.tags.join(', ')}
                   onChange={(e) => handleTagInput(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500"
-                  placeholder="idea, project, important..."
+                  placeholder={t('notes.tagsPlaceholder')}
                 />
               </div>
 
@@ -166,7 +168,7 @@ const NotesView: React.FC = () => {
                   type="submit"
                   className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
                 >
-                  {editingId ? 'Update' : 'Save'}
+                  {editingId ? t('common.update') : t('common.save')}
                 </button>
                 <button
                   type="button"
@@ -177,7 +179,7 @@ const NotesView: React.FC = () => {
                   }}
                   className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
               </div>
             </form>
@@ -189,13 +191,13 @@ const NotesView: React.FC = () => {
         <div className="text-center py-12">
           <StickyNote className="mx-auto text-gray-400 dark:text-gray-500 mb-4" size={48} />
           <p className="text-gray-500 dark:text-gray-400 mb-4">
-            {searchTerm || selectedTag ? 'No results found for your search criteria' : 'No notes yet'}
+            {searchTerm || selectedTag ? t('notes.noResults') : t('notes.noNotes')}
           </p>
           <button
             onClick={() => setShowAddForm(true)}
             className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
           >
-            Create First Note
+            {t('notes.createFirstNote')}
           </button>
         </div>
       ) : (
@@ -226,7 +228,7 @@ const NotesView: React.FC = () => {
               </div>
 
               <div className="mb-4">
-                <LinkifiedText 
+                <LinkifiedText
                   text={note.content}
                   className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed line-clamp-4"
                 />
@@ -259,7 +261,7 @@ const NotesView: React.FC = () => {
                 {note.linkedPlans.length > 0 && (
                   <span className="flex items-center gap-1">
                     <Link size={12} />
-                    {note.linkedPlans.length} linked
+                    {note.linkedPlans.length} {t('notes.linked')}
                   </span>
                 )}
               </div>

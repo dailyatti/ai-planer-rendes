@@ -3,9 +3,11 @@ import { Plus, Target, Edit2, Trash2, Calendar, TrendingUp, CheckCircle, Play, P
 import { useData } from '../../contexts/DataContext';
 import { Goal } from '../../types/planner';
 import LinkifiedText from '../common/LinkifiedText';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const GoalsView: React.FC = () => {
   const { goals, addGoal, updateGoal, deleteGoal } = useData();
+  const { t } = useLanguage();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -14,7 +16,7 @@ const GoalsView: React.FC = () => {
     description: '',
     targetDate: '',
     progress: 0,
-    status: 'not-started' as const,
+    status: 'not-started' as 'not-started' | 'in-progress' | 'paused' | 'completed',
   });
 
   const filteredGoals = goals.filter(goal => {
@@ -90,10 +92,10 @@ const GoalsView: React.FC = () => {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'completed': return 'Completed';
-      case 'in-progress': return 'In Progress';
-      case 'paused': return 'Paused';
-      default: return 'Not Started';
+      case 'completed': return t('goals.filterCompleted');
+      case 'in-progress': return t('goals.filterInProgress');
+      case 'paused': return t('goals.filterPaused');
+      default: return t('goals.filterNotStarted');
     }
   };
 
@@ -112,10 +114,10 @@ const GoalsView: React.FC = () => {
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
               <Target className="text-teal-500" size={32} />
-              Goals & Milestones
+              {t('goals.title')}
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-2">
-              Track and achieve your ambitious goals
+              {t('goals.subtitle')}
             </p>
           </div>
 
@@ -124,7 +126,7 @@ const GoalsView: React.FC = () => {
             className="bg-teal-500 hover:bg-teal-600 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors duration-200 shadow-md hover:shadow-lg"
           >
             <Plus size={20} />
-            New Goal
+            {t('goals.newGoal')}
           </button>
         </div>
 
@@ -134,7 +136,7 @@ const GoalsView: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-2xl font-bold">{goalStats.total}</div>
-                <div className="text-sm opacity-90">Total Goals</div>
+                <div className="text-sm opacity-90">{t('goals.totalGoals')}</div>
               </div>
               <Target size={24} className="opacity-80" />
             </div>
@@ -144,7 +146,7 @@ const GoalsView: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-2xl font-bold">{Math.round(completionRate)}%</div>
-                <div className="text-sm opacity-90">Completion Rate</div>
+                <div className="text-sm opacity-90">{t('goals.completionRate')}</div>
               </div>
               <TrendingUp size={24} className="opacity-80" />
             </div>
@@ -154,7 +156,7 @@ const GoalsView: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-2xl font-bold">{goalStats.inProgress}</div>
-                <div className="text-sm opacity-90">Active</div>
+                <div className="text-sm opacity-90">{t('goals.active')}</div>
               </div>
               <Play size={24} className="opacity-80" />
             </div>
@@ -164,7 +166,7 @@ const GoalsView: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-2xl font-bold">{goalStats.completed}</div>
-                <div className="text-sm opacity-90">Achieved</div>
+                <div className="text-sm opacity-90">{t('goals.achieved')}</div>
               </div>
               <CheckCircle size={24} className="opacity-80" />
             </div>
@@ -178,11 +180,11 @@ const GoalsView: React.FC = () => {
             onChange={(e) => setFilterStatus(e.target.value)}
             className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500"
           >
-            <option value="all">All Goals</option>
-            <option value="not-started">Not Started</option>
-            <option value="in-progress">In Progress</option>
-            <option value="paused">Paused</option>
-            <option value="completed">Completed</option>
+            <option value="all">{t('goals.filterAll')}</option>
+            <option value="not-started">{t('goals.filterNotStarted')}</option>
+            <option value="in-progress">{t('goals.filterInProgress')}</option>
+            <option value="paused">{t('goals.filterPaused')}</option>
+            <option value="completed">{t('goals.filterCompleted')}</option>
           </select>
         </div>
       </div>
@@ -191,13 +193,13 @@ const GoalsView: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-2xl">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              {editingId ? 'Edit Goal' : 'Create New Goal'}
+              {editingId ? t('goals.editGoal') : t('goals.createGoal')}
             </h3>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Goal Title
+                  {t('goals.goalTitle')}
                 </label>
                 <input
                   type="text"
@@ -211,7 +213,7 @@ const GoalsView: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Detailed Description
+                  {t('goals.goalDescription')}
                 </label>
                 <textarea
                   value={newGoal.description}
@@ -224,7 +226,7 @@ const GoalsView: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Target Date
+                  {t('goals.targetDate')}
                 </label>
                 <input
                   type="date"
@@ -238,7 +240,7 @@ const GoalsView: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Progress (%)
+                    {t('goals.progress')} (%)
                   </label>
                   <input
                     type="number"
@@ -252,17 +254,17 @@ const GoalsView: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Status
+                    {t('goals.status')}
                   </label>
                   <select
                     value={newGoal.status}
                     onChange={(e) => setNewGoal({ ...newGoal, status: e.target.value as any })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500"
                   >
-                    <option value="not-started">Not Started</option>
-                    <option value="in-progress">In Progress</option>
-                    <option value="paused">Paused</option>
-                    <option value="completed">Completed</option>
+                    <option value="not-started">{t('goals.filterNotStarted')}</option>
+                    <option value="in-progress">{t('goals.filterInProgress')}</option>
+                    <option value="paused">{t('goals.filterPaused')}</option>
+                    <option value="completed">{t('goals.filterCompleted')}</option>
                   </select>
                 </div>
               </div>
@@ -272,7 +274,7 @@ const GoalsView: React.FC = () => {
                   type="submit"
                   className="flex-1 bg-teal-500 hover:bg-teal-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
                 >
-                  {editingId ? 'Update' : 'Save'}
+                  {editingId ? t('common.update') : t('common.save')}
                 </button>
                 <button
                   type="button"
@@ -283,7 +285,7 @@ const GoalsView: React.FC = () => {
                   }}
                   className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
               </div>
             </form>
@@ -295,13 +297,13 @@ const GoalsView: React.FC = () => {
         <div className="text-center py-12">
           <Target className="mx-auto text-gray-400 dark:text-gray-500 mb-4" size={48} />
           <p className="text-gray-500 dark:text-gray-400 mb-4">
-            {filterStatus === 'all' ? 'No goals defined yet' : 'No goals with this status'}
+            {filterStatus === 'all' ? t('goals.noGoalsDefined') : t('goals.noGoalsStatus')}
           </p>
           <button
             onClick={() => setShowAddForm(true)}
             className="bg-teal-500 hover:bg-teal-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
           >
-            Define First Goal
+            {t('goals.defineFirstGoal')}
           </button>
         </div>
       ) : (
@@ -309,7 +311,7 @@ const GoalsView: React.FC = () => {
           {filteredGoals.map((goal) => {
             const daysUntilTarget = getDaysUntilTarget(goal.targetDate);
             const isOverdue = daysUntilTarget < 0 && goal.status !== 'completed';
-            
+
             return (
               <div
                 key={goal.id}
@@ -325,7 +327,7 @@ const GoalsView: React.FC = () => {
                     </div>
 
                     {goal.description && (
-                      <LinkifiedText 
+                      <LinkifiedText
                         text={goal.description}
                         className="text-gray-700 dark:text-gray-300 mb-4 leading-relaxed"
                       />
@@ -342,19 +344,18 @@ const GoalsView: React.FC = () => {
                       <div className="flex items-center gap-2 text-sm">
                         <TrendingUp size={16} />
                         <span className={isOverdue ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}>
-                          {daysUntilTarget > 0 ? `${daysUntilTarget} days left` : 
-                           daysUntilTarget === 0 ? 'Due today!' : 
-                           `${Math.abs(daysUntilTarget)} days overdue`}
+                          {daysUntilTarget > 0 ? `${daysUntilTarget} ${t('goals.daysLeft')}` :
+                            daysUntilTarget === 0 ? t('goals.dueToday') :
+                              `${Math.abs(daysUntilTarget)} ${t('goals.overdue')}`}
                         </span>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className={`text-sm px-3 py-1 rounded-full font-medium ${
-                          goal.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
+                        <span className={`text-sm px-3 py-1 rounded-full font-medium ${goal.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
                           goal.status === 'in-progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
-                          goal.status === 'paused' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
-                          'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
-                        }`}>
+                            goal.status === 'paused' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                              'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                          }`}>
                           {getStatusText(goal.status)}
                         </span>
                       </div>
@@ -363,7 +364,7 @@ const GoalsView: React.FC = () => {
                     {/* Progress Bar */}
                     <div className="mb-4">
                       <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
-                        <span>Progress</span>
+                        <span>{t('goals.progress')}</span>
                         <span>{goal.progress}%</span>
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3">
@@ -386,9 +387,9 @@ const GoalsView: React.FC = () => {
                       <button
                         onClick={() => {
                           const newProgress = Math.min(100, goal.progress + 10);
-                          const newStatus = newProgress === 100 ? 'completed' : 
-                                          newProgress > 0 && goal.status === 'not-started' ? 'in-progress' : 
-                                          goal.status;
+                          const newStatus = newProgress === 100 ? 'completed' :
+                            newProgress > 0 && goal.status === 'not-started' ? 'in-progress' :
+                              goal.status;
                           updateGoal(goal.id, { progress: newProgress, status: newStatus });
                         }}
                         className="px-3 py-1 text-sm bg-teal-100 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 rounded-lg hover:bg-teal-200 dark:hover:bg-teal-900/30 transition-colors duration-200"
@@ -399,9 +400,9 @@ const GoalsView: React.FC = () => {
                       <button
                         onClick={() => {
                           const newProgress = Math.max(0, goal.progress - 10);
-                          const newStatus = newProgress === 0 ? 'not-started' : 
-                                          newProgress < 100 && goal.status === 'completed' ? 'in-progress' : 
-                                          goal.status;
+                          const newStatus = newProgress === 0 ? 'not-started' :
+                            newProgress < 100 && goal.status === 'completed' ? 'in-progress' :
+                              goal.status;
                           updateGoal(goal.id, { progress: newProgress, status: newStatus });
                         }}
                         className="px-3 py-1 text-sm bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-lg hover:bg-orange-200 dark:hover:bg-orange-900/30 transition-colors duration-200"
@@ -442,14 +443,6 @@ const GoalsView: React.FC = () => {
       )}
     </div>
   );
-};
-
-const getDaysUntilTarget = (targetDate: Date) => {
-  const today = new Date();
-  const target = new Date(targetDate);
-  const diffTime = target.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays;
 };
 
 export default GoalsView;
