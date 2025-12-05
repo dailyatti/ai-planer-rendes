@@ -17,10 +17,16 @@ const SettingsView: React.FC = () => {
   const languages: { code: Language; name: string; nativeName: string }[] = [
     { code: 'en', name: t('lang.english'), nativeName: 'English' },
     { code: 'hu', name: t('lang.hungarian'), nativeName: 'Magyar' },
+    { code: 'ro', name: t('lang.romanian'), nativeName: 'Română' },
+    { code: 'sk', name: t('lang.slovak'), nativeName: 'Slovenčina' },
+    { code: 'hr', name: t('lang.croatian'), nativeName: 'Hrvatski' },
     { code: 'de', name: t('lang.german'), nativeName: 'Deutsch' },
     { code: 'fr', name: t('lang.french'), nativeName: 'Français' },
     { code: 'es', name: t('lang.spanish'), nativeName: 'Español' },
     { code: 'it', name: t('lang.italian'), nativeName: 'Italiano' },
+    { code: 'pl', name: t('lang.polish'), nativeName: 'Polski' },
+    { code: 'cn', name: t('lang.chinese'), nativeName: '中文' },
+    { code: 'jp', name: t('lang.japanese'), nativeName: '日本語' },
   ];
   const themes = ['System', 'Light', 'Dark', 'Auto'];
 
@@ -59,11 +65,10 @@ const SettingsView: React.FC = () => {
                   <button
                     key={section.id}
                     onClick={() => setActiveSection(section.id as any)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200 ${
-                      activeSection === section.id
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200 ${activeSection === section.id
                         ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
+                      }`}
                   >
                     <Icon size={20} />
                     <span className="font-medium">{section.label}</span>
@@ -89,7 +94,7 @@ const SettingsView: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       {t('settings.language')}
                     </label>
-                    <select 
+                    <select
                       value={language}
                       onChange={(e) => setLanguage(e.target.value as Language)}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
@@ -106,10 +111,10 @@ const SettingsView: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       {t('settings.timeZone')}
                     </label>
-                    <select 
+                    <select
                       value={settings.general.timeZone}
-                      onChange={(e) => updateSettings({ 
-                        general: { ...settings.general, timeZone: e.target.value as any } 
+                      onChange={(e) => updateSettings({
+                        general: { ...settings.general, timeZone: e.target.value as any }
                       })}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                     >
@@ -131,40 +136,40 @@ const SettingsView: React.FC = () => {
                   </label>
                   <div className="space-y-2">
                     <label className="flex items-center">
-                      <input 
-                        type="radio" 
-                        name="dateFormat" 
-                        value="MM/DD/YYYY" 
-                        className="mr-2" 
+                      <input
+                        type="radio"
+                        name="dateFormat"
+                        value="MM/DD/YYYY"
+                        className="mr-2"
                         checked={settings.general.dateFormat === 'MM/DD/YYYY'}
-                        onChange={(e) => updateSettings({ 
-                          general: { ...settings.general, dateFormat: e.target.value as any } 
+                        onChange={(e) => updateSettings({
+                          general: { ...settings.general, dateFormat: e.target.value as any }
                         })}
                       />
                       <span className="text-gray-700 dark:text-gray-300">MM/DD/YYYY (US Format)</span>
                     </label>
                     <label className="flex items-center">
-                      <input 
-                        type="radio" 
-                        name="dateFormat" 
-                        value="DD/MM/YYYY" 
-                        className="mr-2" 
+                      <input
+                        type="radio"
+                        name="dateFormat"
+                        value="DD/MM/YYYY"
+                        className="mr-2"
                         checked={settings.general.dateFormat === 'DD/MM/YYYY'}
-                        onChange={(e) => updateSettings({ 
-                          general: { ...settings.general, dateFormat: e.target.value as any } 
+                        onChange={(e) => updateSettings({
+                          general: { ...settings.general, dateFormat: e.target.value as any }
                         })}
                       />
                       <span className="text-gray-700 dark:text-gray-300">DD/MM/YYYY (European Format)</span>
                     </label>
                     <label className="flex items-center">
-                      <input 
-                        type="radio" 
-                        name="dateFormat" 
-                        value="YYYY-MM-DD" 
-                        className="mr-2" 
+                      <input
+                        type="radio"
+                        name="dateFormat"
+                        value="YYYY-MM-DD"
+                        className="mr-2"
                         checked={settings.general.dateFormat === 'YYYY-MM-DD'}
-                        onChange={(e) => updateSettings({ 
-                          general: { ...settings.general, dateFormat: e.target.value as any } 
+                        onChange={(e) => updateSettings({
+                          general: { ...settings.general, dateFormat: e.target.value as any }
                         })}
                       />
                       <span className="text-gray-700 dark:text-gray-300">YYYY-MM-DD (ISO Format)</span>
@@ -178,12 +183,12 @@ const SettingsView: React.FC = () => {
                     <div className="text-sm text-gray-600 dark:text-gray-400">{t('settings.autoSaveDesc')}</div>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only peer" 
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
                       checked={settings.general.autoSave}
-                      onChange={(e) => updateSettings({ 
-                        general: { ...settings.general, autoSave: e.target.checked } 
+                      onChange={(e) => updateSettings({
+                        general: { ...settings.general, autoSave: e.target.checked }
                       })}
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
@@ -289,24 +294,22 @@ const SettingsView: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <button
                       onClick={toggleTheme}
-                      className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                        !isDark
+                      className={`p-4 rounded-lg border-2 transition-all duration-200 ${!isDark
                           ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                           : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
-                      }`}
+                        }`}
                     >
                       <Sun size={24} className="mx-auto mb-2 text-yellow-500" />
                       <div className="font-medium text-gray-900 dark:text-white">{t('settings.lightTheme')}</div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">{t('settings.lightThemeDesc')}</div>
                     </button>
-                    
+
                     <button
                       onClick={toggleTheme}
-                      className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                        isDark
+                      className={`p-4 rounded-lg border-2 transition-all duration-200 ${isDark
                           ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                           : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
-                      }`}
+                        }`}
                     >
                       <Moon size={24} className="mx-auto mb-2 text-blue-500" />
                       <div className="font-medium text-gray-900 dark:text-white">{t('settings.darkTheme')}</div>
@@ -465,13 +468,13 @@ const SettingsView: React.FC = () => {
 
                 <div className="border-t border-gray-200 dark:border-gray-600 pt-6">
                   <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('settings.dataManagement')}</h4>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <button className="flex items-center justify-center gap-2 p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
                       <Download size={20} />
                       <span>{t('settings.exportAllData')}</span>
                     </button>
-                    
+
                     <button className="flex items-center justify-center gap-2 p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
                       <Upload size={20} />
                       <span>{t('settings.importData')}</span>
