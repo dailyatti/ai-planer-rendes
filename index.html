@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    
+    <!-- Primary Meta Tags -->
+    <title>ContentPlanner Pro | PhD-Level Professional Digital Planner</title>
+    <meta name="title" content="ContentPlanner Pro | PhD-Level Professional Digital Planner" />
+    <meta name="description" content="Professional digital planning suite with AI voice assistant, invoicing, Google Calendar & Notion integration. Transform your productivity with PhD-level planning tools." />
+    <meta name="keywords" content="digital planner, content planning, productivity, AI assistant, invoicing, budget tracker, goal tracking, notion integration, calendar sync" />
+    <meta name="author" content="ContentPlanner Pro" />
+    <meta name="robots" content="index, follow" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Theme Color -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111827" />
+    <meta name="msapplication-TileColor" content="#4361ee" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://contentplanner.pro/" />
+    <meta property="og:title" content="ContentPlanner Pro | PhD-Level Professional Digital Planner" />
+    <meta property="og:description" content="Professional digital planning suite with AI voice assistant, invoicing, Google Calendar & Notion integration." />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image:alt" content="ContentPlanner Pro Dashboard Preview" />
+    <meta property="og:site_name" content="ContentPlanner Pro" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://contentplanner.pro/" />
+    <meta property="twitter:title" content="ContentPlanner Pro | PhD-Level Professional Digital Planner" />
+    <meta property="twitter:description" content="Professional digital planning suite with AI voice assistant, invoicing, Google Calendar & Notion integration." />
+    <meta property="twitter:image" content="/og-image.png" />
+    
+    <!-- Preconnect to Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- Google Fonts - Inter, Outfit, JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    
+    <!-- Preload Critical Resources -->
+    <link rel="preload" href="/src/main.tsx" as="script" crossorigin />
+    
+    <!-- PWA iOS Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ContentPlanner" />
+    
+    <!-- Additional Performance Hints -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="format-detection" content="telephone=no" />
+    
+    <style>
+      /* Critical CSS for initial load */
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background-color: #f9fafb;
+      }
+      
+      /* Dark mode initial state */
+      .dark body {
+        background-color: #111827;
+      }
+      
+      /* Loading state */
+      #root:empty::after {
+        content: '';
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 40px;
+        height: 40px;
+        margin: -20px 0 0 -20px;
+        border: 3px solid rgba(67, 97, 238, 0.2);
+        border-top-color: #4361ee;
+        border-radius: 50%;
+        animation: spinner 0.8s linear infinite;
+      }
+      
+      @keyframes spinner {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
