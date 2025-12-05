@@ -7,7 +7,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 
 const HourlyView: React.FC = () => {
   const { plans, addPlan, updatePlan, deletePlan } = useData();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -21,26 +21,6 @@ const HourlyView: React.FC = () => {
 
   // const today = new Date().toISOString().split('T')[0]; // Removed unused variable
   const selectedDateStr = selectedDate.toISOString().split('T')[0];
-  // ...
-  <div className="flex gap-3 pt-4">
-    <button
-      type="submit"
-      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
-    >
-      {editingId ? t('common.update') : t('hourly.addBlock')}
-    </button>
-    <button
-      type="button"
-      onClick={() => {
-        setShowAddForm(false);
-        setEditingId(null);
-        setNewPlan({ title: '', description: '', startTime: '', endTime: '', priority: 'medium' });
-      }}
-      className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
-    >
-      {t('common.cancel')}
-    </button>
-  </div>
 
   const hours = Array.from({ length: 24 }, (_, i) => {
     const hour = i.toString().padStart(2, '0');
@@ -292,7 +272,7 @@ const HourlyView: React.FC = () => {
         <div className="lg:col-span-2">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              {t('hourly.dailyTimeBlocks')} - {selectedDate.toLocaleDateString('en-US')}
+              {t('hourly.dailyTimeBlocks')} - {selectedDate.toLocaleDateString(language)}
             </h3>
 
             {dayPlans.length === 0 ? (

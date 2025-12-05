@@ -5,7 +5,7 @@ import {
     Send, Download, Search, Filter, MoreHorizontal,
     ChevronRight, Eye, Pencil, Trash2,
     PieChart, BarChart3, Wallet, X, Building2, User, Mail,
-    Calendar, DollarSign, Percent, Briefcase
+    Calendar, DollarSign, Percent, Briefcase, Share2, Copy, Check
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { Invoice, Client, InvoiceItem } from '../../types/planner';
@@ -72,12 +72,26 @@ const INITIAL_INVOICES: Invoice[] = [
 const InvoicingView: React.FC = () => {
     const { t, language } = useLanguage();
     const [activeTab, setActiveTab] = useState<'dashboard' | 'invoices' | 'clients' | 'analytics'>('dashboard');
+    const [toast, setToast] = useState<string | null>(null);
 
     // State
     const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
     const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
     const [showCreateInvoice, setShowCreateInvoice] = useState(false);
     const [showAddClient, setShowAddClient] = useState(false);
+
+    // Download PDF handler
+    const handleDownloadPdf = (invoice: Invoice) => {
+        window.print();
+    };
+
+    // Share handler
+    const handleShare = (invoice: Invoice) => {
+        const url = `${window.location.origin}/invoice/${invoice.id}`;
+        navigator.clipboard.writeText(url);
+        setToast(t('invoicing.linkCopied'));
+        setTimeout(() => setToast(null), 3000);
+    };
 
     // Form States
     const [newClient, setNewClient] = useState<Partial<Client>>({});
@@ -223,8 +237,8 @@ const InvoicingView: React.FC = () => {
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as any)}
                         className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${activeTab === tab.id
-                                ? 'bg-white dark:bg-gray-800 text-primary-600 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                            ? 'bg-white dark:bg-gray-800 text-primary-600 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                             }`}
                     >
                         <tab.icon size={16} />
@@ -330,8 +344,9 @@ const InvoicingView: React.FC = () => {
                                         <td className="py-3 px-4 text-center">{getStatusBadge(invoice.status)}</td>
                                         <td className="py-3 px-4 text-center">
                                             <div className="flex items-center justify-center gap-2">
-                                                <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"><Eye size={16} /></button>
-                                                <button className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"><Download size={16} /></button>
+                                                <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="View"><Eye size={16} /></button>
+                                                <button onClick={() => handleDownloadPdf(invoice)} className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title={t('invoicing.downloadPdf')}><Download size={16} /></button>
+                                                <button onClick={() => handleShare(invoice)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title={t('invoicing.share')}><Share2 size={16} /></button>
                                             </div>
                                         </td>
                                     </tr>
@@ -609,6 +624,16 @@ const InvoicingView: React.FC = () => {
                                 <button onClick={handleAddClient} className="btn-primary">{t('common.save')}</button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Toast Notification */}
+            {toast && (
+                <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 duration-300">
+                    <div className="flex items-center gap-3 px-5 py-3 bg-gray-900 text-white rounded-xl shadow-2xl border border-gray-700">
+                        <Check size={18} className="text-green-400" />
+                        <span className="font-medium">{toast}</span>
                     </div>
                 </div>
             )}

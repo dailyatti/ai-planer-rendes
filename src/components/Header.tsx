@@ -20,21 +20,23 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen, onSettingsCli
 
   const getHeaderInfo = () => {
     switch (activeView) {
-      case 'daily': return { title: t('nav.dailyPlanning'), subtitle: t('hourly.subtitle') }; // Reusing appropriate subtitle or generic
-      case 'weekly': return { title: t('nav.weeklyPlanning'), subtitle: t('settings.subtitle') };
-      case 'monthly': return { title: t('nav.monthlyPlanning'), subtitle: t('settings.subtitle') };
-      case 'yearly': return { title: t('nav.yearlyPlanning'), subtitle: t('settings.subtitle') };
-      case 'hourly': return { title: t('nav.hourlyPlanning'), subtitle: t('hourly.subtitle') };
-      case 'notes': return { title: t('nav.smartNotes'), subtitle: t('settings.subtitle') };
-      case 'goals': return { title: t('nav.goals'), subtitle: t('settings.subtitle') };
-      case 'visual': return { title: t('nav.visualPlanning'), subtitle: t('settings.subtitle') };
+      case 'daily': return { title: t('daily.title'), subtitle: t('daily.subtitle') };
+      case 'weekly': return { title: t('weekly.title'), subtitle: t('weekly.subtitle') };
+      case 'monthly': return { title: t('monthly.title'), subtitle: t('monthly.subtitle') };
+      case 'yearly': return { title: t('yearly.title'), subtitle: t('yearly.subtitle') };
+      case 'hourly': return { title: t('hourly.title'), subtitle: t('hourly.subtitle') };
+      case 'notes': return { title: t('notes.title'), subtitle: t('notes.subtitle') };
+      case 'goals': return { title: t('goals.title'), subtitle: t('goals.subtitle') };
+      case 'drawing': return { title: t('visual.title'), subtitle: t('visual.subtitle') };
+      case 'visual': return { title: t('visual.title'), subtitle: t('visual.subtitle') };
       case 'budget': return { title: t('budget.title'), subtitle: t('budget.subtitle') };
       case 'invoicing': return { title: t('invoicing.title'), subtitle: t('invoicing.subtitle') };
-      case 'pomodoro': return { title: t('nav.pomodoroTimer'), subtitle: t('settings.subtitle') };
-      case 'statistics': return { title: t('nav.statistics'), subtitle: t('settings.subtitle') };
-      case 'integrations': return { title: t('nav.integrations'), subtitle: t('settings.subtitle') };
+      case 'pomodoro': return { title: t('pomodoro.title'), subtitle: t('pomodoro.subtitle') };
+      case 'statistics': return { title: t('statistics.title'), subtitle: t('statistics.subtitle') };
+      case 'integrations': return { title: t('integrations.title'), subtitle: t('integrations.subtitle') };
       case 'settings': return { title: t('settings.title'), subtitle: t('settings.subtitle') };
       default: return { title: 'ContentPlanner Pro', subtitle: 'Manage your life' };
+
     }
   };
 

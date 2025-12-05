@@ -33,7 +33,14 @@ const WeeklyView: React.FC = () => {
   };
 
   const weekDays = getWeekDays(currentWeek);
-  const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const dayNames = [
+    t('days.monday'), t('days.tuesday'), t('days.wednesday'), t('days.thursday'),
+    t('days.friday'), t('days.saturday'), t('days.sunday')
+  ];
+  const monthNames = [
+    t('months.january'), t('months.february'), t('months.march'), t('months.april'), t('months.may'), t('months.june'),
+    t('months.july'), t('months.august'), t('months.september'), t('months.october'), t('months.november'), t('months.december')
+  ];
 
   const navigateWeek = (direction: 'prev' | 'next') => {
     const newDate = new Date(currentWeek);
@@ -99,10 +106,10 @@ const WeeklyView: React.FC = () => {
 
             <div className="text-center">
               <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                {weekDays[0].toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                {monthNames[weekDays[0].getMonth()]} {weekDays[0].getFullYear()}
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400">
-                {weekDays[0].toLocaleDateString('en-US', { day: 'numeric', month: 'short' })} - {weekDays[6].toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+                {weekDays[0].getDate()}. - {weekDays[6].getDate()}.
               </div>
             </div>
 
@@ -120,7 +127,7 @@ const WeeklyView: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-2xl">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              {t('weekly.addTask')} - {selectedDay.toLocaleDateString('en-US')}
+              {t('weekly.addTask')} - {selectedDay.getFullYear()}. {selectedDay.getMonth() + 1}. {selectedDay.getDate()}.
             </h3>
 
             <form onSubmit={handleSubmit} className="space-y-4">
