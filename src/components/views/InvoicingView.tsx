@@ -4,7 +4,7 @@ import {
     Users, Calendar, Clock, CheckCircle, AlertCircle,
     Send, Download, Printer, Search, Filter, MoreHorizontal,
     ChevronRight, Eye, Edit2, Trash2, ArrowUpRight, ArrowDownRight,
-    PieChart, BarChart3, Wallet, Target
+    PieChart, BarChart3, Wallet, Target, X
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { Invoice, Client, InvoiceItem } from '../../types/planner';
@@ -428,6 +428,94 @@ const InvoicingView: React.FC = () => {
                                 <p>Interactive charts coming soon</p>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+            {/* Create Invoice Modal */}
+            {showCreateInvoice && (
+                <div className="modal-backdrop" onClick={() => setShowCreateInvoice(false)}>
+                    <div className="modal-panel w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">Create New Invoice</h3>
+                            <button onClick={() => setShowCreateInvoice(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                                <X size={20} className="text-gray-500" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Client</label>
+                                    <select className="input-field">
+                                        <option value="">Select Client</option>
+                                        {mockClients.map(client => (
+                                            <option key={client.id} value={client.id}>{client.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due Date</label>
+                                    <input type="date" className="input-field" />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Invoice Number</label>
+                                <input type="text" defaultValue={`INV-2024-${(mockInvoices.length + 1).toString().padStart(3, '0')}`} className="input-field" readOnly />
+                            </div>
+
+                            {/* Items Section Placeholder */}
+                            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                                <h4 className="font-medium mb-3">Invoice Items</h4>
+                                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 text-center text-sm text-gray-500">
+                                    Item adding functionality will be implemented here.
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <button onClick={() => setShowCreateInvoice(false)} className="btn-ghost">Cancel</button>
+                                <button className="btn-primary">
+                                    <Send size={18} />
+                                    Create & Send
+                                </button>
+                            </div>
+                        </div>
+                        {/* Add Client Modal */}
+                        {showAddClient && (
+                            <div className="modal-backdrop" onClick={() => setShowAddClient(false)}>
+                                <div className="modal-panel w-full max-w-md" onClick={e => e.stopPropagation()}>
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">Add New Client</h3>
+                                        <button onClick={() => setShowAddClient(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                                            <X size={20} className="text-gray-500" />
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company Name</label>
+                                            <input type="text" className="input-field" placeholder="e.g. Tech Solutions Ltd." />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact Name</label>
+                                            <input type="text" className="input-field" placeholder="e.g. John Doe" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                                            <input type="email" className="input-field" placeholder="john@example.com" />
+                                        </div>
+
+                                        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700 mt-2">
+                                            <button onClick={() => setShowAddClient(false)} className="btn-ghost">Cancel</button>
+                                            <button className="btn-primary">
+                                                <Plus size={18} />
+                                                Add Client
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

@@ -86,7 +86,7 @@ function AppContent() {
 
       {/* Voice Assistant - Floating button */}
       <VoiceAssistant
-        apiKey={import.meta.env.VITE_GEMINI_API_KEY}
+        apiKey={localStorage.getItem('GEMINI_API_KEY') || import.meta.env.VITE_GEMINI_API_KEY}
         onCommand={handleVoiceCommand}
         currentLanguage={language}
         currentView={activeView}
