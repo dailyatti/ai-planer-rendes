@@ -42,18 +42,35 @@ const IntegrationsView: React.FC = () => {
     // Integration definitions
     const availableIntegrations = [
         {
-            id: 'gemini-voice',
-            name: t('nav.integrations') === 'Integrációk' && language === 'hu' ? 'AI Hang Asszisztens' : 'AI Voice Assistant', // Fallback manual check for specific feature name if not in global types yet
+            id: 'openai',
+            name: 'OpenAI (ChatGPT)',
             description: language === 'hu'
-                ? 'Irányítsd a ContentPlanner Pro-t hanggal a Gemini Live API segítségével.'
-                : 'Control ContentPlanner Pro with your voice using the Gemini Live API.',
+                ? 'Integráld a GPT-4 modellt a tartalomgeneráláshoz és asszisztens funkciókhoz.'
+                : 'Integrate GPT-4 for advanced content generation and assistant features.',
+            icon: Zap,
+            color: 'from-green-500 to-emerald-600',
+            connected: !!apiKeys.openaiKey,
+            features: [
+                language === 'hu' ? 'GPT-4 szövegírás' : 'GPT-4 Writing',
+                language === 'hu' ? 'Kreatív asszisztens' : 'Creative Assistant',
+                language === 'hu' ? 'Szerkesztési javaslatok' : 'Editing suggestions'
+            ],
+            keyField: 'openaiKey' as keyof ApiKeyConfig,
+            helpLink: 'https://platform.openai.com/api-keys'
+        },
+        {
+            id: 'gemini-voice',
+            name: t('nav.integrations') === 'Integrációk' && language === 'hu' ? 'Google Gemini AI' : 'Google Gemini AI',
+            description: language === 'hu'
+                ? 'A Google legfejlettebb AI modellje képekhez, videókhoz és szöveghez.'
+                : 'Google\'s most advanced AI model for images, video, and text.',
             icon: Mic,
-            color: 'from-purple-500 to-indigo-600',
+            color: 'from-blue-500 to-indigo-600',
             connected: !!apiKeys.geminiKey,
             features: [
-                language === 'hu' ? 'Valós idejű hangvezérlés' : 'Real-time voice control',
-                language === 'hu' ? 'Természetes beszélgetés' : 'Natural conversation',
-                language === 'hu' ? 'Feladatok kezelése hanggal' : 'Manage tasks with voice'
+                language === 'hu' ? 'Multimodális generálás' : 'Multimodal generation',
+                language === 'hu' ? 'Gemini 1.5 Pro' : 'Gemini 1.5 Pro',
+                language === 'hu' ? 'Valós idejű elemzés' : 'Real-time analysis'
             ],
             keyField: 'geminiKey' as keyof ApiKeyConfig,
             helpLink: 'https://aistudio.google.com/app/apikey'
@@ -428,8 +445,8 @@ const IntegrationsView: React.FC = () => {
 
                             {testStatus !== 'idle' && (
                                 <div className={`p-3 rounded-lg flex items-center gap-3 animate-fade-in ${testStatus === 'testing' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
-                                        testStatus === 'success' ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
-                                            'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+                                    testStatus === 'success' ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
+                                        'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
                                     }`}>
                                     {testStatus === 'testing' && <RefreshCw size={18} className="animate-spin" />}
                                     {testStatus === 'success' && <CheckCircle2 size={18} />}
