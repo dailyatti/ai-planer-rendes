@@ -66,8 +66,8 @@ const SettingsView: React.FC = () => {
                     key={section.id}
                     onClick={() => setActiveSection(section.id as any)}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200 ${activeSection === section.id
-                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
                   >
                     <Icon size={20} />
@@ -146,7 +146,7 @@ const SettingsView: React.FC = () => {
                           general: { ...settings.general, dateFormat: e.target.value as any }
                         })}
                       />
-                      <span className="text-gray-700 dark:text-gray-300">MM/DD/YYYY (US Format)</span>
+                      <span className="text-gray-700 dark:text-gray-300">{t('settings.dateFormatUS')}</span>
                     </label>
                     <label className="flex items-center">
                       <input
@@ -159,7 +159,7 @@ const SettingsView: React.FC = () => {
                           general: { ...settings.general, dateFormat: e.target.value as any }
                         })}
                       />
-                      <span className="text-gray-700 dark:text-gray-300">DD/MM/YYYY (European Format)</span>
+                      <span className="text-gray-700 dark:text-gray-300">{t('settings.dateFormatEU')}</span>
                     </label>
                     <label className="flex items-center">
                       <input
@@ -172,7 +172,7 @@ const SettingsView: React.FC = () => {
                           general: { ...settings.general, dateFormat: e.target.value as any }
                         })}
                       />
-                      <span className="text-gray-700 dark:text-gray-300">YYYY-MM-DD (ISO Format)</span>
+                      <span className="text-gray-700 dark:text-gray-300">{t('settings.dateFormatISO')}</span>
                     </label>
                   </div>
                 </div>
@@ -295,8 +295,8 @@ const SettingsView: React.FC = () => {
                     <button
                       onClick={toggleTheme}
                       className={`p-4 rounded-lg border-2 transition-all duration-200 ${!isDark
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
                         }`}
                     >
                       <Sun size={24} className="mx-auto mb-2 text-yellow-500" />
@@ -307,8 +307,8 @@ const SettingsView: React.FC = () => {
                     <button
                       onClick={toggleTheme}
                       className={`p-4 rounded-lg border-2 transition-all duration-200 ${isDark
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
                         }`}
                     >
                       <Moon size={24} className="mx-auto mb-2 text-blue-500" />

@@ -253,7 +253,7 @@ const BudgetView: React.FC = () => {
             </ResponsiveContainer>
             {/* Center Text */}
             <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-              <div className="text-xs text-gray-400 uppercase tracking-wider">Total</div>
+              <div className="text-xs text-gray-400 uppercase tracking-wider">{t('common.total')}</div>
               <div className="font-bold text-gray-900 dark:text-white text-lg">{formatMoney(totalExpense)}</div>
             </div>
           </div>

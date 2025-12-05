@@ -319,12 +319,10 @@ const IntegrationsView: React.FC = () => {
                                 <Cloud size={40} className="text-gray-300 dark:text-gray-600" />
                             </div>
                             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                                {language === 'hu' ? 'Nincsenek aktív integrációk' : 'No Integrations Connected'}
+                                {t('integrations.noIntegrations')}
                             </h3>
                             <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-md mx-auto">
-                                {language === 'hu'
-                                    ? 'Csatlakoztasd alkalmazásaidat az "Elérhető" fülön, hogy szinkronizáld adataidat.'
-                                    : 'Connect apps from the Available tab to start syncing your data.'}
+                                {t('integrations.connectAppsDesc')}
                             </p>
                             <button onClick={() => setActiveTab('available')} className="btn-primary">
                                 <Zap size={18} /> {t('integrations.available')}
@@ -362,22 +360,22 @@ const IntegrationsView: React.FC = () => {
                     <div className="card">
                         <h3 className="section-title flex items-center gap-2">
                             <RefreshCw size={20} className="text-primary-500" />
-                            {language === 'hu' ? 'Szinkronizálás' : 'Sync Settings'}
+                            {t('integrations.syncSettings')}
                         </h3>
                         <div className="space-y-4">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 gap-4">
                                 <div>
                                     <p className="font-medium text-gray-900 dark:text-white">
-                                        {language === 'hu' ? 'Automatikus frissítés' : 'Auto-sync interval'}
+                                        {t('integrations.autoSyncInterval')}
                                     </p>
                                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        {language === 'hu' ? 'Gyakoriság beállítása' : 'How often to sync'}
+                                        {t('integrations.syncFrequency')}
                                     </p>
                                 </div>
                                 <select className="input-field w-full sm:w-auto min-w-[160px]">
-                                    <option>{language === 'hu' ? '15 percenként' : 'Every 15 mins'}</option>
-                                    <option>{language === 'hu' ? 'Óránként' : 'Every hour'}</option>
-                                    <option>{language === 'hu' ? 'Manuális' : 'Manual only'}</option>
+                                    <option>{t('integrations.every15Mins')}</option>
+                                    <option>{t('integrations.everyHour')}</option>
+                                    <option>{t('integrations.manualOnly')}</option>
                                 </select>
                             </div>
                         </div>
@@ -420,7 +418,7 @@ const IntegrationsView: React.FC = () => {
                                         value={tempKey}
                                         onChange={e => setTempKey(e.target.value)}
                                         className="input-field pl-10 pr-10 font-mono text-sm"
-                                        placeholder="sk-..."
+                                        placeholder="API Key..."
                                         autoFocus
                                     />
                                     <button
@@ -452,7 +450,7 @@ const IntegrationsView: React.FC = () => {
                                     {testStatus === 'success' && <CheckCircle2 size={18} />}
                                     {testStatus === 'error' && <XCircle size={18} />}
                                     <span className="text-sm font-semibold">
-                                        {testStatus === 'testing' ? (language === 'hu' ? 'Tesztelés foamatban...' : 'Testing connection...') : testMessage}
+                                        {testStatus === 'testing' ? t('integrations.testing') : testMessage}
                                     </span>
                                 </div>
                             )}

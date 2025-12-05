@@ -4,16 +4,41 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import ImportExportModal from './common/ImportExportModal';
 
+import { ViewType } from '../types/planner';
+
 interface HeaderProps {
   onMenuClick: () => void;
   sidebarOpen: boolean;
   onSettingsClick?: () => void;
+  activeView: ViewType;
 }
 
-const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen, onSettingsClick }) => {
+const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen, onSettingsClick, activeView }) => {
   const { isDark, toggleTheme } = useTheme();
   const { t } = useLanguage();
   const [showImportExport, setShowImportExport] = React.useState(false);
+
+  const getHeaderInfo = () => {
+    switch (activeView) {
+      case 'daily': return { title: t('nav.dailyPlanning'), subtitle: t('hourly.subtitle') }; // Reusing appropriate subtitle or generic
+      case 'weekly': return { title: t('nav.weeklyPlanning'), subtitle: t('settings.subtitle') };
+      case 'monthly': return { title: t('nav.monthlyPlanning'), subtitle: t('settings.subtitle') };
+      case 'yearly': return { title: t('nav.yearlyPlanning'), subtitle: t('settings.subtitle') };
+      case 'hourly': return { title: t('nav.hourlyPlanning'), subtitle: t('hourly.subtitle') };
+      case 'notes': return { title: t('nav.smartNotes'), subtitle: t('settings.subtitle') };
+      case 'goals': return { title: t('nav.goals'), subtitle: t('settings.subtitle') };
+      case 'visual': return { title: t('nav.visualPlanning'), subtitle: t('settings.subtitle') };
+      case 'budget': return { title: t('budget.title'), subtitle: t('budget.subtitle') };
+      case 'invoicing': return { title: t('invoicing.title'), subtitle: t('invoicing.subtitle') };
+      case 'pomodoro': return { title: t('nav.pomodoroTimer'), subtitle: t('settings.subtitle') };
+      case 'statistics': return { title: t('nav.statistics'), subtitle: t('settings.subtitle') };
+      case 'integrations': return { title: t('nav.integrations'), subtitle: t('settings.subtitle') };
+      case 'settings': return { title: t('settings.title'), subtitle: t('settings.subtitle') };
+      default: return { title: 'ContentPlanner Pro', subtitle: 'Manage your life' };
+    }
+  };
+
+  const { title, subtitle } = getHeaderInfo();
 
   return (
     <>
@@ -53,7 +78,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen, onSettingsCli
                   {/* Desktop Title */}
                   <div className="hidden md:block">
                     <h1 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
-                      {t('header.title')}
+                      {title}
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full 
                                      bg-gradient-to-r from-primary-500/10 to-secondary-500/10
                                      text-primary-600 dark:text-primary-400 text-xs font-semibold">
@@ -62,7 +87,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen, onSettingsCli
                       </span>
                     </h1>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {t('header.subtitle')}
+                      {subtitle}
                     </p>
                   </div>
 

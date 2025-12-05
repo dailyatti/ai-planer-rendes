@@ -28,10 +28,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onC
     { id: 'goals' as ViewType, label: t('nav.goals'), icon: Target, color: 'from-teal-500 to-cyan-500' },
     { id: 'drawing' as ViewType, label: t('nav.visualPlanning'), icon: Brush, color: 'from-pink-500 to-rose-500' },
     { id: 'budget' as ViewType, label: t('nav.budgetTracker'), icon: DollarSign, color: 'from-emerald-500 to-green-500' },
-    { id: 'invoicing' as ViewType, label: 'Invoicing', icon: FileText, color: 'from-indigo-500 to-purple-500' },
+    { id: 'invoicing' as ViewType, label: t('nav.invoicing'), icon: FileText, color: 'from-indigo-500 to-purple-500' },
     { id: 'pomodoro' as ViewType, label: t('nav.pomodoroTimer'), icon: Timer, color: 'from-rose-500 to-pink-500' },
     { id: 'statistics' as ViewType, label: t('nav.statistics'), icon: BarChart3, color: 'from-indigo-500 to-blue-500' },
-    { id: 'integrations' as ViewType, label: 'Integrations', icon: Link2, color: 'from-cyan-500 to-blue-500' },
+    { id: 'integrations' as ViewType, label: t('nav.integrations'), icon: Link2, color: 'from-cyan-500 to-blue-500' },
   ];
 
   const handleItemClick = (viewId: ViewType) => {

@@ -75,6 +75,7 @@ function AppContent() {
             onMenuClick={() => setSidebarOpen(!sidebarOpen)}
             sidebarOpen={sidebarOpen}
             onSettingsClick={handleSettingsClick}
+            activeView={activeView}
           />
 
           <MainContent
