@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Note, Goal, PlanItem, Drawing, Subscription, BudgetSettings, Transaction, Invoice, Client } from '../types/planner';
+import { Note, Goal, PlanItem, Drawing, Subscription, BudgetSettings, Transaction, Invoice, Client, CompanyProfile } from '../types/planner';
 
 interface DataContextType {
   notes: Note[];
@@ -34,6 +34,10 @@ interface DataContextType {
   addClient: (client: Client) => void;
   updateClient: (id: string, updates: Partial<Client>) => void;
   deleteClient: (id: string) => void;
+  companyProfiles: CompanyProfile[];
+  addCompanyProfile: (profile: Omit<CompanyProfile, 'id' | 'createdAt'>) => void;
+  updateCompanyProfile: (id: string, updates: Partial<CompanyProfile>) => void;
+  deleteCompanyProfile: (id: string) => void;
   clearAllData: () => void;
 }
 
@@ -62,6 +66,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     notifications: true,
     warningThreshold: 80,
   });
+  const [companyProfiles, setCompanyProfiles] = useState<CompanyProfile[]>([]);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -150,6 +155,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (savedBudgetSettings) {
           setBudgetSettings(JSON.parse(savedBudgetSettings));
         }
+
+        const savedCompanyProfiles = localStorage.getItem('planner-company-profiles');
+        if (savedCompanyProfiles) {
+          const parsedProfiles = JSON.parse(savedCompanyProfiles);
+          setCompanyProfiles(parsedProfiles.map((p: any) => ({
+            ...p,
+            createdAt: new Date(p.createdAt)
+          })));
+        }
       } catch (error) {
         console.error('Error loading data from localStorage:', error);
       }
@@ -183,6 +197,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { saveToStorage('planner-invoices', invoices); }, [invoices]);
   useEffect(() => { saveToStorage('planner-clients', clients); }, [clients]);
   useEffect(() => { saveToStorage('planner-budget-settings', budgetSettings); }, [budgetSettings]);
+  useEffect(() => { saveToStorage('planner-company-profiles', companyProfiles); }, [companyProfiles]);
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -318,6 +333,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setClients(prev => prev.filter(c => c.id !== id));
   };
 
+  const addCompanyProfile = (profileData: Omit<CompanyProfile, 'id' | 'createdAt'>) => {
+    const newProfile: CompanyProfile = {
+      ...profileData,
+      id: generateId(),
+      createdAt: new Date(),
+    };
+    setCompanyProfiles(prev => [...prev, newProfile]);
+  };
+
+  const updateCompanyProfile = (id: string, updates: Partial<CompanyProfile>) => {
+    setCompanyProfiles(prev => prev.map(p =>
+      p.id === id ? { ...p, ...updates } : p
+    ));
+  };
+
+  const deleteCompanyProfile = (id: string) => {
+    setCompanyProfiles(prev => prev.filter(p => p.id !== id));
+  };
+
   const clearAllData = () => {
     setNotes([]);
     setGoals([]);
@@ -328,6 +362,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTransactions([]);
     setInvoices([]);
     setClients([]);
+    setCompanyProfiles([]);
     setBudgetSettings({
       monthlyBudget: 0,
       currency: 'USD',
@@ -342,6 +377,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('planner-transactions');
     localStorage.removeItem('planner-invoices');
     localStorage.removeItem('planner-clients');
+    localStorage.removeItem('planner-company-profiles');
     localStorage.removeItem('planner-budget-settings');
   };
 
@@ -379,6 +415,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       addClient,
       updateClient,
       deleteClient,
+      companyProfiles,
+      addCompanyProfile,
+      updateCompanyProfile,
+      deleteCompanyProfile,
       clearAllData,
     }}>
       {children}

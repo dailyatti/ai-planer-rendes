@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useData } from '../../contexts/DataContext';
-import { Invoice, Client, InvoiceItem } from '../../types/planner';
+import { Invoice, Client, InvoiceItem, CompanyProfile } from '../../types/planner';
 
 const printStyles = `
   @media print {
@@ -47,16 +47,20 @@ const DEFAULT_COMPANY_INFO: CompanyInfo = {
 
 const InvoicingView: React.FC = () => {
     const { t, language } = useLanguage();
-    // Use DataContext for persistence
     const {
-        invoices, clients,
-        addInvoice, addClient
+        invoices, clients, companyProfiles,
+        addInvoice, addClient, addCompanyProfile
     } = useData();
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'invoices' | 'clients' | 'analytics'>('dashboard');
     const [toast, setToast] = useState<string | null>(null);
     const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
     const [showCompanySettings, setShowCompanySettings] = useState(false);
+    const [showAddCompanyProfile, setShowAddCompanyProfile] = useState(false);
+    const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+    const [newCompanyProfile, setNewCompanyProfile] = useState<Partial<CompanyProfile>>({
+        name: '', address: '', email: '', phone: '', taxNumber: '', bankAccount: '', logo: null
+    });
 
     // Company info state with localStorage
     const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(() => {
@@ -150,6 +154,34 @@ const InvoicingView: React.FC = () => {
             } as Client);
             setNewClient({});
             setShowAddClient(false);
+        }
+    };
+
+    // Company Profile Handlers
+    const handleAddCompanyProfileSubmit = () => {
+        if (newCompanyProfile.name && newCompanyProfile.email) {
+            addCompanyProfile({
+                name: newCompanyProfile.name || '',
+                address: newCompanyProfile.address || '',
+                email: newCompanyProfile.email || '',
+                phone: newCompanyProfile.phone || '',
+                taxNumber: newCompanyProfile.taxNumber || '',
+                bankAccount: newCompanyProfile.bankAccount || '',
+                logo: newCompanyProfile.logo || null
+            });
+            setNewCompanyProfile({ name: '', address: '', email: '', phone: '', taxNumber: '', bankAccount: '', logo: null });
+            setShowAddCompanyProfile(false);
+        }
+    };
+
+    const handleCompanyLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setNewCompanyProfile(prev => ({ ...prev, logo: reader.result as string }));
+            };
+            reader.readAsDataURL(file);
         }
     };
 
@@ -447,68 +479,86 @@ const InvoicingView: React.FC = () => {
 
                         {/* Modal Body - Scrollable */}
                         <div className="flex-1 overflow-y-auto p-8">
-                            <div className="grid grid-cols-2 gap-12 mb-8">
-                                <div className="space-y-4">
-                                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">{t('invoicing.billTo')}</h3>
-                                    <select
-                                        className="input-field w-full text-lg font-medium"
-                                        value={newInvoice.clientId || ''}
-                                        onChange={(e) => setNewInvoice({ ...newInvoice, clientId: e.target.value })}
-                                    >
-                                        <option value="">{t('invoicing.clients')}</option>
-                                        {clients.map(c => <option key={c.id} value={c.id}>{c.name} - {c.company}</option>)}
+                            {/* Two-column layout: Company (Kiállító) | Client (Vevő) */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                                {/* Company Profile (Kiállító) */}
+                                <div className="space-y-4 p-5 rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-100 dark:border-indigo-800/50">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-sm font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                                            <Building2 size={16} />
+                                            {language === 'hu' ? 'Kiállító (Cég)' : 'Issuer (Company)'}
+                                        </h3>
+                                        <button onClick={() => setShowAddCompanyProfile(true)} className="text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 flex items-center gap-1 hover:underline">
+                                            <Plus size={14} /> {language === 'hu' ? 'Új Cég' : 'New Company'}
+                                        </button>
+                                    </div>
+                                    <select className="input-field w-full bg-white dark:bg-gray-800" value={selectedCompanyId} onChange={(e) => setSelectedCompanyId(e.target.value)}>
+                                        <option value="">{language === 'hu' ? 'Válassz céget...' : 'Select company...'}</option>
+                                        {companyProfiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                     </select>
-                                    {newInvoice.clientId && (
-                                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl text-sm space-y-1 text-gray-600 dark:text-gray-400">
-                                            <p className="font-semibold text-gray-900 dark:text-white">{clients.find(c => c.id === newInvoice.clientId)?.company}</p>
-                                            <p>{clients.find(c => c.id === newInvoice.clientId)?.name}</p>
-                                            <p>{clients.find(c => c.id === newInvoice.clientId)?.address}</p>
-                                            <p>{clients.find(c => c.id === newInvoice.clientId)?.email}</p>
-                                        </div>
-                                    )}
+                                    {selectedCompanyId && (() => {
+                                        const company = companyProfiles.find(p => p.id === selectedCompanyId);
+                                        return company ? (
+                                            <div className="p-4 bg-white dark:bg-gray-800 rounded-xl text-sm space-y-2 border border-indigo-100 dark:border-gray-700 shadow-sm">
+                                                <div className="flex items-center gap-3">
+                                                    {company.logo && <img src={company.logo} alt="Logo" className="w-10 h-10 rounded object-contain bg-gray-100" />}
+                                                    <div><p className="font-bold text-gray-900 dark:text-white">{company.name}</p><p className="text-gray-500 text-xs">{company.taxNumber}</p></div>
+                                                </div>
+                                                <p className="text-gray-600 dark:text-gray-400">{company.address}</p>
+                                                <p className="text-gray-600 dark:text-gray-400">{company.email} • {company.phone}</p>
+                                            </div>
+                                        ) : null;
+                                    })()}
                                 </div>
 
-                                <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="label-text">{t('invoicing.invoiceNumber')}</label>
-                                            <div className="font-mono bg-gray-100 dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600">
-                                                INV-2024-{String(invoices.length + 1).padStart(3, '0')}
+                                {/* Client (Vevő) */}
+                                <div className="space-y-4 p-5 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-100 dark:border-emerald-800/50">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                                            <User size={16} />
+                                            {language === 'hu' ? 'Vevő (Ügyfél)' : 'Buyer (Client)'}
+                                        </h3>
+                                        <button onClick={() => setShowAddClient(true)} className="text-xs text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 flex items-center gap-1 hover:underline">
+                                            <Plus size={14} /> {language === 'hu' ? 'Új Ügyfél' : 'New Client'}
+                                        </button>
+                                    </div>
+                                    <select className="input-field w-full bg-white dark:bg-gray-800" value={newInvoice.clientId || ''} onChange={(e) => setNewInvoice({ ...newInvoice, clientId: e.target.value })}>
+                                        <option value="">{language === 'hu' ? 'Válassz ügyfelet...' : 'Select client...'}</option>
+                                        {clients.map(c => <option key={c.id} value={c.id}>{c.name} - {c.company}</option>)}
+                                    </select>
+                                    {newInvoice.clientId && (() => {
+                                        const client = clients.find(c => c.id === newInvoice.clientId);
+                                        return client ? (
+                                            <div className="p-4 bg-white dark:bg-gray-800 rounded-xl text-sm space-y-1 border border-emerald-100 dark:border-gray-700 shadow-sm text-gray-600 dark:text-gray-400">
+                                                <p className="font-bold text-gray-900 dark:text-white">{client.company || client.name}</p>
+                                                <p>{client.name}</p><p>{client.address}</p><p>{client.email}</p>
                                             </div>
-                                        </div>
-                                        <div>
-                                            <label className="label-text">{t('invoicing.currency')}</label>
-                                            <select
-                                                className="input-field"
-                                                value={newInvoice.currency}
-                                                onChange={(e) => setNewInvoice({ ...newInvoice, currency: e.target.value })}
-                                            >
-                                                <option value="HUF">HUF (Ft)</option>
-                                                <option value="EUR">EUR (€)</option>
-                                                <option value="USD">USD ($)</option>
-                                            </select>
-                                        </div>
+                                        ) : null;
+                                    })()}
+                                </div>
+                            </div>
+
+                            {/* Invoice Details Row */}
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                                <div>
+                                    <label className="label-text">{t('invoicing.invoiceNumber')}</label>
+                                    <div className="font-mono bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600">
+                                        INV-{new Date().getFullYear()}-{String(invoices.length + 1).padStart(3, '0')}
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="label-text">{t('invoicing.invoiceDate')}</label>
-                                            <input
-                                                type="date"
-                                                className="input-field"
-                                                value={newInvoice.issueDate?.toISOString().split('T')[0]}
-                                                onChange={(e) => setNewInvoice({ ...newInvoice, issueDate: new Date(e.target.value) })}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="label-text">{t('invoicing.dueDate')}</label>
-                                            <input
-                                                type="date"
-                                                className="input-field"
-                                                value={newInvoice.dueDate?.toISOString().split('T')[0]}
-                                                onChange={(e) => setNewInvoice({ ...newInvoice, dueDate: new Date(e.target.value) })}
-                                            />
-                                        </div>
-                                    </div>
+                                </div>
+                                <div>
+                                    <label className="label-text">{t('invoicing.currency')}</label>
+                                    <select className="input-field bg-white dark:bg-gray-800" value={newInvoice.currency} onChange={(e) => setNewInvoice({ ...newInvoice, currency: e.target.value })}>
+                                        <option value="HUF">HUF (Ft)</option><option value="EUR">EUR (€)</option><option value="USD">USD ($)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="label-text">{t('invoicing.invoiceDate')}</label>
+                                    <input type="date" className="input-field bg-white dark:bg-gray-800" value={newInvoice.issueDate?.toISOString().split('T')[0]} onChange={(e) => setNewInvoice({ ...newInvoice, issueDate: new Date(e.target.value) })} />
+                                </div>
+                                <div>
+                                    <label className="label-text">{t('invoicing.dueDate')}</label>
+                                    <input type="date" className="input-field bg-white dark:bg-gray-800" value={newInvoice.dueDate?.toISOString().split('T')[0]} onChange={(e) => setNewInvoice({ ...newInvoice, dueDate: new Date(e.target.value) })} />
                                 </div>
                             </div>
 
@@ -657,6 +707,51 @@ const InvoicingView: React.FC = () => {
                             <div className="flex justify-end gap-2 mt-6">
                                 <button onClick={() => setShowAddClient(false)} className="btn-ghost">{t('common.cancel')}</button>
                                 <button onClick={handleAddClient} className="btn-primary">{t('common.save')}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Company Profile Modal */}
+            {showAddCompanyProfile && (
+                <div className="modal-backdrop z-50">
+                    <div className="modal-panel max-w-lg w-full p-6 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                <Building2 className="text-indigo-600" size={20} />
+                                {language === 'hu' ? 'Új Céges Profil' : 'New Company Profile'}
+                            </h3>
+                            <button onClick={() => setShowAddCompanyProfile(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="space-y-4">
+                            {/* Logo Upload */}
+                            <div className="flex items-center gap-4">
+                                <div className="w-16 h-16 rounded-xl bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center overflow-hidden">
+                                    {newCompanyProfile.logo ? (
+                                        <img src={newCompanyProfile.logo} alt="Logo" className="w-full h-full object-contain" />
+                                    ) : (
+                                        <Upload size={24} className="text-gray-400" />
+                                    )}
+                                </div>
+                                <label className="btn-secondary text-sm cursor-pointer">
+                                    {language === 'hu' ? 'Logo Feltöltése' : 'Upload Logo'}
+                                    <input type="file" accept="image/*" className="hidden" onChange={handleCompanyLogoUpload} />
+                                </label>
+                            </div>
+                            <input type="text" className="input-field" placeholder={language === 'hu' ? 'Cég neve *' : 'Company Name *'} value={newCompanyProfile.name || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, name: e.target.value })} />
+                            <input type="text" className="input-field" placeholder={language === 'hu' ? 'Cím' : 'Address'} value={newCompanyProfile.address || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, address: e.target.value })} />
+                            <div className="grid grid-cols-2 gap-3">
+                                <input type="email" className="input-field" placeholder={language === 'hu' ? 'Email *' : 'Email *'} value={newCompanyProfile.email || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, email: e.target.value })} />
+                                <input type="text" className="input-field" placeholder={language === 'hu' ? 'Telefon' : 'Phone'} value={newCompanyProfile.phone || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, phone: e.target.value })} />
+                            </div>
+                            <input type="text" className="input-field" placeholder={language === 'hu' ? 'Adószám' : 'Tax Number'} value={newCompanyProfile.taxNumber || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, taxNumber: e.target.value })} />
+                            <input type="text" className="input-field" placeholder={language === 'hu' ? 'Bankszámlaszám' : 'Bank Account'} value={newCompanyProfile.bankAccount || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, bankAccount: e.target.value })} />
+                            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <button onClick={() => setShowAddCompanyProfile(false)} className="btn-ghost">{t('common.cancel')}</button>
+                                <button onClick={handleAddCompanyProfileSubmit} className="btn-primary">{t('common.save')}</button>
                             </div>
                         </div>
                     </div>

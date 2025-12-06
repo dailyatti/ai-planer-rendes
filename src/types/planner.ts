@@ -112,6 +112,20 @@ export interface Client {
   createdAt: Date;
 }
 
+export interface CompanyProfile {
+  id: string;
+  name: string;
+  address: string;
+  city?: string;
+  country?: string;
+  email: string;
+  phone: string;
+  taxNumber: string;
+  bankAccount?: string;
+  logo: string | null; // base64 encoded
+  createdAt: Date;
+}
+
 export interface FinancialForecast {
   period: 'week' | 'month' | 'quarter' | 'year';
   expectedIncome: number;
