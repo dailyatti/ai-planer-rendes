@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CalendarRange, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react';
+import { CalendarRange, ChevronLeft, ChevronRight, Pencil, Trash2, CheckCircle, Circle } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import { PlanItem } from '../../types/planner';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -260,13 +260,23 @@ const MonthlyView: React.FC = () => {
                         } ${plan.completed ? 'opacity-60 line-through' : ''}`}
                       onClick={(e) => handleEditPlan(plan, e)}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="truncate">{plan.title}</span>
-                        <div className="hidden group-hover:flex items-center gap-1 ml-1">
-                          <Pencil size={10} />
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updatePlan(plan.id, { completed: !plan.completed });
+                          }}
+                          className={`${plan.priority === 'high' ? 'hover:text-red-900 dark:hover:text-red-300' :
+                            plan.priority === 'medium' ? 'hover:text-yellow-900 dark:hover:text-yellow-300' :
+                              'hover:text-green-900 dark:hover:text-green-300'} transition-colors`}
+                        >
+                          {plan.completed ? <CheckCircle size={10} /> : <Circle size={10} />}
+                        </button>
+                        <span className="truncate flex-1">{plan.title}</span>
+                        <div className="hidden group-hover:flex items-center gap-1">
                           <button
                             onClick={(e) => handleDeletePlan(plan.id, e)}
-                            className="hover:text-red-600"
+                            className="hover:text-red-600 p-0.5 rounded"
                           >
                             <Trash2 size={10} />
                           </button>

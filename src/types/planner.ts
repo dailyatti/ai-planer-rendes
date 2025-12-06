@@ -1,5 +1,7 @@
 export type ViewType = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'notes' | 'goals' | 'drawing' | 'budget' | 'invoicing' | 'pomodoro' | 'statistics' | 'integrations' | 'settings';
 
+export type TransactionPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'oneTime';
+
 export interface Note {
   id: string;
   title: string;
@@ -62,10 +64,12 @@ export interface Transaction {
   id: string;
   subscriptionId?: string;
   amount: number;
-  description: string;
+  description: string; // Used as name
   date: Date;
   type: 'income' | 'expense' | 'subscription';
   category: string;
+  period?: TransactionPeriod;
+  recurring?: boolean;
 }
 
 // PhD-Level Invoice Types

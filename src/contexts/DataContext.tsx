@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Note, Goal, PlanItem, Drawing, Subscription, BudgetSettings, Transaction } from '../types/planner';
+import { Note, Goal, PlanItem, Drawing, Subscription, BudgetSettings, Transaction, Invoice, Client } from '../types/planner';
 
 interface DataContextType {
   notes: Note[];
@@ -25,6 +25,15 @@ interface DataContextType {
   deleteSubscription: (id: string) => void;
   updateBudgetSettings: (settings: Partial<BudgetSettings>) => void;
   addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  deleteTransaction: (id: string) => void;
+  invoices: Invoice[];
+  clients: Client[];
+  addInvoice: (invoice: Invoice) => void;
+  updateInvoice: (id: string, updates: Partial<Invoice>) => void;
+  deleteInvoice: (id: string) => void;
+  addClient: (client: Client) => void;
+  updateClient: (id: string, updates: Partial<Client>) => void;
+  deleteClient: (id: string) => void;
   clearAllData: () => void;
 }
 
@@ -45,6 +54,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [drawings, setDrawings] = useState<Drawing[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [budgetSettings, setBudgetSettings] = useState<BudgetSettings>({
     monthlyBudget: 0,
     currency: 'USD',
@@ -62,6 +73,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const savedDrawings = localStorage.getItem('planner-drawings');
         const savedSubscriptions = localStorage.getItem('planner-subscriptions');
         const savedTransactions = localStorage.getItem('planner-transactions');
+        const savedInvoices = localStorage.getItem('planner-invoices');
+        const savedClients = localStorage.getItem('planner-clients');
         const savedBudgetSettings = localStorage.getItem('planner-budget-settings');
 
         if (savedNotes) {
@@ -71,7 +84,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             createdAt: new Date(note.createdAt)
           })));
         }
-        
+
         if (savedGoals) {
           const parsedGoals = JSON.parse(savedGoals);
           setGoals(parsedGoals.map((goal: any) => ({
@@ -80,7 +93,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             createdAt: new Date(goal.createdAt)
           })));
         }
-        
+
         if (savedPlans) {
           const parsedPlans = JSON.parse(savedPlans);
           setPlans(parsedPlans.map((plan: any) => ({
@@ -90,7 +103,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             endTime: plan.endTime ? new Date(plan.endTime) : undefined
           })));
         }
-        
+
         if (savedDrawings) {
           const parsedDrawings = JSON.parse(savedDrawings);
           setDrawings(parsedDrawings.map((drawing: any) => ({
@@ -98,7 +111,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             createdAt: new Date(drawing.createdAt)
           })));
         }
-        
+
         if (savedSubscriptions) {
           const parsedSubscriptions = JSON.parse(savedSubscriptions);
           setSubscriptions(parsedSubscriptions.map((sub: any) => ({
@@ -107,7 +120,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             createdAt: new Date(sub.createdAt)
           })));
         }
-        
+
         if (savedTransactions) {
           const parsedTransactions = JSON.parse(savedTransactions);
           setTransactions(parsedTransactions.map((transaction: any) => ({
@@ -115,7 +128,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             date: new Date(transaction.date)
           })));
         }
-        
+
+        if (savedInvoices) {
+          const parsedInvoices = JSON.parse(savedInvoices);
+          setInvoices(parsedInvoices.map((inv: any) => ({
+            ...inv,
+            issueDate: new Date(inv.issueDate),
+            dueDate: new Date(inv.dueDate),
+            createdAt: new Date(inv.createdAt)
+          })));
+        }
+
+        if (savedClients) {
+          const parsedClients = JSON.parse(savedClients);
+          setClients(parsedClients.map((client: any) => ({
+            ...client,
+            createdAt: new Date(client.createdAt)
+          })));
+        }
+
         if (savedBudgetSettings) {
           setBudgetSettings(JSON.parse(savedBudgetSettings));
         }
@@ -127,35 +158,32 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadData();
   }, []);
 
+  // Helper for safe storage
+  const saveToStorage = (key: string, data: any) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+      if (error instanceof DOMException &&
+        (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+        console.error('Storage quota exceeded. Cannot save data for:', key);
+        // Optional: Dispatch an event or set a global error state here
+      } else {
+        console.error('Error saving to localStorage:', error);
+      }
+    }
+  };
+
   // Save data to localStorage whenever state changes
-  useEffect(() => {
-    localStorage.setItem('planner-notes', JSON.stringify(notes));
-  }, [notes]);
+  useEffect(() => { saveToStorage('planner-notes', notes); }, [notes]);
+  useEffect(() => { saveToStorage('planner-goals', goals); }, [goals]);
+  useEffect(() => { saveToStorage('planner-plans', plans); }, [plans]);
+  useEffect(() => { saveToStorage('planner-drawings', drawings); }, [drawings]);
+  useEffect(() => { saveToStorage('planner-subscriptions', subscriptions); }, [subscriptions]);
+  useEffect(() => { saveToStorage('planner-transactions', transactions); }, [transactions]);
+  useEffect(() => { saveToStorage('planner-invoices', invoices); }, [invoices]);
+  useEffect(() => { saveToStorage('planner-clients', clients); }, [clients]);
+  useEffect(() => { saveToStorage('planner-budget-settings', budgetSettings); }, [budgetSettings]);
 
-  useEffect(() => {
-    localStorage.setItem('planner-goals', JSON.stringify(goals));
-  }, [goals]);
-
-  useEffect(() => {
-    localStorage.setItem('planner-plans', JSON.stringify(plans));
-  }, [plans]);
-
-  useEffect(() => {
-    localStorage.setItem('planner-drawings', JSON.stringify(drawings));
-  }, [drawings]);
-
-  useEffect(() => {
-    localStorage.setItem('planner-subscriptions', JSON.stringify(subscriptions));
-  }, [subscriptions]);
-
-  useEffect(() => {
-    localStorage.setItem('planner-transactions', JSON.stringify(transactions));
-  }, [transactions]);
-
-  useEffect(() => {
-    localStorage.setItem('planner-budget-settings', JSON.stringify(budgetSettings));
-  }, [budgetSettings]);
-  
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
   const addNote = (noteData: Omit<Note, 'id' | 'createdAt'>) => {
@@ -168,7 +196,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateNote = (id: string, updates: Partial<Note>) => {
-    setNotes(prev => prev.map(note => 
+    setNotes(prev => prev.map(note =>
       note.id === id ? { ...note, ...updates } : note
     ));
   };
@@ -187,7 +215,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateGoal = (id: string, updates: Partial<Goal>) => {
-    setGoals(prev => prev.map(goal => 
+    setGoals(prev => prev.map(goal =>
       goal.id === id ? { ...goal, ...updates } : goal
     ));
   };
@@ -205,7 +233,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updatePlan = (id: string, updates: Partial<PlanItem>) => {
-    setPlans(prev => prev.map(plan => 
+    setPlans(prev => prev.map(plan =>
       plan.id === id ? { ...plan, ...updates } : plan
     ));
   };
@@ -237,7 +265,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateSubscription = (id: string, updates: Partial<Subscription>) => {
-    setSubscriptions(prev => prev.map(sub => 
+    setSubscriptions(prev => prev.map(sub =>
       sub.id === id ? { ...sub, ...updates } : sub
     ));
   };
@@ -258,13 +286,48 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTransactions(prev => [...prev, newTransaction]);
   };
 
+  const deleteTransaction = (id: string) => {
+    setTransactions(prev => prev.filter(tr => tr.id !== id));
+  };
+
+  const addInvoice = (invoice: Invoice) => {
+    setInvoices(prev => [...prev, invoice]);
+  };
+
+  const updateInvoice = (id: string, updates: Partial<Invoice>) => {
+    setInvoices(prev => prev.map(inv =>
+      inv.id === id ? { ...inv, ...updates } : inv
+    ));
+  };
+
+  const deleteInvoice = (id: string) => {
+    setInvoices(prev => prev.filter(inv => inv.id !== id));
+  };
+
+  const addClient = (client: Client) => {
+    setClients(prev => [...prev, client]);
+  };
+
+  const updateClient = (id: string, updates: Partial<Client>) => {
+    setClients(prev => prev.map(c =>
+      c.id === id ? { ...c, ...updates } : c
+    ));
+  };
+
+  const deleteClient = (id: string) => {
+    setClients(prev => prev.filter(c => c.id !== id));
+  };
+
   const clearAllData = () => {
     setNotes([]);
     setGoals([]);
     setPlans([]);
     setDrawings([]);
     setSubscriptions([]);
+    setSubscriptions([]);
     setTransactions([]);
+    setInvoices([]);
+    setClients([]);
     setBudgetSettings({
       monthlyBudget: 0,
       currency: 'USD',
@@ -277,6 +340,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('planner-drawings');
     localStorage.removeItem('planner-subscriptions');
     localStorage.removeItem('planner-transactions');
+    localStorage.removeItem('planner-invoices');
+    localStorage.removeItem('planner-clients');
     localStorage.removeItem('planner-budget-settings');
   };
 
@@ -305,6 +370,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       deleteSubscription,
       updateBudgetSettings,
       addTransaction,
+      deleteTransaction,
+      invoices,
+      clients,
+      addInvoice,
+      updateInvoice,
+      deleteInvoice,
+      addClient,
+      updateClient,
+      deleteClient,
       clearAllData,
     }}>
       {children}

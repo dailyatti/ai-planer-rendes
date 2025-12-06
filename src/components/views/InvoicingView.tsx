@@ -6,66 +6,25 @@ import {
     PieChart, Wallet, X, Building2, User, Mail, Share2, Check
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useData } from '../../contexts/DataContext';
 import { Invoice, Client, InvoiceItem } from '../../types/planner';
 
-// Initial Mock Data
-const INITIAL_CLIENTS: Client[] = [
-    { id: '1', name: 'Tech Solutions Kft.', email: 'finance@techsolutions.hu', company: 'Tech Solutions Kft.', address: '1117 Budapest, Irinyi József u. 4-20.', createdAt: new Date() },
-    { id: '2', name: 'Creative Agency Bt.', email: 'hello@creative.hu', company: 'Creative Agency Bt.', address: '1052 Budapest, Deák Ferenc tér 1.', createdAt: new Date() },
-    { id: '3', name: 'Global Corp Inc.', email: 'accounts@globalcorp.com', company: 'Global Corp Inc.', address: 'New York, 5th Avenue 101.', createdAt: new Date() },
-];
-
-const INITIAL_INVOICES: Invoice[] = [
-    {
-        id: '1',
-        invoiceNumber: 'INV-2024-001',
-        clientId: '1',
-        items: [{ id: '1', description: 'Consulting Services', quantity: 10, rate: 15000, amount: 150000 }],
-        subtotal: 150000,
-        taxRate: 27,
-        tax: 40500,
-        total: 190500,
-        status: 'paid',
-        issueDate: new Date('2024-12-01'),
-        dueDate: new Date('2024-12-15'),
-        paidDate: new Date('2024-12-10'),
-        notes: 'Thank you for your business!',
-        currency: 'HUF',
-        createdAt: new Date(),
-    },
-    {
-        id: '2',
-        invoiceNumber: 'INV-2024-002',
-        clientId: '2',
-        items: [{ id: '2', description: 'Web Design Project', quantity: 1, rate: 450000, amount: 450000 }],
-        subtotal: 450000,
-        taxRate: 27,
-        tax: 121500,
-        total: 571500,
-        status: 'sent',
-        issueDate: new Date('2024-12-03'),
-        dueDate: new Date('2024-12-17'),
-        notes: 'Please transfer to the account number specified below.',
-        currency: 'HUF',
-        createdAt: new Date(),
-    },
-    {
-        id: '3',
-        invoiceNumber: 'INV-2024-003',
-        clientId: '3',
-        items: [{ id: '3', description: 'SEO Optimization', quantity: 5, rate: 100, amount: 500 }],
-        subtotal: 500,
-        taxRate: 0,
-        tax: 0,
-        total: 500,
-        status: 'overdue',
-        issueDate: new Date('2024-11-15'),
-        dueDate: new Date('2024-11-30'),
-        notes: 'International invoice, VAT reverse charge.',
-        currency: 'EUR',
-        createdAt: new Date(),
+const printStyles = `
+  @media print {
+    @page { 
+      margin: 10mm; 
+      size: auto;
     }
-];
+    body { 
+      -webkit-print-color-adjust: exact !important; 
+      print-color-adjust: exact !important; 
+    }
+    /* Hide browser headers/footers */
+    header, footer, nav, .no-print { 
+      display: none !important; 
+    }
+  }
+`;
 
 // Company Info type
 interface CompanyInfo {
@@ -88,6 +47,12 @@ const DEFAULT_COMPANY_INFO: CompanyInfo = {
 
 const InvoicingView: React.FC = () => {
     const { t, language } = useLanguage();
+    // Use DataContext for persistence
+    const {
+        invoices, clients,
+        addInvoice, addClient
+    } = useData();
+
     const [activeTab, setActiveTab] = useState<'dashboard' | 'invoices' | 'clients' | 'analytics'>('dashboard');
     const [toast, setToast] = useState<string | null>(null);
     const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
@@ -119,8 +84,6 @@ const InvoicingView: React.FC = () => {
     };
 
     // State
-    const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
-    const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
     const [showCreateInvoice, setShowCreateInvoice] = useState(false);
     const [showAddClient, setShowAddClient] = useState(false);
 
@@ -178,7 +141,13 @@ const InvoicingView: React.FC = () => {
     // Handlers
     const handleAddClient = () => {
         if (newClient.name && newClient.email) {
-            setClients([...clients, { ...newClient, id: Date.now().toString(), createdAt: new Date() } as Client]);
+            addClient({
+                ...newClient,
+                id: Date.now().toString(),
+                company: newClient.company || newClient.name,
+                address: newClient.address || '',
+                createdAt: new Date()
+            } as Client);
             setNewClient({});
             setShowAddClient(false);
         }
@@ -207,12 +176,26 @@ const InvoicingView: React.FC = () => {
 
     const handleSaveInvoice = () => {
         if (newInvoice.clientId && newInvoice.items?.length) {
-            setInvoices([...invoices, {
+            // Smart auto-increment logic
+            const currentYear = new Date().getFullYear();
+            const countThisYear = invoices.filter(i => i.invoiceNumber.includes(`INV-${currentYear}`)).length;
+            const nextNum = countThisYear + 1;
+            const invoiceNumber = `INV-${currentYear}-${String(nextNum).padStart(3, '0')}`;
+
+            addInvoice({
                 ...newInvoice,
                 id: Date.now().toString(),
-                invoiceNumber: `INV-2024-${String(invoices.length + 1).padStart(3, '0')}`,
+                invoiceNumber: invoiceNumber,
+                // Ensure required fields
+                items: newInvoice.items || [],
+                subtotal: newInvoice.subtotal || 0,
+                tax: newInvoice.tax || 0,
+                total: newInvoice.total || 0,
+                issueDate: newInvoice.issueDate || new Date(),
+                dueDate: newInvoice.dueDate || new Date(),
                 createdAt: new Date()
-            } as Invoice]);
+            } as Invoice);
+
             setNewInvoice({
                 items: [{ id: Date.now().toString(), description: '', quantity: 1, rate: 0, amount: 0 }],
                 currency: 'HUF',
@@ -264,13 +247,6 @@ const InvoicingView: React.FC = () => {
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                    <button
-                        onClick={() => { if (window.confirm(t('common.confirmDeleteMock'))) { setInvoices([]); setClients([]); } }}
-                        className="btn-secondary flex items-center gap-2 px-4 py-2.5 text-red-600 bg-red-50 border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:bg-red-900/30"
-                    >
-                        <Trash2 size={18} />
-                        <span>{t('common.deleteMockData')}</span>
-                    </button>
                     <button onClick={() => setShowAddClient(true)} className="btn-secondary flex items-center gap-2 px-4 py-2.5">
                         <Users size={18} />
                         <span>{t('invoicing.addClient')}</span>
@@ -281,6 +257,9 @@ const InvoicingView: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            {/* Print Styles Injection */}
+            <style>{printStyles}</style>
 
             {/* Navigation Tabs */}
             <div className="flex gap-1 bg-gray-100 dark:bg-gray-800/50 p-1 rounded-xl w-fit">
