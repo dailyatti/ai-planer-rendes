@@ -1,11 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import {
-    FileText, Plus, TrendingUp, TrendingDown,
-    Users, Clock, CheckCircle, AlertCircle,
+    FileText, Plus, Users, Clock, CheckCircle, AlertCircle,
     Send, Download, Search, Filter, MoreHorizontal,
-    ChevronRight, Eye, Pencil, Trash2,
-    PieChart, BarChart3, Wallet, X, Building2, User, Mail,
-    Calendar, DollarSign, Percent, Briefcase, Share2, Copy, Check
+    ChevronRight, Eye, Trash2, Settings, Upload,
+    PieChart, Wallet, X, Building2, User, Mail, Share2, Check
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { Invoice, Client, InvoiceItem } from '../../types/planner';
@@ -69,11 +67,56 @@ const INITIAL_INVOICES: Invoice[] = [
     }
 ];
 
+// Company Info type
+interface CompanyInfo {
+    name: string;
+    address: string;
+    email: string;
+    phone: string;
+    taxNumber: string;
+    logo: string | null;
+}
+
+const DEFAULT_COMPANY_INFO: CompanyInfo = {
+    name: '',
+    address: '',
+    email: '',
+    phone: '',
+    taxNumber: '',
+    logo: null,
+};
+
 const InvoicingView: React.FC = () => {
     const { t, language } = useLanguage();
     const [activeTab, setActiveTab] = useState<'dashboard' | 'invoices' | 'clients' | 'analytics'>('dashboard');
     const [toast, setToast] = useState<string | null>(null);
     const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
+    const [showCompanySettings, setShowCompanySettings] = useState(false);
+
+    // Company info state with localStorage
+    const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(() => {
+        const saved = localStorage.getItem('invoiceCompanyInfo');
+        return saved ? JSON.parse(saved) : DEFAULT_COMPANY_INFO;
+    });
+
+    // Save company info to localStorage
+    const saveCompanyInfo = (info: CompanyInfo) => {
+        setCompanyInfo(info);
+        localStorage.setItem('invoiceCompanyInfo', JSON.stringify(info));
+    };
+
+    // Logo upload handler
+    const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const newInfo = { ...companyInfo, logo: reader.result as string };
+                saveCompanyInfo(newInfo);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     // State
     const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
@@ -641,6 +684,120 @@ const InvoicingView: React.FC = () => {
                 </div>
             )}
 
+            {/* Company Settings Modal */}
+            {showCompanySettings && (
+                <div className="modal-backdrop">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Cégadatok Beállítása</h2>
+                            <button
+                                onClick={() => setShowCompanySettings(false)}
+                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Logo Upload */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Logo</label>
+                                <div className="flex items-center gap-4">
+                                    {companyInfo.logo ? (
+                                        <img src={companyInfo.logo} alt="Logo" className="w-16 h-16 rounded-xl object-contain" />
+                                    ) : (
+                                        <div className="w-16 h-16 rounded-xl bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-400">
+                                            <Building2 size={24} />
+                                        </div>
+                                    )}
+                                    <div className="flex-1">
+                                        <label className="cursor-pointer btn-secondary inline-flex items-center gap-2">
+                                            <Upload size={16} />
+                                            Logo Feltöltése
+                                            <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                                        </label>
+                                        {companyInfo.logo && (
+                                            <button
+                                                onClick={() => saveCompanyInfo({ ...companyInfo, logo: null })}
+                                                className="ml-2 text-red-500 text-sm hover:underline"
+                                            >
+                                                Törlés
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Company Name */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cégnév *</label>
+                                <input
+                                    type="text"
+                                    value={companyInfo.name}
+                                    onChange={(e) => saveCompanyInfo({ ...companyInfo, name: e.target.value })}
+                                    className="input-field w-full"
+                                    placeholder="Pl. Példa Kft."
+                                />
+                            </div>
+
+                            {/* Address */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cím</label>
+                                <input
+                                    type="text"
+                                    value={companyInfo.address}
+                                    onChange={(e) => saveCompanyInfo({ ...companyInfo, address: e.target.value })}
+                                    className="input-field w-full"
+                                    placeholder="Pl. 1234 Budapest, Példa utca 1."
+                                />
+                            </div>
+
+                            {/* Email & Phone */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                                    <input
+                                        type="email"
+                                        value={companyInfo.email}
+                                        onChange={(e) => saveCompanyInfo({ ...companyInfo, email: e.target.value })}
+                                        className="input-field w-full"
+                                        placeholder="info@pelda.hu"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefon</label>
+                                    <input
+                                        type="tel"
+                                        value={companyInfo.phone}
+                                        onChange={(e) => saveCompanyInfo({ ...companyInfo, phone: e.target.value })}
+                                        className="input-field w-full"
+                                        placeholder="+36 1 234 5678"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Tax Number */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Adószám</label>
+                                <input
+                                    type="text"
+                                    value={companyInfo.taxNumber}
+                                    onChange={(e) => saveCompanyInfo({ ...companyInfo, taxNumber: e.target.value })}
+                                    className="input-field w-full"
+                                    placeholder="12345678-1-42"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end mt-6">
+                            <button onClick={() => setShowCompanySettings(false)} className="btn-primary">
+                                Mentés és Bezárás
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Invoice Preview Modal */}
             {previewInvoice && (
                 <div className="modal-backdrop print:bg-white">
@@ -653,8 +810,8 @@ const InvoicingView: React.FC = () => {
                                     <p className="text-gray-500 mt-1">Invoice #{previewInvoice.invoiceNumber}</p>
                                 </div>
                                 <div className="text-right">
-                                    <h2 className="text-xl font-bold text-primary-600">ContentPlanner Pro</h2>
-                                    <p className="text-sm text-gray-500">Professzionális Digitális Tervező</p>
+                                    <h2 className="text-xl font-bold text-primary-600">{companyInfo.name || 'Cégnév'}</h2>
+                                    <p className="text-sm text-gray-500">{companyInfo.address || 'Cím'}</p>
                                 </div>
                             </div>
                         </div>
@@ -663,6 +820,13 @@ const InvoicingView: React.FC = () => {
                         <div className="print:hidden flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
                             <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t('invoicing.invoicePreview')}</h2>
                             <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => setShowCompanySettings(true)}
+                                    className="btn-secondary flex items-center gap-2"
+                                >
+                                    <Settings size={18} />
+                                    Cégadatok
+                                </button>
                                 <button
                                     onClick={handlePrint}
                                     className="btn-primary flex items-center gap-2"
@@ -693,11 +857,16 @@ const InvoicingView: React.FC = () => {
                                     <p className="text-gray-500">{t('invoicing.dueDate')}: {formatDate(previewInvoice.dueDate)}</p>
                                 </div>
                                 <div className="text-right">
-                                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center text-white font-bold text-2xl mb-3">
-                                        CP
-                                    </div>
-                                    <p className="font-bold text-gray-900 dark:text-white">ContentPlanner Pro</p>
-                                    <p className="text-sm text-gray-500">Szeged, Hungary</p>
+                                    {companyInfo.logo ? (
+                                        <img src={companyInfo.logo} alt="Logo" className="w-16 h-16 rounded-xl object-contain mb-3 ml-auto" />
+                                    ) : (
+                                        <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center text-white font-bold text-2xl mb-3">
+                                            {companyInfo.name ? companyInfo.name.charAt(0).toUpperCase() : '?'}
+                                        </div>
+                                    )}
+                                    <p className="font-bold text-gray-900 dark:text-white">{companyInfo.name || 'Cégnév beállítása szükséges'}</p>
+                                    <p className="text-sm text-gray-500">{companyInfo.address || ''}</p>
+                                    {companyInfo.taxNumber && <p className="text-xs text-gray-400">Adószám: {companyInfo.taxNumber}</p>}
                                 </div>
                             </div>
 

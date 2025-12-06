@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
-import { CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarRange, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import { PlanItem } from '../../types/planner';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 const MonthlyView: React.FC = () => {
   const { t } = useLanguage();
-  const { plans, addPlan } = useData();
+  const { plans, addPlan, updatePlan, deletePlan } = useData();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [editingPlan, setEditingPlan] = useState<PlanItem | null>(null);
   const [newPlan, setNewPlan] = useState({
     title: '',
     description: '',
-    priority: 'medium' as const,
+    priority: 'medium' as 'low' | 'medium' | 'high',
   });
 
   const monthNames = [
@@ -60,20 +61,50 @@ const MonthlyView: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDay) return;
 
-    addPlan({
-      title: newPlan.title,
-      description: newPlan.description,
-      date: selectedDay,
-      completed: false,
-      priority: newPlan.priority,
-      linkedNotes: [],
-    });
+    if (editingPlan) {
+      updatePlan(editingPlan.id, {
+        title: newPlan.title,
+        description: newPlan.description,
+        priority: newPlan.priority,
+      });
+    } else if (selectedDay) {
+      addPlan({
+        title: newPlan.title,
+        description: newPlan.description,
+        date: selectedDay,
+        completed: false,
+        priority: newPlan.priority,
+        linkedNotes: [],
+      });
+    }
 
+    resetForm();
+  };
+
+  const resetForm = () => {
     setNewPlan({ title: '', description: '', priority: 'medium' });
     setShowAddForm(false);
     setSelectedDay(null);
+    setEditingPlan(null);
+  };
+
+  const handleEditPlan = (plan: PlanItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingPlan(plan);
+    setNewPlan({
+      title: plan.title,
+      description: plan.description || '',
+      priority: plan.priority,
+    });
+    setShowAddForm(true);
+  };
+
+  const handleDeletePlan = (planId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm(t('common.confirmDelete') || 'Biztosan törölni szeretnéd?')) {
+      deletePlan(planId);
+    }
   };
 
   const days = getDaysInMonth(currentMonth);
@@ -118,11 +149,13 @@ const MonthlyView: React.FC = () => {
         </div>
       </div>
 
-      {showAddForm && selectedDay && (
+      {/* Add/Edit Form Modal */}
+      {showAddForm && (selectedDay || editingPlan) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-2xl">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              {t('weekly.addTask')} - {selectedDay.toLocaleDateString()}
+              {editingPlan ? t('common.edit') || 'Szerkesztés' : t('weekly.addTask')}
+              {selectedDay && !editingPlan && ` - ${selectedDay.toLocaleDateString()}`}
             </h3>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -157,7 +190,7 @@ const MonthlyView: React.FC = () => {
                 </label>
                 <select
                   value={newPlan.priority}
-                  onChange={(e) => setNewPlan({ ...newPlan, priority: e.target.value as any })}
+                  onChange={(e) => setNewPlan({ ...newPlan, priority: e.target.value as 'low' | 'medium' | 'high' })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="low">{t('daily.lowPriority')}</option>
@@ -171,15 +204,11 @@ const MonthlyView: React.FC = () => {
                   type="submit"
                   className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
                 >
-                  {t('weekly.addTask')}
+                  {editingPlan ? t('common.save') || 'Mentés' : t('weekly.addTask')}
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowAddForm(false);
-                    setSelectedDay(null);
-                    setNewPlan({ title: '', description: '', priority: 'medium' });
-                  }}
+                  onClick={resetForm}
                   className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
                 >
                   {t('common.cancel')}
@@ -211,6 +240,7 @@ const MonthlyView: React.FC = () => {
                   } ${isToday(day) ? 'bg-purple-50 dark:bg-purple-900/10' : ''}`}
                 onClick={() => {
                   setSelectedDay(day);
+                  setEditingPlan(null);
                   setShowAddForm(true);
                 }}
               >
@@ -224,12 +254,24 @@ const MonthlyView: React.FC = () => {
                   {dayPlans.slice(0, 2).map((plan: PlanItem) => (
                     <div
                       key={plan.id}
-                      className={`text-xs p-1 rounded truncate ${plan.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' :
+                      className={`text-xs p-1 rounded truncate cursor-pointer group relative ${plan.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' :
                         plan.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
                           'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
                         } ${plan.completed ? 'opacity-60 line-through' : ''}`}
+                      onClick={(e) => handleEditPlan(plan, e)}
                     >
-                      {plan.title}
+                      <div className="flex items-center justify-between">
+                        <span className="truncate">{plan.title}</span>
+                        <div className="hidden group-hover:flex items-center gap-1 ml-1">
+                          <Pencil size={10} />
+                          <button
+                            onClick={(e) => handleDeletePlan(plan.id, e)}
+                            className="hover:text-red-600"
+                          >
+                            <Trash2 size={10} />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
 

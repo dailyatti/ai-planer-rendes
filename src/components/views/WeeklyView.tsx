@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, CalendarDays, ChevronLeft, ChevronRight, CheckCircle, Circle } from 'lucide-react';
+import { Plus, CalendarDays, ChevronLeft, ChevronRight, CheckCircle, Circle, Pencil, Trash2 } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { PlanItem } from '../../types/planner';
@@ -11,10 +11,11 @@ const WeeklyView: React.FC = () => {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [editingPlan, setEditingPlan] = useState<PlanItem | null>(null);
   const [newPlan, setNewPlan] = useState({
     title: '',
     description: '',
-    priority: 'medium' as const,
+    priority: 'medium' as 'low' | 'medium' | 'high',
   });
 
   const getWeekDays = (date: Date) => {
@@ -57,20 +58,52 @@ const WeeklyView: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDay) return;
 
-    addPlan({
-      title: newPlan.title,
-      description: newPlan.description,
-      date: selectedDay,
-      completed: false,
-      priority: newPlan.priority,
-      linkedNotes: [],
-    });
+    if (editingPlan) {
+      // Update existing plan
+      updatePlan(editingPlan.id, {
+        title: newPlan.title,
+        description: newPlan.description,
+        priority: newPlan.priority,
+      });
+    } else if (selectedDay) {
+      // Add new plan
+      addPlan({
+        title: newPlan.title,
+        description: newPlan.description,
+        date: selectedDay,
+        completed: false,
+        priority: newPlan.priority,
+        linkedNotes: [],
+      });
+    }
 
+    resetForm();
+  };
+
+  const resetForm = () => {
     setNewPlan({ title: '', description: '', priority: 'medium' });
     setShowAddForm(false);
     setSelectedDay(null);
+    setEditingPlan(null);
+  };
+
+  const handleEditPlan = (plan: PlanItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingPlan(plan);
+    setNewPlan({
+      title: plan.title,
+      description: plan.description || '',
+      priority: plan.priority,
+    });
+    setShowAddForm(true);
+  };
+
+  const handleDeletePlan = (planId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm(t('common.confirmDelete') || 'Biztosan törölni szeretnéd?')) {
+      deletePlan(planId);
+    }
   };
 
   const getPriorityColor = (priority: string) => {
@@ -123,11 +156,13 @@ const WeeklyView: React.FC = () => {
         </div>
       </div>
 
-      {showAddForm && selectedDay && (
+      {/* Add/Edit Form Modal */}
+      {showAddForm && (selectedDay || editingPlan) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-2xl">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              {t('weekly.addTask')} - {selectedDay.getFullYear()}. {selectedDay.getMonth() + 1}. {selectedDay.getDate()}.
+              {editingPlan ? t('common.edit') || 'Szerkesztés' : t('weekly.addTask')}
+              {selectedDay && !editingPlan && ` - ${selectedDay.getFullYear()}. ${selectedDay.getMonth() + 1}. ${selectedDay.getDate()}.`}
             </h3>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -176,15 +211,11 @@ const WeeklyView: React.FC = () => {
                   type="submit"
                   className="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
                 >
-                  {t('weekly.addTask')}
+                  {editingPlan ? t('common.save') || 'Mentés' : t('weekly.addTask')}
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowAddForm(false);
-                    setSelectedDay(null);
-                    setNewPlan({ title: '', description: '', priority: 'medium' });
-                  }}
+                  onClick={resetForm}
                   className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
                 >
                   {t('common.cancel')}
@@ -228,18 +259,31 @@ const WeeklyView: React.FC = () => {
                 {dayPlans.slice(0, 3).map((plan) => (
                   <div
                     key={plan.id}
-                    className="p-2 rounded-lg bg-gray-50 dark:bg-gray-700 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-600"
+                    className="p-2 rounded-lg bg-gray-50 dark:bg-gray-700 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer group"
+                    onClick={(e) => handleEditPlan(plan, e)}
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <button
-                        onClick={() => updatePlan(plan.id, { completed: !plan.completed })}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updatePlan(plan.id, { completed: !plan.completed });
+                        }}
                         className="text-purple-500 hover:text-purple-600 transition-colors duration-200"
                       >
                         {plan.completed ? <CheckCircle size={16} /> : <Circle size={16} />}
                       </button>
-                      <span className={`text-sm font-medium ${plan.completed ? 'line-through text-gray-500' : 'text-gray-900 dark:text-white'}`}>
-                        {plan.title.length > 20 ? plan.title.substring(0, 20) + '...' : plan.title}
+                      <span className={`text-sm font-medium flex-1 ${plan.completed ? 'line-through text-gray-500' : 'text-gray-900 dark:text-white'}`}>
+                        {plan.title.length > 15 ? plan.title.substring(0, 15) + '...' : plan.title}
                       </span>
+                      <div className="hidden group-hover:flex items-center gap-1">
+                        <Pencil size={12} className="text-gray-400" />
+                        <button
+                          onClick={(e) => handleDeletePlan(plan.id, e)}
+                          className="text-red-400 hover:text-red-600"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
                     </div>
                     <span className={`text-xs px-2 py-1 rounded ${getPriorityColor(plan.priority)}`}>
                       {plan.priority === 'high' ? 'H' : plan.priority === 'medium' ? 'M' : 'L'}
@@ -257,6 +301,7 @@ const WeeklyView: React.FC = () => {
               <button
                 onClick={() => {
                   setSelectedDay(day);
+                  setEditingPlan(null);
                   setShowAddForm(true);
                 }}
                 className="w-full p-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 hover:border-purple-500 hover:text-purple-500 dark:hover:text-purple-400 transition-all duration-200 flex items-center justify-center gap-2"
