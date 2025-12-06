@@ -50,10 +50,10 @@ const StatisticsView: React.FC = () => {
             <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/30">
               <BarChart3 size={24} className="text-white" />
             </div>
-            {t('nav.statistics')}
+            {t('statistics.title')}
           </h1>
           <p className="view-subtitle">
-            Deep insights into your productivity and performance
+            {t('statistics.subtitle')}
           </p>
         </div>
 
@@ -63,9 +63,9 @@ const StatisticsView: React.FC = () => {
             onChange={(e) => setTimeRange(e.target.value)}
             className="input-field max-w-[140px] py-2"
           >
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="year">This Year</option>
+            <option value="week">{t('statistics.thisWeek')}</option>
+            <option value="month">{t('statistics.thisMonth')}</option>
+            <option value="year">{t('statistics.thisYear')}</option>
           </select>
           <button className="btn-secondary p-2.5">
             <Download size={20} />
@@ -78,12 +78,12 @@ const StatisticsView: React.FC = () => {
         <div className="stat-card stat-card-primary">
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium opacity-90">Productivity Score</span>
+              <span className="text-sm font-medium opacity-90">{t('statistics.productivityScore')}</span>
               <Activity size={20} className="opacity-80" />
             </div>
             <div className="text-3xl font-bold">87%</div>
             <div className="text-sm opacity-80 mt-1 flex items-center gap-1">
-              <ArrowUpRight size={14} /> +5% vs last week
+              <ArrowUpRight size={14} /> +5% {t('statistics.vsLastWeek')}
             </div>
           </div>
         </div>
@@ -91,12 +91,12 @@ const StatisticsView: React.FC = () => {
         <div className="stat-card stat-card-success">
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium opacity-90">Tasks Completed</span>
+              <span className="text-sm font-medium opacity-90">{t('statistics.tasksCompleted')}</span>
               <Target size={20} className="opacity-80" />
             </div>
             <div className="text-3xl font-bold">45</div>
             <div className="text-sm opacity-80 mt-1 flex items-center gap-1">
-              <ArrowUpRight size={14} /> 12 more than planned
+              <ArrowUpRight size={14} /> 12 {t('statistics.moreThanPlanned')}
             </div>
           </div>
         </div>
@@ -104,23 +104,23 @@ const StatisticsView: React.FC = () => {
         <div className="stat-card stat-card-accent">
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium opacity-90">Focus Time</span>
+              <span className="text-sm font-medium opacity-90">{t('statistics.focusTime')}</span>
               <TrendingUp size={20} className="opacity-80" />
             </div>
             <div className="text-3xl font-bold">32h</div>
-            <div className="text-sm opacity-80 mt-1">Avg 6.4h / day</div>
+            <div className="text-sm opacity-80 mt-1">{t('statistics.avgPerDay')} 6.4h</div>
           </div>
         </div>
 
         <div className="stat-card stat-card-warning">
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium opacity-90">Interruptions</span>
+              <span className="text-sm font-medium opacity-90">{t('statistics.interruptions')}</span>
               <TrendingDown size={20} className="opacity-80" />
             </div>
             <div className="text-3xl font-bold">12</div>
             <div className="text-sm opacity-80 mt-1 flex items-center gap-1">
-              <ArrowDownRight size={14} /> -3 vs last week
+              <ArrowDownRight size={14} /> -3 {t('statistics.vsLastWeek')}
             </div>
           </div>
         </div>
@@ -130,7 +130,7 @@ const StatisticsView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Productivity Trend */}
         <div className="card">
-          <h3 className="section-title mb-6">Productivity Trend</h3>
+          <h3 className="section-title mb-6">{t('statistics.productivityTrend')}</h3>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={productivityData}>
@@ -166,7 +166,7 @@ const StatisticsView: React.FC = () => {
 
         {/* Task Completion */}
         <div className="card">
-          <h3 className="section-title mb-6">Planned vs Completed</h3>
+          <h3 className="section-title mb-6">{t('statistics.plannedVsCompleted')}</h3>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={productivityData}>
@@ -192,7 +192,7 @@ const StatisticsView: React.FC = () => {
 
         {/* Time Distribution */}
         <div className="card">
-          <h3 className="section-title mb-6">Time Distribution</h3>
+          <h3 className="section-title mb-6">{t('statistics.timeDistribution')}</h3>
           <div className="h-[300px] w-full flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <RePieChart>
@@ -218,7 +218,7 @@ const StatisticsView: React.FC = () => {
 
         {/* Focus Quality */}
         <div className="card">
-          <h3 className="section-title mb-6">Daily Focus Quality</h3>
+          <h3 className="section-title mb-6">{t('statistics.dailyFocusQuality')}</h3>
           <div className="space-y-4">
             {focusTrendData.map((item, index) => (
               <div key={index} className="flex items-center gap-4">

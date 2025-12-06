@@ -73,6 +73,7 @@ const InvoicingView: React.FC = () => {
     const { t, language } = useLanguage();
     const [activeTab, setActiveTab] = useState<'dashboard' | 'invoices' | 'clients' | 'analytics'>('dashboard');
     const [toast, setToast] = useState<string | null>(null);
+    const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
 
     // State
     const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
@@ -80,8 +81,13 @@ const InvoicingView: React.FC = () => {
     const [showCreateInvoice, setShowCreateInvoice] = useState(false);
     const [showAddClient, setShowAddClient] = useState(false);
 
-    // Download PDF handler
+    // Download PDF handler - open preview first
     const handleDownloadPdf = (invoice: Invoice) => {
+        setPreviewInvoice(invoice);
+    };
+
+    // Actual print function
+    const handlePrint = () => {
         window.print();
     };
 
@@ -215,6 +221,13 @@ const InvoicingView: React.FC = () => {
                 </div>
 
                 <div className="flex flex-wrap gap-3">
+                    <button
+                        onClick={() => { if (window.confirm(t('common.confirmDeleteMock'))) { setInvoices([]); setClients([]); } }}
+                        className="btn-secondary flex items-center gap-2 px-4 py-2.5 text-red-600 bg-red-50 border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:bg-red-900/30"
+                    >
+                        <Trash2 size={18} />
+                        <span>{t('common.deleteMockData')}</span>
+                    </button>
                     <button onClick={() => setShowAddClient(true)} className="btn-secondary flex items-center gap-2 px-4 py-2.5">
                         <Users size={18} />
                         <span>{t('invoicing.addClient')}</span>
@@ -622,6 +635,142 @@ const InvoicingView: React.FC = () => {
                             <div className="flex justify-end gap-2 mt-6">
                                 <button onClick={() => setShowAddClient(false)} className="btn-ghost">{t('common.cancel')}</button>
                                 <button onClick={handleAddClient} className="btn-primary">{t('common.save')}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Invoice Preview Modal */}
+            {previewInvoice && (
+                <div className="modal-backdrop print:bg-white">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-auto print:shadow-none print:max-w-none print:max-h-none print:rounded-none">
+                        {/* Print Header - Hidden on screen, shown in print */}
+                        <div className="hidden print:block p-8 border-b-2 border-gray-200">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-gray-900">SZÁMLA</h1>
+                                    <p className="text-gray-500 mt-1">Invoice #{previewInvoice.invoiceNumber}</p>
+                                </div>
+                                <div className="text-right">
+                                    <h2 className="text-xl font-bold text-primary-600">ContentPlanner Pro</h2>
+                                    <p className="text-sm text-gray-500">Professzionális Digitális Tervező</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Screen Header */}
+                        <div className="print:hidden flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t('invoicing.invoicePreview')}</h2>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={handlePrint}
+                                    className="btn-primary flex items-center gap-2"
+                                >
+                                    <Download size={18} />
+                                    {t('invoicing.downloadPdf')}
+                                </button>
+                                <button
+                                    onClick={() => setPreviewInvoice(null)}
+                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Invoice Content */}
+                        <div className="p-8 print:p-12">
+                            {/* Invoice Header */}
+                            <div className="flex justify-between items-start mb-8 print:mb-12">
+                                <div>
+                                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary-100 dark:bg-primary-900/30 rounded-lg mb-4 print:bg-gray-100">
+                                        <FileText size={20} className="text-primary-600" />
+                                        <span className="font-bold text-primary-700 dark:text-primary-400">SZÁMLA / INVOICE</span>
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{previewInvoice.invoiceNumber}</h3>
+                                    <p className="text-gray-500 mt-1">{t('invoicing.issueDate')}: {formatDate(previewInvoice.issueDate)}</p>
+                                    <p className="text-gray-500">{t('invoicing.dueDate')}: {formatDate(previewInvoice.dueDate)}</p>
+                                </div>
+                                <div className="text-right">
+                                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center text-white font-bold text-2xl mb-3">
+                                        CP
+                                    </div>
+                                    <p className="font-bold text-gray-900 dark:text-white">ContentPlanner Pro</p>
+                                    <p className="text-sm text-gray-500">Szeged, Hungary</p>
+                                </div>
+                            </div>
+
+                            {/* Client Info */}
+                            <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 mb-8 print:bg-gray-100">
+                                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">{t('invoicing.billTo')}</h4>
+                                {(() => {
+                                    const client = clients.find(c => c.id === previewInvoice.clientId);
+                                    return client ? (
+                                        <div>
+                                            <p className="text-lg font-bold text-gray-900 dark:text-white">{client.company}</p>
+                                            <p className="text-gray-600 dark:text-gray-400">{client.name}</p>
+                                            <p className="text-gray-500">{client.email}</p>
+                                            <p className="text-gray-500">{client.address}</p>
+                                        </div>
+                                    ) : null;
+                                })()}
+                            </div>
+
+                            {/* Invoice Items */}
+                            <table className="w-full mb-8">
+                                <thead>
+                                    <tr className="border-b-2 border-gray-200 dark:border-gray-700">
+                                        <th className="py-3 text-left text-sm font-semibold text-gray-500 uppercase">{t('invoicing.item')}</th>
+                                        <th className="py-3 text-center text-sm font-semibold text-gray-500 uppercase">{t('invoicing.quantity')}</th>
+                                        <th className="py-3 text-right text-sm font-semibold text-gray-500 uppercase">{t('invoicing.rate')}</th>
+                                        <th className="py-3 text-right text-sm font-semibold text-gray-500 uppercase">{t('invoicing.amount')}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                    {previewInvoice.items.map((item, index) => (
+                                        <tr key={index}>
+                                            <td className="py-4 text-gray-900 dark:text-white font-medium">{item.description}</td>
+                                            <td className="py-4 text-center text-gray-600">{item.quantity}</td>
+                                            <td className="py-4 text-right text-gray-600">{formatCurrency(item.rate, previewInvoice.currency)}</td>
+                                            <td className="py-4 text-right font-bold text-gray-900 dark:text-white">{formatCurrency(item.amount, previewInvoice.currency)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+
+                            {/* Totals */}
+                            <div className="flex justify-end">
+                                <div className="w-72 space-y-3">
+                                    <div className="flex justify-between text-gray-600">
+                                        <span>{t('invoicing.subtotal')}</span>
+                                        <span>{formatCurrency(previewInvoice.subtotal, previewInvoice.currency)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-gray-600">
+                                        <span>{t('invoicing.tax')} ({previewInvoice.taxRate}%)</span>
+                                        <span>{formatCurrency(previewInvoice.tax, previewInvoice.currency)}</span>
+                                    </div>
+                                    <div className="border-t-2 border-gray-200 dark:border-gray-700 pt-3">
+                                        <div className="flex justify-between text-xl font-bold text-gray-900 dark:text-white">
+                                            <span>{t('invoicing.total')}</span>
+                                            <span>{formatCurrency(previewInvoice.total, previewInvoice.currency)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Status Badge */}
+                            <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-800 print:border-gray-300">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-gray-500">{t('invoicing.status')}</p>
+                                        <div className="mt-1">{getStatusBadge(previewInvoice.status)}</div>
+                                    </div>
+                                    <div className="text-right text-sm text-gray-400 print:text-gray-600">
+                                        <p>Generálva: {new Date().toLocaleString('hu-HU')}</p>
+                                        <p>ContentPlanner Pro © {new Date().getFullYear()}</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

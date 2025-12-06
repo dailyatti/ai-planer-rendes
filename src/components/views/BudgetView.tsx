@@ -164,6 +164,13 @@ const BudgetView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => { if (window.confirm(t('common.confirmDeleteMock'))) { setTransactions([]); } }}
+            className="btn-secondary flex items-center gap-2 px-4 py-2.5 bg-red-500/10 text-red-600 border-red-200 hover:bg-red-500/20"
+          >
+            <Trash2 size={18} />
+            <span>{t('common.deleteMockData')}</span>
+          </button>
           <select
             className="input-field w-auto font-bold text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-200 dark:border-gray-700"
             value={currency}
@@ -197,8 +204,8 @@ const BudgetView: React.FC = () => {
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-6 py-3 font-medium transition-all relative ${activeTab === tab
-                ? 'text-primary-600 dark:text-primary-400'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              ? 'text-primary-600 dark:text-primary-400'
+              : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
           >
             {t(`budget.${tab}`)}
