@@ -85,6 +85,7 @@ export interface Invoice {
   id: string;
   invoiceNumber: string;
   clientId: string;
+  companyProfileId?: string;
   items: InvoiceItem[];
   subtotal: number;
   taxRate: number;

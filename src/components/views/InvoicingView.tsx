@@ -33,6 +33,7 @@ interface CompanyInfo {
     email: string;
     phone: string;
     taxNumber: string;
+    bankAccount?: string;
     logo: string | null;
 }
 
@@ -142,6 +143,15 @@ const InvoicingView: React.FC = () => {
         return { totalRevenue, pendingAmount, overdueAmount, totalClients };
     }, [invoices, clients]);
 
+    const previewCompany = useMemo(() => {
+        if (!previewInvoice) return companyInfo;
+        if (previewInvoice.companyProfileId) {
+            const profile = companyProfiles.find(p => p.id === previewInvoice.companyProfileId);
+            if (profile) return profile;
+        }
+        return companyInfo;
+    }, [previewInvoice, companyProfiles, companyInfo]);
+
     // Handlers
     const handleAddClient = () => {
         if (newClient.name && newClient.email) {
@@ -208,14 +218,12 @@ const InvoicingView: React.FC = () => {
 
     const handleSaveInvoice = () => {
         if (newInvoice.clientId && newInvoice.items?.length) {
-            // Smart auto-increment logic
-            const currentYear = new Date().getFullYear();
-            const countThisYear = invoices.filter(i => i.invoiceNumber.includes(`INV-${currentYear}`)).length;
-            const nextNum = countThisYear + 1;
-            const invoiceNumber = `INV-${currentYear}-${String(nextNum).padStart(3, '0')}`;
+            // Use provided invoice number or generate fallback
+            const invoiceNumber = newInvoice.invoiceNumber || `INV-2026-${Math.floor(Math.random() * 9000 + 1000)}`;
 
             addInvoice({
                 ...newInvoice,
+                companyProfileId: selectedCompanyId,
                 id: Date.now().toString(),
                 invoiceNumber: invoiceNumber,
                 // Ensure required fields
@@ -283,7 +291,19 @@ const InvoicingView: React.FC = () => {
                         <Users size={18} />
                         <span>{t('invoicing.addClient')}</span>
                     </button>
-                    <button onClick={() => setShowCreateInvoice(true)} className="btn-primary flex items-center gap-2 px-4 py-2.5 shadow-lg shadow-primary-500/25 hover:shadow-primary-500/40 transition-all">
+                    <button onClick={() => {
+                        const randomNum = Math.floor(Math.random() * 9000 + 1000); // 4 digit random
+                        setNewInvoice({
+                            items: [{ id: Date.now().toString(), description: '', quantity: 1, rate: 0, amount: 0 }],
+                            currency: 'HUF',
+                            taxRate: 27,
+                            status: 'draft',
+                            issueDate: new Date(),
+                            dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+                            invoiceNumber: `INV-2026-${randomNum}`
+                        });
+                        setShowCreateInvoice(true);
+                    }} className="btn-primary flex items-center gap-2 px-4 py-2.5 shadow-lg shadow-primary-500/25 hover:shadow-primary-500/40 transition-all">
                         <Plus size={18} />
                         <span>{t('invoicing.createInvoice')}</span>
                     </button>
@@ -542,9 +562,13 @@ const InvoicingView: React.FC = () => {
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
                                 <div>
                                     <label className="label-text">{t('invoicing.invoiceNumber')}</label>
-                                    <div className="font-mono bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600">
-                                        INV-{new Date().getFullYear()}-{String(invoices.length + 1).padStart(3, '0')}
-                                    </div>
+                                    <input
+                                        type="text"
+                                        className="input-field font-mono"
+                                        value={newInvoice.invoiceNumber || ''}
+                                        onChange={(e) => setNewInvoice({ ...newInvoice, invoiceNumber: e.target.value })}
+                                        placeholder="INV-2026-XXXX"
+                                    />
                                 </div>
                                 <div>
                                     <label className="label-text">{t('invoicing.currency')}</label>
@@ -917,103 +941,102 @@ const InvoicingView: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Invoice Content */}
-                        <div className="p-8 print:p-12">
+                        {/* Invoice Content - Always White Paper Style */}
+                        <div className="p-10 print:p-12 !bg-white dark:!bg-white text-gray-900 dark:text-gray-900 shadow-xl print:shadow-none mx-auto max-w-[210mm] min-h-[297mm]">
                             {/* Invoice Header */}
-                            <div className="flex justify-between items-start mb-8 print:mb-12">
+                            <div className="flex justify-between items-start mb-12">
                                 <div>
-                                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary-100 dark:bg-primary-900/30 rounded-lg mb-4 print:bg-gray-100">
-                                        <FileText size={20} className="text-primary-600" />
-                                        <span className="font-bold text-primary-700 dark:text-primary-400">SZÁMLA / INVOICE</span>
+                                    <h3 className="text-4xl font-bold tracking-tight text-gray-900 mb-2">{previewInvoice.invoiceNumber}</h3>
+                                    <div className="space-y-1 text-gray-600 text-sm">
+                                        <p><span className="font-semibold text-gray-800">{t('invoicing.issueDate')}:</span> {formatDate(previewInvoice.issueDate)}</p>
+                                        <p><span className="font-semibold text-gray-800">{t('invoicing.dueDate')}:</span> {formatDate(previewInvoice.dueDate)}</p>
                                     </div>
-                                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{previewInvoice.invoiceNumber}</h3>
-                                    <p className="text-gray-500 mt-1">{t('invoicing.issueDate')}: {formatDate(previewInvoice.issueDate)}</p>
-                                    <p className="text-gray-500">{t('invoicing.dueDate')}: {formatDate(previewInvoice.dueDate)}</p>
                                 </div>
                                 <div className="text-right">
-                                    {companyInfo.logo ? (
-                                        <img src={companyInfo.logo} alt="Logo" className="w-16 h-16 rounded-xl object-contain mb-3 ml-auto" />
+                                    {previewCompany.logo ? (
+                                        <img src={previewCompany.logo} alt="Logo" className="w-24 h-24 object-contain mb-4 ml-auto" />
                                     ) : (
-                                        <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center text-white font-bold text-2xl mb-3">
-                                            {companyInfo.name ? companyInfo.name.charAt(0).toUpperCase() : '?'}
-                                        </div>
+                                        <div className="h-24"></div>
                                     )}
-                                    <p className="font-bold text-gray-900 dark:text-white">{companyInfo.name || 'Cégnév beállítása szükséges'}</p>
-                                    <p className="text-sm text-gray-500">{companyInfo.address || ''}</p>
-                                    {companyInfo.taxNumber && <p className="text-xs text-gray-400">Adószám: {companyInfo.taxNumber}</p>}
+                                    <h2 className="text-xl font-bold text-gray-900">{previewCompany.name || ''}</h2>
+                                    <div className="text-sm text-gray-600 space-y-1 mt-2">
+                                        <p>{previewCompany.address}</p>
+                                        <p>{previewCompany.email}</p>
+                                        <p>{previewCompany.phone}</p>
+                                        {previewCompany.taxNumber && <p className="font-medium text-gray-800">Adószám: {previewCompany.taxNumber}</p>}
+                                        {previewCompany.bankAccount && <p className="font-mono text-xs mt-2">Bankszámla: {previewCompany.bankAccount}</p>}
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Client Info */}
-                            <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 mb-8 print:bg-gray-100">
-                                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">{t('invoicing.billTo')}</h4>
-                                {(() => {
-                                    const client = clients.find(c => c.id === previewInvoice.clientId);
-                                    return client ? (
-                                        <div>
-                                            <p className="text-lg font-bold text-gray-900 dark:text-white">{client.company}</p>
-                                            <p className="text-gray-600 dark:text-gray-400">{client.name}</p>
-                                            <p className="text-gray-500">{client.email}</p>
-                                            <p className="text-gray-500">{client.address}</p>
-                                        </div>
-                                    ) : null;
-                                })()}
+                            <div className="flex mb-16">
+                                <div className="w-1/2">
+                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 border-b border-gray-200 pb-2 w-2/3">{t('invoicing.billTo')}</h4>
+                                    {(() => {
+                                        const client = clients.find(c => c.id === previewInvoice.clientId);
+                                        return client ? (
+                                            <div className="text-gray-900 space-y-1">
+                                                <p className="text-xl font-bold mb-2">{client.company || client.name}</p>
+                                                {client.company && <p className="text-gray-700">{client.name}</p>}
+                                                <p className="text-gray-600">{client.address}</p>
+                                                <p className="text-gray-600">{client.email}</p>
+                                                {client.taxId && <p className="text-sm mt-2"><span className="font-medium">Adószám:</span> {client.taxId}</p>}
+                                            </div>
+                                        ) : null;
+                                    })()}
+                                </div>
                             </div>
 
                             {/* Invoice Items */}
-                            <table className="w-full mb-8">
+                            <table className="w-full mb-12">
                                 <thead>
-                                    <tr className="border-b-2 border-gray-200 dark:border-gray-700">
-                                        <th className="py-3 text-left text-sm font-semibold text-gray-500 uppercase">{t('invoicing.item')}</th>
-                                        <th className="py-3 text-center text-sm font-semibold text-gray-500 uppercase">{t('invoicing.quantity')}</th>
-                                        <th className="py-3 text-right text-sm font-semibold text-gray-500 uppercase">{t('invoicing.rate')}</th>
-                                        <th className="py-3 text-right text-sm font-semibold text-gray-500 uppercase">{t('invoicing.amount')}</th>
+                                    <tr className="border-b-2 border-gray-900">
+                                        <th className="py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">{t('invoicing.item')}</th>
+                                        <th className="py-4 text-center text-xs font-bold text-gray-900 uppercase tracking-wider w-24">{t('invoicing.quantity')}</th>
+                                        <th className="py-4 text-right text-xs font-bold text-gray-900 uppercase tracking-wider w-32">{t('invoicing.rate')}</th>
+                                        <th className="py-4 text-right text-xs font-bold text-gray-900 uppercase tracking-wider w-32">{t('invoicing.amount')}</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                <tbody className="divide-y divide-gray-200">
                                     {previewInvoice.items.map((item, index) => (
                                         <tr key={index}>
-                                            <td className="py-4 text-gray-900 dark:text-white font-medium">{item.description}</td>
+                                            <td className="py-4 text-gray-900 font-medium">{item.description}</td>
                                             <td className="py-4 text-center text-gray-600">{item.quantity}</td>
                                             <td className="py-4 text-right text-gray-600">{formatCurrency(item.rate, previewInvoice.currency)}</td>
-                                            <td className="py-4 text-right font-bold text-gray-900 dark:text-white">{formatCurrency(item.amount, previewInvoice.currency)}</td>
+                                            <td className="py-4 text-right font-bold text-gray-900">{formatCurrency(item.amount, previewInvoice.currency)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
 
                             {/* Totals */}
-                            <div className="flex justify-end">
-                                <div className="w-72 space-y-3">
-                                    <div className="flex justify-between text-gray-600">
+                            <div className="flex justify-end mb-20">
+                                <div className="w-80 space-y-3">
+                                    <div className="flex justify-between text-gray-600 text-sm">
                                         <span>{t('invoicing.subtotal')}</span>
                                         <span>{formatCurrency(previewInvoice.subtotal, previewInvoice.currency)}</span>
                                     </div>
-                                    <div className="flex justify-between text-gray-600">
+                                    <div className="flex justify-between text-gray-600 text-sm">
                                         <span>{t('invoicing.tax')} ({previewInvoice.taxRate}%)</span>
                                         <span>{formatCurrency(previewInvoice.tax, previewInvoice.currency)}</span>
                                     </div>
-                                    <div className="border-t-2 border-gray-200 dark:border-gray-700 pt-3">
-                                        <div className="flex justify-between text-xl font-bold text-gray-900 dark:text-white">
-                                            <span>{t('invoicing.total')}</span>
-                                            <span>{formatCurrency(previewInvoice.total, previewInvoice.currency)}</span>
+                                    <div className="border-t-2 border-gray-900 pt-4 mt-4">
+                                        <div className="flex justify-between items-baseline">
+                                            <span className="text-xl font-bold text-gray-900">{t('invoicing.total')}</span>
+                                            <span className="text-2xl font-bold text-gray-900">{formatCurrency(previewInvoice.total, previewInvoice.currency)}</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Status Badge */}
-                            <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-800 print:border-gray-300">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm text-gray-500">{t('invoicing.status')}</p>
-                                        <div className="mt-1">{getStatusBadge(previewInvoice.status)}</div>
-                                    </div>
-                                    <div className="text-right text-sm text-gray-400 print:text-gray-600">
-                                        <p>Generálva: {new Date().toLocaleString('hu-HU')}</p>
-                                        <p>ContentPlanner Pro © {new Date().getFullYear()}</p>
-                                    </div>
-                                </div>
+                            {/* Footer */}
+                            <div className="mt-auto border-t border-gray-200 pt-8 text-center text-sm text-gray-500">
+                                <p className="font-medium text-gray-900 mb-1">{previewCompany.name || ''}</p>
+                                <p>{previewCompany.email} {previewCompany.phone && `• ${previewCompany.phone}`}</p>
+                                <p className="mt-4 text-xs text-gray-400">
+                                    {language === 'hu' ? 'A számla elektronikus úton került kiállításra.' : 'This invoice was generated electronically.'}
+                                </p>
                             </div>
                         </div>
                     </div>
