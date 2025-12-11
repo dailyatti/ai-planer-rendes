@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import {
-  BarChart3, PieChart, TrendingUp, TrendingDown,
-  Calendar, Activity, Target, ArrowUpRight, ArrowDownRight,
-  Filter, Download, Share2
+  BarChart3, TrendingUp, TrendingDown,
+  Activity, Target, ArrowUpRight, ArrowDownRight,
+  Download
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -16,21 +16,21 @@ const StatisticsView: React.FC = () => {
 
   // Mock Data for PhD-Level Charts
   const productivityData = [
-    { name: 'Mon', completed: 8, planned: 10, focus: 85 },
-    { name: 'Tue', completed: 12, planned: 12, focus: 92 },
-    { name: 'Wed', completed: 7, planned: 9, focus: 78 },
-    { name: 'Thu', completed: 10, planned: 11, focus: 88 },
-    { name: 'Fri', completed: 9, planned: 10, focus: 82 },
-    { name: 'Sat', completed: 5, planned: 6, focus: 75 },
-    { name: 'Sun', completed: 4, planned: 4, focus: 90 },
+    { name: t('days.short.monday'), completed: 8, planned: 10, focus: 85 },
+    { name: t('days.short.tuesday'), completed: 12, planned: 12, focus: 92 },
+    { name: t('days.short.wednesday'), completed: 7, planned: 9, focus: 78 },
+    { name: t('days.short.thursday'), completed: 10, planned: 11, focus: 88 },
+    { name: t('days.short.friday'), completed: 9, planned: 10, focus: 82 },
+    { name: t('days.short.saturday'), completed: 5, planned: 6, focus: 75 },
+    { name: t('days.short.sunday'), completed: 4, planned: 4, focus: 90 },
   ];
 
   const categoryData = [
-    { name: 'Content Creation', value: 35, color: '#4361ee' },
-    { name: 'Planning', value: 20, color: '#a855f7' },
-    { name: 'Meetings', value: 15, color: '#06b6d4' },
-    { name: 'Admin', value: 10, color: '#f59e0b' },
-    { name: 'Learning', value: 20, color: '#10b981' },
+    { name: t('statistics.categories.contentCreation'), value: 35, color: '#4361ee' },
+    { name: t('statistics.categories.planning'), value: 20, color: '#a855f7' },
+    { name: t('statistics.categories.meetings'), value: 15, color: '#06b6d4' },
+    { name: t('statistics.categories.admin'), value: 10, color: '#f59e0b' },
+    { name: t('statistics.categories.learning'), value: 20, color: '#10b981' },
   ];
 
   const focusTrendData = [

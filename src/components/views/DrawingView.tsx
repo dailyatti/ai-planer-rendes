@@ -10,7 +10,7 @@ import * as fabric from 'fabric';
 
 const DrawingView: React.FC = () => {
   const { drawings, addDrawing, deleteDrawing } = useData();
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvas, setCanvas] = useState<fabric.Canvas | null>(null);
   const [activeTool, setActiveTool] = useState<'select' | 'brush' | 'eraser' | 'text' | 'rect' | 'circle'>('brush');
@@ -25,40 +25,7 @@ const DrawingView: React.FC = () => {
   const [historyIndex, setHistoryIndex] = useState(-1);
 
   // Translations object for local use
-  const translations = {
-    title: language === 'hu' ? 'Kreativ Stúdió' : 'Creative Studio',
-    subtitle: language === 'hu'
-      ? 'Professzionális rajzolás, képszerkesztés és vizuális tervezés'
-      : 'Professional drawing, image editing, and visual planning',
-    save: language === 'hu' ? 'Mentés' : 'Save',
-    export: language === 'hu' ? 'Exportálás' : 'Export',
-    tools: language === 'hu' ? 'Eszközök' : 'Tools',
-    properties: language === 'hu' ? 'Tulajdonságok' : 'Properties',
-    size: language === 'hu' ? 'Méret' : 'Size',
-    color: language === 'hu' ? 'Szín' : 'Color',
-    opacity: language === 'hu' ? 'Átlátszatlanság' : 'Opacity',
-    select: language === 'hu' ? 'Kijelölő' : 'Select',
-    brush: language === 'hu' ? 'Ecset' : 'Brush',
-    eraser: language === 'hu' ? 'Radír' : 'Eraser',
-    text: language === 'hu' ? 'Szöveg' : 'Text',
-    image: language === 'hu' ? 'Kép' : 'Image',
-    rectangle: language === 'hu' ? 'Téglalap' : 'Rectangle',
-    circle: language === 'hu' ? 'Kör' : 'Circle',
-    deleteSelected: language === 'hu' ? 'Kijelöltek Törlése' : 'Delete Selected',
-    clearCanvas: language === 'hu' ? 'Vászon Törlése' : 'Clear Canvas',
-    undo: language === 'hu' ? 'Visszavonás' : 'Undo',
-    redo: language === 'hu' ? 'Újra' : 'Redo',
-    savedDrawings: language === 'hu' ? 'Mentett Rajzok' : 'Saved Drawings',
-    noDrawings: language === 'hu' ? 'Még nincsenek mentett rajzok' : 'No drawings yet',
-    saveMasterpiece: language === 'hu' ? 'Remekmű Mentése' : 'Save Masterpiece',
-    enterTitle: language === 'hu' ? 'Add meg a címet...' : 'Enter a title...',
-    cancel: language === 'hu' ? 'Mégse' : 'Cancel',
-    initializing: language === 'hu' ? 'Stúdió Inicializálása...' : 'Initializing Studio...',
-    tip: language === 'hu'
-      ? 'Tipp: Használd a Kijelölő eszközt az objektumok mozgatásához és átméretezéséhez.'
-      : 'Tip: Use the Select tool to move and resize objects.',
-    layers: language === 'hu' ? 'Rétegek' : 'Layers',
-  };
+
 
   const colors = [
     '#3B82F6', '#EF4444', '#10B981',
@@ -173,7 +140,7 @@ const DrawingView: React.FC = () => {
   const addText = () => {
     if (!canvas) return;
     setActiveTool('text');
-    const text = new fabric.IText(language === 'hu' ? 'Írj ide...' : 'Type here...', {
+    const text = new fabric.IText(t('drawing.defaultText'), {
       left: 100,
       top: 100,
       fontFamily: 'Inter',
@@ -260,12 +227,18 @@ const DrawingView: React.FC = () => {
   };
 
   const saveDrawing = () => {
-    if (!canvas || !drawingTitle.trim()) return;
-    const dataURL = canvas.toDataURL({ format: 'png', quality: 1 });
+    console.log('[DrawingView] saveDrawing called. Canvas:', canvas, 'Title:', drawingTitle);
+    if (!canvas || !drawingTitle.trim()) {
+      console.log('[DrawingView] saveDrawing aborted - missing canvas or title');
+      return;
+    }
+    const dataURL = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 });
+    console.log('[DrawingView] dataURL generated, length:', dataURL?.length);
     addDrawing({
       title: drawingTitle,
       data: dataURL,
     });
+    console.log('[DrawingView] addDrawing called');
     setDrawingTitle('');
     setShowSaveDialog(false);
   };
@@ -274,7 +247,7 @@ const DrawingView: React.FC = () => {
     if (!canvas) return;
     const link = document.createElement('a');
     link.download = `drawing-${new Date().toISOString().split('T')[0]}.png`;
-    link.href = canvas.toDataURL({ format: 'png', quality: 1 });
+    link.href = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 });
     link.click();
   };
 
@@ -287,10 +260,10 @@ const DrawingView: React.FC = () => {
             <div className="p-2.5 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 shadow-lg shadow-pink-500/30">
               <Palette size={24} className="text-white" />
             </div>
-            {translations.title}
+            {t('drawing.title')}
           </h1>
           <p className="view-subtitle">
-            {translations.subtitle}
+            {t('drawing.subtitle')}
           </p>
         </div>
 
@@ -300,14 +273,14 @@ const DrawingView: React.FC = () => {
             className="btn-success"
           >
             <Save size={18} />
-            <span className="hidden sm:inline">{translations.save}</span>
+            <span className="hidden sm:inline">{t('drawing.save')}</span>
           </button>
           <button
             onClick={downloadDrawing}
             className="btn-primary"
           >
             <Download size={18} />
-            <span className="hidden sm:inline">{translations.export}</span>
+            <span className="hidden sm:inline">{t('drawing.export')}</span>
           </button>
         </div>
       </div>
@@ -318,7 +291,7 @@ const DrawingView: React.FC = () => {
         <div className="flex-shrink-0 w-20">
           <div className="glass-card p-3 sticky top-4">
             <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3 text-center">
-              {translations.tools}
+              {t('drawing.tools')}
             </h3>
             <div className="flex flex-col gap-2">
               {/* Selection */}
@@ -328,7 +301,7 @@ const DrawingView: React.FC = () => {
                   ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30'
                   : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
-                title={translations.select}
+                title={t('drawing.select')}
               >
                 <MousePointer size={20} />
               </button>
@@ -339,7 +312,7 @@ const DrawingView: React.FC = () => {
                   ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/30'
                   : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
-                title={translations.brush}
+                title={t('drawing.brush')}
               >
                 <Brush size={20} />
               </button>
@@ -350,7 +323,7 @@ const DrawingView: React.FC = () => {
                   ? 'bg-gray-800 text-white shadow-lg'
                   : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
-                title={translations.eraser}
+                title={t('drawing.eraser')}
               >
                 <Eraser size={20} />
               </button>
@@ -361,14 +334,14 @@ const DrawingView: React.FC = () => {
                   ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/30'
                   : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
-                title={translations.text}
+                title={t('drawing.text')}
               >
                 <Type size={20} />
               </button>
               {/* Image Upload */}
               <label
                 className="p-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer flex items-center justify-center transition-all"
-                title={translations.image}
+                title={t('drawing.image')}
               >
                 <ImageIcon size={20} />
                 <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
@@ -380,7 +353,7 @@ const DrawingView: React.FC = () => {
                   ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
                   : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
-                title={translations.rectangle}
+                title={t('drawing.rectangle')}
               >
                 <Square size={20} />
               </button>
@@ -391,7 +364,7 @@ const DrawingView: React.FC = () => {
                   ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30'
                   : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
-                title={translations.circle}
+                title={t('drawing.circle')}
               >
                 <Circle size={20} />
               </button>
@@ -402,7 +375,7 @@ const DrawingView: React.FC = () => {
               <button
                 onClick={deleteSelected}
                 className="p-3 rounded-xl bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 transition-all flex items-center justify-center"
-                title={translations.deleteSelected}
+                title={t('drawing.deleteSelected')}
               >
                 <Trash2 size={20} />
               </button>
@@ -410,7 +383,7 @@ const DrawingView: React.FC = () => {
               <button
                 onClick={clearCanvas}
                 className="p-3 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 transition-all flex items-center justify-center"
-                title={translations.clearCanvas}
+                title={t('drawing.clearCanvas')}
               >
                 <RotateCcw size={20} />
               </button>
@@ -422,7 +395,7 @@ const DrawingView: React.FC = () => {
                 onClick={handleUndo}
                 disabled={historyIndex <= 0}
                 className="p-3 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 transition-all flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
-                title={translations.undo}
+                title={t('drawing.undo')}
               >
                 <Undo2 size={20} />
               </button>
@@ -431,7 +404,7 @@ const DrawingView: React.FC = () => {
                 onClick={handleRedo}
                 disabled={historyIndex >= history.length - 1}
                 className="p-3 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 transition-all flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
-                title={translations.redo}
+                title={t('drawing.redo')}
               >
                 <Redo2 size={20} />
               </button>
@@ -449,12 +422,12 @@ const DrawingView: React.FC = () => {
 
             {!canvas && (
               <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-                <p>{translations.initializing}</p>
+                <p>{t('drawing.initializing')}</p>
               </div>
             )}
           </div>
           <p className="text-center text-sm text-gray-500 mt-3">
-            {translations.tip}
+            {t('drawing.tip')}
           </p>
         </div>
 
@@ -462,13 +435,13 @@ const DrawingView: React.FC = () => {
         <div className="flex-shrink-0 w-56">
           <div className="glass-card p-4 sticky top-4 space-y-5">
             <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-              {translations.properties}
+              {t('drawing.properties')}
             </h3>
 
             {/* Size Slider */}
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                {translations.size}: {brushSize}px
+                {t('drawing.size')}: {brushSize}px
               </label>
               <input
                 type="range"
@@ -483,7 +456,7 @@ const DrawingView: React.FC = () => {
             {/* Opacity Slider */}
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                {translations.opacity}: {opacity}%
+                {t('drawing.opacity')}: {opacity}%
               </label>
               <input
                 type="range"
@@ -498,7 +471,7 @@ const DrawingView: React.FC = () => {
             {/* Color Picker */}
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                {translations.color}
+                {t('drawing.color')}
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {colors.map((color) => (
@@ -530,7 +503,7 @@ const DrawingView: React.FC = () => {
             >
               <span className="flex items-center gap-2">
                 <Layers size={16} />
-                {translations.savedDrawings}
+                {t('drawing.savedDrawings')}
               </span>
               <ChevronDown size={16} className={`transition-transform ${showSavedDrawings ? 'rotate-180' : ''}`} />
             </button>
@@ -538,7 +511,7 @@ const DrawingView: React.FC = () => {
             {showSavedDrawings && (
               <div className="max-h-40 overflow-y-auto space-y-2">
                 {drawings.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-2">{translations.noDrawings}</p>
+                  <p className="text-xs text-gray-400 text-center py-2">{t('drawing.noDrawings')}</p>
                 ) : (
                   drawings.map((drawing) => (
                     <div key={drawing.id} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
@@ -567,7 +540,7 @@ const DrawingView: React.FC = () => {
           <div className="modal-panel p-6 animate-scale-in max-w-md">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                {translations.saveMasterpiece}
+                {t('drawing.saveMasterpiece')}
               </h3>
               <button onClick={() => setShowSaveDialog(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                 <X size={20} className="text-gray-500" />
@@ -578,7 +551,7 @@ const DrawingView: React.FC = () => {
               value={drawingTitle}
               onChange={(e) => setDrawingTitle(e.target.value)}
               className="input-field mb-6"
-              placeholder={translations.enterTitle}
+              placeholder={t('drawing.enterTitle')}
               autoFocus
             />
             <div className="flex gap-3">
@@ -586,14 +559,14 @@ const DrawingView: React.FC = () => {
                 onClick={() => setShowSaveDialog(false)}
                 className="btn-secondary flex-1"
               >
-                {translations.cancel}
+                {t('drawing.cancel')}
               </button>
               <button
                 onClick={saveDrawing}
                 disabled={!drawingTitle.trim()}
                 className="btn-primary flex-1"
               >
-                {translations.save}
+                {t('drawing.save')}
               </button>
             </div>
           </div>

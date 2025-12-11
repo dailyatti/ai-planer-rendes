@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   Wallet, Plus, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
-  X, Trash2, PieChart, Repeat, Filter, BarChart3, Calendar, Check
+  X, Trash2, PieChart, Repeat, BarChart3, Check
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -9,11 +9,11 @@ import {
 } from 'recharts';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useData } from '../../contexts/DataContext';
-import { Transaction, TransactionPeriod } from '../../types/planner';
+import { TransactionPeriod } from '../../types/planner';
 
 const BudgetView: React.FC = () => {
   const { t, language } = useLanguage();
-  const { transactions, addTransaction, deleteTransaction, budgetSettings, updateBudgetSettings } = useData();
+  const { transactions, addTransaction, deleteTransaction } = useData();
 
   const [currency, setCurrency] = useState<'EUR' | 'HUF' | 'USD'>('HUF');
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'planning'>('overview');
@@ -423,7 +423,7 @@ const BudgetView: React.FC = () => {
                   value={newTransaction.description}
                   onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
                   className="input-field w-full"
-                  placeholder={transactionType === 'income' ? 'pl. Ügyfél kifizetés' : 'pl. Szoftver előfizetés'}
+                  placeholder={transactionType === 'income' ? t('budget.exampleIncome') : t('budget.exampleExpense')}
                 />
               </div>
 

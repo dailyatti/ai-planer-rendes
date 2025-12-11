@@ -10,10 +10,10 @@ interface ImportExportModalProps {
 }
 
 const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }) => {
-  const { 
+  const {
     notes, goals, plans, drawings, subscriptions, transactions, budgetSettings,
     addNote, addGoal, addPlan, addDrawing, addSubscription, addTransaction, updateBudgetSettings,
-    clearAllData 
+    clearAllData
   } = useData();
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'export' | 'import'>('export');
@@ -61,7 +61,7 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
     const jsonString = JSON.stringify(data, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    
+
     const link = document.createElement('a');
     link.href = url;
     link.download = `contentplanner-${exportType}-export-${new Date().toISOString().split('T')[0]}.json`;
@@ -78,23 +78,23 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
 
       if (!importData.trim()) {
         setImportStatus('error');
-        setImportMessage('Please paste JSON data to import');
+        setImportMessage(t('import.errorEmpty'));
         return;
       }
 
       const parsedData = JSON.parse(importData);
-      
+
       // Validate data structure
       if (!parsedData.data || typeof parsedData.data !== 'object') {
         setImportStatus('error');
-        setImportMessage('Invalid JSON format. Missing data object.');
+        setImportMessage(t('import.errorInvalid'));
         return;
       }
 
-      const { 
-        notes: importNotes = [], 
-        goals: importGoals = [], 
-        plans: importPlans = [], 
+      const {
+        notes: importNotes = [],
+        goals: importGoals = [],
+        plans: importPlans = [],
         drawings: importDrawings = [],
         subscriptions: importSubscriptions = [],
         transactions: importTransactions = [],
@@ -219,12 +219,12 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
       }
 
       setImportStatus('success');
-      setImportMessage(`Successfully imported ${importedCount} items! ${importMode === 'replace' ? 'All previous data was replaced.' : 'New items added to existing data.'}`);
+      setImportMessage(`${t('import.successPrefix')} ${importedCount} ${t('import.items')}! ${importMode === 'replace' ? t('import.replacedMsg') : t('import.mergedMsg')}`);
       setImportData('');
 
     } catch (error) {
       setImportStatus('error');
-      setImportMessage('Invalid JSON format. Please check your data and try again.');
+      setImportMessage(t('import.errorInvalid'));
     }
   };
 
@@ -247,22 +247,20 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
         <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
           <button
             onClick={() => setActiveTab('export')}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
-              activeTab === 'export'
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${activeTab === 'export'
                 ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
+              }`}
           >
             <Download size={16} className="inline mr-2" />
             {t('import.exportData')}
           </button>
           <button
             onClick={() => setActiveTab('import')}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
-              activeTab === 'import'
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${activeTab === 'import'
                 ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
+              }`}
           >
             <Upload size={16} className="inline mr-2" />
             {t('import.importData')}
@@ -287,37 +285,34 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <button
                     onClick={() => setExportType('all')}
-                    className={`p-3 rounded-lg border-2 transition-all duration-200 ${
-                      exportType === 'all'
+                    className={`p-3 rounded-lg border-2 transition-all duration-200 ${exportType === 'all'
                         ? 'border-blue-500 bg-blue-100 dark:bg-blue-800/20'
                         : 'border-blue-200 dark:border-blue-700 hover:border-blue-400'
-                    }`}
+                      }`}
                   >
                     <FileText size={20} className="mx-auto mb-2 text-blue-600 dark:text-blue-400" />
                     <div className="font-medium text-blue-900 dark:text-blue-100">{t('import.everything')}</div>
                     <div className="text-sm text-blue-700 dark:text-blue-300">{t('import.everythingDesc')}</div>
                   </button>
-                  
+
                   <button
                     onClick={() => setExportType('tasks')}
-                    className={`p-3 rounded-lg border-2 transition-all duration-200 ${
-                      exportType === 'tasks'
+                    className={`p-3 rounded-lg border-2 transition-all duration-200 ${exportType === 'tasks'
                         ? 'border-blue-500 bg-blue-100 dark:bg-blue-800/20'
                         : 'border-blue-200 dark:border-blue-700 hover:border-blue-400'
-                    }`}
+                      }`}
                   >
                     <CheckCircle size={20} className="mx-auto mb-2 text-blue-600 dark:text-blue-400" />
                     <div className="font-medium text-blue-900 dark:text-blue-100">{t('import.tasksOnly')}</div>
                     <div className="text-sm text-blue-700 dark:text-blue-300">{t('import.tasksOnlyDesc')}</div>
                   </button>
-                  
+
                   <button
                     onClick={() => setExportType('budget')}
-                    className={`p-3 rounded-lg border-2 transition-all duration-200 ${
-                      exportType === 'budget'
+                    className={`p-3 rounded-lg border-2 transition-all duration-200 ${exportType === 'budget'
                         ? 'border-blue-500 bg-blue-100 dark:bg-blue-800/20'
                         : 'border-blue-200 dark:border-blue-700 hover:border-blue-400'
-                    }`}
+                      }`}
                   >
                     <DollarSign size={20} className="mx-auto mb-2 text-blue-600 dark:text-blue-400" />
                     <div className="font-medium text-blue-900 dark:text-blue-100">{t('import.budgetOnly')}</div>
@@ -325,7 +320,7 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
                   </button>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
                 {(exportType === 'all' || exportType === 'tasks') && (
                   <>
@@ -366,9 +361,9 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
                 className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors duration-200"
               >
                 <Download size={20} />
-                {exportType === 'all' ? t('import.exportAllData') : 
-                 exportType === 'tasks' ? t('import.exportTasks') : 
-                 t('import.exportBudgetData')}
+                {exportType === 'all' ? t('import.exportAllData') :
+                  exportType === 'tasks' ? t('import.exportTasks') :
+                    t('import.exportBudgetData')}
               </button>
             </div>
           </div>
@@ -392,24 +387,22 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <button
                     onClick={() => setImportMode('merge')}
-                    className={`p-3 rounded-lg border-2 transition-all duration-200 ${
-                      importMode === 'merge'
+                    className={`p-3 rounded-lg border-2 transition-all duration-200 ${importMode === 'merge'
                         ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
                         : 'border-gray-200 dark:border-gray-600 hover:border-green-300'
-                    }`}
+                      }`}
                   >
                     <Plus size={20} className="mx-auto mb-2 text-green-500" />
                     <div className="font-medium text-gray-900 dark:text-white">{t('import.addToExisting')}</div>
                     <div className="text-sm text-gray-600 dark:text-gray-400">{t('import.addToExistingDesc')}</div>
                   </button>
-                  
+
                   <button
                     onClick={() => setImportMode('replace')}
-                    className={`p-3 rounded-lg border-2 transition-all duration-200 ${
-                      importMode === 'replace'
+                    className={`p-3 rounded-lg border-2 transition-all duration-200 ${importMode === 'replace'
                         ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
                         : 'border-gray-200 dark:border-gray-600 hover:border-orange-300'
-                    }`}
+                      }`}
                   >
                     <RefreshCw size={20} className="mx-auto mb-2 text-orange-500" />
                     <div className="font-medium text-gray-900 dark:text-white">{t('import.replaceAll')}</div>
@@ -447,11 +440,10 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
 
               {/* Import Status */}
               {importStatus !== 'idle' && (
-                <div className={`p-3 rounded-lg mb-4 ${
-                  importStatus === 'success' 
-                    ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200' 
+                <div className={`p-3 rounded-lg mb-4 ${importStatus === 'success'
+                    ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200'
                     : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200'
-                }`}>
+                  }`}>
                   <div className="flex items-center gap-2">
                     {importStatus === 'success' ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
                     <span className="font-medium">
