@@ -341,19 +341,28 @@ const DrawingView: React.FC = () => {
     };
   }, [fabricCanvas, state.tool]);
 
-  // --- Persistence (PhD Level Auto-Save) ---
+  // --- Persistence (Professional Level) ---
   const saveToLocalStorage = useCallback(() => {
     if (!fabricCanvas) return;
-    const json = JSON.stringify(fabricCanvas.toJSON());
-    localStorage.setItem('drawing_draft', json);
+    try {
+      const json = fabricCanvas.toJSON();
+      const dataToSave = {
+        version: '0.3.3',
+        timestamp: new Date().toISOString(),
+        canvas: json
+      };
+      localStorage.setItem('planner-drawing-state', JSON.stringify(dataToSave));
 
-    // Update History
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(json);
-    if (newHistory.length > 50) newHistory.shift();
+      // Update History
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push(JSON.stringify(json));
+      if (newHistory.length > 50) newHistory.shift();
 
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+    } catch (e) {
+      console.error('Failed to save drawing state:', e);
+    }
   }, [fabricCanvas, history, historyIndex]);
 
   // Debounced Save on changes
@@ -376,24 +385,53 @@ const DrawingView: React.FC = () => {
     };
   }, [fabricCanvas, saveToLocalStorage]);
 
-  // Restore from Storage
+  // Restore from Storage (Robust & Safe)
   useEffect(() => {
     if (!fabricCanvas) return;
-    const saved = localStorage.getItem('drawing_draft');
-    if (saved) {
-      fabricCanvas.loadFromJSON(saved, () => {
-        fabricCanvas.renderAll();
-        setHistory([saved]);
-        setHistoryIndex(0);
+
+    const loadState = async () => {
+      try {
+        const saved = localStorage.getItem('planner-drawing-state');
+        // Try legacy key if new one missing
+        const legacy = localStorage.getItem('drawing_draft');
+
+        let jsonData = null;
+
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          jsonData = parsed.canvas || parsed; // Handle both new wrapped format and old flat JSON
+        } else if (legacy) {
+          jsonData = JSON.parse(legacy);
+        }
+
+        if (jsonData) {
+          await new Promise<void>((resolve) => {
+            fabricCanvas.loadFromJSON(jsonData, () => {
+              fabricCanvas.renderAll();
+              resolve();
+            });
+          });
+          setHistory([JSON.stringify(jsonData)]);
+          setHistoryIndex(0);
+          console.log('[DrawingView] State restored successfully');
+        } else {
+          // Initialize empty history
+          setHistory([JSON.stringify(fabricCanvas.toJSON())]);
+          setHistoryIndex(0);
+        }
+      } catch (error) {
+        console.error('[DrawingView] Failed to restore state:', error);
+        // Fallback to clear canvas on error to prevent broken UI
+        fabricCanvas.clear();
+      } finally {
+        // ALWAYS turn off loading, even if error occurs
         setIsLoading(false);
-        console.log('[DrawingView] Restored draft');
-      });
-    } else {
-      setIsLoading(false);
-      const json = JSON.stringify(fabricCanvas.toJSON());
-      setHistory([json]);
-      setHistoryIndex(0);
-    }
+      }
+    };
+
+    // Small delay to ensure render
+    setTimeout(loadState, 100);
+
   }, [fabricCanvas]);
 
   // --- Actions ---
