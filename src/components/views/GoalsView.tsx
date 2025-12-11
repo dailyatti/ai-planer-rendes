@@ -207,7 +207,7 @@ const GoalsView: React.FC = () => {
                   onChange={(e) => setNewGoal({ ...newGoal, title: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500"
                   required
-                  placeholder="e.g. Reach 100k YouTube subscribers"
+                  placeholder={t('goals.placeholderTitle')}
                 />
               </div>
 
@@ -220,7 +220,7 @@ const GoalsView: React.FC = () => {
                   onChange={(e) => setNewGoal({ ...newGoal, description: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500"
                   rows={3}
-                  placeholder="Why is this goal important? What steps are needed?"
+                  placeholder={t('goals.placeholderDesc')}
                 />
               </div>
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Mic, MicOff, Loader2, X, Volume2, VolumeX, Sparkles } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface VoiceAssistantProps {
     apiKey?: string;
@@ -17,6 +18,7 @@ interface VoiceCommand {
 }
 
 // Tool definitions for Gemini Live API
+/*
 const voiceAssistantTools = [
     {
         name: 'navigate_to_view',
@@ -112,6 +114,7 @@ const voiceAssistantTools = [
         parameters: { type: 'object', properties: {} }
     }
 ];
+*/
 
 const getSystemInstruction = (language: string, currentView: string) => {
     const isHungarian = language === 'hu';
@@ -152,21 +155,22 @@ If the user says "stop", "goodbye", or "exit", call the disconnect_assistant too
 
 export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     apiKey,
-    onCommand,
+    // onCommand,
     currentLanguage,
     currentView
 }) => {
+    const { t } = useLanguage();
     const [isActive, setIsActive] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
     const [volume, setVolume] = useState(0);
-    const [transcript, setTranscript] = useState('');
+    // const [transcript, setTranscript] = useState('');
     const [showPanel, setShowPanel] = useState(false);
 
     // Refs for audio handling
     const audioContextRef = useRef<AudioContext | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
-    const sessionRef = useRef<any>(null);
+    // const sessionRef = useRef<any>(null);
     const analyzerRef = useRef<AnalyserNode | null>(null);
 
     // Volume visualization
@@ -239,7 +243,8 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
         setIsActive(false);
         setShowPanel(false);
         setVolume(0);
-        setTranscript('');
+
+        // setTranscript('');
     }, []);
 
     const toggleMute = () => {
@@ -314,9 +319,8 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             {showPanel && (
                 <div
                     className={`
-            fixed bottom-24 right-6 z-[9998]
-            w-80 max-w-[calc(100vw-3rem)]
-            bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl
+            fixed bottom-24 right-6 z-[9999]
+            w-80 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl
             rounded-2xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50
             transition-all duration-300 transform
             ${showPanel ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}
@@ -329,7 +333,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                                 <Sparkles size={14} className="text-white" />
                             </div>
                             <span className="font-semibold text-sm text-gray-900 dark:text-white">
-                                AI Voice Assistant
+                                {t('voice.title')}
                             </span>
                         </div>
                         <div className="flex items-center gap-1">
@@ -373,21 +377,16 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
 
                         {/* Status text */}
                         <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-                            {currentLanguage === 'hu'
-                                ? 'Hallgatlak... Mondd el, miben segíthetek!'
-                                : "I'm listening... Tell me how I can help!"}
+                            {t('voice.listening')}
                         </p>
 
                         {/* Quick commands */}
                         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                             <p className="text-xs text-gray-500 dark:text-gray-500 mb-2">
-                                {currentLanguage === 'hu' ? 'Próbáld ki:' : 'Try saying:'}
+                                {t('voice.trySaying')}
                             </p>
                             <div className="flex flex-wrap gap-2">
-                                {(currentLanguage === 'hu'
-                                    ? ['Mutasd a mai terveket', 'Új feladat', 'Menj a célokhoz']
-                                    : ["Show today's plans", 'Create a task', 'Go to goals']
-                                ).map((cmd, i) => (
+                                {[t('voice.example1'), t('voice.example2'), t('voice.example3')].map((cmd, i) => (
                                     <span
                                         key={i}
                                         className="inline-block px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 
@@ -404,5 +403,3 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
         </>
     );
 };
-
-export default VoiceAssistant;
