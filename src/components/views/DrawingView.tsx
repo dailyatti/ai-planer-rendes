@@ -54,10 +54,20 @@ const DrawingView: React.FC = () => {
 
     setCanvas(fabricCanvas);
 
-    // Save initial state
-    const json = JSON.stringify(fabricCanvas.toJSON());
-    setHistory([json]);
-    setHistoryIndex(0);
+    // Save initial state or restore from draft
+    const savedDraft = localStorage.getItem('drawing_draft');
+    if (savedDraft) {
+      fabricCanvas.loadFromJSON(savedDraft, () => {
+        fabricCanvas.renderAll();
+        setHistory([savedDraft]);
+        setHistoryIndex(0);
+        console.log('[DrawingView] Draft restored from localStorage');
+      });
+    } else {
+      const json = JSON.stringify(fabricCanvas.toJSON());
+      setHistory([json]);
+      setHistoryIndex(0);
+    }
 
     const handleResize = () => {
       if (containerRef.current) {
@@ -76,7 +86,7 @@ const DrawingView: React.FC = () => {
     };
   }, []);
 
-  // Save state for undo/redo
+  // Save state for undo/redo and auto-save
   const saveState = useCallback(() => {
     if (!canvas) return;
     const json = JSON.stringify(canvas.toJSON());
@@ -84,6 +94,9 @@ const DrawingView: React.FC = () => {
     newHistory.push(json);
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
+
+    // Auto-save draft
+    localStorage.setItem('drawing_draft', json);
   }, [canvas, history, historyIndex]);
 
   // Listen for canvas changes
@@ -212,6 +225,7 @@ const DrawingView: React.FC = () => {
     canvas.backgroundColor = '#ffffff';
     canvas.renderAll();
     saveState();
+    localStorage.removeItem('drawing_draft');
   };
 
   const deleteSelected = () => {
