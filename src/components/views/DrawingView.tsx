@@ -400,14 +400,13 @@ const DrawingView: React.FC = () => {
     const loadState = async () => {
       try {
         const saved = localStorage.getItem('planner-drawing-state');
-        // Try legacy key if new one missing
         const legacy = localStorage.getItem('drawing_draft');
 
         let jsonData = null;
 
         if (saved) {
           const parsed = JSON.parse(saved);
-          jsonData = parsed.canvas || parsed; // Handle both new wrapped format and old flat JSON
+          jsonData = parsed.canvas || parsed;
         } else if (legacy) {
           jsonData = JSON.parse(legacy);
         }
@@ -419,21 +418,29 @@ const DrawingView: React.FC = () => {
               resolve();
             });
           });
+
+          // Force layout recalculation and second render frame
+          // This is critical for objects to appear immediately
+          fabricCanvas.setDimensions({
+            width: containerRef.current?.clientWidth || 800,
+            height: containerRef.current?.clientHeight || 600
+          });
+          fabricCanvas.requestRenderAll();
+
           setHistory([JSON.stringify(jsonData)]);
           setHistoryIndex(0);
           console.log('[DrawingView] State restored successfully');
         } else {
-          // Initialize empty history
           setHistory([JSON.stringify(fabricCanvas.toJSON())]);
           setHistoryIndex(0);
         }
       } catch (error) {
         console.error('[DrawingView] Failed to restore state:', error);
-        // Fallback to clear canvas on error to prevent broken UI
         fabricCanvas.clear();
       } finally {
-        // ALWAYS turn off loading, even if error occurs
         setIsLoading(false);
+        // Triple check render after loading flag is off
+        setTimeout(() => fabricCanvas?.requestRenderAll(), 100);
       }
     };
 
