@@ -42,6 +42,14 @@ const DrawingView: React.FC = () => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Failsafe: Force loading to stop after 2s to prevent infinite spinner
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
   // --- Initialization ---
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
