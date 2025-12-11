@@ -6,7 +6,7 @@ import { DataProvider } from './contexts/DataContext';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
-import VoiceAssistant from './components/VoiceAssistant';
+import { VoiceAssistant } from './components/VoiceAssistant';
 import { ViewType } from './types/planner';
 
 function AppContent() {
