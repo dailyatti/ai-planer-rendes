@@ -68,6 +68,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
   const [companyProfiles, setCompanyProfiles] = useState<CompanyProfile[]>([]);
 
+  const [isInitialized, setIsInitialized] = useState(false);
+
   // Load data from localStorage on mount
   useEffect(() => {
     const loadData = () => {
@@ -166,6 +168,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (error) {
         console.error('Error loading data from localStorage:', error);
+      } finally {
+        setIsInitialized(true);
       }
     };
 
@@ -174,6 +178,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Helper for safe storage
   const saveToStorage = (key: string, data: any) => {
+    if (!isInitialized) return;
     try {
       localStorage.setItem(key, JSON.stringify(data));
     } catch (error) {

@@ -506,14 +506,14 @@ const InvoicingView: React.FC = () => {
                                     <div className="flex items-center justify-between">
                                         <h3 className="text-sm font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
                                             <Building2 size={16} />
-                                            {language === 'hu' ? 'Kiállító (Cég)' : 'Issuer (Company)'}
+                                            {t('company.issuer')}
                                         </h3>
                                         <button onClick={() => setShowAddCompanyProfile(true)} className="text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 flex items-center gap-1 hover:underline">
-                                            <Plus size={14} /> {language === 'hu' ? 'Új Cég' : 'New Company'}
+                                            <Plus size={14} /> {t('company.new')}
                                         </button>
                                     </div>
                                     <select className="input-field w-full bg-white dark:bg-gray-800" value={selectedCompanyId} onChange={(e) => setSelectedCompanyId(e.target.value)}>
-                                        <option value="">{language === 'hu' ? 'Válassz céget...' : 'Select company...'}</option>
+                                        <option value="">{t('company.select')}</option>
                                         {companyProfiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                     </select>
                                     {selectedCompanyId && (() => {
@@ -536,14 +536,14 @@ const InvoicingView: React.FC = () => {
                                     <div className="flex items-center justify-between">
                                         <h3 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2">
                                             <User size={16} />
-                                            {language === 'hu' ? 'Vevő (Ügyfél)' : 'Buyer (Client)'}
+                                            {t('client.buyer')}
                                         </h3>
                                         <button onClick={() => setShowAddClient(true)} className="text-xs text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 flex items-center gap-1 hover:underline">
-                                            <Plus size={14} /> {language === 'hu' ? 'Új Ügyfél' : 'New Client'}
+                                            <Plus size={14} /> {t('client.new')}
                                         </button>
                                     </div>
                                     <select className="input-field w-full bg-white dark:bg-gray-800" value={newInvoice.clientId || ''} onChange={(e) => setNewInvoice({ ...newInvoice, clientId: e.target.value })}>
-                                        <option value="">{language === 'hu' ? 'Válassz ügyfelet...' : 'Select client...'}</option>
+                                        <option value="">{t('client.select')}</option>
                                         {clients.map(c => <option key={c.id} value={c.id}>{c.name} - {c.company}</option>)}
                                     </select>
                                     {newInvoice.clientId && (() => {
@@ -744,7 +744,7 @@ const InvoicingView: React.FC = () => {
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-lg font-bold flex items-center gap-2">
                                 <Building2 className="text-indigo-600" size={20} />
-                                {language === 'hu' ? 'Új Céges Profil' : 'New Company Profile'}
+                                {t('company.new')}
                             </h3>
                             <button onClick={() => setShowAddCompanyProfile(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
                                 <X size={18} />
@@ -761,18 +761,18 @@ const InvoicingView: React.FC = () => {
                                     )}
                                 </div>
                                 <label className="btn-secondary text-sm cursor-pointer">
-                                    {language === 'hu' ? 'Logo Feltöltése' : 'Upload Logo'}
+                                    {t('company.uploadLogo')}
                                     <input type="file" accept="image/*" className="hidden" onChange={handleCompanyLogoUpload} />
                                 </label>
                             </div>
-                            <input type="text" className="input-field" placeholder={language === 'hu' ? 'Cég neve *' : 'Company Name *'} value={newCompanyProfile.name || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, name: e.target.value })} />
-                            <input type="text" className="input-field" placeholder={language === 'hu' ? 'Cím' : 'Address'} value={newCompanyProfile.address || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, address: e.target.value })} />
+                            <input type="text" className="input-field" placeholder={`${t('company.name')} *`} value={newCompanyProfile.name || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, name: e.target.value })} />
+                            <input type="text" className="input-field" placeholder={t('company.address')} value={newCompanyProfile.address || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, address: e.target.value })} />
                             <div className="grid grid-cols-2 gap-3">
-                                <input type="email" className="input-field" placeholder={language === 'hu' ? 'Email *' : 'Email *'} value={newCompanyProfile.email || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, email: e.target.value })} />
-                                <input type="text" className="input-field" placeholder={language === 'hu' ? 'Telefon' : 'Phone'} value={newCompanyProfile.phone || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, phone: e.target.value })} />
+                                <input type="email" className="input-field" placeholder={`${t('company.email')} *`} value={newCompanyProfile.email || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, email: e.target.value })} />
+                                <input type="text" className="input-field" placeholder={t('company.phone')} value={newCompanyProfile.phone || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, phone: e.target.value })} />
                             </div>
-                            <input type="text" className="input-field" placeholder={language === 'hu' ? 'Adószám' : 'Tax Number'} value={newCompanyProfile.taxNumber || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, taxNumber: e.target.value })} />
-                            <input type="text" className="input-field" placeholder={language === 'hu' ? 'Bankszámlaszám' : 'Bank Account'} value={newCompanyProfile.bankAccount || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, bankAccount: e.target.value })} />
+                            <input type="text" className="input-field" placeholder={t('company.taxNumber')} value={newCompanyProfile.taxNumber || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, taxNumber: e.target.value })} />
+                            <input type="text" className="input-field" placeholder={t('company.bankAccount')} value={newCompanyProfile.bankAccount || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, bankAccount: e.target.value })} />
                             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                                 <button onClick={() => setShowAddCompanyProfile(false)} className="btn-ghost">{t('common.cancel')}</button>
                                 <button onClick={handleAddCompanyProfileSubmit} className="btn-primary">{t('common.save')}</button>
