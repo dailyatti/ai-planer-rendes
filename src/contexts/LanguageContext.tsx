@@ -2,6 +2,12 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export type Language = 'en' | 'hu' | 'ro' | 'sk' | 'hr' | 'de' | 'fr' | 'es' | 'it' | 'pl' | 'cn' | 'jp' | 'pt' | 'tr' | 'ar' | 'ru' | 'hi' | 'bn' | 'ur' | 'th' | 'id';
 
+// Map language to text direction
+const languageDirections: Record<Language, 'ltr' | 'rtl'> = {
+  en: 'ltr', hu: 'ltr', ro: 'ltr', sk: 'ltr', hr: 'ltr', de: 'ltr', fr: 'ltr', es: 'ltr', it: 'ltr', pl: 'ltr', cn: 'ltr', jp: 'ltr', pt: 'ltr', tr: 'ltr',
+  ar: 'rtl', ru: 'ltr', hi: 'ltr', bn: 'ltr', ur: 'ltr', th: 'ltr', id: 'ltr'
+};
+
 type LanguageName = {
   [key in Language]: string;
 };
@@ -559,27 +565,45 @@ const translations: Translations = {
   'days.short.thursday': { en: 'Thu', hu: 'Cs', ro: 'J', sk: 'Št', hr: 'Thu', de: 'Do', fr: 'Jeu', es: 'Jue', it: 'Gio', pl: 'Czw', cn: '四', jp: '木', pt: 'Thu', tr: 'Per', ar: 'خ', ru: 'Чт', hi: 'गुरु', bn: 'Thu', ur: 'Thu', th: 'Thu', id: 'Thu' },
   'days.short.friday': { en: 'Fri', hu: 'P', ro: 'Vi', sk: 'Pi', hr: 'Fri', de: 'Fr', fr: 'Ven', es: 'Vie', it: 'Ven', pl: 'Pt', cn: '五', jp: '金', pt: 'Fri', tr: 'Cum', ar: 'ج', ru: 'Пт', hi: 'शुक्र', bn: 'Fri', ur: 'Fri', th: 'Fri', id: 'Fri' },
   'days.short.saturday': { en: 'Sat', hu: 'Szo', ro: 'Sâ', sk: 'So', hr: 'Sat', de: 'Sa', fr: 'Sam', es: 'Sáb', it: 'Sab', pl: 'So', cn: '六', jp: '土', pt: 'Sat', tr: 'Cmt', ar: 'س', ru: 'Сб', hi: 'शनि', bn: 'Sat', ur: 'Sat', th: 'Sat', id: 'Sat' },
-  'days.short.sunday': { en: 'Sun', hu: 'V', ro: 'Du', sk: 'Ne', hr: 'Sun', de: 'So', fr: 'Dim', es: 'Dom', it: 'Dom', pl: 'Nd', cn: '日', jp: '日', pt: 'Sun', tr: 'Paz', ar: 'أ', ru: 'Вс', hi: 'रवि', bn: 'Sun', ur: 'Sun', th: 'Sun', id: 'Sun' }
+  'days.short.sunday': { en: 'Sun', hu: 'V', ro: 'Du', sk: 'Ne', hr: 'Sun', de: 'So', fr: 'Dim', es: 'Dom', it: 'Dom', pl: 'Nd', cn: '日', jp: '日', pt: 'Sun', tr: 'Paz', ar: 'ن', ru: 'Вс', hi: 'रवि', bn: 'Sun', ur: 'Sun', th: 'Sun', id: 'Sun' }
+};
+
+type Language = 'en' | 'hu' | 'ro' | 'sk' | 'hr' | 'de' | 'fr' | 'es' | 'it' | 'pl' | 'cn' | 'jp' | 'pt' | 'tr' | 'ar' | 'ru' | 'hi' | 'bn' | 'ur' | 'th' | 'id';
+
+const languageDirections: Record<Language, 'ltr' | 'rtl'> = {
+  en: 'ltr', hu: 'ltr', ro: 'ltr', sk: 'ltr', hr: 'ltr', de: 'ltr', fr: 'ltr', es: 'ltr', it: 'ltr', pl: 'ltr', cn: 'ltr', jp: 'ltr', pt: 'ltr', tr: 'ltr', id: 'ltr', th: 'ltr',
+  ar: 'rtl', ru: 'ltr', hi: 'ltr', bn: 'ltr', ur: 'rtl',
 };
 
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
+  changeLanguage: (lang: Language) => void;
   t: (key: string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const validLanguages: Language[] = ['en', 'hu', 'ro', 'sk', 'hr', 'de', 'fr', 'es', 'it', 'pl', 'cn', 'jp', 'pt', 'tr', 'ar', 'ru', 'hi', 'bn', 'ur', 'th', 'id'];
+
   const [language, setLanguage] = useState<Language>(() => {
     const saved = localStorage.getItem('language');
-    const validLanguages: Language[] = ['en', 'hu', 'ro', 'sk', 'hr', 'de', 'fr', 'es', 'it', 'pl', 'cn', 'jp', 'pt', 'tr', 'ar', 'ru', 'hi', 'bn', 'ur', 'th', 'id'];
-    return (saved && validLanguages.includes(saved as Language)) ? (saved as Language) : 'en';
+    const initialLang = (saved && validLanguages.includes(saved as Language)) ? (saved as Language) : 'en';
+    document.documentElement.dir = languageDirections[initialLang] || 'ltr';
+    return initialLang;
   });
 
   useEffect(() => {
     localStorage.setItem('language', language);
   }, [language]);
+
+  const changeLanguage = (lang: Language) => {
+    setLanguage(lang);
+    const dir = languageDirections[lang];
+    document.documentElement.dir = dir;
+    document.documentElement.lang = lang;
+  };
 
   const t = (key: string): string => {
     if (!translations[key]) {
@@ -590,7 +614,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={{ language, setLanguage, changeLanguage, t }}>
       {children}
     </LanguageContext.Provider>
   );
