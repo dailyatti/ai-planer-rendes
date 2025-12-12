@@ -27,6 +27,16 @@ const SettingsView: React.FC = () => {
     { code: 'pl', name: t('lang.polish'), nativeName: 'Polski' },
     { code: 'cn', name: t('lang.chinese'), nativeName: '中文' },
     { code: 'jp', name: t('lang.japanese'), nativeName: '日本語' },
+    { code: 'pt', name: t('lang.portuguese'), nativeName: 'Português' },
+    { code: 'tr', name: t('lang.turkish'), nativeName: 'Türkçe' },
+    { code: 'ar', name: t('lang.arabic'), nativeName: 'العربية' },
+    { code: 'ru', name: t('lang.russian'), nativeName: 'Русский' },
+    { code: 'hi', name: t('lang.hindi'), nativeName: 'हिन्दी' },
+    { code: 'bn', name: t('lang.bengali'), nativeName: 'বাংলা' },
+    { code: 'ur', name: t('lang.urdu'), nativeName: 'اردو' },
+    { code: 'th', name: t('lang.thai'), nativeName: 'ไทย' },
+    { code: 'id', name: t('lang.indonesian'), nativeName: 'Bahasa Indonesia' },
+    { code: 'ko', name: t('lang.korean'), nativeName: '한국어' },
   ];
   const themes = ['System', 'Light', 'Dark', 'Auto'];
 

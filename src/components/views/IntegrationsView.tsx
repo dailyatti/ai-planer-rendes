@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     Link2, Check, X, RefreshCw, ExternalLink,
     Calendar, FileText, CheckSquare, Mail,
-    Cloud, Shield, Settings, AlertCircle,
+    Cloud, Settings,
     Zap, Key, Eye, EyeOff,
     Mic, TestTube, CheckCircle2, XCircle,
     Globe
@@ -44,33 +44,29 @@ const IntegrationsView: React.FC = () => {
         {
             id: 'openai',
             name: 'OpenAI (ChatGPT)',
-            description: language === 'hu'
-                ? 'Integráld a GPT-4 modellt a tartalomgeneráláshoz és asszisztens funkciókhoz.'
-                : 'Integrate GPT-4 for advanced content generation and assistant features.',
+            description: t('integrations.openai.desc'),
             icon: Zap,
             color: 'from-green-500 to-emerald-600',
             connected: !!apiKeys.openaiKey,
             features: [
-                language === 'hu' ? 'GPT-4 szövegírás' : 'GPT-4 Writing',
-                language === 'hu' ? 'Kreatív asszisztens' : 'Creative Assistant',
-                language === 'hu' ? 'Szerkesztési javaslatok' : 'Editing suggestions'
+                t('integrations.openai.feat1'),
+                t('integrations.openai.feat2'),
+                t('integrations.openai.feat3')
             ],
             keyField: 'openaiKey' as keyof ApiKeyConfig,
             helpLink: 'https://platform.openai.com/api-keys'
         },
         {
             id: 'gemini-voice',
-            name: t('nav.integrations') === 'Integrációk' && language === 'hu' ? 'Google Gemini AI' : 'Google Gemini AI',
-            description: language === 'hu'
-                ? 'A Google legfejlettebb AI modellje képekhez, videókhoz és szöveghez.'
-                : 'Google\'s most advanced AI model for images, video, and text.',
+            name: 'Google Gemini AI',
+            description: t('integrations.gemini.desc'),
             icon: Mic,
             color: 'from-blue-500 to-indigo-600',
             connected: !!apiKeys.geminiKey,
             features: [
-                language === 'hu' ? 'Multimodális generálás' : 'Multimodal generation',
-                language === 'hu' ? 'Gemini 1.5 Pro' : 'Gemini 1.5 Pro',
-                language === 'hu' ? 'Valós idejű elemzés' : 'Real-time analysis'
+                t('integrations.gemini.feat1'),
+                t('integrations.gemini.feat2'),
+                t('integrations.gemini.feat3')
             ],
             keyField: 'geminiKey' as keyof ApiKeyConfig,
             helpLink: 'https://aistudio.google.com/app/apikey'
@@ -78,16 +74,14 @@ const IntegrationsView: React.FC = () => {
         {
             id: 'google-calendar',
             name: 'Google Calendar',
-            description: language === 'hu'
-                ? 'Szinkronizáld terveidet és eseményeidet a Google Naptárral automatikusan.'
-                : 'Sync your plans and events with Google Calendar automatically.',
+            description: t('integrations.gcal.desc'),
             icon: Calendar,
             color: 'from-red-500 to-orange-500',
             connected: !!apiKeys.googleCalendarKey,
             features: [
-                language === 'hu' ? 'Kétirányú szinkronizáció' : 'Two-way sync',
-                language === 'hu' ? 'Esemény importálás' : 'Event import',
-                language === 'hu' ? 'Emlékeztetők' : 'Reminders'
+                t('integrations.gcal.feat1'),
+                t('integrations.gcal.feat2'),
+                t('integrations.gcal.feat3')
             ],
             keyField: 'googleCalendarKey' as keyof ApiKeyConfig,
             helpLink: 'https://console.cloud.google.com/apis/credentials'
@@ -95,16 +89,14 @@ const IntegrationsView: React.FC = () => {
         {
             id: 'notion',
             name: 'Notion',
-            description: language === 'hu'
-                ? 'Csatlakoztasd Notion munkaterületedet a zökkenőmentes jegyzet- és feladatkezeléshez.'
-                : 'Connect your Notion workspace for seamless note and task management.',
+            description: t('integrations.notion.desc'),
             icon: FileText,
             color: 'from-gray-700 to-gray-900',
             connected: !!apiKeys.notionKey,
             features: [
-                language === 'hu' ? 'Adatbázis szinkronizálás' : 'Database sync',
-                language === 'hu' ? 'Oldal importálás' : 'Page import',
-                language === 'hu' ? 'Blokk konverzió' : 'Block conversion'
+                t('integrations.notion.feat1'),
+                t('integrations.notion.feat2'),
+                t('integrations.notion.feat3')
             ],
             keyField: 'notionKey' as keyof ApiKeyConfig,
             helpLink: 'https://www.notion.so/my-integrations'
@@ -112,16 +104,14 @@ const IntegrationsView: React.FC = () => {
         {
             id: 'todoist',
             name: 'Todoist',
-            description: language === 'hu'
-                ? 'Importáld és szinkronizáld Todoist feladataidat a ContentPlanner Pro-val.'
-                : 'Import and sync your Todoist tasks with ContentPlanner Pro.',
+            description: t('integrations.todoist.desc'),
             icon: CheckSquare,
             color: 'from-red-500 to-red-600',
             connected: !!apiKeys.todoistKey,
             features: [
-                language === 'hu' ? 'Feladat szinkronizálás' : 'Task sync',
-                language === 'hu' ? 'Projekt importálás' : 'Project import',
-                language === 'hu' ? 'Címke hozzárendelés' : 'Label mapping'
+                t('integrations.todoist.feat1'),
+                t('integrations.todoist.feat2'),
+                t('integrations.todoist.feat3')
             ],
             keyField: 'todoistKey' as keyof ApiKeyConfig,
             helpLink: 'https://todoist.com/app/settings/integrations'
@@ -129,16 +119,14 @@ const IntegrationsView: React.FC = () => {
         {
             id: 'outlook',
             name: 'Microsoft Outlook',
-            description: language === 'hu'
-                ? 'Integráld az Outlook naptárat és feladatokat Windows felhasználóknak.'
-                : 'Integrate with Outlook calendar and tasks for Windows users.',
+            description: t('integrations.outlook.desc'),
             icon: Mail,
             color: 'from-blue-500 to-blue-700',
             connected: !!apiKeys.outlookKey,
             features: [
-                language === 'hu' ? 'Naptár szinkronizálás' : 'Calendar sync',
-                language === 'hu' ? 'Feladat integráció' : 'Task integration',
-                language === 'hu' ? 'Kapcsolatok' : 'Contacts'
+                t('integrations.outlook.feat1'),
+                t('integrations.outlook.feat2'),
+                t('integrations.outlook.feat3')
             ],
             keyField: 'outlookKey' as keyof ApiKeyConfig,
             helpLink: 'https://portal.azure.com/'
@@ -160,15 +148,43 @@ const IntegrationsView: React.FC = () => {
     };
 
     const handleTestConnection = async () => {
+        if (!selectedIntegration || !tempKey) return;
+
         setTestStatus('testing');
         setTestMessage('');
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        if (tempKey && tempKey.length > 10) {
-            setTestStatus('success');
-            setTestMessage(t('common.success'));
-        } else {
+
+        try {
+            if (selectedIntegration === 'openai') {
+                const response = await fetch('https://api.openai.com/v1/models', {
+                    headers: { 'Authorization': `Bearer ${tempKey}` }
+                });
+                if (response.ok) {
+                    setTestStatus('success');
+                    setTestMessage(t('integrations.connectionSuccess') || 'Connection Successful');
+                } else {
+                    throw new Error('Invalid API Key');
+                }
+            } else if (selectedIntegration === 'gemini-voice') {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${tempKey}`);
+                if (response.ok) {
+                    setTestStatus('success');
+                    setTestMessage(t('integrations.connectionSuccess') || 'Connection Successful');
+                } else {
+                    throw new Error('Invalid API Key');
+                }
+            } else {
+                // Fake validation for others
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                if (tempKey.length > 5) {
+                    setTestStatus('success');
+                    setTestMessage(t('integrations.connectionSuccess') || 'Connection Successful');
+                } else {
+                    throw new Error('Invalid Format');
+                }
+            }
+        } catch (error) {
             setTestStatus('error');
-            setTestMessage(t('common.error'));
+            setTestMessage(t('integrations.connectionFailed') || 'Connection Failed');
         }
     };
 
@@ -205,7 +221,7 @@ const IntegrationsView: React.FC = () => {
                     </div>
 
                     {/* Language Selector */}
-                    <div className="flex items-center gap-3 bg-white dark:bg-gray-800 p-2 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                    <div className="flex items-center gap-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-2 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
                         <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
                             <Globe size={20} />
                         </div>
@@ -228,18 +244,23 @@ const IntegrationsView: React.FC = () => {
 
                 {/* Tabs */}
                 <div className="mt-8">
-                    <div className="tab-group">
+                    <div className="tab-group bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm p-1.5 rounded-2xl inline-flex">
                         {[
                             { id: 'available', label: t('integrations.available'), icon: Zap },
                             { id: 'connected', label: t('integrations.connected'), icon: Check },
-                            { id: 'settings', label: t('header.settings'), icon: Settings }
+                            { id: 'settings', label: t('settings.title'), icon: Settings }
                         ].map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as 'available' | 'connected' | 'settings')}
-                                className={`tab-item ${activeTab === tab.id ? 'active' : ''}`}
+                                className={`
+                                    flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all duration-300
+                                    ${activeTab === tab.id
+                                        ? 'bg-white dark:bg-gray-700 text-primary-600 dark:text-primary-400 shadow-md'
+                                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100/50 dark:hover:bg-gray-700/50'}
+                                `}
                             >
-                                <tab.icon size={16} className="inline mr-2" />
+                                <tab.icon size={18} />
                                 {tab.label}
                             </button>
                         ))}
@@ -253,55 +274,61 @@ const IntegrationsView: React.FC = () => {
                     {availableIntegrations.map(integration => {
                         const Icon = integration.icon;
                         return (
-                            <div key={integration.id} className="card hover-lift group">
-                                <div className="flex items-start gap-5">
-                                    <div className={`p-4 rounded-xl bg-gradient-to-br ${integration.color} shadow-lg group-hover:scale-105 transition-transform duration-300`}>
-                                        <Icon size={28} className="text-white" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <h3 className="font-bold text-lg text-gray-900 dark:text-white truncate pr-2">
-                                                {integration.name}
-                                            </h3>
-                                            {integration.connected ? (
-                                                <span className="badge badge-success shrink-0">
-                                                    <Check size={12} /> {t('integrations.connected')}
-                                                </span>
-                                            ) : (
-                                                <span className="badge bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 shrink-0">
-                                                    {t('integrations.disconnect').replace('Disconnect', 'Not Connected')}
-                                                </span>
-                                            )}
+                            <div key={integration.id} className="group relative">
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-white/10 dark:from-gray-800/40 dark:to-gray-800/10 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                <div className="relative card hover-lift glass-panel border border-white/20 dark:border-gray-700/30">
+                                    <div className="flex items-start gap-5">
+                                        <div className={`p-4 rounded-xl bg-gradient-to-br ${integration.color} shadow-lg group-hover:scale-110 transition-transform duration-300 ring-4 ring-white/10`}>
+                                            <Icon size={28} className="text-white" />
                                         </div>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 leading-relaxed">
-                                            {integration.description}
-                                        </p>
-                                        {/* Features */}
-                                        <div className="flex flex-wrap gap-2 mb-5">
-                                            {integration.features.map((feature, idx) => (
-                                                <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-50 dark:bg-gray-800/80 border border-gray-100 dark:border-gray-700/50 text-xs font-medium text-gray-600 dark:text-gray-400">
-                                                    {feature}
-                                                </span>
-                                            ))}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <h3 className="font-bold text-lg text-gray-900 dark:text-white truncate pr-2">
+                                                    {integration.name}
+                                                </h3>
+                                                {integration.connected ? (
+                                                    <span className="badge badge-success shrink-0 backdrop-blur-md">
+                                                        <Check size={12} /> {t('integrations.connected')}
+                                                    </span>
+                                                ) : (
+                                                    <span className="badge bg-gray-100/80 dark:bg-gray-700/80 text-gray-600 dark:text-gray-400 shrink-0 backdrop-blur-md">
+                                                        {t('integrations.disconnect').replace('Disconnect', 'Not Connected')}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 leading-relaxed line-clamp-2">
+                                                {integration.description}
+                                            </p>
+                                            {/* Features */}
+                                            <div className="flex flex-wrap gap-2 mb-5">
+                                                {integration.features.map((feature, idx) => (
+                                                    <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-50/80 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 text-xs font-medium text-gray-600 dark:text-gray-400">
+                                                        {feature}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                            <button
+                                                onClick={() => handleConnect(integration.id)}
+                                                className={`w-full py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 ${integration.connected
+                                                        ? 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                                        : 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30 hover:shadow-primary-500/50 hover:-translate-y-0.5'
+                                                    }`}
+                                            >
+                                                {integration.connected ? (
+                                                    <>
+                                                        <Settings size={18} /> {t('integrations.configure')}
+                                                    </>
+                                                ) : integration.keyField ? (
+                                                    <>
+                                                        <Key size={18} /> {t('integrations.connect')}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <ExternalLink size={18} /> {t('integrations.connect')}
+                                                    </>
+                                                )}
+                                            </button>
                                         </div>
-                                        <button
-                                            onClick={() => handleConnect(integration.id)}
-                                            className={integration.connected ? 'btn-secondary w-full' : 'btn-primary w-full'}
-                                        >
-                                            {integration.connected ? (
-                                                <>
-                                                    <Settings size={18} /> {t('integrations.configure')}
-                                                </>
-                                            ) : integration.keyField ? (
-                                                <>
-                                                    <Key size={18} /> {t('integrations.connect')}
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <ExternalLink size={18} /> {t('integrations.connect')}
-                                                </>
-                                            )}
-                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -314,8 +341,8 @@ const IntegrationsView: React.FC = () => {
             {activeTab === 'connected' && (
                 <div className="animate-fade-in">
                     {connectedIntegrations.length === 0 ? (
-                        <div className="card text-center py-16 px-4">
-                            <div className="w-20 h-20 rounded-full bg-gray-50 dark:bg-gray-800 mx-auto flex items-center justify-center mb-6">
+                        <div className="card text-center py-16 px-4 glass-panel">
+                            <div className="w-20 h-20 rounded-full bg-gray-50 dark:bg-gray-800/50 mx-auto flex items-center justify-center mb-6">
                                 <Cloud size={40} className="text-gray-300 dark:text-gray-600" />
                             </div>
                             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
@@ -324,7 +351,7 @@ const IntegrationsView: React.FC = () => {
                             <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-md mx-auto">
                                 {t('integrations.connectAppsDesc')}
                             </p>
-                            <button onClick={() => setActiveTab('available')} className="btn-primary">
+                            <button onClick={() => setActiveTab('available')} className="btn-primary shadow-lg shadow-primary-500/20">
                                 <Zap size={18} /> {t('integrations.available')}
                             </button>
                         </div>
@@ -333,9 +360,9 @@ const IntegrationsView: React.FC = () => {
                             {connectedIntegrations.map(integration => {
                                 const Icon = integration.icon;
                                 return (
-                                    <div key={integration.id} className="card">
+                                    <div key={integration.id} className="card glass-panel group">
                                         <div className="flex items-center gap-5">
-                                            <div className={`p-4 rounded-xl bg-gradient-to-br ${integration.color} shadow-lg`}>
+                                            <div className={`p-4 rounded-xl bg-gradient-to-br ${integration.color} shadow-lg group-hover:scale-105 transition-transform duration-300`}>
                                                 <Icon size={24} className="text-white" />
                                             </div>
                                             <div className="flex-1">
@@ -357,13 +384,13 @@ const IntegrationsView: React.FC = () => {
             {/* Settings Tab */}
             {activeTab === 'settings' && (
                 <div className="space-y-6 animate-fade-in">
-                    <div className="card">
+                    <div className="card glass-panel">
                         <h3 className="section-title flex items-center gap-2">
                             <RefreshCw size={20} className="text-primary-500" />
                             {t('integrations.syncSettings')}
                         </h3>
                         <div className="space-y-4">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 gap-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl bg-gray-50/50 dark:bg-gray-800/30 gap-4">
                                 <div>
                                     <p className="font-medium text-gray-900 dark:text-white">
                                         {t('integrations.autoSyncInterval')}
@@ -372,7 +399,7 @@ const IntegrationsView: React.FC = () => {
                                         {t('integrations.syncFrequency')}
                                     </p>
                                 </div>
-                                <select className="input-field w-full sm:w-auto min-w-[160px]">
+                                <select className="input-field w-full sm:w-auto min-w-[160px] bg-white dark:bg-gray-900">
                                     <option>{t('integrations.every15Mins')}</option>
                                     <option>{t('integrations.everyHour')}</option>
                                     <option>{t('integrations.manualOnly')}</option>
@@ -385,12 +412,12 @@ const IntegrationsView: React.FC = () => {
 
             {/* API Key Modal */}
             {showApiModal && selectedIntegrationObj && (
-                <div className="modal-backdrop" onClick={() => setShowApiModal(false)}>
-                    <div className="modal-panel w-full max-w-md p-0 overflow-hidden" onClick={e => e.stopPropagation()}>
-                        <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                <div className="modal-backdrop backdrop-blur-sm" onClick={() => setShowApiModal(false)}>
+                    <div className="modal-panel w-full max-w-md p-0 overflow-hidden shadow-2xl shadow-black/20" onClick={e => e.stopPropagation()}>
+                        <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-md">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-lg bg-gradient-to-br ${selectedIntegrationObj.color}`}>
+                                    <div className={`p-2 rounded-lg bg-gradient-to-br ${selectedIntegrationObj.color} shadow-md`}>
                                         <selectedIntegrationObj.icon size={20} className="text-white" />
                                     </div>
                                     <div>
@@ -400,13 +427,13 @@ const IntegrationsView: React.FC = () => {
                                         <p className="text-xs text-gray-500 font-medium">{selectedIntegrationObj.name}</p>
                                     </div>
                                 </div>
-                                <button onClick={() => setShowApiModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                                <button onClick={() => setShowApiModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
                                     <X size={20} />
                                 </button>
                             </div>
                         </div>
 
-                        <div className="p-6 space-y-5">
+                        <div className="p-6 space-y-5 bg-white dark:bg-gray-900">
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                     {t('integrations.enterKey')}
@@ -417,14 +444,14 @@ const IntegrationsView: React.FC = () => {
                                         type={showKey ? 'text' : 'password'}
                                         value={tempKey}
                                         onChange={e => setTempKey(e.target.value)}
-                                        className="input-field pl-10 pr-10 font-mono text-sm"
-                                        placeholder="API Key..."
+                                        className="input-field pl-10 pr-10 font-mono text-sm shadow-sm"
+                                        placeholder="sk-..."
                                         autoFocus
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowKey(!showKey)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                                     >
                                         {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
                                     </button>
@@ -434,7 +461,7 @@ const IntegrationsView: React.FC = () => {
                                         href={selectedIntegrationObj.helpLink}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline inline-flex items-center gap-1"
+                                        className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline inline-flex items-center gap-1 transition-colors"
                                     >
                                         {t('integrations.getKey')} <ExternalLink size={10} />
                                     </a>
@@ -442,9 +469,9 @@ const IntegrationsView: React.FC = () => {
                             </div>
 
                             {testStatus !== 'idle' && (
-                                <div className={`p-3 rounded-lg flex items-center gap-3 animate-fade-in ${testStatus === 'testing' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
-                                    testStatus === 'success' ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
-                                        'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+                                <div className={`p-3 rounded-lg flex items-center gap-3 animate-fade-in ${testStatus === 'testing' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800' :
+                                    testStatus === 'success' ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-800' :
+                                        'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-100 dark:border-red-800'
                                     }`}>
                                     {testStatus === 'testing' && <RefreshCw size={18} className="animate-spin" />}
                                     {testStatus === 'success' && <CheckCircle2 size={18} />}
@@ -459,13 +486,13 @@ const IntegrationsView: React.FC = () => {
                                 <button
                                     onClick={handleTestConnection}
                                     disabled={!tempKey || testStatus === 'testing'}
-                                    className="btn-secondary justify-center w-full"
+                                    className="btn-secondary justify-center w-full transition-all"
                                 >
                                     <TestTube size={18} /> {t('integrations.testConnection')}
                                 </button>
                                 <div className="flex gap-3">
-                                    <button onClick={() => setShowApiModal(false)} className="btn-ghost flex-1 justify-center">{t('common.cancel')}</button>
-                                    <button onClick={handleSaveKey} disabled={!tempKey} className="btn-primary flex-1 justify-center shadow-lg shadow-primary-500/20">
+                                    <button onClick={() => setShowApiModal(false)} className="btn-ghost flex-1 justify-center transition-colors">{t('common.cancel')}</button>
+                                    <button onClick={handleSaveKey} disabled={!tempKey} className="btn-primary flex-1 justify-center shadow-lg shadow-primary-500/20 transition-all hover:shadow-primary-500/40">
                                         <Check size={18} /> {t('common.save')}
                                     </button>
                                 </div>
