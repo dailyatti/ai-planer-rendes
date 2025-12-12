@@ -568,13 +568,6 @@ const translations: Translations = {
   'days.short.sunday': { en: 'Sun', hu: 'V', ro: 'Du', sk: 'Ne', hr: 'Sun', de: 'So', fr: 'Dim', es: 'Dom', it: 'Dom', pl: 'Nd', cn: '日', jp: '日', pt: 'Sun', tr: 'Paz', ar: 'ن', ru: 'Вс', hi: 'रवि', bn: 'Sun', ur: 'Sun', th: 'Sun', id: 'Sun' }
 };
 
-type Language = 'en' | 'hu' | 'ro' | 'sk' | 'hr' | 'de' | 'fr' | 'es' | 'it' | 'pl' | 'cn' | 'jp' | 'pt' | 'tr' | 'ar' | 'ru' | 'hi' | 'bn' | 'ur' | 'th' | 'id';
-
-const languageDirections: Record<Language, 'ltr' | 'rtl'> = {
-  en: 'ltr', hu: 'ltr', ro: 'ltr', sk: 'ltr', hr: 'ltr', de: 'ltr', fr: 'ltr', es: 'ltr', it: 'ltr', pl: 'ltr', cn: 'ltr', jp: 'ltr', pt: 'ltr', tr: 'ltr', id: 'ltr', th: 'ltr',
-  ar: 'rtl', ru: 'ltr', hi: 'ltr', bn: 'ltr', ur: 'rtl',
-};
-
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
