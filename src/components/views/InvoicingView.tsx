@@ -203,7 +203,7 @@ const InvoicingView: React.FC = () => {
         });
     };
 
-    const updateItem = (index: number, field: keyof InvoiceItem, value: any) => {
+    const updateItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
         const items = [...(newInvoice.items || [])];
         items[index] = { ...items[index], [field]: value };
         items[index].amount = items[index].quantity * items[index].rate;

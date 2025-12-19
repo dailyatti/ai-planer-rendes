@@ -11,6 +11,18 @@ import { useLanguage } from '../../contexts/LanguageContext';
 // --- Types ---
 type Tool = 'select' | 'pan' | 'pen' | 'marker' | 'rectangle' | 'circle' | 'triangle' | 'line' | 'text' | 'image' | 'eraser';
 
+type ToolbarItem =
+  | { id: Tool; icon: React.ElementType; label: string; action?: () => void; type?: undefined }
+  | { id: string; type: 'separator'; icon?: undefined; label?: undefined; action?: undefined };
+
+// Robust local event interface for Fabric to avoid import errors
+interface FabricEvent {
+  e: any; // Using any for the event object to handle MouseEvent/WheelEvent properties safely
+  target?: fabric.Object;
+  selected?: fabric.Object[];
+  [key: string]: any;
+}
+
 interface DrawingState {
   tool: Tool;
   strokeColor: string;
@@ -169,7 +181,7 @@ const DrawingView: React.FC = () => {
   useEffect(() => {
     if (!fabricCanvas) return;
 
-    const handleSelection = (e: any) => {
+    const handleSelection = (e: FabricEvent) => {
       const selected = e.selected?.[0] || null;
       setState(s => ({ ...s, activeObject: selected }));
     };
@@ -258,7 +270,7 @@ const DrawingView: React.FC = () => {
   useEffect(() => {
     if (!fabricCanvas) return;
 
-    const handleMouseDown = (opt: any) => {
+    const handleMouseDown = (opt: fabric.IEvent) => {
       if (state.tool === 'select' || state.tool === 'pan' || state.tool === 'pen' || state.tool === 'marker' || state.tool === 'eraser' || state.tool === 'image') return;
 
       // If active tool is a shape, add it at cursor
@@ -297,7 +309,7 @@ const DrawingView: React.FC = () => {
       }
     };
 
-    const handleClick = (opt: any) => {
+    const handleClick = (opt: FabricEvent) => {
       if (state.tool === 'eraser' && opt.target) {
         fabricCanvas.remove(opt.target);
         saveToLocalStorage();
@@ -318,7 +330,7 @@ const DrawingView: React.FC = () => {
   useEffect(() => {
     if (!fabricCanvas) return;
 
-    const handleWheel = (opt: any) => {
+    const handleWheel = (opt: FabricEvent) => {
       if (opt.e.ctrlKey || opt.e.metaKey) {
         // Zoom
         const delta = opt.e.deltaY;
@@ -326,7 +338,7 @@ const DrawingView: React.FC = () => {
         zoom *= 0.999 ** delta;
         if (zoom > 20) zoom = 20;
         if (zoom < 0.01) zoom = 0.01;
-        fabricCanvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+        fabricCanvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY } as any, zoom);
         opt.e.preventDefault();
         opt.e.stopPropagation();
       } else if (state.tool === 'pan' || opt.e.shiftKey) {
@@ -347,7 +359,7 @@ const DrawingView: React.FC = () => {
     let lastPosX = 0;
     let lastPosY = 0;
 
-    const handleMouseDown = (opt: any) => {
+    const handleMouseDown = (opt: fabric.IEvent) => {
       const evt = opt.e;
       if (state.tool === 'pan' || evt.button === 1 || (evt.altKey)) {
         isDragging = true;
@@ -358,7 +370,7 @@ const DrawingView: React.FC = () => {
       }
     };
 
-    const handleMouseMove = (opt: any) => {
+    const handleMouseMove = (opt: FabricEvent) => {
       if (isDragging) {
         const e = opt.e;
         const vpt = fabricCanvas.viewportTransform;
@@ -564,12 +576,12 @@ const DrawingView: React.FC = () => {
           { id: 'triangle', icon: TriangleIcon, label: 'Triangle' },
           { id: 'sep3', type: 'separator' },
           { id: 'eraser', icon: Eraser, label: 'Eraser' },
-        ].map((item: any, i) => {
+        ].map((item, i) => {
           if (item.type === 'separator') return <div key={`sep-${i}`} className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />;
           return (
             <button
               key={item.id}
-              onClick={() => item.action ? item.action() : setState(s => ({ ...s, tool: item.id }))}
+              onClick={() => item.action ? item.action() : setState(s => ({ ...s, tool: item.id as Tool }))}
               className={`
                 p-2.5 rounded-xl transition-all duration-300 group relative shrink-0
                 ${state.tool === item.id && !item.action
@@ -578,7 +590,10 @@ const DrawingView: React.FC = () => {
               `}
               title={item.label}
             >
-              <item.icon size={20} strokeWidth={state.tool === item.id ? 2.5 : 2} />
+              {(() => {
+                const Icon = item.icon as React.ElementType;
+                return <Icon size={20} strokeWidth={state.tool === item.id ? 2.5 : 2} />;
+              })()}
               {/* Tooltip */}
               <span className="absolute top-full mt-3 left-1/2 -translate-x-1/2 px-2.5 py-1.5 bg-gray-900/95 dark:bg-black/95 text-white text-[10px] font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0 whitespace-nowrap pointer-events-none shadow-xl border border-white/10 z-50">
                 {item.label}
