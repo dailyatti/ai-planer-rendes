@@ -1,155 +1,80 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Link2, Check, X, RefreshCw, ExternalLink,
     Calendar, FileText, CheckSquare, Mail,
     Cloud, Settings,
     Zap, Key, Eye, EyeOff,
     Mic, TestTube, CheckCircle2, XCircle,
-    Globe
+    Globe, AlertTriangle
 } from 'lucide-react';
 import { useLanguage, LANGUAGE_NAMES, Language } from '../../contexts/LanguageContext';
+import { AIService, AIProvider } from '../../services/AIService';
 
-interface ApiKeyConfig {
-    geminiKey: string;
-    openaiKey: string;
-    googleCalendarKey?: string;
-    notionKey?: string;
-    todoistKey?: string;
-    outlookKey?: string;
-}
+
 
 const IntegrationsView: React.FC = () => {
     const { language, setLanguage, t } = useLanguage();
     const [activeTab, setActiveTab] = useState<'available' | 'connected' | 'settings'>('available');
     const [showApiModal, setShowApiModal] = useState(false);
     const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
-    const [apiKeys, setApiKeys] = useState<ApiKeyConfig>(() => {
-        const saved = localStorage.getItem('contentplanner_api_keys');
-        return saved ? JSON.parse(saved) : {
-            geminiKey: '',
-            openaiKey: '',
-            googleCalendarKey: '',
-            notionKey: '',
-            todoistKey: '',
-            outlookKey: ''
-        };
-    });
+
+    // NEW: Use AIService for unified provider management
+    const [activeProvider, setActiveProvider] = useState<AIProvider>(AIService.getActiveProvider());
     const [tempKey, setTempKey] = useState('');
     const [showKey, setShowKey] = useState(false);
     const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
     const [testMessage, setTestMessage] = useState('');
 
-    // Integration definitions
+    // Sync with AIService on mount
+    useEffect(() => {
+        AIService.loadConfig();
+        setActiveProvider(AIService.getActiveProvider());
+    }, []);
+
+    // Integration definitions - only OpenAI and Gemini, mutually exclusive
     const availableIntegrations = [
         {
             id: 'openai',
-            name: 'OpenAI (ChatGPT)',
-            description: t('integrations.openai.desc'),
+            name: 'OpenAI (GPT-4o)',
+            description: t('integrations.openai.descUnified') || 'Teljeskörű AI: szöveg generálás + hang asszisztens',
             icon: Zap,
             color: 'from-green-500 to-emerald-600',
-            connected: !!apiKeys.openaiKey,
-            comingSoon: false,
+            connected: activeProvider === 'openai',
+            provider: 'openai' as AIProvider,
             features: [
-                t('integrations.openai.feat1'),
-                t('integrations.openai.feat2'),
-                t('integrations.openai.feat3')
+                t('integrations.unified.feat1') || 'Szöveg generálás (GPT-4o)',
+                t('integrations.unified.feat2') || 'Hang asszisztens (Whisper + TTS)',
+                t('integrations.unified.feat3') || 'Tartalom ötletek'
             ],
-            keyField: 'openaiKey' as keyof ApiKeyConfig,
             helpLink: 'https://platform.openai.com/api-keys'
         },
         {
-            id: 'gemini-voice',
-            name: 'Google Gemini AI',
-            description: t('integrations.gemini.desc'),
+            id: 'gemini',
+            name: 'Google Gemini',
+            description: t('integrations.gemini.descUnified') || 'Teljeskörű AI: szöveg generálás + hang asszisztens',
             icon: Mic,
             color: 'from-blue-500 to-indigo-600',
-            connected: !!apiKeys.geminiKey,
-            comingSoon: false,
+            connected: activeProvider === 'gemini',
+            provider: 'gemini' as AIProvider,
             features: [
-                t('integrations.gemini.feat1'),
-                t('integrations.gemini.feat2'),
-                t('integrations.gemini.feat3')
+                t('integrations.unified.feat1') || 'Szöveg generálás (Gemini Pro)',
+                t('integrations.unified.feat2') || 'Hang asszisztens (Gemini Live)',
+                t('integrations.unified.feat3') || 'Tartalom ötletek'
             ],
-            keyField: 'geminiKey' as keyof ApiKeyConfig,
             helpLink: 'https://aistudio.google.com/app/apikey'
-        },
-        {
-            id: 'google-calendar',
-            name: 'Google Calendar',
-            description: t('integrations.gcal.desc'),
-            icon: Calendar,
-            color: 'from-red-500 to-orange-500',
-            connected: !!apiKeys.googleCalendarKey,
-            comingSoon: true,
-            features: [
-                t('integrations.gcal.feat1'),
-                t('integrations.gcal.feat2'),
-                t('integrations.gcal.feat3')
-            ],
-            keyField: 'googleCalendarKey' as keyof ApiKeyConfig,
-            helpLink: 'https://console.cloud.google.com/apis/credentials'
-        },
-        {
-            id: 'notion',
-            name: 'Notion',
-            description: t('integrations.notion.desc'),
-            icon: FileText,
-            color: 'from-gray-700 to-gray-900',
-            connected: !!apiKeys.notionKey,
-            comingSoon: true,
-            features: [
-                t('integrations.notion.feat1'),
-                t('integrations.notion.feat2'),
-                t('integrations.notion.feat3')
-            ],
-            keyField: 'notionKey' as keyof ApiKeyConfig,
-            helpLink: 'https://www.notion.so/my-integrations'
-        },
-        {
-            id: 'todoist',
-            name: 'Todoist',
-            description: t('integrations.todoist.desc'),
-            icon: CheckSquare,
-            color: 'from-red-500 to-red-600',
-            connected: !!apiKeys.todoistKey,
-            comingSoon: true,
-            features: [
-                t('integrations.todoist.feat1'),
-                t('integrations.todoist.feat2'),
-                t('integrations.todoist.feat3')
-            ],
-            keyField: 'todoistKey' as keyof ApiKeyConfig,
-            helpLink: 'https://todoist.com/app/settings/integrations'
-        },
-        {
-            id: 'outlook',
-            name: 'Microsoft Outlook',
-            description: t('integrations.outlook.desc'),
-            icon: Mail,
-            color: 'from-blue-500 to-blue-700',
-            connected: !!apiKeys.outlookKey,
-            comingSoon: true,
-            features: [
-                t('integrations.outlook.feat1'),
-                t('integrations.outlook.feat2'),
-                t('integrations.outlook.feat3')
-            ],
-            keyField: 'outlookKey' as keyof ApiKeyConfig,
-            helpLink: 'https://portal.azure.com/'
         },
     ];
 
+
     const handleConnect = (integrationId: string) => {
         const integration = availableIntegrations.find(i => i.id === integrationId);
-        if (integration?.keyField) {
-            const key = integration.keyField as keyof ApiKeyConfig;
+        if (integration) {
             setSelectedIntegration(integrationId);
-            setTempKey(apiKeys[key] ?? '');
+            // If already connected, show current key
+            setTempKey(integration.connected ? AIService.getApiKey() : '');
             setShowApiModal(true);
             setTestStatus('idle');
             setTestMessage('');
-        } else {
-            console.log('OAuth flow would start for:', integrationId);
         }
     };
 
@@ -170,7 +95,7 @@ const IntegrationsView: React.FC = () => {
                 } else {
                     throw new Error('Invalid API Key');
                 }
-            } else if (selectedIntegration === 'gemini-voice') {
+            } else if (selectedIntegration === 'gemini') {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${tempKey}`);
                 if (response.ok) {
                     setTestStatus('success');
@@ -195,22 +120,28 @@ const IntegrationsView: React.FC = () => {
     };
 
     const handleSaveKey = () => {
-        if (!selectedIntegration) return;
+        if (!selectedIntegration || !tempKey) return;
         const integration = availableIntegrations.find(i => i.id === selectedIntegration);
-        if (integration?.keyField) {
-            const key = integration.keyField as keyof ApiKeyConfig;
-            const newKeys = { ...apiKeys, [key]: tempKey } as ApiKeyConfig;
-            setApiKeys(newKeys);
-            localStorage.setItem('contentplanner_api_keys', JSON.stringify(newKeys));
+        if (integration?.provider) {
+            // PhD-level: Setting one provider automatically clears the other
+            AIService.setProvider(integration.provider, tempKey);
+            setActiveProvider(integration.provider);
         }
         setShowApiModal(false);
         setSelectedIntegration(null);
         setTempKey('');
     };
 
+    // Handle disconnect
+    const handleDisconnect = () => {
+        AIService.clearProvider();
+        setActiveProvider(null);
+        setShowApiModal(false);
+        setSelectedIntegration(null);
+        setTempKey('');
+    };
+
     const connectedIntegrations = availableIntegrations.filter(i => i.connected);
-    // Filter out comingSoon integrations - only show working ones
-    const activeIntegrations = availableIntegrations.filter(i => !i.comingSoon);
     const selectedIntegrationObj = availableIntegrations.find(i => i.id === selectedIntegration);
 
     return (
@@ -279,7 +210,7 @@ const IntegrationsView: React.FC = () => {
             {/* Available Integrations */}
             {activeTab === 'available' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-                    {activeIntegrations.map(integration => {
+                    {availableIntegrations.map(integration => {
                         const Icon = integration.icon;
                         return (
                             <div key={integration.id} className="group relative">
@@ -294,11 +225,7 @@ const IntegrationsView: React.FC = () => {
                                                 <h3 className="font-bold text-lg text-gray-900 dark:text-white truncate pr-2">
                                                     {integration.name}
                                                 </h3>
-                                                {integration.comingSoon ? (
-                                                    <span className="badge bg-amber-100/80 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 shrink-0 backdrop-blur-md border border-amber-200 dark:border-amber-800">
-                                                        ⏳ {t('integrations.comingSoon') || 'Coming Soon'}
-                                                    </span>
-                                                ) : integration.connected ? (
+                                                {integration.connected ? (
                                                     <span className="badge badge-success shrink-0 backdrop-blur-md">
                                                         <Check size={12} /> {t('integrations.connected')}
                                                     </span>
@@ -330,13 +257,9 @@ const IntegrationsView: React.FC = () => {
                                                     <>
                                                         <Settings size={18} /> {t('integrations.configure')}
                                                     </>
-                                                ) : integration.keyField ? (
-                                                    <>
-                                                        <Key size={18} /> {t('integrations.connect')}
-                                                    </>
                                                 ) : (
                                                     <>
-                                                        <ExternalLink size={18} /> {t('integrations.connect')}
+                                                        <Key size={18} /> {t('integrations.connect')}
                                                     </>
                                                 )}
                                             </button>
