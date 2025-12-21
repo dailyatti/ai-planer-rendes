@@ -233,6 +233,8 @@ const InvoicingView: React.FC = () => {
                 total: newInvoice.total || 0,
                 issueDate: newInvoice.issueDate || new Date(),
                 dueDate: newInvoice.dueDate || new Date(),
+                fulfillmentDate: newInvoice.fulfillmentDate || newInvoice.issueDate || new Date(),
+                paymentMethod: newInvoice.paymentMethod || 'transfer',
                 createdAt: new Date()
             } as Invoice);
 
@@ -593,7 +595,7 @@ const InvoicingView: React.FC = () => {
                             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
                                 <div>
                                     <label className="label-text flex items-center gap-1.5">
-                                        {t('invoicing.fulfillmentDate') || 'Teljesítés dátuma'}
+                                        {t('invoicing.fulfillmentDate')}
                                         <span className="text-xs text-indigo-500">(NAV)</span>
                                     </label>
                                     <input
@@ -604,19 +606,19 @@ const InvoicingView: React.FC = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="label-text">{t('invoicing.paymentMethod') || 'Fizetési mód'}</label>
+                                    <label className="label-text">{t('invoicing.paymentMethod')}</label>
                                     <select
                                         className="input-field bg-white dark:bg-gray-800"
                                         value={newInvoice.paymentMethod || 'transfer'}
                                         onChange={(e) => setNewInvoice({ ...newInvoice, paymentMethod: e.target.value as 'transfer' | 'cash' | 'card' })}
                                     >
-                                        <option value="transfer">{t('invoicing.paymentTransfer') || 'Átutalás'}</option>
-                                        <option value="cash">{t('invoicing.paymentCash') || 'Készpénz'}</option>
-                                        <option value="card">{t('invoicing.paymentCard') || 'Bankkártya'}</option>
+                                        <option value="transfer">{t('invoicing.paymentTransfer')}</option>
+                                        <option value="cash">{t('invoicing.paymentCash')}</option>
+                                        <option value="card">{t('invoicing.paymentCard')}</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="label-text">{t('invoicing.paymentDeadline') || 'Fizetési határidő'}</label>
+                                    <label className="label-text">{t('invoicing.paymentDeadline')}</label>
                                     <div className="input-field bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 flex items-center">
                                         {newInvoice.dueDate && newInvoice.issueDate ? (
                                             `${Math.ceil((newInvoice.dueDate.getTime() - newInvoice.issueDate.getTime()) / (1000 * 60 * 60 * 24))} ${t('common.days') || 'nap'}`
@@ -878,15 +880,15 @@ const InvoicingView: React.FC = () => {
                                         <p><span className="font-semibold text-gray-800">{t('invoicing.issueDate')}:</span> {formatDate(previewInvoice.issueDate)}</p>
 
                                         {/* Fulfillment Date (NAV) */}
-                                        <p><span className="font-semibold text-gray-800">{t('invoicing.fulfillmentDate') || 'Teljesítés'}:</span> {formatDate(previewInvoice.fulfillmentDate || previewInvoice.issueDate)}</p>
+                                        <p><span className="font-semibold text-gray-800">{t('invoicing.fulfillmentDate')}:</span> {formatDate(previewInvoice.fulfillmentDate || previewInvoice.issueDate)}</p>
 
                                         <p><span className="font-semibold text-gray-800">{t('invoicing.dueDate')}:</span> {formatDate(previewInvoice.dueDate)}</p>
 
                                         {/* Payment Method */}
-                                        <p><span className="font-semibold text-gray-800">{t('invoicing.paymentMethod') || 'Fizetési mód'}:</span> {
-                                            previewInvoice.paymentMethod === 'cash' ? (t('invoicing.paymentCash') || 'Készpénz') :
-                                                previewInvoice.paymentMethod === 'card' ? (t('invoicing.paymentCard') || 'Bankkártya') :
-                                                    (t('invoicing.paymentTransfer') || 'Átutalás')
+                                        <p><span className="font-semibold text-gray-800">{t('invoicing.paymentMethod')}:</span> {
+                                            previewInvoice.paymentMethod === 'cash' ? t('invoicing.paymentCash') :
+                                                previewInvoice.paymentMethod === 'card' ? t('invoicing.paymentCard') :
+                                                    t('invoicing.paymentTransfer')
                                         }</p>
                                     </div>
                                 </div>
