@@ -38,6 +38,7 @@ interface DataContextType {
   deleteSubscription: (id: string) => void;
   updateBudgetSettings: (settings: Partial<BudgetSettings>) => void;
   addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
   addInvoice: (invoice: Invoice) => void;
   updateInvoice: (id: string, updates: Partial<Invoice>) => void;
@@ -254,6 +255,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateBudgetSettings = (settings: Partial<BudgetSettings>) => setBudgetSettings(prev => ({ ...prev, ...settings }));
 
   const addTransaction = (tx: Omit<Transaction, 'id'>) => setTransactions(prev => [...prev, { ...tx, id: Math.random().toString(36).substr(2, 9) }]);
+  const updateTransaction = (id: string, updates: Partial<Transaction>) => setTransactions(prev => prev.map(t => (t.id === id ? { ...t, ...updates } : t)));
   const deleteTransaction = (id: string) => setTransactions(prev => prev.filter(t => t.id !== id));
 
   const addInvoice = (inv: Invoice) => setInvoices(prev => [...prev, inv]);
@@ -292,6 +294,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         subscriptions,
         budgetSettings,
         transactions,
+        addTransaction,
+        updateTransaction,
+        deleteTransaction,
         invoices,
         clients,
         companyProfiles,
@@ -314,8 +319,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateSubscription,
         deleteSubscription,
         updateBudgetSettings,
-        addTransaction,
-        deleteTransaction,
+
         addInvoice,
         updateInvoice,
         deleteInvoice,
