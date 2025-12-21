@@ -150,7 +150,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             `;
 
             const modelToUse = isKeyboardMode
-                ? 'gemini-3-pro-preview'
+                ? 'gemini-1.5-pro'
                 : 'gemini-2.5-flash-native-audio-preview-12-2025';
 
             const result = await AIService.generateText({
