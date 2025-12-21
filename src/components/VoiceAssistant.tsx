@@ -154,7 +154,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             });
 
             const aiResponse = result.text;
-            setResponse(aiResponse);
+            setResponse(aiResponse || 'Sajnálom, nem kaptam választ a modelltől.');
 
             // Text to Speech
             speakResponse(aiResponse);
