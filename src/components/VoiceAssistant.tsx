@@ -138,11 +138,12 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                 Modell logika:
                 - Ha Chat módban vagy, szövegesen válaszolj.
                 - Ha Hang módban (bár a választ felolvasom), fogalmazz úgy, mintha beszélnél.
+                - FONTOS: Mindig a felhasználó nyelvén válaszolj! Ha magyarul ír, magyarul válaszolj.
                 Formátum: { "action": "create_task", ... }
             `;
 
             const modelToUse = isKeyboardMode
-                ? 'gemini-3-flash-preview'
+                ? 'gemini-1.5-pro'
                 : 'gemini-2.5-flash-native-audio-preview-12-2025';
 
             const result = await AIService.generateText({
