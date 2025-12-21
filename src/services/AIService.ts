@@ -159,14 +159,16 @@ class AIServiceClass {
      * Gemini szöveg generálás
      */
     private async generateTextGemini(options: TextGenerationOptions): Promise<TextGenerationResult> {
-        // Use provided model or default to gemini-3-pro-preview (State-of-the-Art)
-        let modelName = options.model || 'gemini-3-pro-preview';
+        // Explicitly requested fallback to Gemini 1.5 Pro (Stable)
+        const modelName = 'gemini-1.5-pro';
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.config.apiKey}`;
 
-        const fetchGemini = async (model: string) => {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.config.apiKey}`;
+        try {
             const response = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({
                     contents: [{
                         parts: [{ text: options.systemPrompt ? `${options.systemPrompt}\n\n${options.prompt}` : options.prompt }]
@@ -177,48 +179,25 @@ class AIServiceClass {
                     }
                 })
             });
-            const data = await response.json();
+
             if (!response.ok) {
-                throw new Error(data.error?.message || `Gemini API error (${model})`);
-            }
-            return data;
-        };
-
-        try {
-            // First attempt
-            let data = await fetchGemini(modelName);
-
-            // Validate response
-            let text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-            // If failed/empty and we tried the preview model, fallback to stable
-            if (!text && modelName === 'gemini-3-pro-preview') {
-                console.warn('Gemini 3 Preview failed/empty, falling back to Gemini 1.5 Pro');
-                data = await fetchGemini('gemini-1.5-pro');
-                text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `Gemini API Error (${response.status})`);
             }
 
-            if (!text) throw new Error('Nem érkezett válasz a modelltől.');
+            const data = await response.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (!text) {
+                throw new Error('Üres választ küldött az AI.');
+            }
 
             return {
                 text: text,
                 provider: 'gemini'
             };
-
         } catch (error: any) {
-            console.error('Gemini Generation Error:', error);
-
-            // One last retry with 1.5 Pro if not already tried
-            if (modelName === 'gemini-3-pro-preview') {
-                try {
-                    const data = await fetchGemini('gemini-1.5-pro');
-                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (text) return { text, provider: 'gemini' };
-                } catch (retryError) {
-                    console.error('Fallback failed:', retryError);
-                }
-            }
-
+            console.error('Gemini 1.5 Pro Error:', error);
             throw error;
         }
     }
