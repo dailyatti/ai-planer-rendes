@@ -147,6 +147,13 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             const currentBalance = totalIncome - totalExpense;
 
             const monthlyBurn = FinancialEngine.calculateBurnRate(transactions, baseCurrency);
+
+            // PhD Calculation: Net Monthly Cash Flow & Projections
+            // We use recurringIncome (from Budget) - monthlyBurn (Expenses)
+            const monthlyNet = recurringIncome - monthlyBurn;
+            const projected3Months = currentBalance + (monthlyNet * 3);
+            const projected1Year = currentBalance + (monthlyNet * 12);
+
             const runway = FinancialEngine.calculateRunway(currentBalance, monthlyBurn);
 
             let viewContext = '';
@@ -168,11 +175,23 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                 - Pénznem: ${baseCurrency}
                 - Árfolyamok (1 ${baseCurrency}-hez képest): ${rateList}
                 - Jelenlegi Egyenleg: ${Math.round(currentBalance)} ${baseCurrency}
+                
+                ELŐREJELZÉS (Kalkulált):
+                - Havi Rendszeres Bevétel (Budget): ${Math.round(recurringIncome)} ${baseCurrency}
+                - Havi Rendszeres Kiadás (Burn): ${Math.round(monthlyBurn)} ${baseCurrency}
+                - Havi Net Cashflow: ${Math.round(monthlyNet)} ${baseCurrency}
+                
+                - Egyenleg 3 hónap múlva: ${Math.round(projected3Months)} ${baseCurrency}
+                - Egyenleg 1 év múlva: ${Math.round(projected1Year)} ${baseCurrency}
+                
+                Instrukció:
+                Válaszolj röviden és szakszerűen. 
+                Ha a felhasználó jövőbeli egyenleget kérdez, használd a fenti "ELŐREJELZÉS" értékeket!
+                NE próbálj meg saját magad számolni, használd a megadott számokat!
+                
                 - Összes Bevétel (Számlázott): ${Math.round(financialSummary.totalRevenue)} ${baseCurrency}
-                - Havi Rendszeres Bevétel (Budget): ${Math.round(recurringIncome)} ${baseCurrency} (becsült havi átlag)
                 - Kintlévőség: ${Math.round(financialSummary.pendingAmount)} ${baseCurrency}
                 - Lejárt tartozások: ${Math.round(financialSummary.overdueAmount)} ${baseCurrency}
-                - Havi költés (Burn Rate): kb. ${Math.round(monthlyBurn)} ${baseCurrency}
                 - Becsült kifutás (Runway): ${runway !== null ? runway + ' hónap' : 'Nincs elég adat'}
                 
                 Instrukció:
