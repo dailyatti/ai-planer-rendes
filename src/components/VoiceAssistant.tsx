@@ -85,6 +85,8 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             // Generate response using Unified AI Service
             // Calculate Financial Context for AI
             const baseCurrency = CurrencyService.getBaseCurrency();
+            const rates = CurrencyService.getAllRates();
+            const rateList = Object.entries(rates).map(([curr, rate]) => `${curr}: ${rate}`).join(', ');
 
             // Financial Summary
             const financialSummary = {
@@ -99,18 +101,28 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             const currentBalance = totalIncome - totalExpense;
 
             // Forecast
-            // Simplified: yearly projection based on current balance + (income - expense)
-            // Ideally we'd separate recurring, but for now we trust the AI to understand "current balance"
             const monthlyBurn = FinancialEngine.calculateBurnRate(transactions, baseCurrency);
             const runway = FinancialEngine.calculateRunway(currentBalance, monthlyBurn);
+
+            // Context Awareness: View Capabilities
+            let viewContext = '';
+            switch (currentView) {
+                case 'budget': viewContext = 'A Budget nézetben vagyunk. Itt láthatod a bevételeket, kiadásokat és az egyenlegedet. Tudok segíteni tranzakciók hozzáadásában vagy elemzésben.'; break;
+                case 'invoicing': viewContext = 'A Számlázóban vagyunk. Itt kezelheted a kiállított és bejövő számlákat.'; break;
+                default: viewContext = `Jelenleg a ${currentView} nézetben vagyunk.`;
+            }
 
             const systemPrompt = `
                 Te egy profi Content Planner és Pénzügyi Asszisztens vagy.
                 Jelenlegi nézet: ${currentView}.
                 Nyelv: ${currentLanguage}.
                 
+                CONTEXT AWARENESS:
+                ${viewContext}
+                
                 PÉNZÜGYI ADATOK (Jelenleg):
                 - Pénznem: ${baseCurrency}
+                - Árfolyamok (1 ${baseCurrency}-hez képest): ${rateList}
                 - Jelenlegi Egyenleg: ${Math.round(currentBalance)} ${baseCurrency}
                 - Összes Bevétel (Számlák alapján): ${Math.round(financialSummary.totalRevenue)} ${baseCurrency}
                 - Kintlévőség: ${Math.round(financialSummary.pendingAmount)} ${baseCurrency}
@@ -119,15 +131,25 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                 - Becsült kifutás (Runway): ${runway !== null ? runway + ' hónap' : 'Nincs elég adat'}
                 
                 Instrukció:
-                Válaszolj röviden és szakszerűen. Ha a felhasználó pénzügyi tanácsot kér (pl. "Mennyi pénzem lesz?"), használj becslést a fenti adatok alapján.
+                Válaszolj röviden és szakszerűen. 
+                Ha a felhasználó átváltást kér (pl. "Mennyi ez euróban?"), használd a fenti árfolyamokat és az egyenleget.
                 Ha műveletet kér (pl. új feladat), jelezd JSON formátumban is a válasz végén.
+                
+                Modell logika:
+                - Ha Chat módban vagy, szövegesen válaszolj.
+                - Ha Hang módban (bár a választ felolvasom), fogalmazz úgy, mintha beszélnél.
                 Formátum: { "action": "create_task", ... }
             `;
+
+            const modelToUse = isKeyboardMode
+                ? 'gemini-3-flash-preview'
+                : 'gemini-2.5-flash-native-audio-preview-12-2025';
 
             const result = await AIService.generateText({
                 prompt: text,
                 systemPrompt,
-                maxTokens: 500
+                maxTokens: 500,
+                model: modelToUse
             });
 
             const aiResponse = result.text;

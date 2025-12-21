@@ -19,6 +19,7 @@ interface TextGenerationOptions {
     maxTokens?: number;
     temperature?: number;
     systemPrompt?: string;
+    model?: string;
 }
 
 interface TextGenerationResult {
@@ -158,8 +159,9 @@ class AIServiceClass {
      * Gemini szöveg generálás
      */
     private async generateTextGemini(options: TextGenerationOptions): Promise<TextGenerationResult> {
-        // Use gemini-1.5-flash as requested
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.config.apiKey}`;
+        // Use provided model or default to gemini-3-flash-preview
+        const modelName = options.model || 'gemini-3-flash-preview';
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.config.apiKey}`;
 
         const response = await fetch(url, {
             method: 'POST',
