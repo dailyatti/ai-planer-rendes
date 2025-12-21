@@ -1,7 +1,7 @@
+
 import React, { useState, useMemo } from 'react';
 import {
-  Wallet, Plus, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
-  X, Trash2, PieChart, Repeat, BarChart3, Check
+  Plus, TrendingUp, TrendingDown, DollarSign, Calendar, PieChart, ArrowUpRight, ArrowDownRight, Trash2, Edit2, X, Download, Upload, Filter, Repeat, Wallet, BarChart3, Check
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -11,7 +11,7 @@ import { Search } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useData } from '../../contexts/DataContext';
 import { TransactionPeriod } from '../../types/planner';
-import { CurrencyService, AVAILABLE_CURRENCIES } from '../../services/CurrencyService';
+import CurrencyService, { AVAILABLE_CURRENCIES } from '../../services/CurrencyService';
 import { FinancialEngine } from '../../utils/FinancialEngine';
 import { Transaction } from '../../types/planner';
 
@@ -33,10 +33,25 @@ const BudgetView: React.FC = () => {
     description: '',
     amount: '',
     category: 'other',
-    period: 'oneTime' as TransactionPeriod,  // FIXED: Default to one-time, not monthly!
+    currency: currency, // Default to current view currency
+    period: 'oneTime' as TransactionPeriod,
     date: new Date().toISOString().split('T')[0],
     recurring: false
   });
+
+  // Fetch rates on mount
+  React.useEffect(() => {
+    CurrencyService.fetchRealTimeRates().then(res => {
+      console.log('Currency Rates:', res.message);
+    });
+  }, []);
+
+  // Update form currency when view currency changes (if form is pristine)
+  React.useEffect(() => {
+    if (!newTransaction.currency) {
+      setNewTransaction(prev => ({ ...prev, currency: currency }));
+    }
+  }, [currency]);
 
   // Categories with translated labels
   const CATEGORIES = useMemo(() => ({
@@ -48,6 +63,19 @@ const BudgetView: React.FC = () => {
     freelance: { color: '#3b82f6', label: t('budget.freelance') },
     other: { color: '#9ca3af', label: t('budget.other') }
   }), [t]);
+
+  // Calculate conversion preview
+  const conversionPreview = useMemo(() => {
+    if (!newTransaction.amount || newTransaction.currency === currency) return null;
+    const amount = parseFloat(newTransaction.amount);
+    if (isNaN(amount)) return null;
+
+    // Convert TO the view currency (which is usually base)
+    const converted = CurrencyService.convert(amount, newTransaction.currency, currency);
+    return `≈ ${formatMoney(converted)} (${t('budget.estimated')})`;
+  }, [newTransaction.amount, newTransaction.currency, currency]);
+
+  // ... (existing useMemos)
 
   // Calculate totals
   const { totalIncome, totalExpense, balance, recurringMonthly } = useMemo(() => {
@@ -105,7 +133,7 @@ const BudgetView: React.FC = () => {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthIdx = date.getMonth();
       const year = date.getFullYear();
-      const monthName = monthNames[monthIdx] ? monthNames[monthIdx].slice(0, 3) : `M${monthIdx + 1}`;
+      const monthName = monthNames[monthIdx] ? monthNames[monthIdx].slice(0, 3) : `M${monthIdx + 1} `;
 
       // Aggregate transactions for this month
       let income = 0;
@@ -147,9 +175,10 @@ const BudgetView: React.FC = () => {
         amount: transactionType === 'expense' ? -Math.abs(amount) : Math.abs(amount),
         category: newTransaction.category,
         type: transactionType,
+        currency: newTransaction.currency,
         date: new Date(newTransaction.date),
         period: newTransaction.period,
-        recurring: newTransaction.period !== 'oneTime'
+        recurring: newTransaction.recurring // Use explicit flag
       });
     } else {
       addTransaction({
@@ -157,9 +186,10 @@ const BudgetView: React.FC = () => {
         amount: transactionType === 'expense' ? -Math.abs(amount) : Math.abs(amount),
         category: newTransaction.category,
         type: transactionType,
+        currency: newTransaction.currency,
         date: new Date(newTransaction.date),
         period: newTransaction.period,
-        recurring: newTransaction.period !== 'oneTime'
+        recurring: newTransaction.recurring // Use explicit flag
       });
     }
 
@@ -167,7 +197,8 @@ const BudgetView: React.FC = () => {
       description: '',
       amount: '',
       category: 'other',
-      period: 'monthly',
+      currency: currency,
+      period: 'oneTime',
       date: new Date().toISOString().split('T')[0],
       recurring: false
     });
@@ -263,12 +294,12 @@ const BudgetView: React.FC = () => {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-6 py-3 font-medium transition-all relative ${activeTab === tab
+            className={`px - 6 py - 3 font - medium transition - all relative ${activeTab === tab
               ? 'text-primary-600 dark:text-primary-400'
               : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
+              } `}
           >
-            {t(`budget.${tab}`)}
+            {t(`budget.${tab} `)}
             {activeTab === tab && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-500 rounded-full" />
             )}
@@ -375,7 +406,7 @@ const BudgetView: React.FC = () => {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} tickFormatter={(value) => value >= 1000 ? `${value / 1000}k` : String(value)} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} tickFormatter={(value) => value >= 1000 ? `${value / 1000} k` : String(value)} />
                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 40px -10px rgba(0,0,0,0.2)', backdropFilter: 'blur(8px)' }} formatter={(value: number) => formatMoney(value)} />
                 <Area type="monotone" dataKey="income" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorIncome)" name={t('budget.income')} />
                 <Area type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorExpense)" name={t('budget.expense')} />
@@ -405,7 +436,7 @@ const BudgetView: React.FC = () => {
                   dataKey="value"
                 >
                   {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell key={`cell - ${index} `} fill={entry.color} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value: number) => formatMoney(value)} />
@@ -417,7 +448,7 @@ const BudgetView: React.FC = () => {
                     return (
                       <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-4 text-xs">
                         {payload?.map((entry: any, index: number) => (
-                          <div key={`item-${index}`} className="flex items-center gap-1.5">
+                          <div key={`item - ${index} `} className="flex items-center gap-1.5">
                             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
                             <span className="truncate text-gray-600 dark:text-gray-300">{entry.value}</span>
                           </div>
@@ -464,13 +495,14 @@ const BudgetView: React.FC = () => {
               <div
                 key={tr.id}
                 onClick={() => {
-                  setEditingTransaction(tr);
                   setTransactionType(tr.type as 'income' | 'expense');
-                  setNewTransaction({
+                  setEditingTransaction({
+                    id: tr.id,
                     description: tr.description,
-                    amount: Math.abs(tr.amount).toString(),
+                    amount: Math.abs(tr.amount).toString(), // Ensure positive for input
                     category: tr.category,
                     period: tr.period as TransactionPeriod,
+                    currency: (tr as any).currency || currency, // Load saved or default
                     date: new Date(tr.date).toISOString().split('T')[0],
                     recurring: tr.recurring || false
                   });
@@ -479,10 +511,10 @@ const BudgetView: React.FC = () => {
                 className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group cursor-pointer"
               >
                 <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-xl ${tr.type === 'income'
+                  <div className={`p - 3 rounded - xl ${tr.type === 'income'
                     ? 'bg-green-100 text-green-600 dark:bg-green-900/20'
                     : 'bg-red-100 text-red-600 dark:bg-red-900/20'
-                    }`}>
+                    } `}>
                     {tr.type === 'income' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
                   </div>
                   <div>
@@ -500,7 +532,7 @@ const BudgetView: React.FC = () => {
                   </div>
                 </div>
                 <div className="text-right flex items-center gap-4">
-                  <span className={`text-lg font-bold block ${tr.type === 'income' ? 'text-green-600' : 'text-gray-900 dark:text-white'}`}>
+                  <span className={`text - lg font - bold block ${tr.type === 'income' ? 'text-green-600' : 'text-gray-900 dark:text-white'} `}>
                     {tr.type === 'income' ? '+' : ''}{formatMoney(tr.amount)}
                   </span>
                   <button
@@ -550,17 +582,38 @@ const BudgetView: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('budget.amount')}
-                </label>
-                <input
-                  type="number"
-                  value={newTransaction.amount}
-                  onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
-                  className="input-field w-full"
-                  placeholder="0"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {t('budget.amount')}
+                  </label>
+                  <input
+                    type="number"
+                    value={newTransaction.amount}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+                    className="input-field w-full"
+                    placeholder="0"
+                  />
+                  {conversionPreview && (
+                    <p className="text-xs text-blue-500 mt-1 font-medium">{conversionPreview}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Pénznem
+                  </label>
+                  <select
+                    value={newTransaction.currency}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, currency: e.target.value })}
+                    className="input-field w-full appearance-none"
+                  >
+                    {AVAILABLE_CURRENCIES.map(c => (
+                      <option key={c.code} value={c.code}>
+                        {c.code} ({c.symbol})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -613,7 +666,7 @@ const BudgetView: React.FC = () => {
                 <button onClick={() => setShowAddModal(false)} className="btn-secondary flex-1">
                   {t('common.cancel')}
                 </button>
-                <button onClick={handleAddTransaction} className={`flex-1 flex items-center justify-center gap-2 ${transactionType === 'income' ? 'btn-primary bg-green-600 hover:bg-green-700' : 'btn-primary'}`}>
+                <button onClick={handleAddTransaction} className={`flex - 1 flex items - center justify - center gap - 2 ${transactionType === 'income' ? 'btn-primary bg-green-600 hover:bg-green-700' : 'btn-primary'} `}>
                   <Check size={18} />
                   {t('budget.saveTransaction')}
                 </button>
