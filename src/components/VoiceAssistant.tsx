@@ -117,9 +117,23 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                 throw new Error(t('integrations.notConfigured') || 'Nincs AI beállítva. Kérlek állítsd be az Integrációk menüben.');
             }
 
+            // 0. Auto-detect currency intent and force refresh rates if needed
+            const currencyKeywords = [
+                'árfolyam', 'valuta', 'váltás', 'átváltás', 'mennyi', 'euró', 'dollár', 'forint',
+                'euro', 'dollar', 'huf', 'usd', 'gbp', 'chf', 'jpy', 'rate', 'exchange', 'convert',
+                '€', '$', '£', '¥'
+            ];
+
+            const isCurrencyRelated = currencyKeywords.some(keyword => text.toLowerCase().includes(keyword));
+
+            if (isCurrencyRelated && AIService.isConfigured()) {
+                console.log('Currency intent detected. Fetching live rates...');
+                await CurrencyService.fetchRealTimeRates(true); // Force API/AI fetch
+            }
+
             // Generate response using Unified AI Service
             const baseCurrency = CurrencyService.getBaseCurrency();
-            const rates = CurrencyService.getAllRates();
+            const rates = CurrencyService.getAllRates(); // This will now have fresh data
             const rateList = Object.entries(rates).map(([curr, rate]) => `${curr}: ${rate}`).join(', ');
 
             const financialSummary = {
