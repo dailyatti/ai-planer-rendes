@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useData } from '../../contexts/DataContext';
+
 import {
   BarChart3, TrendingUp, TrendingDown,
   Activity, Target, ArrowUpRight, ArrowDownRight,
@@ -13,6 +15,8 @@ import { useLanguage } from '../../contexts/LanguageContext';
 const StatisticsView: React.FC = () => {
   const { t } = useLanguage();
   const [timeRange, setTimeRange] = useState('month');
+  const [showFinancialModal, setShowFinancialModal] = useState(false);
+  const [projectionMonths, setProjectionMonths] = useState(6);
 
   // Mock Data for PhD-Level Charts
   const productivityData = [
@@ -41,6 +45,9 @@ const StatisticsView: React.FC = () => {
     { time: '17:00', score: 90 },
   ];
 
+  // Use financial helpers from DataContext
+  const { computeProjection, computeRunway } = useData();
+
   return (
     <div className="view-container">
       {/* Header */}
@@ -56,6 +63,13 @@ const StatisticsView: React.FC = () => {
             {t('statistics.subtitle')}
           </p>
         </div>
+        {/* Financial Model Button */}
+        <button
+          className="btn-primary px-4 py-2"
+          onClick={() => setShowFinancialModal(true)}
+        >
+          {t('statistics.financialModelButton') || 'Financial Model'}
+        </button>
 
         <div className="flex items-center gap-3">
           <select
@@ -235,6 +249,38 @@ const StatisticsView: React.FC = () => {
           </div>
         </div>
       </div>
+      {/* Financial Guide Modal */}
+      {showFinancialModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-11/12 md:w-2/3 lg:w-1/2 max-h-[90vh] overflow-y-auto shadow-lg">
+            <h2 className="text-xl font-bold mb-4">Financial Model</h2>
+            <button
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+              onClick={() => setShowFinancialModal(false)}
+            >
+              ✕
+            </button>
+            <div className="mb-4">
+              <label className="block mb-1 font-medium">Projection months:</label>
+              <input
+                type="number"
+                min="1"
+                value={projectionMonths}
+                onChange={e => setProjectionMonths(parseInt(e.target.value) || 1)}
+                className="border rounded px-2 py-1 w-20"
+              />
+            </div>
+            <div className="mb-4">
+              <h3 className="font-semibold mb-2">Cash‑flow projection</h3>
+              <pre className="bg-gray-100 p-2 rounded">{JSON.stringify(computeProjection(projectionMonths), null, 2)}</pre>
+            </div>
+            <div className="mb-4">
+              <h3 className="font-semibold mb-2">Runway (months)</h3>
+              <p>{computeRunway() ?? 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
