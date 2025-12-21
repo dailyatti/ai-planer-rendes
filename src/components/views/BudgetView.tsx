@@ -173,7 +173,14 @@ const BudgetView: React.FC = () => {
   const handleAddTransaction = () => {
     if (!newTransaction.description || !newTransaction.amount) return;
 
-    const amount = parseFloat(newTransaction.amount);
+    // Fix Hungarian comma issue (e.g., "12,5" -> "12.5")
+    const sanitizedAmount = newTransaction.amount.replace(/,/g, '.');
+    const amount = parseFloat(sanitizedAmount);
+
+    if (isNaN(amount)) {
+      alert("Kérlek adj meg egy érvényes számot!"); // Basic validation feedback
+      return;
+    }
 
     if (editingTransaction) {
       updateTransaction(editingTransaction.id, {
@@ -604,9 +611,16 @@ const BudgetView: React.FC = () => {
                     {t('budget.amount')}
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     value={newTransaction.amount}
-                    onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+                    onChange={(e) => {
+                      // Allow only numbers, commas and dots
+                      const val = e.target.value;
+                      if (/^[0-9.,]*$/.test(val)) {
+                        setNewTransaction({ ...newTransaction, amount: val });
+                      }
+                    }}
                     className="input-field w-full"
                     placeholder="0"
                   />
