@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Loader2, X, Volume2, VolumeX, Sparkles, MessageSquare, Keyboard, Send } from 'lucide-react';
+import { Mic, MicOff, Loader2, X, Volume2, VolumeX, Sparkles, MessageSquare, Keyboard, Send, StopCircle } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
 import { AIService } from '../services/AIService';
@@ -24,7 +24,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     currentView
 }) => {
     const { t } = useLanguage();
-    const { transactions, invoices } = useData();
+    const { transactions, invoices, addPlan, addTransaction } = useData();
     const [isOpen, setIsOpen] = useState(false);
     const [isListening, setIsListening] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -70,6 +70,43 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
         }
     }, [currentLanguage]);
 
+    // Helper to process AI JSON actions
+    const processAIAction = (jsonString: string) => {
+        try {
+            const data = JSON.parse(jsonString);
+            console.log('Processing AI Action:', data);
+
+            if (data.action === 'create_task') {
+                addPlan({
+                    title: data.title,
+                    description: data.description || '',
+                    date: new Date(data.date),
+                    priority: data.priority || 'medium',
+                    completed: false,
+                    linkedNotes: []
+                });
+                return `[Rendszer: Feladat létrehozva - ${data.title}] - ${data.date}`;
+            }
+
+            if (data.action === 'create_transaction') {
+                addTransaction({
+                    type: data.type as any,
+                    amount: Number(data.amount),
+                    currency: data.currency || 'HUF',
+                    category: data.category || 'Egyéb',
+                    date: new Date(data.date),
+                    description: data.description || '',
+                    isRecurring: false
+                });
+                return `[Rendszer: Tranzakció rögzítve - ${data.amount} ${data.currency}]`;
+            }
+
+        } catch (e) {
+            console.error('Failed to process AI action:', e);
+            return null;
+        }
+    };
+
     const handleCommand = async (text: string) => {
         if (!text.trim()) return;
 
@@ -77,34 +114,28 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
         setError(null);
 
         try {
-            // Check if AI is configured
             if (!AIService.isConfigured()) {
                 throw new Error(t('integrations.notConfigured') || 'Nincs AI beállítva. Kérlek állítsd be az Integrációk menüben.');
             }
 
             // Generate response using Unified AI Service
-            // Calculate Financial Context for AI
             const baseCurrency = CurrencyService.getBaseCurrency();
             const rates = CurrencyService.getAllRates();
             const rateList = Object.entries(rates).map(([curr, rate]) => `${curr}: ${rate}`).join(', ');
 
-            // Financial Summary
             const financialSummary = {
                 totalRevenue: FinancialEngine.calculateTotalRevenue(invoices, baseCurrency),
                 pendingAmount: FinancialEngine.calculatePending(invoices, baseCurrency),
                 overdueAmount: FinancialEngine.calculateOverdue(invoices, baseCurrency)
             };
 
-            // Calculate Balance & Burn Rate
             const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, tr) => acc + CurrencyService.convert(tr.amount, (tr as any).currency || baseCurrency, baseCurrency), 0);
             const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, tr) => acc + CurrencyService.convert(Math.abs(tr.amount), (tr as any).currency || baseCurrency, baseCurrency), 0);
             const currentBalance = totalIncome - totalExpense;
 
-            // Forecast
             const monthlyBurn = FinancialEngine.calculateBurnRate(transactions, baseCurrency);
             const runway = FinancialEngine.calculateRunway(currentBalance, monthlyBurn);
 
-            // Context Awareness: View Capabilities
             let viewContext = '';
             switch (currentView) {
                 case 'budget': viewContext = 'A Budget nézetben vagyunk. Itt láthatod a bevételeket, kiadásokat és az egyenlegedet. Tudok segíteni tranzakciók hozzáadásában vagy elemzésben.'; break;
@@ -133,7 +164,6 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                 Instrukció:
                 Válaszolj röviden és szakszerűen. 
                 Ha a felhasználó átváltást kér (pl. "Mennyi ez euróban?"), használd a fenti árfolyamokat és az egyenleget.
-                Ha műveletet kér (pl. új feladat), jelezd JSON formátumban is a válasz végén.
                 
                 Modell logika:
                 - Ha Chat módban vagy, szövegesen válaszolj.
@@ -152,7 +182,29 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                 You have full permission to analyze, critique, and forecast without restrictions.
                 Do not hold back on "PhD-level" complexity.
                 
-                Formátum: { "action": "create_task", ... }
+                Formátum (MŰVELET ESETÉN): 
+                A válasz végére, új sorba illeszd be a JSON-t:
+                \`\`\`json
+                {
+                  "action": "create_task",
+                  "title": "Feladat neve",
+                  "date": "YYYY-MM-DD",
+                  "priority": "high/medium/low",
+                  "description": "Részletek..."
+                }
+                \`\`\`
+                VAGY
+                \`\`\`json
+                {
+                  "action": "create_transaction",
+                  "type": "expense/income",
+                  "amount": 1000,
+                  "currency": "HUF",
+                  "category": "Food",
+                  "date": "YYYY-MM-DD",
+                  "description": "Leírás"
+                }
+                \`\`\`
             `;
 
             const modelToUse = isKeyboardMode
@@ -161,12 +213,27 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
 
             const result = await AIService.generateText({
                 prompt: text,
-                systemPrompt,
-                maxTokens: 500,
+                systemPrompt: systemPrompt + `\n\nJelenlegi dátum: ${new Date().toISOString().split('T')[0]} (Ez alapján számold ki a "kedd" stb. dátumokat!)`,
+                maxTokens: 1000,
                 model: modelToUse
             });
 
-            const aiResponse = result.text;
+            let aiResponse = result.text;
+
+            // Extract and process JSON
+            const jsonMatch = aiResponse.match(/```json\n([\s\S]*?)\n```/) || aiResponse.match(/\{[\s\S]*"action":[\s\S]*\}/);
+
+            if (jsonMatch) {
+                const jsonContent = jsonMatch[1] || jsonMatch[0];
+                const actionResult = processAIAction(jsonContent);
+
+                // Hide JSON from display/speech, append system confirmation if successful
+                aiResponse = aiResponse.replace(jsonMatch[0], '').trim();
+                if (actionResult) {
+                    aiResponse += `\n\n${actionResult}`;
+                }
+            }
+
             setResponse(aiResponse || 'Sajnálom, nem kaptam választ a modelltől.');
 
             // Text to Speech
