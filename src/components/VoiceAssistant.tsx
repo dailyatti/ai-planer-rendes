@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Loader2, X, Volume2, VolumeX, Sparkles, MessageSquare, Keyboard, Send } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useData } from '../contexts/DataContext';
 import { AIService } from '../services/AIService';
+import { FinancialEngine } from '../utils/FinancialEngine';
+import { CurrencyService } from '../services/CurrencyService';
 
 interface VoiceAssistantProps {
     onCommand?: (command: VoiceCommand) => void;
@@ -21,6 +24,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     currentView
 }) => {
     const { t } = useLanguage();
+    const { transactions, invoices } = useData();
     const [isOpen, setIsOpen] = useState(false);
     const [isListening, setIsListening] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -79,11 +83,44 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             }
 
             // Generate response using Unified AI Service
+            // Calculate Financial Context for AI
+            const baseCurrency = CurrencyService.getBaseCurrency();
+
+            // Financial Summary
+            const financialSummary = {
+                totalRevenue: FinancialEngine.calculateTotalRevenue(invoices, baseCurrency),
+                pendingAmount: FinancialEngine.calculatePending(invoices, baseCurrency),
+                overdueAmount: FinancialEngine.calculateOverdue(invoices, baseCurrency)
+            };
+
+            // Calculate Balance & Burn Rate
+            const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, tr) => acc + CurrencyService.convert(tr.amount, (tr as any).currency || baseCurrency, baseCurrency), 0);
+            const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, tr) => acc + CurrencyService.convert(Math.abs(tr.amount), (tr as any).currency || baseCurrency, baseCurrency), 0);
+            const currentBalance = totalIncome - totalExpense;
+
+            // Forecast
+            // Simplified: yearly projection based on current balance + (income - expense)
+            // Ideally we'd separate recurring, but for now we trust the AI to understand "current balance"
+            const monthlyBurn = FinancialEngine.calculateBurnRate(transactions, baseCurrency);
+            const runway = FinancialEngine.calculateRunway(currentBalance, monthlyBurn);
+
             const systemPrompt = `
-                Te egy profi Content Planner asszisztens vagy. 
-                Jelenlegi nézet: ${currentView}. 
+                Te egy profi Content Planner és Pénzügyi Asszisztens vagy.
+                Jelenlegi nézet: ${currentView}.
                 Nyelv: ${currentLanguage}.
-                Válaszolj röviden és tömören. Ha a felhasználó műveletet kér (pl. új feladat), jelezd JSON formátumban is a válasz végén.
+                
+                PÉNZÜGYI ADATOK (Jelenleg):
+                - Pénznem: ${baseCurrency}
+                - Jelenlegi Egyenleg: ${Math.round(currentBalance)} ${baseCurrency}
+                - Összes Bevétel (Számlák alapján): ${Math.round(financialSummary.totalRevenue)} ${baseCurrency}
+                - Kintlévőség: ${Math.round(financialSummary.pendingAmount)} ${baseCurrency}
+                - Lejárt tartozások: ${Math.round(financialSummary.overdueAmount)} ${baseCurrency}
+                - Havi költés (Burn Rate): kb. ${Math.round(monthlyBurn)} ${baseCurrency}
+                - Becsült kifutás (Runway): ${runway !== null ? runway + ' hónap' : 'Nincs elég adat'}
+                
+                Instrukció:
+                Válaszolj röviden és szakszerűen. Ha a felhasználó pénzügyi tanácsot kér (pl. "Mennyi pénzem lesz?"), használj becslést a fenti adatok alapján.
+                Ha műveletet kér (pl. új feladat), jelezd JSON formátumban is a válasz végén.
                 Formátum: { "action": "create_task", ... }
             `;
 

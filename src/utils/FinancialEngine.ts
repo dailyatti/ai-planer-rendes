@@ -147,14 +147,33 @@ export class FinancialEngine {
     }
 
     /**
+     * Get aggregated transaction amounts by currency
+     */
+    static getTransactionAmountsByCurrency(transactions: Transaction[], type: 'income' | 'expense'): Record<string, number> {
+        const result: Record<string, number> = {};
+
+        transactions.filter(t => t.type === type).forEach(t => {
+            const currency = (t as any).currency || 'HUF'; // Transaction might not have currency yet, default to HUF
+            const amount = Math.abs(t.amount);
+
+            if (!result[currency]) {
+                result[currency] = 0;
+            }
+            result[currency] += amount;
+        });
+
+        return result;
+    }
+
+    /**
      * Calculate monthly burn rate from transactions
      */
     static calculateBurnRate(transactions: Transaction[], targetCurrency: string): number {
         const expenses = transactions
             .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + CurrencyService.convert(t.amount, t.currency || targetCurrency, targetCurrency), 0);
+            .reduce((sum, t) => sum + CurrencyService.convert(Math.abs(t.amount), (t as any).currency || targetCurrency, targetCurrency), 0);
 
-        // Assume transactions span ~last month
+        // Assume transactions span ~last month (simplified for now)
         return expenses;
     }
 
@@ -164,5 +183,22 @@ export class FinancialEngine {
     static calculateRunway(currentBalance: number, monthlyBurn: number): number | null {
         if (monthlyBurn <= 0) return null;
         return Math.floor(currentBalance / monthlyBurn);
+    }
+
+    /**
+     * Calculate Future Balance Forecast
+     * @param currentBalance Current total balance in target currency
+     * @param recurringIncome Monthly recurring income
+     * @param recurringExpense Monthly recurring expense
+     * @param months Number of months to forecast
+     */
+    static calculateFutureBalance(
+        currentBalance: number,
+        recurringIncome: number,
+        recurringExpense: number,
+        months: number
+    ): number {
+        const monthlyNet = recurringIncome - recurringExpense;
+        return currentBalance + (monthlyNet * months);
     }
 }

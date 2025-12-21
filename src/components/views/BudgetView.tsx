@@ -7,17 +7,21 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart as RechartsPieChart, Pie, Cell, Legend
 } from 'recharts';
+import { Search } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useData } from '../../contexts/DataContext';
 import { TransactionPeriod } from '../../types/planner';
+import { CurrencyService, AVAILABLE_CURRENCIES } from '../../services/CurrencyService';
+import { FinancialEngine } from '../../utils/FinancialEngine';
 
 const BudgetView: React.FC = () => {
   const { t, language } = useLanguage();
   const { transactions, addTransaction, deleteTransaction } = useData();
 
-  const [currency, setCurrency] = useState<'EUR' | 'HUF' | 'USD'>('HUF');
+  const [currency, setCurrency] = useState<string>('HUF');
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'planning'>('overview');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedStat, setSelectedStat] = useState<{ title: string; breakdown: Record<string, number>; rect: DOMRect } | null>(null);
   const [transactionType, setTransactionType] = useState<'income' | 'expense'>('expense');
   const [filterCategory, setFilterCategory] = useState<string>('all');
 
@@ -189,11 +193,13 @@ const BudgetView: React.FC = () => {
           <select
             className="input-field w-auto font-bold text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-200 dark:border-gray-700"
             value={currency}
-            onChange={(e) => setCurrency(e.target.value as any)}
+            onChange={(e) => {
+              setCurrency(e.target.value);
+            }}
           >
-            <option value="HUF">HUF (Ft)</option>
-            <option value="EUR">EUR (€)</option>
-            <option value="USD">USD ($)</option>
+            {AVAILABLE_CURRENCIES.map(c => (
+              <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
+            ))}
           </select>
           <button
             onClick={() => { setTransactionType('income'); setShowAddModal(true); }}
@@ -248,29 +254,51 @@ const BudgetView: React.FC = () => {
           </div>
         </div>
 
-        {/* Income Card */}
-        <div className="card p-6 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-xl shadow-blue-500/20 hover:shadow-2xl hover:shadow-blue-500/30 transition-all duration-300 hover:scale-[1.02]">
+        {/* Income Card - Button for Breakdown */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const rect = e.currentTarget.getBoundingClientRect();
+            const breakdown = FinancialEngine.getTransactionAmountsByCurrency(transactions, 'income');
+            setSelectedStat({ title: t('budget.income'), breakdown, rect });
+          }}
+          className="card p-6 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-xl shadow-blue-500/20 hover:shadow-2xl hover:shadow-blue-500/30 transition-all duration-300 hover:scale-[1.02] text-left w-full group"
+        >
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-sm font-medium opacity-80">{t('budget.income')}</p>
+              <p className="text-sm font-medium opacity-80 flex items-center gap-2">
+                {t('budget.income')}
+                <Search size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+              </p>
               <h3 className="text-3xl font-bold mt-1">{formatMoney(totalIncome)}</h3>
             </div>
             <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><TrendingUp size={20} /></div>
           </div>
-        </div>
+        </button>
 
-        {/* Expense Card */}
-        <div className="card p-6 bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-xl shadow-orange-500/20 hover:shadow-2xl hover:shadow-orange-500/30 transition-all duration-300 hover:scale-[1.02]">
+        {/* Expense Card - Button for Breakdown */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const rect = e.currentTarget.getBoundingClientRect();
+            const breakdown = FinancialEngine.getTransactionAmountsByCurrency(transactions, 'expense');
+            setSelectedStat({ title: t('budget.expense'), breakdown, rect });
+          }}
+          className="card p-6 bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-xl shadow-orange-500/20 hover:shadow-2xl hover:shadow-orange-500/30 transition-all duration-300 hover:scale-[1.02] text-left w-full group"
+        >
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-sm font-medium opacity-80">{t('budget.expense')}</p>
+              <p className="text-sm font-medium opacity-80 flex items-center gap-2">
+                {t('budget.expense')}
+                <Search size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+              </p>
               <h3 className="text-3xl font-bold mt-1">{formatMoney(totalExpense)}</h3>
             </div>
             <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><TrendingDown size={20} /></div>
           </div>
-        </div>
+        </button>
 
-        {/* Recurring Card */}
+        {/* Recurring Card (Kept static for now as it's a subset) */}
         <div className="card p-6 bg-gradient-to-br from-purple-500 to-violet-600 text-white shadow-xl shadow-purple-500/20 hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-300 hover:scale-[1.02]">
           <div className="flex justify-between items-start mb-4">
             <div>
@@ -535,6 +563,55 @@ const BudgetView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+      {/* Breakdown Popover */}
+      {selectedStat && (
+        <>
+          <div
+            className="fixed inset-0 z-[100]"
+            onClick={() => setSelectedStat(null)}
+          />
+          <div
+            className="fixed z-[101] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 p-4 min-w-[280px] animate-in fade-in zoom-in-95 duration-200"
+            style={{
+              top: selectedStat.rect.bottom + 10,
+              left: Math.min(selectedStat.rect.left, window.innerWidth - 300)
+            }}
+          >
+            <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100 dark:border-gray-700">
+              <h4 className="font-bold text-gray-900 dark:text-white">{selectedStat.title} Részletezése</h4>
+              <button onClick={() => setSelectedStat(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="space-y-3">
+              {Object.entries(selectedStat.breakdown).map(([curr, amount]) => (
+                <div key={curr} className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">{curr}</span>
+                  <span className="font-bold text-gray-900 dark:text-white">
+                    {new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
+                      style: 'currency',
+                      currency: curr,
+                      maximumFractionDigits: 0
+                    }).format(amount)}
+                  </span>
+                </div>
+              ))}
+              {Object.keys(selectedStat.breakdown).length === 0 && (
+                <div className="text-center text-sm text-gray-400 py-2">
+                  Nincs adat.
+                </div>
+              )}
+            </div>
+
+            {/* Global Exchange Rate Info */}
+            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+              <p className="text-xs text-gray-400">
+                Az átváltási árfolyamokat a Beállítások menüben módosíthatod.
+              </p>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
