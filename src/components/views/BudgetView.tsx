@@ -860,6 +860,32 @@ const BudgetView: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Optional Live Update Button */}
+              <div className="flex justify-center">
+                <button
+                  onClick={async () => {
+                    const btn = document.getElementById('live-refresh-btn');
+                    if (btn) {
+                      btn.textContent = 'Frissítés...';
+                      btn.setAttribute('disabled', 'true');
+                    }
+
+                    await CurrencyService.fetchRealTimeRates(true);
+                    setRateSource(CurrencyService.getUpdateSource());
+
+                    if (btn) {
+                      btn.textContent = 'Valós idejű árfolyamok lekérése (API)';
+                      btn.removeAttribute('disabled');
+                    }
+                  }}
+                  id="live-refresh-btn"
+                  className="text-xs text-blue-500 dark:text-blue-400 font-medium hover:underline flex items-center gap-1"
+                >
+                  <RefreshCcw size={12} />
+                  Frissítés valós idejű adatokkal (API)
+                </button>
+              </div>
             </div>
 
             <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800">

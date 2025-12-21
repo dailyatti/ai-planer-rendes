@@ -236,12 +236,12 @@ class CurrencyServiceClass {
     /**
      * Fetch real-time exchange rates (API -> AI -> Fallback)
      */
-    async fetchRealTimeRates(): Promise<{ success: boolean; message: string; method: 'api' | 'ai' | 'fallback' }> {
+    async fetchRealTimeRates(force: boolean = false): Promise<{ success: boolean; message: string; method: 'api' | 'ai' | 'fallback' }> {
         const now = Date.now();
         const oneDay = 24 * 60 * 60 * 1000;
 
-        // If data is fresh (< 24h), return status based on stored source
-        if (now - this.config.lastUpdated < oneDay && this.config.lastUpdated > 0) {
+        // If data is fresh (< 24h) and not forced, return status based on stored source
+        if (!force && now - this.config.lastUpdated < oneDay && this.config.lastUpdated > 0) {
             const method = this.config.updateSource === 'ai' ? 'ai' : 'fallback';
             return {
                 success: true,
