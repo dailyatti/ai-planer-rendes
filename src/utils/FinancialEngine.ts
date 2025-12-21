@@ -1,49 +1,17 @@
 import { Transaction, Invoice, Subscription } from '../types/planner';
-
-/**
- * Valid currencies
- */
-export type Currency = 'HUF' | 'EUR' | 'USD';
+import { CurrencyService } from '../services/CurrencyService';
 
 /**
  * FinancialEngine - PhD Level Mathematical Model
- * Handles currency conversion, cash flow analysis, and forecasting using linear regression.
+ * Handles currency conversion via CurrencyService, cash flow analysis, and forecasting.
  */
 export class FinancialEngine {
-    // Mock exchange rates (in production, fetch from API)
-    private static rates: Record<string, number> = {
-        'HUF': 1,
-        'EUR': 385.5,
-        'USD': 360.2,
-    };
 
     /**
-     * Convert amount between currencies
+     * Convert amount between currencies using CurrencyService
      */
     static convert(amount: number, from: string, to: string): number {
-        if (from === to) return amount;
-
-        const rateFrom = this.rates[from] || 1;
-        const rateTo = this.rates[to] || 1;
-
-        // Convert to base (HUF) then to target
-        const inBase = amount * (from === 'HUF' ? 1 : rateFrom); // Ha külföldi, szorozzuk (EUR -> HUF)
-
-        // Wait, logic check:
-        // 1 EUR = 385 HUF.
-        // Convert 10 EUR to HUF -> 10 * 385 = 3850. Correct.
-        // Convert 3850 HUF to EUR -> 3850 / 385 = 10.
-
-        if (to === 'HUF') {
-            return amount * rateFrom;
-        } else if (from === 'HUF') {
-            return amount / rateTo;
-        } else {
-            // Cross rate: EUR -> USD
-            // EUR -> HUF -> USD
-            const hufInfo = amount * rateFrom;
-            return hufInfo / rateTo;
-        }
+        return CurrencyService.convert(amount, from, to);
     }
 
     /**
@@ -52,56 +20,127 @@ export class FinancialEngine {
      */
     static calculateTotalRevenue(invoices: Invoice[], targetCurrency: string): number {
         return invoices
-            .filter(inv => inv.status === 'paid' || inv.status === 'sent') // Include sent as potential
+            .filter(inv => inv.status === 'paid')
             .reduce((sum, inv) => {
                 const amount = inv.total || 0;
-                const currency = inv.currency || 'HUF'; // Default to HUF if missing
-                return sum + this.convert(amount, currency, targetCurrency);
+                const currency = inv.currency || targetCurrency;
+                return sum + CurrencyService.convert(amount, currency, targetCurrency);
             }, 0);
     }
 
     /**
-     * Forecast Future Balance (Linear Regression)
-     * Predicts balance for next N months based on historical transactions and recurring items
+     * Calculate Pending Amount (sent invoices)
      */
-    static predictFutureBalance(
-        currentBalance: number,
-        transactions: Transaction[],
-        subscriptions: Subscription[],
+    static calculatePending(invoices: Invoice[], targetCurrency: string): number {
+        return invoices
+            .filter(inv => inv.status === 'sent')
+            .reduce((sum, inv) => {
+                const amount = inv.total || 0;
+                const currency = inv.currency || targetCurrency;
+                return sum + CurrencyService.convert(amount, currency, targetCurrency);
+            }, 0);
+    }
+
+    /**
+     * Calculate Overdue Amount
+     */
+    static calculateOverdue(invoices: Invoice[], targetCurrency: string): number {
+        return invoices
+            .filter(inv => inv.status === 'overdue')
+            .reduce((sum, inv) => {
+                const amount = inv.total || 0;
+                const currency = inv.currency || targetCurrency;
+                return sum + CurrencyService.convert(amount, currency, targetCurrency);
+            }, 0);
+    }
+
+    /**
+     * Generate Revenue Forecast for next N months
+     * Uses linear regression on historical data + pending invoices
+     */
+    static generateForecast(
+        invoices: Invoice[],
         targetCurrency: string,
         months: number = 6
-    ): { labels: string[], data: number[] } {
+    ): { labels: string[]; actual: number[]; predicted: number[] } {
         const labels: string[] = [];
-        const data: number[] = [];
-        let balance = currentBalance;
+        const actual: number[] = [];
+        const predicted: number[] = [];
 
-        // 1. Calculate Monthly Recurring Delta (Income - Expense)
-        let monthlyRecurringDelta = 0;
-
-        subscriptions.forEach(sub => {
-            const amount = this.convert(sub.cost, sub.currency, targetCurrency);
-            // Assuming subscriptions are expenses
-            monthlyRecurringDelta -= amount;
-        });
-
-        // 2. Linear projection
         const today = new Date();
 
-        for (let i = 0; i <= months; i++) {
-            const date = new Date(today.getFullYear(), today.getMonth() + i, 1);
-            labels.push(date.toLocaleString('default', { month: 'short' }));
+        // Calculate historical monthly revenue (last 6 months)
+        const historicalMonths: number[] = [];
+        for (let i = 5; i >= 0; i--) {
+            const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            const monthRevenue = invoices
+                .filter(inv => {
+                    const invDate = new Date(inv.issueDate);
+                    return inv.status === 'paid' &&
+                        invDate.getMonth() === monthDate.getMonth() &&
+                        invDate.getFullYear() === monthDate.getFullYear();
+                })
+                .reduce((sum, inv) => sum + CurrencyService.convert(inv.total, inv.currency || targetCurrency, targetCurrency), 0);
 
-            // Add recurring delta
-            if (i > 0) {
-                balance += monthlyRecurringDelta;
-
-                // Add mocked growth factor (simulating business growth)
-                balance *= 1.02; // +2% monthly growth
-            }
-
-            data.push(Math.round(balance));
+            historicalMonths.push(monthRevenue);
         }
 
-        return { labels, data };
+        // Calculate trend (simple linear regression slope)
+        const n = historicalMonths.length;
+        const sumX = (n * (n - 1)) / 2;
+        const sumY = historicalMonths.reduce((a, b) => a + b, 0);
+        const sumXY = historicalMonths.reduce((sum, y, x) => sum + x * y, 0);
+        const sumX2 = historicalMonths.reduce((sum, _, x) => sum + x * x, 0);
+
+        const slope = n > 1 ? (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX) : 0;
+        const intercept = (sumY - slope * sumX) / n;
+
+        // Generate labels and data for past + future
+        for (let i = -3; i <= months; i++) {
+            const monthDate = new Date(today.getFullYear(), today.getMonth() + i, 1);
+            labels.push(monthDate.toLocaleString('default', { month: 'short', year: '2-digit' }));
+
+            if (i <= 0) {
+                // Historical actual data
+                const monthRevenue = invoices
+                    .filter(inv => {
+                        const invDate = new Date(inv.issueDate);
+                        return inv.status === 'paid' &&
+                            invDate.getMonth() === monthDate.getMonth() &&
+                            invDate.getFullYear() === monthDate.getFullYear();
+                    })
+                    .reduce((sum, inv) => sum + CurrencyService.convert(inv.total, inv.currency || targetCurrency, targetCurrency), 0);
+
+                actual.push(Math.round(monthRevenue));
+                predicted.push(0); // No prediction for past
+            } else {
+                // Future prediction
+                actual.push(0); // No actual for future
+                const predictedValue = intercept + slope * (n + i);
+                predicted.push(Math.max(0, Math.round(predictedValue)));
+            }
+        }
+
+        return { labels, actual, predicted };
+    }
+
+    /**
+     * Calculate monthly burn rate from transactions
+     */
+    static calculateBurnRate(transactions: Transaction[], targetCurrency: string): number {
+        const expenses = transactions
+            .filter(t => t.type === 'expense')
+            .reduce((sum, t) => sum + CurrencyService.convert(t.amount, t.currency || targetCurrency, targetCurrency), 0);
+
+        // Assume transactions span ~last month
+        return expenses;
+    }
+
+    /**
+     * Calculate runway in months
+     */
+    static calculateRunway(currentBalance: number, monthlyBurn: number): number | null {
+        if (monthlyBurn <= 0) return null;
+        return Math.floor(currentBalance / monthlyBurn);
     }
 }

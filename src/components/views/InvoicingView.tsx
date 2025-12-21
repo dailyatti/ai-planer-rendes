@@ -1,13 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import {
-    FileText, Plus, Users, Clock, CheckCircle, AlertCircle,
-    Send, Download, Search, Filter, MoreHorizontal,
-    ChevronRight, Trash2, Settings, Upload,
-    PieChart, Wallet, X, Building2, User, Mail, Share2, Check
+    FileText, Users, Plus, X, Mail, Clock, Wallet, Building2, AlertCircle,
+    Download, ChevronRight, PieChart, User, CheckCircle, Search,
+    TrendingUp, Filter, Check, Send, Share2, MoreHorizontal, Trash2,
+    Upload, Settings
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useData } from '../../contexts/DataContext';
-import { Invoice, Client, InvoiceItem, CompanyProfile } from '../../types/planner';
+import { Invoice, InvoiceItem, Client, CompanyProfile } from '../../types/planner';
+import { FinancialEngine } from '../../utils/FinancialEngine';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 const printStyles = `
   @media print {
@@ -339,6 +341,7 @@ const InvoicingView: React.FC = () => {
                     { id: 'dashboard', label: t('invoicing.dashboard'), icon: PieChart },
                     { id: 'invoices', label: t('invoicing.invoices'), icon: FileText },
                     { id: 'clients', label: t('invoicing.clients'), icon: Users },
+                    { id: 'analytics', label: t('invoicing.analytics') || 'Előrejelzés', icon: TrendingUp },
                 ].map((tab) => (
                     <button
                         key={tab.id}
@@ -521,6 +524,92 @@ const InvoicingView: React.FC = () => {
                         </div>
                         <span className="font-bold text-lg text-gray-500 group-hover:text-primary-600 transition-colors">{t('invoicing.addClient')}</span>
                     </button>
+                </div>
+            )}
+
+            {/* Analytics / Forecasting View */}
+            {activeTab === 'analytics' && (
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="card p-6 border border-gray-100 dark:border-gray-800">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                <TrendingUp className="text-primary-600" />
+                                {t('invoicing.revenueForcast') || 'Bevétel Előrejelzés'}
+                            </h3>
+                            <span className="text-sm text-gray-500">
+                                Lineáris regresszió alapú előrejelzés
+                            </span>
+                        </div>
+
+                        {(() => {
+                            const forecast = FinancialEngine.generateForecast(invoices, 'HUF', 6);
+                            const chartData = forecast.labels.map((label, i) => ({
+                                name: label,
+                                actual: forecast.actual[i],
+                                predicted: forecast.predicted[i]
+                            }));
+
+                            return (
+                                <div className="h-80">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={chartData}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                                            <XAxis dataKey="name" tick={{ fill: '#9CA3AF' }} />
+                                            <YAxis tick={{ fill: '#9CA3AF' }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                                            <Tooltip
+                                                contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }}
+                                                labelStyle={{ color: '#fff' }}
+                                                formatter={(value: number) => [`${value.toLocaleString()} Ft`, '']}
+                                            />
+                                            <Legend />
+                                            <Bar dataKey="actual" name="Tény (Múlt)" fill="#10B981" radius={[4, 4, 0, 0]} />
+                                            <Bar dataKey="predicted" name="Előrejelzés" fill="#6366F1" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            );
+                        })()}
+
+                        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
+                                <div className="text-sm text-emerald-600 dark:text-emerald-400 mb-1">Elmúlt 3 hónap átlag</div>
+                                <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+                                    {(() => {
+                                        const forecast = FinancialEngine.generateForecast(invoices, 'HUF', 6);
+                                        const pastActual = forecast.actual.filter(v => v > 0);
+                                        const avg = pastActual.length ? pastActual.reduce((a, b) => a + b, 0) / pastActual.length : 0;
+                                        return avg.toLocaleString('hu-HU') + ' Ft';
+                                    })()}
+                                </div>
+                            </div>
+                            <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
+                                <div className="text-sm text-indigo-600 dark:text-indigo-400 mb-1">Következő 3 hónap várható</div>
+                                <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
+                                    {(() => {
+                                        const forecast = FinancialEngine.generateForecast(invoices, 'HUF', 6);
+                                        const futurePredicted = forecast.predicted.filter(v => v > 0);
+                                        const sum = futurePredicted.slice(0, 3).reduce((a, b) => a + b, 0);
+                                        return sum.toLocaleString('hu-HU') + ' Ft';
+                                    })()}
+                                </div>
+                            </div>
+                            <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
+                                <div className="text-sm text-amber-600 dark:text-amber-400 mb-1">Trend</div>
+                                <div className="text-2xl font-bold text-amber-700 dark:text-amber-300 flex items-center gap-2">
+                                    {(() => {
+                                        const forecast = FinancialEngine.generateForecast(invoices, 'HUF', 6);
+                                        const pastActual = forecast.actual.filter(v => v > 0);
+                                        const futurePredicted = forecast.predicted.filter(v => v > 0);
+                                        const pastAvg = pastActual.length ? pastActual.reduce((a, b) => a + b, 0) / pastActual.length : 0;
+                                        const futureAvg = futurePredicted.length ? futurePredicted.reduce((a, b) => a + b, 0) / futurePredicted.length : 0;
+                                        const diff = futureAvg - pastAvg;
+                                        const pct = pastAvg ? ((diff / pastAvg) * 100).toFixed(1) : '0';
+                                        return diff >= 0 ? `+${pct}% ↗` : `${pct}% ↘`;
+                                    })()}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 

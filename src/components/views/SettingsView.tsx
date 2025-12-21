@@ -4,6 +4,8 @@ import { useData } from '../../contexts/DataContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useLanguage, Language } from '../../contexts/LanguageContext';
 import { useSettings } from '../../contexts/SettingsContext';
+import { CurrencyService, AVAILABLE_CURRENCIES } from '../../services/CurrencyService';
+import { AIService } from '../../services/AIService';
 
 const SettingsView: React.FC = () => {
   const { budgetSettings, updateBudgetSettings } = useData();
@@ -12,8 +14,11 @@ const SettingsView: React.FC = () => {
   const { settings, updateSettings, resetSettings, exportSettings, importSettings } = useSettings();
   const [tempSettings, setTempSettings] = useState(budgetSettings);
   const [activeSection, setActiveSection] = useState<'general' | 'budget' | 'appearance' | 'notifications' | 'data'>('general');
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>(CurrencyService.getAllRates());
+  const [isFetchingRates, setIsFetchingRates] = useState(false);
+  const [rateMessage, setRateMessage] = useState<string | null>(null);
 
-  const currencies = ['USD', 'EUR', 'GBP', 'HUF', 'CAD', 'AUD', 'JPY', 'CHF', 'SEK', 'NOK', 'DKK'];
+  const currencies = AVAILABLE_CURRENCIES.map(c => c.code);
   const languages: { code: Language; name: string; nativeName: string }[] = [
     { code: 'en', name: t('lang.english'), nativeName: 'English' },
     { code: 'hu', name: t('lang.hungarian'), nativeName: 'Magyar' },
@@ -278,6 +283,69 @@ const SettingsView: React.FC = () => {
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
                   </label>
+                </div>
+
+                {/* Exchange Rates Section */}
+                <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      💱 {t('settings.exchangeRates') || 'Árfolyamok'}
+                    </h4>
+                    {AIService.isConfigured() && (
+                      <button
+                        onClick={async () => {
+                          setIsFetchingRates(true);
+                          setRateMessage(null);
+                          const result = await CurrencyService.fetchRatesWithAI(tempSettings.currency);
+                          setRateMessage(result.message);
+                          if (result.success) {
+                            setExchangeRates(CurrencyService.getAllRates());
+                          }
+                          setIsFetchingRates(false);
+                        }}
+                        disabled={isFetchingRates}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50"
+                      >
+                        {isFetchingRates ? (
+                          <><span className="animate-spin">⏳</span> Lekérés...</>
+                        ) : (
+                          <><span>🤖</span> AI Árfolyam Lekérés</>
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  {rateMessage && (
+                    <div className={`mb-4 p-3 rounded-lg text-sm ${rateMessage.includes('frissítve') ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'}`}>
+                      {rateMessage}
+                    </div>
+                  )}
+
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    Alap pénznem: <strong>{tempSettings.currency}</strong>. Adj meg, 1 egység mennyit ér {tempSettings.currency}-ben.
+                  </p>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {['EUR', 'USD', 'GBP', 'CHF', 'PLN', 'CZK', 'RON', 'TRY'].filter(c => c !== tempSettings.currency).map(currency => (
+                      <div key={currency} className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <span className="font-mono font-bold text-gray-700 dark:text-gray-300 w-12">{currency}</span>
+                        <span className="text-gray-400">=</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={exchangeRates[currency] || ''}
+                          onChange={(e) => {
+                            const rate = parseFloat(e.target.value) || 0;
+                            CurrencyService.setRate(currency, rate);
+                            setExchangeRates({ ...exchangeRates, [currency]: rate });
+                          }}
+                          className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-right font-mono w-20"
+                          placeholder="0"
+                        />
+                        <span className="text-xs text-gray-500">{tempSettings.currency}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <button
