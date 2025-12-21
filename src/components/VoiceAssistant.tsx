@@ -23,7 +23,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     currentView
 }) => {
     const { t } = useLanguage();
-    const { transactions, invoices, addPlan, addTransaction } = useData();
+    const { transactions, addPlan, addTransaction } = useData();
     const [isOpen, setIsOpen] = useState(false);
     const [isListening, setIsListening] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -134,13 +134,8 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             // Generate response using Unified AI Service
             const baseCurrency = CurrencyService.getBaseCurrency();
             const rates = CurrencyService.getAllRates(); // This will now have fresh data
-            const rateList = Object.entries(rates).map(([curr, rate]) => `${curr}: ${rate}`).join(', ');
 
-            const financialSummary = {
-                totalRevenue: FinancialEngine.calculateTotalRevenue(invoices, baseCurrency),
-                pendingAmount: FinancialEngine.calculatePending(invoices, baseCurrency),
-                overdueAmount: FinancialEngine.calculateOverdue(invoices, baseCurrency)
-            };
+            // Calculate Recurring Monthly Income from Budget
 
             // Calculate Recurring Monthly Income from Budget
             // IMPORTANT: Only count transactions explicitly marked as recurring
@@ -161,32 +156,48 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                 }, 0);
 
             // Debug summary for AI prompt
-            const debugInfo = {
-                totalTransactions: transactions.length,
-                incomeCount: incomeTransactions.length,
-                recurringIncomeCount: recurringIncomeTransactions.length,
-                firstIncome: incomeTransactions[0] ? `${incomeTransactions[0].description}/${incomeTransactions[0].type}/${incomeTransactions[0].period}/${incomeTransactions[0].amount}` : 'N/A',
-                calculatedRecurringIncome: recurringIncome,
-            };
-            console.log('AI Debug Info:', debugInfo);
+            // PhD Calculation: Net Monthly Cash Flow & Projections with Compound Interest
 
-            const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, tr) => acc + CurrencyService.convert(tr.amount, (tr as any).currency || baseCurrency, baseCurrency), 0);
-            const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, tr) => acc + CurrencyService.convert(Math.abs(tr.amount), (tr as any).currency || baseCurrency, baseCurrency), 0);
-            const currentBalance = totalIncome - totalExpense;
+            // Calculate Recurring Monthly Expenses
+            const expenseTransactions = transactions.filter(t => t.type === 'expense');
+            const recurringExpenseTransactions = expenseTransactions.filter(t => t.recurring === true && t.period && t.period !== 'oneTime');
 
-            const monthlyBurn = FinancialEngine.calculateBurnRate(transactions, baseCurrency);
+            const recurringExpenses = recurringExpenseTransactions
+                .reduce((sum, t) => {
+                    let amount = CurrencyService.convert(Math.abs(t.amount), t.currency || baseCurrency, baseCurrency);
+                    switch (t.period) {
+                        case 'daily': return sum + (amount * 30);
+                        case 'weekly': return sum + (amount * 4);
+                        case 'monthly': return sum + amount;
+                        case 'yearly': return sum + (amount / 12);
+                        default: return sum;
+                    }
+                }, 0);
 
-            // PhD Calculation: Net Monthly Cash Flow & Projections
-            // We use recurringIncome (from Budget) - monthlyBurn (Expenses)
-            const monthlyNet = recurringIncome - monthlyBurn;
+            const currentBalance = FinancialEngine.calculateCurrentBalance(transactions, baseCurrency);
+            // Use recurring expenses as the "burn rate" for runway calculation to be conservative/accurate for future
+            const monthlyBurn = recurringExpenses;
 
-            // Granular Forecasting Units
-            const dailyNet = monthlyNet / 30;
-            const weeklyNet = dailyNet * 7;
-            const yearlyNet = monthlyNet * 12;
+            // PhD Calculation: Net Monthly Cash Flow & Projections with Compound Interest
+            // We use recurringIncome - recurringExpenses for a stable baseline forecast
+            const monthlyNet = recurringIncome - recurringExpenses;
 
-            const projected3Months = currentBalance + (monthlyNet * 3);
-            const projected1Year = currentBalance + (monthlyNet * 12);
+            // Calculate average annual interest rate for income (weighted by amount)
+            const incomeWithInterest = transactions.filter(t => t.type === 'income' && t.interestRate);
+            const totalIncomeWithInterest = incomeWithInterest.reduce((sum, t) => sum + CurrencyService.convert(t.amount, t.currency || baseCurrency, baseCurrency), 0);
+            const weightedSumRate = incomeWithInterest.reduce((sum, t) => {
+                const amt = CurrencyService.convert(t.amount, t.currency || baseCurrency, baseCurrency);
+                return sum + (amt * (t.interestRate || 0));
+            }, 0);
+            const avgInterestRate = totalIncomeWithInterest > 0 ? (weightedSumRate / totalIncomeWithInterest) : 0;
+
+            // Granular Forecasting Units (Linear)
+            // (Removed unused units)
+
+            // Compound Projections
+            const projected3Months = FinancialEngine.calculateFutureBalance(currentBalance, monthlyNet, 3, avgInterestRate);
+            const projected1Year = FinancialEngine.calculateFutureBalance(currentBalance, monthlyNet, 12, avgInterestRate);
+            const projected3Years = FinancialEngine.calculateFutureBalance(currentBalance, monthlyNet, 36, avgInterestRate);
 
             const runway = FinancialEngine.calculateRunway(currentBalance, monthlyBurn);
 
@@ -207,28 +218,25 @@ Te egy profi Pénzügyi Asszisztens vagy. Nyelv: ${currentLanguage}. Nézet: ${c
 Jelenlegi Egyenleg: ${Math.round(currentBalance)} ${baseCurrency}
 Euróban kifejezve: ${CurrencyService.convert(currentBalance, baseCurrency, 'EUR').toFixed(2)} EUR
 
-=== JÖVŐBELI ELŐREJELZÉS ADATOK (ATOMIZÁLT) ===
-Ezeket használd a jövőbeli egyenleg kiszámolásához:
+=== JÖVŐBELI ELŐREJELZÉS ADATOK (PHD SZINT) ===
+Ezeket használd a jövőbeli egyenleg kiszámolásához (Kamatos Kamattal számolva):
 - Havi Net Cashflow: ${Math.round(monthlyNet)} ${baseCurrency}
-- Napi Net Cashflow: ${Math.round(dailyNet)} ${baseCurrency}
-- Heti Net Cashflow: ${Math.round(weeklyNet)} ${baseCurrency}
-- Éves Net Cashflow: ${Math.round(yearlyNet)} ${baseCurrency}
+- Átlagos Éves Kamatláb: ${avgInterestRate.toFixed(2)}%
+- Runway (Tartalék ideje): ${runway ? runway + ' hónap' : 'Végtelen/Nincs kiadás'}
 
-=== ÁRFOLYAMOK (1 EUR = X HUF, tehát HUF/Rate = Cél) ===
-Használd ezeket bármilyen valutába történő átváltáshoz:
+ELŐREJELZETT EGYENLEGEK (KAMATTAL):
+- 3 hónap múlva: ${Math.round(projected3Months)} ${baseCurrency}
+- 1 év múlva: ${Math.round(projected1Year)} ${baseCurrency}
+- 3 év múlva: ${Math.round(projected3Years)} ${baseCurrency}
+
+=== ÁRFOLYAMOK (1 EUR = X HUF) ===
 ${allRatesText}
-FONTOS: Ha a felhasználó valutaváltást kér (pl. "Mennyi lesz RON-ban?"), akkor az előrejelzett összeget oszd el a fenti árfolyamokkal!
-Szabály: [Összeg HUF-ban] / [Valuta Árfolyama] = Eredmény
+FONTOS: Ha a kérésben valuta is van (pl. "Mennyi lesz RON-ban?"), várd meg a kiválasztott HUF eredményt, majd oszd el az árfolyammal!
 
 === KÖTELEZŐ SZABÁLYOK ===
-1. KOMPLEX IDŐPONTOK: Ha a felhasználó összetett időt mond (pl. "2 év, 3 hónap és 5 nap múlva"), add össze a komponenseket:
-   KÉPLET: Jelenlegi + (Év * ÉvesNet) + (Hó * HaviNet) + (Hét * HetiNet) + (Nap * NapiNet)
-   
-2. VALUTA KONVERZIÓ: Ha a kérdésben pénznem is van (pl. "Mennyi lesz RON-ban 1 év múlva?"):
-   a) Számold ki a jövőbeli egyenleget HUF-ban (vagy bázisban).
-   b) Váltsd át a kért pénznemre a fenti lista alapján (Oszd el az árfolyammal).
-
-3. NE számolj fejből, csak a fenti adatokat használd!
+1. KOMPLEX IDŐPONTOK: Ha a felhasználó összetett időt mond (pl. "2 év és 5 nap múlva"), interpolálj a fenti "hónap/év múlva" adatok alapján. Használd a kamatos kamat elvét!
+2. VALUTA KONVERZIÓ: Mindig váltsd át a kért pénznemre a végén.
+3. NE számolj fejből bizonytalanul, használd a fenti fix "ELŐREJELZETT" sarokpontokat!
 4. Válaszolj magyarul, tömören, professzionálisan.
 
 ${viewContext}

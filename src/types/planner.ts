@@ -71,6 +71,7 @@ export interface Transaction {
   period?: TransactionPeriod;
   recurring?: boolean;
   currency?: string;
+  interestRate?: number; // Annual interest rate in % (Compound Interest support)
 }
 
 // PhD-Level Invoice Types

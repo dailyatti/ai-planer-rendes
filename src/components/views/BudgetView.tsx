@@ -10,10 +10,9 @@ import {
 import { Search } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useData } from '../../contexts/DataContext';
-import { TransactionPeriod } from '../../types/planner';
+import { Transaction, TransactionPeriod } from '../../types/planner';
 import CurrencyService, { AVAILABLE_CURRENCIES } from '../../services/CurrencyService';
 import { FinancialEngine } from '../../utils/FinancialEngine';
-import { Transaction } from '../../types/planner';
 
 const BudgetView: React.FC = () => {
   const { t, language } = useLanguage();
@@ -40,7 +39,8 @@ const BudgetView: React.FC = () => {
     currency: currency, // Default to current view currency
     period: 'oneTime' as TransactionPeriod,
     date: new Date().toISOString().split('T')[0],
-    recurring: false
+    recurring: false,
+    interestRate: '' // New PhD field: %, e.g. "5"
   });
 
   const [rateSource, setRateSource] = useState<'system' | 'ai' | 'api'>('system');
@@ -85,11 +85,32 @@ const BudgetView: React.FC = () => {
 
   // Calculate totals
   const { totalIncome, totalExpense, balance, recurringMonthly } = useMemo(() => {
-    const income = transactions.filter(tr => tr.type === 'income').reduce((acc, tr) => acc + tr.amount, 0);
-    const expense = transactions.filter(tr => tr.type === 'expense').reduce((acc, tr) => acc + Math.abs(tr.amount), 0);
-    const recurring = transactions.filter(tr => tr.type === 'expense' && tr.recurring).reduce((acc, tr) => acc + Math.abs(tr.amount), 0);
+    const income = transactions
+      .filter(tr => tr.type === 'income')
+      .reduce((acc, tr) => {
+        const amount = Math.abs(tr.amount);
+        const trCurrency = tr.currency || 'HUF';
+        return acc + CurrencyService.convert(amount, trCurrency, currency);
+      }, 0);
+
+    const expense = transactions
+      .filter(tr => tr.type === 'expense')
+      .reduce((acc, tr) => {
+        const amount = Math.abs(tr.amount);
+        const trCurrency = tr.currency || 'HUF';
+        return acc + CurrencyService.convert(amount, trCurrency, currency);
+      }, 0);
+
+    const recurring = transactions
+      .filter(tr => tr.type === 'expense' && tr.recurring)
+      .reduce((acc, tr) => {
+        const amount = Math.abs(tr.amount);
+        const trCurrency = tr.currency || 'HUF';
+        return acc + CurrencyService.convert(amount, trCurrency, currency);
+      }, 0);
+
     return { totalIncome: income, totalExpense: expense, balance: income - expense, recurringMonthly: recurring };
-  }, [transactions]);
+  }, [transactions, currency]);
 
   // Formatters
   const formatMoney = (amount: number) => {
@@ -112,7 +133,10 @@ const BudgetView: React.FC = () => {
   const categoryData = useMemo(() => {
     const expensesByCategory: Record<string, number> = {};
     transactions.filter(tr => tr.type === 'expense').forEach(tr => {
-      expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + Math.abs(tr.amount);
+      const amount = Math.abs(tr.amount);
+      const trCurrency = tr.currency || 'HUF';
+      const converted = CurrencyService.convert(amount, trCurrency, currency);
+      expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + converted;
     });
 
     return Object.entries(expensesByCategory).map(([cat, val]) => ({
@@ -120,7 +144,7 @@ const BudgetView: React.FC = () => {
       value: val,
       color: (CATEGORIES as any)[cat]?.color || '#9ca3af'
     }));
-  }, [transactions, CATEGORIES]);
+  }, [transactions, CATEGORIES, currency]);
 
   // Cash flow data from real transactions, grouped by month
   const cashFlowData = useMemo(() => {
@@ -148,10 +172,14 @@ const BudgetView: React.FC = () => {
       transactions.forEach(tr => {
         const trDate = new Date(tr.date);
         if (trDate.getMonth() === monthIdx && trDate.getFullYear() === year) {
+          const amount = Math.abs(tr.amount);
+          const trCurrency = tr.currency || 'HUF';
+          const converted = CurrencyService.convert(amount, trCurrency, currency);
+
           if (tr.type === 'income') {
-            income += Math.abs(tr.amount);
+            income += converted;
           } else {
-            expense += Math.abs(tr.amount);
+            expense += converted;
           }
         }
       });
@@ -167,7 +195,7 @@ const BudgetView: React.FC = () => {
     }
 
     return monthsData;
-  }, [transactions, t]);
+  }, [transactions, t, currency]);
 
   // Handlers
   const handleAddTransaction = () => {
@@ -191,7 +219,8 @@ const BudgetView: React.FC = () => {
         currency: newTransaction.currency,
         date: new Date(newTransaction.date),
         period: newTransaction.period,
-        recurring: newTransaction.recurring // Use explicit flag
+        recurring: newTransaction.recurring, // Use explicit flag
+        interestRate: parseFloat(newTransaction.interestRate.replace(/,/g, '.')) || undefined
       });
     } else {
       addTransaction({
@@ -202,21 +231,28 @@ const BudgetView: React.FC = () => {
         currency: newTransaction.currency,
         date: new Date(newTransaction.date),
         period: newTransaction.period,
-        recurring: newTransaction.recurring // Use explicit flag
+        recurring: newTransaction.recurring, // Use explicit flag
+        interestRate: parseFloat(newTransaction.interestRate.replace(/,/g, '.')) || undefined
       });
     }
 
-    setNewTransaction({
-      description: '',
-      amount: '',
-      category: 'other',
-      currency: currency,
-      period: 'oneTime',
-      date: new Date().toISOString().split('T')[0],
-      recurring: false
-    });
-    setEditingTransaction(null);
-    setShowAddModal(false);
+    try {
+      setNewTransaction({
+        description: '',
+        amount: '',
+        category: 'other',
+        currency: currency,
+        period: 'oneTime',
+        date: new Date().toISOString().split('T')[0],
+        recurring: false,
+        interestRate: ''
+      });
+      setEditingTransaction(null);
+      setShowAddModal(false);
+    } catch (e) {
+      console.error('Error in handleAddTransaction reset:', e);
+      alert('Hiba történt a mentés során. Kérlek próbáld újra!');
+    }
   };
 
   const filteredTransactions = filterCategory === 'all'
@@ -279,7 +315,8 @@ const BudgetView: React.FC = () => {
                 currency: currency,
                 period: 'oneTime',
                 date: new Date().toISOString().split('T')[0],
-                recurring: false
+                recurring: false,
+                interestRate: ''
               });
               setShowAddModal(true);
             }}
@@ -299,7 +336,8 @@ const BudgetView: React.FC = () => {
                 currency: currency,
                 period: 'oneTime',
                 date: new Date().toISOString().split('T')[0],
-                recurring: false
+                recurring: false,
+                interestRate: ''
               });
               setShowAddModal(true);
             }}
@@ -527,7 +565,8 @@ const BudgetView: React.FC = () => {
                     currency: (tr as any).currency || currency, // Load saved or default
                     period: tr.period as TransactionPeriod,
                     date: new Date(tr.date).toISOString().split('T')[0],
-                    recurring: tr.recurring || false
+                    recurring: tr.recurring || false,
+                    interestRate: tr.interestRate?.toString() || ''
                   });
                   setShowAddModal(true);
                 }}
@@ -716,6 +755,30 @@ const BudgetView: React.FC = () => {
                   onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
                   className="input-field w-full"
                 />
+              </div>
+
+              {/* PhD: Interest Rate Row */}
+              <div>
+                <label className="block text-sm font-medium text-purple-600 dark:text-purple-400 mb-1 flex items-center gap-2">
+                  <TrendingUp size={14} />
+                  Éves kamatláb (%) — PhD Szint
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={newTransaction.interestRate}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (/^[0-9.,]*$/.test(val)) {
+                      setNewTransaction({ ...newTransaction, interestRate: val });
+                    }
+                  }}
+                  className="input-field w-full border-purple-100 dark:border-purple-900 focus:ring-purple-500"
+                  placeholder="0.00"
+                />
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Ha megadsz kamatot, az AI ezzel számol az elkövetkező évekre.
+                </p>
               </div>
 
               <div className="flex gap-3 mt-6">

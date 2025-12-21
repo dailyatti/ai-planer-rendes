@@ -1,4 +1,4 @@
-import { Transaction, Invoice, Subscription } from '../types/planner';
+import { Transaction, Invoice } from '../types/planner';
 import { CurrencyService } from '../services/CurrencyService';
 
 /**
@@ -186,19 +186,42 @@ export class FinancialEngine {
     }
 
     /**
-     * Calculate Future Balance Forecast
+     * Calculate Future Balance Forecast with Compound Interest
      * @param currentBalance Current total balance in target currency
-     * @param recurringIncome Monthly recurring income
-     * @param recurringExpense Monthly recurring expense
+     * @param monthlyNet Monthly net cashflow (recurring income - recurring expense)
      * @param months Number of months to forecast
+     * @param annualInterestRate Annual interest rate (e.g. 5 for 5%)
      */
     static calculateFutureBalance(
         currentBalance: number,
-        recurringIncome: number,
-        recurringExpense: number,
-        months: number
+        monthlyNet: number,
+        months: number,
+        annualInterestRate: number = 0
     ): number {
-        const monthlyNet = recurringIncome - recurringExpense;
-        return currentBalance + (monthlyNet * months);
+        const r = annualInterestRate / 100 / 12; // Monthly interest rate decimal
+
+        if (r === 0) {
+            return currentBalance + (monthlyNet * months);
+        }
+
+        // Formula for future value with monthly deposits:
+        // FV = P(1 + r)^n + PMT * [((1 + r)^n - 1) / r]
+        // Where P is principal, r is monthly rate, n is number of months, PMT is monthly deposit
+
+        const compoundFactor = Math.pow(1 + r, months);
+        const futurePrincipal = currentBalance * compoundFactor;
+        const futureContributions = monthlyNet * ((compoundFactor - 1) / r);
+
+        return futurePrincipal + futureContributions;
+    }
+
+    /**
+     * Calculate current total balance from transactions
+     */
+    static calculateCurrentBalance(transactions: Transaction[], targetCurrency: string): number {
+        return transactions.reduce((sum, t) => {
+            const amount = t.type === 'expense' ? -Math.abs(t.amount) : Math.abs(t.amount);
+            return sum + CurrencyService.convert(amount, t.currency || targetCurrency, targetCurrency);
+        }, 0);
     }
 }
