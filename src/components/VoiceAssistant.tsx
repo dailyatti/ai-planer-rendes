@@ -212,8 +212,10 @@ EGYENLEG ELŐREJELZÉS:
 - 1 év múlva: ${Math.round(projected1Year)} ${baseCurrency}
 
 === KÖTELEZŐ SZABÁLYOK ===
-1. Ha a felhasználó jövőbeli egyenleget kérdez (pl. "mennyi lesz fél év múlva?"), KÖTELEZŐEN használd a fenti ELŐREJELZÉS értékeket!
-2. NE számolj saját magad! A fenti számok már ki vannak számolva - csak olvasd fel őket!
+1. Ha a felhasználó BÁRMILYEN jövőbeli időpontra kérdez (pl. "4 hónap múlva"), számold ki a fenti adatokból:
+   KÉPLET: Jövőbeli Egyenleg = Jelenlegi Egyenleg + (Hónapok száma * Havi Net Cashflow)
+   Példa 4 hónapra: ${Math.round(currentBalance)} + (4 * ${Math.round(monthlyNet)}) = ${Math.round(currentBalance + (monthlyNet * 4))} ${baseCurrency}
+2. NE számolj saját fejből, csak a fenti "Havi Net Cashflow" értéket szorozd fel!
 3. Ha átváltást kér, használd: 1 EUR = ${rates['EUR'] || 387.2} HUF. Tehát HUF/387.2 = EUR.
 4. Válaszolj magyarul, tömören, professzionálisan.
 
