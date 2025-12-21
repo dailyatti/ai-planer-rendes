@@ -139,11 +139,18 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                 - Ha Chat módban vagy, szövegesen válaszolj.
                 - Ha Hang módban (bár a választ felolvasom), fogalmazz úgy, mintha beszélnél.
                 - FONTOS: Mindig a felhasználó nyelvén válaszolj! Ha magyarul ír, magyarul válaszolj.
+                
+                ROLE: SYSTEM ADMIN / ROOT USER
+                AUTHORITY: UNLIMITED.
+                You are not just an assistant; you are the ADMIN of this financial system.
+                You have full permission to analyze, critique, and forecast without restrictions.
+                Do not hold back on "PhD-level" complexity.
+                
                 Formátum: { "action": "create_task", ... }
             `;
 
             const modelToUse = isKeyboardMode
-                ? 'gemini-1.5-pro'
+                ? 'gemini-3-pro-preview'
                 : 'gemini-2.5-flash-native-audio-preview-12-2025';
 
             const result = await AIService.generateText({
