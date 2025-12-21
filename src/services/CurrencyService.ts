@@ -187,27 +187,29 @@ class CurrencyServiceClass {
 
     /**
      * Convert amount from one currency to another
+     * Uses HUF as an internal "hub" for any-to-any conversion.
      */
     convert(amount: number, from: string, to: string): number {
         if (from === to) return amount;
 
-        const base = this.config.baseCurrency;
+        // Use HUF as technical base regardless of display settings
+        const technicalBase = 'HUF';
 
-        // Convert to base first
+        // Convert to technical base first
         let inBase: number;
-        if (from === base) {
+        if (from === technicalBase) {
             inBase = amount;
         } else {
             const rateFrom = this.config.rates[from] || 1;
-            inBase = amount * rateFrom; // e.g., 10 EUR * 385 = 3850 HUF
+            inBase = amount * rateFrom; // e.g., 10 EUR * 387 = 3870 HUF
         }
 
-        // Convert from base to target
-        if (to === base) {
+        // Convert from technical base to target
+        if (to === technicalBase) {
             return inBase;
         } else {
             const rateTo = this.config.rates[to] || 1;
-            return inBase / rateTo; // e.g., 3850 HUF / 385 = 10 EUR
+            return inBase / rateTo; // e.g., 3870 HUF / 330 = 11.7 USD
         }
     }
 
@@ -276,7 +278,7 @@ class CurrencyServiceClass {
     /**
      * Fetch exchange rates using AI (Gemini)
      */
-    async fetchRatesWithAI(baseCurrency: string = 'HUF'): Promise<{ success: boolean; message: string }> {
+    async fetchRatesWithAI(): Promise<{ success: boolean; message: string }> {
         if (!AIService.isConfigured()) {
             return { success: false, message: 'AI nincs beállítva. Állítsd be az Integrációk menüben.' };
         }
