@@ -129,8 +129,11 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             };
 
             // Calculate Recurring Monthly Income from Budget
-            const recurringIncome = transactions
-                .filter(t => t.type === 'income' && t.period !== 'oneTime' && t.period)
+            const incomeTransactions = transactions.filter(t => t.type === 'income');
+            const recurringIncomeTransactions = incomeTransactions.filter(t => t.period !== 'oneTime' && t.period);
+
+            // Debug: Calculate what each recurring income contributes
+            const recurringIncome = recurringIncomeTransactions
                 .reduce((sum, t) => {
                     let amount = CurrencyService.convert(t.amount, t.currency || baseCurrency, baseCurrency);
                     switch (t.period) {
@@ -141,6 +144,16 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                         default: return sum;
                     }
                 }, 0);
+
+            // Debug summary for AI prompt
+            const debugInfo = {
+                totalTransactions: transactions.length,
+                incomeCount: incomeTransactions.length,
+                recurringIncomeCount: recurringIncomeTransactions.length,
+                firstIncome: incomeTransactions[0] ? `${incomeTransactions[0].description}/${incomeTransactions[0].type}/${incomeTransactions[0].period}/${incomeTransactions[0].amount}` : 'N/A',
+                calculatedRecurringIncome: recurringIncome,
+            };
+            console.log('AI Debug Info:', debugInfo);
 
             const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, tr) => acc + CurrencyService.convert(tr.amount, (tr as any).currency || baseCurrency, baseCurrency), 0);
             const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, tr) => acc + CurrencyService.convert(Math.abs(tr.amount), (tr as any).currency || baseCurrency, baseCurrency), 0);
@@ -193,6 +206,13 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                 - Kintlévőség: ${Math.round(financialSummary.pendingAmount)} ${baseCurrency}
                 - Lejárt tartozások: ${Math.round(financialSummary.overdueAmount)} ${baseCurrency}
                 - Becsült kifutás (Runway): ${runway !== null ? runway + ' hónap' : 'Nincs elég adat'}
+                
+                DEBUG (raw data):
+                - Total Transactions: ${debugInfo.totalTransactions}
+                - Income Transactions: ${debugInfo.incomeCount}
+                - Recurring Income Txns: ${debugInfo.recurringIncomeCount}
+                - First Income Sample: ${debugInfo.firstIncome}
+                - Calculated Recurring: ${debugInfo.calculatedRecurringIncome}
                 
                 Instrukció:
                 Válaszolj röviden és szakszerűen. 
