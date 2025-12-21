@@ -129,8 +129,9 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             };
 
             // Calculate Recurring Monthly Income from Budget
+            // IMPORTANT: Only count transactions explicitly marked as recurring
             const incomeTransactions = transactions.filter(t => t.type === 'income');
-            const recurringIncomeTransactions = incomeTransactions.filter(t => t.period !== 'oneTime' && t.period);
+            const recurringIncomeTransactions = incomeTransactions.filter(t => t.recurring === true && t.period && t.period !== 'oneTime');
 
             // Debug: Calculate what each recurring income contributes
             const recurringIncome = recurringIncomeTransactions

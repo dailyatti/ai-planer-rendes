@@ -33,7 +33,7 @@ const BudgetView: React.FC = () => {
     description: '',
     amount: '',
     category: 'other',
-    period: 'monthly' as TransactionPeriod,
+    period: 'oneTime' as TransactionPeriod,  // FIXED: Default to one-time, not monthly!
     date: new Date().toISOString().split('T')[0],
     recurring: false
   });
