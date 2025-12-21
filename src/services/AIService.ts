@@ -159,8 +159,8 @@ class AIServiceClass {
      * Gemini szöveg generálás
      */
     private async generateTextGemini(options: TextGenerationOptions): Promise<TextGenerationResult> {
-        // Use provided model or default to gemini-1.5-pro (PhD Level)
-        const modelName = options.model || 'gemini-1.5-pro';
+        // Use provided model or default to gemini-3-pro-preview (State-of-the-Art)
+        const modelName = options.model || 'gemini-3-pro-preview';
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.config.apiKey}`;
 
         const response = await fetch(url, {
