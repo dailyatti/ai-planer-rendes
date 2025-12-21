@@ -55,6 +55,28 @@ export class FinancialEngine {
     }
 
     /**
+     * Get aggregated amounts by currency
+     * Useful for displaying breakdown like: "150.000 HUF + 200 EUR"
+     */
+    static getAmountsByCurrency(invoices: Invoice[], status?: 'paid' | 'sent' | 'overdue'): Record<string, number> {
+        const result: Record<string, number> = {};
+
+        invoices.forEach(inv => {
+            if (status && inv.status !== status) return;
+
+            const currency = inv.currency || 'HUF';
+            const amount = inv.total || 0;
+
+            if (!result[currency]) {
+                result[currency] = 0;
+            }
+            result[currency] += amount;
+        });
+
+        return result;
+    }
+
+    /**
      * Generate Revenue Forecast for next N months
      * Uses linear regression on historical data + pending invoices
      */

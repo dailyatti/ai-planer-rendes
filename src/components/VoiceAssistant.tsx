@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Loader2, X, Volume2, VolumeX, Sparkles, MessageSquare } from 'lucide-react';
+import { Mic, MicOff, Loader2, X, Volume2, VolumeX, Sparkles, MessageSquare, Keyboard, Send } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { AIService } from '../services/AIService';
 
@@ -28,6 +28,8 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     const [transcript, setTranscript] = useState('');
     const [response, setResponse] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [isKeyboardMode, setIsKeyboardMode] = useState(false);
+    const [inputText, setInputText] = useState('');
 
     const recognitionRef = useRef<any>(null);
     const synthRef = useRef<SpeechSynthesis>(window.speechSynthesis);
@@ -212,27 +214,74 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             </div>
 
             {/* Controls */}
-            <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-center gap-4">
-                <button
-                    onClick={() => synthRef.current.cancel()}
-                    disabled={!isSpeaking}
-                    className={`p-2 rounded-full transition-colors ${isSpeaking ? 'text-red-500 hover:bg-red-50' : 'text-gray-300'}`}
-                >
-                    <VolumeX size={20} />
-                </button>
+            <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+                {isKeyboardMode ? (
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            if (inputText.trim()) {
+                                setTranscript(inputText);
+                                handleCommand(inputText);
+                                setInputText('');
+                            }
+                        }}
+                        className="flex items-center gap-2"
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setIsKeyboardMode(false)}
+                            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                        >
+                            <Mic size={20} />
+                        </button>
+                        <input
+                            type="text"
+                            value={inputText}
+                            onChange={(e) => setInputText(e.target.value)}
+                            placeholder="Írj egy parancsot..."
+                            className="flex-1 bg-gray-100 dark:bg-gray-700 border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                            autoFocus
+                        />
+                        <button
+                            type="submit"
+                            disabled={!inputText.trim() || isProcessing}
+                            className="p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                        >
+                            <Send size={18} />
+                        </button>
+                    </form>
+                ) : (
+                    <div className="flex items-center justify-center gap-4">
+                        <button
+                            onClick={() => synthRef.current.cancel()}
+                            disabled={!isSpeaking}
+                            className={`p-2 rounded-full transition-colors ${isSpeaking ? 'text-red-500 hover:bg-red-50' : 'text-gray-300'}`}
+                            title="Némítás"
+                        >
+                            <VolumeX size={20} />
+                        </button>
 
-                <button
-                    onClick={toggleListening}
-                    disabled={!AIService.isConfigured()}
-                    className={`p-4 rounded-full transition-all shadow-lg ${isListening
-                            ? 'bg-red-500 text-white animate-pulse'
-                            : 'bg-gradient-to-r from-primary-600 to-indigo-600 text-white hover:scale-105'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                    {isListening ? <MicOff size={24} /> : <Mic size={24} />}
-                </button>
+                        <button
+                            onClick={toggleListening}
+                            disabled={!AIService.isConfigured()}
+                            className={`p-4 rounded-full transition-all shadow-lg ${isListening
+                                ? 'bg-red-500 text-white animate-pulse'
+                                : 'bg-gradient-to-r from-primary-600 to-indigo-600 text-white hover:scale-105'
+                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            title={isListening ? 'Leállítás' : 'Figyelés indítása'}
+                        >
+                            {isListening ? <MicOff size={24} /> : <Mic size={24} />}
+                        </button>
 
-                <div className="w-10" /> {/* Spacer for centering */}
+                        <button
+                            onClick={() => setIsKeyboardMode(true)}
+                            className="p-2 text-gray-400 hover:text-primary-600 transition-colors"
+                            title="Billentyűzet"
+                        >
+                            <Keyboard size={20} />
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

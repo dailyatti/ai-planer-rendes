@@ -9,6 +9,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { useData } from '../../contexts/DataContext';
 import { Invoice, InvoiceItem, Client, CompanyProfile } from '../../types/planner';
 import { FinancialEngine } from '../../utils/FinancialEngine';
+import { CurrencyService } from '../../services/CurrencyService';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 const printStyles = `
@@ -94,6 +95,22 @@ const InvoicingView: React.FC = () => {
     // State
     const [showCreateInvoice, setShowCreateInvoice] = useState(false);
     const [showAddClient, setShowAddClient] = useState(false);
+
+    // Dashboard interactions
+    const [selectedStat, setSelectedStat] = useState<{
+        title: string;
+        breakdown: Record<string, number>;
+        rect: DOMRect;
+    } | null>(null);
+
+    // Close popover on click outside
+    React.useEffect(() => {
+        const handleClick = () => setSelectedStat(null);
+        if (selectedStat) {
+            window.addEventListener('click', handleClick);
+        }
+        return () => window.removeEventListener('click', handleClick);
+    }, [selectedStat]);
 
     // Download PDF handler - open preview first
     const handleDownloadPdf = (invoice: Invoice) => {
@@ -361,24 +378,112 @@ const InvoicingView: React.FC = () => {
             {activeTab === 'dashboard' && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {/* Stats Grid */}
+                    {/* Stats Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {[
-                            { label: t('invoicing.totalRevenue'), value: formatCurrency(stats.totalRevenue, 'HUF'), icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-                            { label: t('invoicing.pending'), value: formatCurrency(stats.pendingAmount, 'HUF'), icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-                            { label: t('invoicing.overdue'), value: formatCurrency(stats.overdueAmount, 'HUF'), icon: AlertCircle, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20' },
-                            { label: t('invoicing.clients'), value: stats.totalClients, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+                            {
+                                id: 'revenue',
+                                label: t('invoicing.totalRevenue'),
+                                value: formatCurrency(stats.totalRevenue, 'HUF'),
+                                icon: Wallet,
+                                color: 'text-emerald-600',
+                                bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+                                status: 'paid' as const
+                            },
+                            {
+                                id: 'pending',
+                                label: t('invoicing.pending'),
+                                value: formatCurrency(stats.pendingAmount, 'HUF'),
+                                icon: Clock,
+                                color: 'text-amber-600',
+                                bg: 'bg-amber-50 dark:bg-amber-900/20',
+                                status: 'sent' as const
+                            },
+                            {
+                                id: 'overdue',
+                                label: t('invoicing.overdue'),
+                                value: formatCurrency(stats.overdueAmount, 'HUF'),
+                                icon: AlertCircle,
+                                color: 'text-red-600',
+                                bg: 'bg-red-50 dark:bg-red-900/20',
+                                status: 'overdue' as const
+                            },
                         ].map((stat, i) => (
-                            <div key={i} className="card p-6 border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all">
+                            <button
+                                key={i}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const breakdown = FinancialEngine.getAmountsByCurrency(invoices, stat.status);
+                                    setSelectedStat({ title: stat.label, breakdown, rect });
+                                }}
+                                className="card p-6 border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all text-left relative group w-full"
+                            >
                                 <div className="flex items-center justify-between mb-4">
-                                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{stat.label}</span>
+                                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400 group-hover:text-primary-600 transition-colors flex items-center gap-2">
+                                        {stat.label}
+                                        <Search size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </span>
                                     <div className={`p-2.5 rounded-lg ${stat.bg} ${stat.color}`}>
                                         <stat.icon size={20} />
                                     </div>
                                 </div>
                                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</div>
-                            </div>
+
+                                {/* Exchange rate hint */}
+                                {Object.keys(CurrencyService.getAllRates()).length > 1 && (
+                                    <div className="absolute bottom-2 right-4 text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        Részletekhez kattints
+                                    </div>
+                                )}
+                            </button>
                         ))}
+
+                        {/* Clients Card (Static) */}
+                        <div className="card p-6 border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all">
+                            <div className="flex items-center justify-between mb-4">
+                                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('invoicing.clients')}</span>
+                                <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600">
+                                    <Users size={20} />
+                                </div>
+                            </div>
+                            <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalClients}</div>
+                        </div>
                     </div>
+
+                    {/* Currency Breakdown Popover */}
+                    {selectedStat && (
+                        <div
+                            className="fixed z-50 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 p-4 min-w-[250px] animate-in zoom-in-95 duration-200"
+                            style={{
+                                top: selectedStat.rect.bottom + 10,
+                                left: selectedStat.rect.left
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <h4 className="font-bold text-gray-900 dark:text-white mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
+                                {selectedStat.title} részletei
+                            </h4>
+                            <div className="space-y-2">
+                                {Object.entries(selectedStat.breakdown).map(([currency, amount]) => (
+                                    <div key={currency} className="flex justify-between items-center text-sm">
+                                        <span className="font-mono text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 px-2 py-0.5 rounded">
+                                            {currency}
+                                        </span>
+                                        <span className="font-semibold text-gray-900 dark:text-white">
+                                            {CurrencyService.format(amount, currency)}
+                                        </span>
+                                    </div>
+                                ))}
+                                {Object.keys(selectedStat.breakdown).length === 0 && (
+                                    <div className="text-gray-400 text-sm italic text-center py-2">Nincs összeg</div>
+                                )}
+                            </div>
+                            <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700 text-xs text-center text-gray-400">
+                                Árfolyam: 1 EUR ≈ {CurrencyService.getRate('EUR').toFixed(2)} HUF
+                            </div>
+                        </div>
+                    )}
 
                     {/* Recent Invoices Card */}
                     <div className="card border border-gray-100 dark:border-gray-800 shadow-sm">
