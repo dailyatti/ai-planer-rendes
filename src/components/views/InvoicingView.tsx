@@ -50,7 +50,7 @@ const InvoicingView: React.FC = () => {
     const { t, language } = useLanguage();
     const {
         invoices, clients, companyProfiles,
-        addInvoice, addClient, addCompanyProfile
+        addInvoice, updateInvoice, addClient, addCompanyProfile
     } = useData();
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'invoices' | 'clients' | 'analytics'>('dashboard');
@@ -107,6 +107,19 @@ const InvoicingView: React.FC = () => {
         const url = `${window.location.origin}/invoice/${invoice.id}`;
         navigator.clipboard.writeText(url);
         setToast(t('invoicing.linkCopied'));
+        setTimeout(() => setToast(null), 3000);
+    };
+
+    // Status change handler
+    const handleStatusChange = (invoiceId: string, newStatus: 'draft' | 'sent' | 'paid' | 'overdue') => {
+        updateInvoice(invoiceId, { status: newStatus });
+        const statusLabels = {
+            draft: t('invoicing.statusDraft') || 'Piszkozat',
+            sent: t('invoicing.statusSent') || 'Elküldve',
+            paid: t('invoicing.statusPaid') || 'Kifizetve',
+            overdue: t('invoicing.statusOverdue') || 'Lejárt'
+        };
+        setToast(`Státusz módosítva: ${statusLabels[newStatus]}`);
         setTimeout(() => setToast(null), 3000);
     };
 
@@ -436,7 +449,26 @@ const InvoicingView: React.FC = () => {
                                         <td className="py-3 px-4 text-right font-bold text-gray-900 dark:text-white">{formatCurrency(invoice.total, invoice.currency)}</td>
                                         <td className="py-3 px-4 text-center">{getStatusBadge(invoice.status)}</td>
                                         <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                                            <div className="flex items-center justify-center gap-2">
+                                            <div className="flex items-center justify-center gap-1">
+                                                {/* Quick status change buttons */}
+                                                {invoice.status !== 'paid' && (
+                                                    <button
+                                                        onClick={() => handleStatusChange(invoice.id, 'paid')}
+                                                        className="p-1.5 text-emerald-500 hover:text-white hover:bg-emerald-500 rounded-lg transition-all"
+                                                        title={t('invoicing.markAsPaid') || 'Kifizetve jelölés'}
+                                                    >
+                                                        <Check size={16} />
+                                                    </button>
+                                                )}
+                                                {invoice.status === 'draft' && (
+                                                    <button
+                                                        onClick={() => handleStatusChange(invoice.id, 'sent')}
+                                                        className="p-1.5 text-blue-500 hover:text-white hover:bg-blue-500 rounded-lg transition-all"
+                                                        title={t('invoicing.markAsSent') || 'Elküldve jelölés'}
+                                                    >
+                                                        <Send size={16} />
+                                                    </button>
+                                                )}
                                                 <button onClick={() => handleDownloadPdf(invoice)} className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title={t('invoicing.downloadPdf')}><Download size={16} /></button>
                                                 <button onClick={() => handleShare(invoice)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title={t('invoicing.share')}><Share2 size={16} /></button>
                                             </div>

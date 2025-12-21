@@ -403,9 +403,20 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                         </div>
 
                         {/* Status text */}
-                        <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-                            {t('voice.listening')}
-                        </p>
+                        {!apiKey ? (
+                            <div className="text-center">
+                                <p className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">
+                                    {t('voice.demoMode') || 'Demo üzemód'}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    {t('voice.configureApiKey') || 'Állítsd be a Gemini API kulcsot az Integrációk menüben'}
+                                </p>
+                            </div>
+                        ) : (
+                            <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+                                {t('voice.listening')}
+                            </p>
+                        )}
 
                         {/* Quick commands */}
                         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">

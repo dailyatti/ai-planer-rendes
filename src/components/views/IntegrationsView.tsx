@@ -209,6 +209,8 @@ const IntegrationsView: React.FC = () => {
     };
 
     const connectedIntegrations = availableIntegrations.filter(i => i.connected);
+    // Filter out comingSoon integrations - only show working ones
+    const activeIntegrations = availableIntegrations.filter(i => !i.comingSoon);
     const selectedIntegrationObj = availableIntegrations.find(i => i.id === selectedIntegration);
 
     return (
@@ -277,7 +279,7 @@ const IntegrationsView: React.FC = () => {
             {/* Available Integrations */}
             {activeTab === 'available' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-                    {availableIntegrations.map(integration => {
+                    {activeIntegrations.map(integration => {
                         const Icon = integration.icon;
                         return (
                             <div key={integration.id} className="group relative">
