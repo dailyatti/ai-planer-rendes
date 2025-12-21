@@ -179,6 +179,12 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             // PhD Calculation: Net Monthly Cash Flow & Projections
             // We use recurringIncome (from Budget) - monthlyBurn (Expenses)
             const monthlyNet = recurringIncome - monthlyBurn;
+
+            // Granular Forecasting Units
+            const dailyNet = monthlyNet / 30;
+            const weeklyNet = dailyNet * 7;
+            const yearlyNet = monthlyNet * 12;
+
             const projected3Months = currentBalance + (monthlyNet * 3);
             const projected1Year = currentBalance + (monthlyNet * 12);
 
@@ -191,8 +197,8 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                 default: viewContext = `Jelenleg a ${currentView} nézetben vagyunk.`;
             }
 
-            // Calculate projected balances for common timeframes
-            const projected6Months = currentBalance + (monthlyNet * 6);
+            // Generate rate list for prompt context
+            const allRatesText = Object.entries(rates).map(([c, r]) => `${c}: ${r}`).join(', ');
 
             const systemPrompt = `
 Te egy profi Pénzügyi Asszisztens vagy. Nyelv: ${currentLanguage}. Nézet: ${currentView}.
@@ -201,22 +207,28 @@ Te egy profi Pénzügyi Asszisztens vagy. Nyelv: ${currentLanguage}. Nézet: ${c
 Jelenlegi Egyenleg: ${Math.round(currentBalance)} ${baseCurrency}
 Euróban kifejezve: ${CurrencyService.convert(currentBalance, baseCurrency, 'EUR').toFixed(2)} EUR
 
-=== JÖVŐBELI ELŐREJELZÉS (KÖTELEZŐEN HASZNÁLD!) ===
-Havi Rendszeres Bevétel: ${Math.round(recurringIncome)} ${baseCurrency}
-Havi Kiadás (Burn Rate): ${Math.round(monthlyBurn)} ${baseCurrency}
-Havi Net Cashflow: ${Math.round(monthlyNet)} ${baseCurrency}
+=== JÖVŐBELI ELŐREJELZÉS ADATOK (ATOMIZÁLT) ===
+Ezeket használd a jövőbeli egyenleg kiszámolásához:
+- Havi Net Cashflow: ${Math.round(monthlyNet)} ${baseCurrency}
+- Napi Net Cashflow: ${Math.round(dailyNet)} ${baseCurrency}
+- Heti Net Cashflow: ${Math.round(weeklyNet)} ${baseCurrency}
+- Éves Net Cashflow: ${Math.round(yearlyNet)} ${baseCurrency}
 
-EGYENLEG ELŐREJELZÉS:
-- 3 hónap múlva: ${Math.round(projected3Months)} ${baseCurrency}
-- Fél év (6 hónap) múlva: ${Math.round(projected6Months)} ${baseCurrency}
-- 1 év múlva: ${Math.round(projected1Year)} ${baseCurrency}
+=== ÁRFOLYAMOK (1 EUR = X HUF, tehát HUF/Rate = Cél) ===
+Használd ezeket bármilyen valutába történő átváltáshoz:
+${allRatesText}
+FONTOS: Ha a felhasználó valutaváltást kér (pl. "Mennyi lesz RON-ban?"), akkor az előrejelzett összeget oszd el a fenti árfolyamokkal!
+Szabály: [Összeg HUF-ban] / [Valuta Árfolyama] = Eredmény
 
 === KÖTELEZŐ SZABÁLYOK ===
-1. Ha a felhasználó BÁRMILYEN jövőbeli időpontra kérdez (pl. "4 hónap múlva"), számold ki a fenti adatokból:
-   KÉPLET: Jövőbeli Egyenleg = Jelenlegi Egyenleg + (Hónapok száma * Havi Net Cashflow)
-   Példa 4 hónapra: ${Math.round(currentBalance)} + (4 * ${Math.round(monthlyNet)}) = ${Math.round(currentBalance + (monthlyNet * 4))} ${baseCurrency}
-2. NE számolj saját fejből, csak a fenti "Havi Net Cashflow" értéket szorozd fel!
-3. Ha átváltást kér, használd: 1 EUR = ${rates['EUR'] || 387.2} HUF. Tehát HUF/387.2 = EUR.
+1. KOMPLEX IDŐPONTOK: Ha a felhasználó összetett időt mond (pl. "2 év, 3 hónap és 5 nap múlva"), add össze a komponenseket:
+   KÉPLET: Jelenlegi + (Év * ÉvesNet) + (Hó * HaviNet) + (Hét * HetiNet) + (Nap * NapiNet)
+   
+2. VALUTA KONVERZIÓ: Ha a kérdésben pénznem is van (pl. "Mennyi lesz RON-ban 1 év múlva?"):
+   a) Számold ki a jövőbeli egyenleget HUF-ban (vagy bázisban).
+   b) Váltsd át a kért pénznemre a fenti lista alapján (Oszd el az árfolyammal).
+
+3. NE számolj fejből, csak a fenti adatokat használd!
 4. Válaszolj magyarul, tömören, professzionálisan.
 
 ${viewContext}
