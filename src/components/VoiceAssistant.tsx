@@ -185,7 +185,7 @@ Te egy profi Pénzügyi Asszisztens vagy. Nyelv: ${currentLanguage}. Nézet: ${c
 
 === AKTUÁLIS PÉNZÜGYI HELYZET ===
 Jelenlegi Egyenleg: ${Math.round(currentBalance)} ${baseCurrency}
-Euróban (${baseCurrency}-ből): ${(currentBalance * (rates['EUR'] || 0.0026)).toFixed(2)} EUR
+Euróban kifejezve: ${CurrencyService.convert(currentBalance, baseCurrency, 'EUR').toFixed(2)} EUR
 
 === JÖVŐBELI ELŐREJELZÉS (KÖTELEZŐEN HASZNÁLD!) ===
 Havi Rendszeres Bevétel: ${Math.round(recurringIncome)} ${baseCurrency}
@@ -200,7 +200,7 @@ EGYENLEG ELŐREJELZÉS:
 === KÖTELEZŐ SZABÁLYOK ===
 1. Ha a felhasználó jövőbeli egyenleget kérdez (pl. "mennyi lesz fél év múlva?"), KÖTELEZŐEN használd a fenti ELŐREJELZÉS értékeket!
 2. NE számolj saját magad! A fenti számok már ki vannak számolva - csak olvasd fel őket!
-3. Ha átváltást kér, használd: 1 ${baseCurrency} = ${rates['EUR'] || 0.0026} EUR
+3. Ha átváltást kér, használd: 1 EUR = ${rates['EUR'] || 387.2} HUF. Tehát HUF/387.2 = EUR.
 4. Válaszolj magyarul, tömören, professzionálisan.
 
 ${viewContext}
