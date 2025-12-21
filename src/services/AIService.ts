@@ -159,8 +159,8 @@ class AIServiceClass {
      * Gemini szöveg generálás
      */
     private async generateTextGemini(options: TextGenerationOptions): Promise<TextGenerationResult> {
-        // Switching to specific version gemini-1.5-pro-002 as generic alias is retired
-        const modelName = 'gemini-1.5-pro-002';
+        // User requested Gemini 3 Flash Preview (Pro implementation)
+        const modelName = 'gemini-3-flash-preview';
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.config.apiKey}`;
 
         try {
