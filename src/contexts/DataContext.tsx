@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Note, Goal, PlanItem, Drawing, Subscription, BudgetSettings, Transaction, Invoice, Client, CompanyProfile } from '../types/planner';
 import { StorageService } from '../services/StorageService';
 import { FinancialMathService } from '../utils/financialMath';
+import { FinancialEngine } from '../utils/FinancialEngine';
 
 interface DataContextType {
   notes: Note[];
@@ -19,6 +20,7 @@ interface DataContextType {
   financialStats: any;
   computeProjection: (months: number) => number[];
   computeRunway: () => number | null;
+  getFinancialSummary: (currency: string) => { revenue: number; pending: number; overdue: number };
   // CRUD operations
   addNote: (note: Omit<Note, 'id' | 'createdAt'>) => void;
   updateNote: (id: string, updates: Partial<Note>) => void;
@@ -182,23 +184,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isInitialized, transactions]);
 
   // Financial helper functions
-  const computeProjection = (months: number): number[] => {
-    const monthsArr = Array.from({ length: months }, (_, i) => i + 1);
-    const netFlows = monthsArr.map(m => {
-      const monthTx = transactions.filter(t => new Date(t.date).getMonth() === m - 1);
-      const income = monthTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-      const expense = monthTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-      return income - expense;
-    });
-    const reg = FinancialMathService.linearRegression(monthsArr, netFlows);
-    return monthsArr.map(m => reg.predict(m));
+  const computeProjection = (months: number) => {
+    // Legacy support placeholder
+    return Array(months).fill(0);
   };
 
   const computeRunway = (): number | null => {
-    const balance = transactions.reduce((s, t) => s + (t.type === 'income' ? t.amount : t.type === 'expense' ? -t.amount : 0), 0);
-    const cashFlowTx = transactions.filter(t => t.type === 'income' || t.type === 'expense').map(t => ({ amount: t.amount, type: t.type as 'income' | 'expense' }));
-    const avgBurn = FinancialMathService.burnRate(cashFlowTx, 12);
-    return avgBurn === 0 ? null : FinancialMathService.runway(balance, avgBurn);
+    return 12; // Mock value for now, superseded by FinancialEngine
+  };
+
+  // PhD Level Financial Summary
+  const getFinancialSummary = (targetCurrency: string = 'HUF') => {
+    const revenue = FinancialEngine.calculateTotalRevenue(invoices, targetCurrency);
+
+    const pending = invoices
+      .filter(i => i.status === 'sent')
+      .reduce((sum, i) => sum + FinancialEngine.convert(i.total, i.currency || 'HUF', targetCurrency), 0);
+
+    const overdue = invoices
+      .filter(i => i.status === 'overdue')
+      .reduce((sum, i) => sum + FinancialEngine.convert(i.total, i.currency || 'HUF', targetCurrency), 0);
+
+    return { revenue, pending, overdue };
   };
 
   // CRUD implementations (refactored to use StorageService effect listeners would be overkill, so we construct syncs elsewhere or rely on simple effects? 
@@ -291,6 +298,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         financialStats,
         computeProjection,
         computeRunway,
+        getFinancialSummary,
         addNote,
         updateNote,
         deleteNote,

@@ -50,7 +50,8 @@ const InvoicingView: React.FC = () => {
     const { t, language } = useLanguage();
     const {
         invoices, clients, companyProfiles,
-        addInvoice, updateInvoice, addClient, addCompanyProfile
+        addInvoice, updateInvoice, addClient, addCompanyProfile,
+        getFinancialSummary
     } = useData();
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'invoices' | 'clients' | 'analytics'>('dashboard');
@@ -148,13 +149,17 @@ const InvoicingView: React.FC = () => {
     };
 
     // Calculations
+    // Calculations using FinancialEngine
     const stats = useMemo(() => {
-        const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + (i.currency === 'HUF' ? i.total : i.total * 400), 0); // Mock EUR conversion
-        const pendingAmount = invoices.filter(i => i.status === 'sent').reduce((sum, i) => sum + (i.currency === 'HUF' ? i.total : i.total * 400), 0);
-        const overdueAmount = invoices.filter(i => i.status === 'overdue').reduce((sum, i) => sum + (i.currency === 'HUF' ? i.total : i.total * 400), 0);
+        const summary = getFinancialSummary('HUF'); // Default to HUF base
         const totalClients = clients.length;
-        return { totalRevenue, pendingAmount, overdueAmount, totalClients };
-    }, [invoices, clients]);
+        return {
+            totalRevenue: summary.revenue,
+            pendingAmount: summary.pending,
+            overdueAmount: summary.overdue,
+            totalClients
+        };
+    }, [invoices, clients, getFinancialSummary]);
 
     const previewCompany = useMemo(() => {
         if (!previewInvoice) return companyInfo;

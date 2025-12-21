@@ -70,6 +70,7 @@ export interface Transaction {
   category: string;
   period?: TransactionPeriod;
   recurring?: boolean;
+  currency?: string;
 }
 
 // PhD-Level Invoice Types
@@ -97,8 +98,8 @@ export interface Invoice {
   fulfillmentDate?: Date; // Hungarian NAV requirement: teljesítés dátuma
   paymentMethod?: 'transfer' | 'cash' | 'card'; // Fizetési mód
   paidDate?: Date;
-  notes: string;
   currency: string;
+  notes: string;
   createdAt: Date;
 }
 
