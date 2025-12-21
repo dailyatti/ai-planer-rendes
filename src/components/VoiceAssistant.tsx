@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Loader2, X, Volume2, VolumeX, Sparkles, MessageSquare, Keyboard, Send, StopCircle } from 'lucide-react';
+import { Mic, X, Send, MicOff, Loader2, VolumeX, Keyboard, Sparkles } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
 import { AIService } from '../services/AIService';
@@ -19,7 +19,6 @@ interface VoiceCommand {
 }
 
 export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
-    onCommand,
     currentLanguage,
     currentView
 }) => {
@@ -96,7 +95,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                     category: data.category || 'Egyéb',
                     date: new Date(data.date),
                     description: data.description || '',
-                    isRecurring: false
+                    recurring: false
                 });
                 return `[Rendszer: Tranzakció rögzítve - ${data.amount} ${data.currency}]`;
             }
@@ -129,6 +128,20 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                 overdueAmount: FinancialEngine.calculateOverdue(invoices, baseCurrency)
             };
 
+            // Calculate Recurring Monthly Income from Budget
+            const recurringIncome = transactions
+                .filter(t => t.type === 'income' && t.period !== 'oneTime' && t.period)
+                .reduce((sum, t) => {
+                    let amount = CurrencyService.convert(t.amount, t.currency || baseCurrency, baseCurrency);
+                    switch (t.period) {
+                        case 'daily': return sum + (amount * 30);
+                        case 'weekly': return sum + (amount * 4);
+                        case 'monthly': return sum + amount;
+                        case 'yearly': return sum + (amount / 12);
+                        default: return sum;
+                    }
+                }, 0);
+
             const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, tr) => acc + CurrencyService.convert(tr.amount, (tr as any).currency || baseCurrency, baseCurrency), 0);
             const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, tr) => acc + CurrencyService.convert(Math.abs(tr.amount), (tr as any).currency || baseCurrency, baseCurrency), 0);
             const currentBalance = totalIncome - totalExpense;
@@ -155,7 +168,8 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                 - Pénznem: ${baseCurrency}
                 - Árfolyamok (1 ${baseCurrency}-hez képest): ${rateList}
                 - Jelenlegi Egyenleg: ${Math.round(currentBalance)} ${baseCurrency}
-                - Összes Bevétel (Számlák alapján): ${Math.round(financialSummary.totalRevenue)} ${baseCurrency}
+                - Összes Bevétel (Számlázott): ${Math.round(financialSummary.totalRevenue)} ${baseCurrency}
+                - Havi Rendszeres Bevétel (Budget): ${Math.round(recurringIncome)} ${baseCurrency} (becsült havi átlag)
                 - Kintlévőség: ${Math.round(financialSummary.pendingAmount)} ${baseCurrency}
                 - Lejárt tartozások: ${Math.round(financialSummary.overdueAmount)} ${baseCurrency}
                 - Havi költés (Burn Rate): kb. ${Math.round(monthlyBurn)} ${baseCurrency}
