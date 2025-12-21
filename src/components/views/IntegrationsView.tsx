@@ -391,9 +391,10 @@ const IntegrationsView: React.FC = () => {
                 </div>
             )}
 
-            {/* Settings Tab */}
+            {/* Settings Tab - Now with Instructions */}
             {activeTab === 'settings' && (
                 <div className="space-y-6 animate-fade-in">
+                    {/* Sync Settings Card */}
                     <div className="card glass-panel">
                         <h3 className="section-title flex items-center gap-2">
                             <RefreshCw size={20} className="text-primary-500" />
@@ -414,6 +415,142 @@ const IntegrationsView: React.FC = () => {
                                     <option>{t('integrations.everyHour')}</option>
                                     <option>{t('integrations.manualOnly')}</option>
                                 </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Integration Instructions */}
+                    <div className="card glass-panel">
+                        <h3 className="section-title flex items-center gap-2 mb-6">
+                            <FileText size={20} className="text-blue-500" />
+                            {t('integrations.setupGuide') || 'Integration Setup Guide'}
+                        </h3>
+
+                        <div className="space-y-6">
+                            {/* OpenAI Instructions */}
+                            <div className="p-5 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-100 dark:border-green-800/30">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 shadow-md">
+                                        <Zap size={20} className="text-white" />
+                                    </div>
+                                    <h4 className="font-bold text-gray-900 dark:text-white text-lg">OpenAI (ChatGPT)</h4>
+                                    {apiKeys.openaiKey && <span className="badge badge-success text-xs"><Check size={12} /> {t('integrations.configured')}</span>}
+                                </div>
+                                <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+                                    <p className="font-medium">{t('integrations.howToSetup') || 'How to setup:'}</p>
+                                    <ol className="list-decimal list-inside space-y-2 ml-2">
+                                        <li>{t('integrations.openai.step1') || 'Go to platform.openai.com and sign in or create an account'}</li>
+                                        <li>{t('integrations.openai.step2') || 'Navigate to API Keys section in your account settings'}</li>
+                                        <li>{t('integrations.openai.step3') || 'Click "Create new secret key" and copy the key'}</li>
+                                        <li>{t('integrations.openai.step4') || 'Paste the key in the integration settings above'}</li>
+                                    </ol>
+                                    <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800/30">
+                                        <p className="text-amber-800 dark:text-amber-300 text-xs font-medium">
+                                            ⚠️ {t('integrations.openai.warning') || 'Note: OpenAI API requires a paid account with credits. Free tier has limited usage.'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Gemini Instructions */}
+                            <div className="p-5 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800/30">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md">
+                                        <Mic size={20} className="text-white" />
+                                    </div>
+                                    <h4 className="font-bold text-gray-900 dark:text-white text-lg">Google Gemini AI</h4>
+                                    {apiKeys.geminiKey && <span className="badge badge-success text-xs"><Check size={12} /> {t('integrations.configured')}</span>}
+                                </div>
+                                <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+                                    <p className="font-medium">{t('integrations.howToSetup') || 'How to setup:'}</p>
+                                    <ol className="list-decimal list-inside space-y-2 ml-2">
+                                        <li>{t('integrations.gemini.step1') || 'Visit aistudio.google.com and sign in with your Google account'}</li>
+                                        <li>{t('integrations.gemini.step2') || 'Click "Get API Key" in the left sidebar'}</li>
+                                        <li>{t('integrations.gemini.step3') || 'Create a new API key or use an existing one'}</li>
+                                        <li>{t('integrations.gemini.step4') || 'Copy the key and paste it in the integration settings'}</li>
+                                    </ol>
+                                    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800/30">
+                                        <p className="text-blue-800 dark:text-blue-300 text-xs font-medium">
+                                            💡 {t('integrations.gemini.tip') || 'Tip: Gemini offers a generous free tier. Perfect for voice assistant and AI features!'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Google Calendar Instructions */}
+                            <div className="p-5 rounded-xl bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border border-red-100 dark:border-red-800/30 opacity-75">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 shadow-md">
+                                        <Calendar size={20} className="text-white" />
+                                    </div>
+                                    <h4 className="font-bold text-gray-900 dark:text-white text-lg">Google Calendar</h4>
+                                    <span className="badge bg-amber-100 text-amber-700 text-xs">⏳ {t('integrations.comingSoon')}</span>
+                                </div>
+                                <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+                                    <p className="font-medium">{t('integrations.plannedFeatures') || 'Planned features:'}</p>
+                                    <ul className="list-disc list-inside space-y-1 ml-2">
+                                        <li>{t('integrations.gcal.feature1') || 'Sync your plans automatically with Google Calendar'}</li>
+                                        <li>{t('integrations.gcal.feature2') || 'Import calendar events as plan items'}</li>
+                                        <li>{t('integrations.gcal.feature3') || 'Two-way synchronization support'}</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* Notion Instructions */}
+                            <div className="p-5 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800/50 dark:to-gray-700/50 border border-gray-200 dark:border-gray-700 opacity-75">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2 rounded-lg bg-gradient-to-br from-gray-700 to-gray-900 shadow-md">
+                                        <FileText size={20} className="text-white" />
+                                    </div>
+                                    <h4 className="font-bold text-gray-900 dark:text-white text-lg">Notion</h4>
+                                    <span className="badge bg-amber-100 text-amber-700 text-xs">⏳ {t('integrations.comingSoon')}</span>
+                                </div>
+                                <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+                                    <p className="font-medium">{t('integrations.plannedFeatures') || 'Planned features:'}</p>
+                                    <ul className="list-disc list-inside space-y-1 ml-2">
+                                        <li>{t('integrations.notion.feature1') || 'Export notes to Notion databases'}</li>
+                                        <li>{t('integrations.notion.feature2') || 'Sync goals and progress tracking'}</li>
+                                        <li>{t('integrations.notion.feature3') || 'Import Notion pages as notes'}</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* Todoist Instructions */}
+                            <div className="p-5 rounded-xl bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border border-red-100 dark:border-red-800/30 opacity-75">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2 rounded-lg bg-gradient-to-br from-red-500 to-red-600 shadow-md">
+                                        <CheckSquare size={20} className="text-white" />
+                                    </div>
+                                    <h4 className="font-bold text-gray-900 dark:text-white text-lg">Todoist</h4>
+                                    <span className="badge bg-amber-100 text-amber-700 text-xs">⏳ {t('integrations.comingSoon')}</span>
+                                </div>
+                                <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+                                    <p className="font-medium">{t('integrations.plannedFeatures') || 'Planned features:'}</p>
+                                    <ul className="list-disc list-inside space-y-1 ml-2">
+                                        <li>{t('integrations.todoist.feature1') || 'Import Todoist tasks as plan items'}</li>
+                                        <li>{t('integrations.todoist.feature2') || 'Sync task completion status'}</li>
+                                        <li>{t('integrations.todoist.feature3') || 'Priority mapping between apps'}</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* Outlook Instructions */}
+                            <div className="p-5 rounded-xl bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-900/20 dark:to-sky-900/20 border border-blue-100 dark:border-blue-800/30 opacity-75">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 shadow-md">
+                                        <Mail size={20} className="text-white" />
+                                    </div>
+                                    <h4 className="font-bold text-gray-900 dark:text-white text-lg">Microsoft Outlook</h4>
+                                    <span className="badge bg-amber-100 text-amber-700 text-xs">⏳ {t('integrations.comingSoon')}</span>
+                                </div>
+                                <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+                                    <p className="font-medium">{t('integrations.plannedFeatures') || 'Planned features:'}</p>
+                                    <ul className="list-disc list-inside space-y-1 ml-2">
+                                        <li>{t('integrations.outlook.feature1') || 'Calendar synchronization with Outlook'}</li>
+                                        <li>{t('integrations.outlook.feature2') || 'Email reminders for tasks'}</li>
+                                        <li>{t('integrations.outlook.feature3') || 'Microsoft 365 integration'}</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                     </div>

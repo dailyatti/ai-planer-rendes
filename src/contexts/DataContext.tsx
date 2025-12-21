@@ -176,6 +176,96 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadData();
   }, []);
 
+  // Process recurring transactions - automatically create new instances when due
+  useEffect(() => {
+    if (!isInitialized || transactions.length === 0) return;
+
+    const processRecurringTransactions = () => {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const newTransactions: Transaction[] = [];
+      const updatedTransactions = transactions.map(tr => {
+        if (!tr.recurring || tr.period === 'oneTime') return tr;
+
+        const trDate = new Date(tr.date);
+        let nextDueDate: Date | null = null;
+
+        // Calculate the next due date based on period
+        switch (tr.period) {
+          case 'daily':
+            // If transaction date is before today, it's due
+            if (trDate < today) {
+              nextDueDate = new Date(today);
+            }
+            break;
+          case 'weekly':
+            // Check if a week has passed since the transaction date
+            const weeksSince = Math.floor((today.getTime() - trDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+            if (weeksSince >= 1) {
+              nextDueDate = new Date(trDate);
+              nextDueDate.setDate(nextDueDate.getDate() + (weeksSince * 7));
+              if (nextDueDate <= today) {
+                nextDueDate = new Date(today);
+              }
+            }
+            break;
+          case 'monthly':
+            // Check if a month has passed
+            const monthsSince = (today.getFullYear() - trDate.getFullYear()) * 12 + (today.getMonth() - trDate.getMonth());
+            if (monthsSince >= 1 && today.getDate() >= trDate.getDate()) {
+              nextDueDate = new Date(today.getFullYear(), today.getMonth(), trDate.getDate());
+            }
+            break;
+          case 'yearly':
+            // Check if a year has passed
+            const yearsSince = today.getFullYear() - trDate.getFullYear();
+            if (yearsSince >= 1 && today.getMonth() >= trDate.getMonth() && today.getDate() >= trDate.getDate()) {
+              nextDueDate = new Date(today.getFullYear(), trDate.getMonth(), trDate.getDate());
+            }
+            break;
+        }
+
+        // If a new transaction should be created
+        if (nextDueDate && nextDueDate.getTime() !== trDate.getTime()) {
+          // Check if we already have a transaction for this date
+          const existingForDate = transactions.some(
+            existing => existing.description === tr.description &&
+              existing.amount === tr.amount &&
+              new Date(existing.date).toDateString() === nextDueDate!.toDateString()
+          );
+
+          if (!existingForDate) {
+            // Create new recurring instance
+            newTransactions.push({
+              ...tr,
+              id: Math.random().toString(36).substr(2, 9),
+              date: nextDueDate,
+            });
+          }
+
+          // Update original transaction date for next cycle
+          return { ...tr, date: nextDueDate };
+        }
+
+        return tr;
+      });
+
+      // Add new transactions if any were generated
+      if (newTransactions.length > 0) {
+        setTransactions([...updatedTransactions, ...newTransactions]);
+      }
+    };
+
+    // Run once on load and then daily check
+    const lastProcessed = localStorage.getItem('planner-recurring-last-processed');
+    const today = new Date().toDateString();
+
+    if (lastProcessed !== today) {
+      processRecurringTransactions();
+      localStorage.setItem('planner-recurring-last-processed', today);
+    }
+  }, [isInitialized, transactions.length]);
+
   // Helper for safe storage
   const saveToStorage = (key: string, data: any) => {
     if (!isInitialized) return;
