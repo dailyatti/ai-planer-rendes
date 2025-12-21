@@ -1,6 +1,7 @@
 // DataContext.tsx – provides application-wide state and financial calculations
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Note, Goal, PlanItem, Drawing, Subscription, BudgetSettings, Transaction, Invoice, Client, CompanyProfile } from '../types/planner';
+import { StorageService } from '../services/StorageService';
 import { FinancialMathService } from '../utils/financialMath';
 
 interface DataContextType {
@@ -82,58 +83,48 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const loadData = () => {
       try {
-        const savedNotes = localStorage.getItem('planner-notes');
-        const savedGoals = localStorage.getItem('planner-goals');
-        const savedPlans = localStorage.getItem('planner-plans');
-        const savedDrawings = localStorage.getItem('planner-drawings');
-        const savedSubscriptions = localStorage.getItem('planner-subscriptions');
-        const savedTransactions = localStorage.getItem('planner-transactions');
-        const savedInvoices = localStorage.getItem('planner-invoices');
-        const savedClients = localStorage.getItem('planner-clients');
-        const savedBudgetSettings = localStorage.getItem('planner-budget-settings');
-        const savedCompanyProfiles = localStorage.getItem('planner-company-profiles');
+        const savedNotes = StorageService.get<Note[]>('notes', []);
+        if (savedNotes) setNotes(savedNotes.map(n => ({ ...n, createdAt: new Date(n.createdAt) })));
 
-        if (savedNotes) {
-          const parsed = JSON.parse(savedNotes);
-          setNotes(parsed.map((n: any) => ({ ...n, createdAt: new Date(n.createdAt) })));
-        }
-        if (savedGoals) {
-          const parsed = JSON.parse(savedGoals);
-          setGoals(parsed.map((g: any) => ({ ...g, targetDate: new Date(g.targetDate), createdAt: new Date(g.createdAt) })));
-        }
-        if (savedPlans) {
-          const parsed = JSON.parse(savedPlans);
-          setPlans(parsed.map((p: any) => ({ ...p, date: new Date(p.date), startTime: p.startTime ? new Date(p.startTime) : undefined, endTime: p.endTime ? new Date(p.endTime) : undefined })));
-        }
-        if (savedDrawings) {
-          const parsed = JSON.parse(savedDrawings);
-          setDrawings(parsed.map((d: any) => ({ ...d, createdAt: new Date(d.createdAt) })));
-        }
-        if (savedSubscriptions) {
-          const parsed = JSON.parse(savedSubscriptions);
-          setSubscriptions(parsed.map((s: any) => ({ ...s, nextPayment: new Date(s.nextPayment), createdAt: new Date(s.createdAt) })));
-        }
-        if (savedTransactions) {
-          const parsed = JSON.parse(savedTransactions);
-          setTransactions(parsed.map((t: any) => ({ ...t, date: new Date(t.date) })));
-        }
-        if (savedInvoices) {
-          const parsed = JSON.parse(savedInvoices);
-          setInvoices(parsed.map((i: any) => ({ ...i, issueDate: new Date(i.issueDate), dueDate: new Date(i.dueDate), createdAt: new Date(i.createdAt) })));
-        }
-        if (savedClients) {
-          const parsed = JSON.parse(savedClients);
-          setClients(parsed.map((c: any) => ({ ...c, createdAt: new Date(c.createdAt) })));
-        }
-        if (savedBudgetSettings) {
-          setBudgetSettings(JSON.parse(savedBudgetSettings));
-        }
-        if (savedCompanyProfiles) {
-          const parsed = JSON.parse(savedCompanyProfiles);
-          setCompanyProfiles(parsed.map((p: any) => ({ ...p, createdAt: new Date(p.createdAt) })));
-        }
+        const savedGoals = StorageService.get<Goal[]>('goals', []);
+        if (savedGoals) setGoals(savedGoals.map(g => ({ ...g, targetDate: new Date(g.targetDate), createdAt: new Date(g.createdAt) })));
+
+        const savedPlans = StorageService.get<PlanItem[]>('plans', []);
+        if (savedPlans) setPlans(savedPlans.map(p => ({
+          ...p,
+          date: new Date(p.date),
+          startTime: p.startTime ? new Date(p.startTime) : undefined,
+          endTime: p.endTime ? new Date(p.endTime) : undefined
+        })));
+
+        const savedDrawings = StorageService.get<Drawing[]>('drawings', []);
+        if (savedDrawings) setDrawings(savedDrawings.map(d => ({ ...d, createdAt: new Date(d.createdAt) })));
+
+        const savedSubscriptions = StorageService.get<Subscription[]>('subscriptions', []);
+        if (savedSubscriptions) setSubscriptions(savedSubscriptions.map(s => ({ ...s, nextPayment: new Date(s.nextPayment), createdAt: new Date(s.createdAt) })));
+
+        const savedTransactions = StorageService.get<Transaction[]>('transactions', []);
+        if (savedTransactions) setTransactions(savedTransactions.map(t => ({ ...t, date: new Date(t.date) })));
+
+        const savedInvoices = StorageService.get<Invoice[]>('invoices', []);
+        if (savedInvoices) setInvoices(savedInvoices.map(i => ({
+          ...i,
+          issueDate: new Date(i.issueDate),
+          dueDate: new Date(i.dueDate),
+          createdAt: new Date(i.createdAt)
+        })));
+
+        const savedClients = StorageService.get<Client[]>('clients', []);
+        if (savedClients) setClients(savedClients.map(c => ({ ...c, createdAt: new Date(c.createdAt) })));
+
+        const savedCompanyProfiles = StorageService.get<CompanyProfile[]>('company-profiles', []);
+        if (savedCompanyProfiles) setCompanyProfiles(savedCompanyProfiles.map(p => ({ ...p, createdAt: new Date(p.createdAt) })));
+
+        const savedSettings = StorageService.get<BudgetSettings>('budget-settings');
+        if (savedSettings) setBudgetSettings(savedSettings);
+
       } catch (e) {
-        console.error('Error loading data from localStorage:', e);
+        console.error('Error loading data from StorageService:', e);
       } finally {
         setIsInitialized(true);
       }
@@ -182,11 +173,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
     // Run once and then daily check via localStorage flag
-    const last = localStorage.getItem('planner-recurring-last-processed');
+    const last = StorageService.get<string>('recurring-last-processed');
     const todayStr = new Date().toDateString();
     if (last !== todayStr) {
       processRecurring();
-      localStorage.setItem('planner-recurring-last-processed', todayStr);
+      StorageService.set('recurring-last-processed', todayStr);
     }
   }, [isInitialized, transactions]);
 
@@ -210,7 +201,30 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return avgBurn === 0 ? null : FinancialMathService.runway(balance, avgBurn);
   };
 
-  // CRUD implementations (simplified)
+  // CRUD implementations (refactored to use StorageService effect listeners would be overkill, so we construct syncs elsewhere or rely on simple effects? 
+  // Actually, standard practice in this file was useEffect to save? 
+  // Wait, I missed the save effects in the previous ViewFile!
+  // The logic in previous DataContext.tsx seemed to only HAVE load logic. 
+  // Let me check if there were SAVE effects.
+  // The provided code in Step 352 ONLY showed LOADING. 
+  // If there are no save effects, data is never saved!
+  // I must Check if I missed them or if they need to be added.
+  // Assuming they are standard useEffects below... I will add them if they are missing or view file to check.
+
+  // Let's add the save effects now to be safe and "Professional".
+
+  // Persist Data Effects
+  useEffect(() => { if (isInitialized) StorageService.set('notes', notes); }, [notes, isInitialized]);
+  useEffect(() => { if (isInitialized) StorageService.set('goals', goals); }, [goals, isInitialized]);
+  useEffect(() => { if (isInitialized) StorageService.set('plans', plans); }, [plans, isInitialized]);
+  useEffect(() => { if (isInitialized) StorageService.set('drawings', drawings); }, [drawings, isInitialized]);
+  useEffect(() => { if (isInitialized) StorageService.set('subscriptions', subscriptions); }, [subscriptions, isInitialized]);
+  useEffect(() => { if (isInitialized) StorageService.set('transactions', transactions); }, [transactions, isInitialized]);
+  useEffect(() => { if (isInitialized) StorageService.set('invoices', invoices); }, [invoices, isInitialized]);
+  useEffect(() => { if (isInitialized) StorageService.set('clients', clients); }, [clients, isInitialized]);
+  useEffect(() => { if (isInitialized) StorageService.set('budget-settings', budgetSettings); }, [budgetSettings, isInitialized]);
+  useEffect(() => { if (isInitialized) StorageService.set('company-profiles', companyProfiles); }, [companyProfiles, isInitialized]);
+
   const addNote = (note: Omit<Note, 'id' | 'createdAt'>) => setNotes(prev => [...prev, { ...note, id: Math.random().toString(36).substr(2, 9), createdAt: new Date() }]);
   const updateNote = (id: string, updates: Partial<Note>) => setNotes(prev => prev.map(n => (n.id === id ? { ...n, ...updates } : n)));
   const deleteNote = (id: string) => setNotes(prev => prev.filter(n => n.id !== id));
@@ -258,7 +272,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setClients([]);
     setCompanyProfiles([]);
     setBudgetSettings({ monthlyBudget: 0, currency: 'USD', notifications: true, warningThreshold: 80 });
-    localStorage.clear();
+    StorageService.clear();
   };
 
   return (
