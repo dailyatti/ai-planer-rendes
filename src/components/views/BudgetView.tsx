@@ -39,10 +39,13 @@ const BudgetView: React.FC = () => {
     recurring: false
   });
 
+  const [rateSource, setRateSource] = useState<'system' | 'ai' | 'api'>('system');
+
   // Fetch rates on mount
   React.useEffect(() => {
     CurrencyService.fetchRealTimeRates().then(res => {
-      console.log('Currency Rates:', res.message);
+      // console.log('Currency Rates:', res.message);
+      setRateSource(CurrencyService.getUpdateSource());
     });
   }, []);
 
@@ -255,7 +258,8 @@ const BudgetView: React.FC = () => {
                 description: '',
                 amount: '',
                 category: 'other',
-                period: 'monthly',
+                currency: currency,
+                period: 'oneTime',
                 date: new Date().toISOString().split('T')[0],
                 recurring: false
               });
@@ -274,7 +278,8 @@ const BudgetView: React.FC = () => {
                 description: '',
                 amount: '',
                 category: 'other',
-                period: 'monthly',
+                currency: currency,
+                period: 'oneTime',
                 date: new Date().toISOString().split('T')[0],
                 recurring: false
               });
@@ -496,13 +501,13 @@ const BudgetView: React.FC = () => {
                 key={tr.id}
                 onClick={() => {
                   setTransactionType(tr.type as 'income' | 'expense');
-                  setEditingTransaction({
-                    id: tr.id,
+                  setEditingTransaction(tr);
+                  setNewTransaction({
                     description: tr.description,
                     amount: Math.abs(tr.amount).toString(), // Ensure positive for input
                     category: tr.category,
-                    period: tr.period as TransactionPeriod,
                     currency: (tr as any).currency || currency, // Load saved or default
+                    period: tr.period as TransactionPeriod,
                     date: new Date(tr.date).toISOString().split('T')[0],
                     recurring: tr.recurring || false
                   });
@@ -615,6 +620,32 @@ const BudgetView: React.FC = () => {
                   </select>
                 </div>
               </div>
+
+              {/* Rate Source Warning */}
+              {newTransaction.currency !== currency && (
+                <div className={`mt-2 p-3 rounded-lg text-sm flex items-center gap-3 ${rateSource === 'system'
+                  ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-100 dark:border-red-800'
+                  : 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 border border-green-100 dark:border-green-800'
+                  }`}>
+                  {rateSource === 'system' ? (
+                    <>
+                      <div className="p-1.5 bg-red-100 dark:bg-red-900/50 rounded-full">⚠️</div>
+                      <div className="flex-1">
+                        <div className="font-bold">Ez nem a mai napi árfolyam!</div>
+                        <div className="text-xs opacity-90">Ez egy becsült árfolyam. A pontos adatokhoz állítsd be az AI API-t a beállításokban.</div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-1.5 bg-green-100 dark:bg-green-900/50 rounded-full">✅</div>
+                      <div className="flex-1">
+                        <div className="font-bold">Mai árfolyam (AI)</div>
+                        <div className="text-xs opacity-90">Frissítve: {new Date().toLocaleDateString()}</div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>

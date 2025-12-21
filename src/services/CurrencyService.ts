@@ -106,6 +106,7 @@ interface CurrencyConfig {
     baseCurrency: string;
     rates: Record<string, number>; // Rates relative to HUF (Technical Base)
     lastUpdated: number; // Timestamp
+    updateSource: 'system' | 'ai' | 'api'; // Track where rates came from
 }
 
 const STORAGE_KEY = 'contentplanner_currency_config';
@@ -114,7 +115,8 @@ class CurrencyServiceClass {
     private config: CurrencyConfig = {
         baseCurrency: 'HUF',
         rates: { ...DEFAULT_RATES },
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
+        updateSource: 'system'
     };
 
     /**
@@ -124,9 +126,18 @@ class CurrencyServiceClass {
         return this.config.lastUpdated;
     }
 
+    /**
+     * Get update source
+     */
+    getUpdateSource(): 'system' | 'ai' | 'api' {
+        return this.config.updateSource || 'system';
+    }
+
     constructor() {
         this.loadConfig();
     }
+
+    // ... (getDefaultCurrency, getBaseCurrency, etc. - keep existing) -> RESTORING ACTUAL CODE
 
     /**
      * Get default currency for a language
@@ -224,15 +235,17 @@ class CurrencyServiceClass {
      * Fetch real-time exchange rates (API -> AI -> Fallback)
      */
     async fetchRealTimeRates(): Promise<{ success: boolean; message: string; method: 'api' | 'ai' | 'fallback' }> {
-        // 1. Try Free Exchange Rate API (mock for now, or use a real free endpoint if allowed)
-        // For this demo, we will simulate a fetch using the scraped values if older than 24h
-
         const now = Date.now();
         const oneDay = 24 * 60 * 60 * 1000;
 
-        // If data is fresh (< 24h), don't update unless forced
+        // If data is fresh (< 24h), return status based on stored source
         if (now - this.config.lastUpdated < oneDay && this.config.lastUpdated > 0) {
-            return { success: true, message: 'Árfolyamok naprakészek.', method: 'fallback' };
+            const method = this.config.updateSource === 'ai' ? 'ai' : 'fallback';
+            return {
+                success: true,
+                message: method === 'ai' ? 'Árfolyamok naprakészek (AI).' : 'Becsült árfolyamok betöltve.',
+                method
+            };
         }
 
         try {
@@ -241,16 +254,16 @@ class CurrencyServiceClass {
                 const aiResult = await this.fetchRatesWithAI();
                 if (aiResult.success) {
                     this.config.lastUpdated = now;
+                    this.config.updateSource = 'ai';
                     this.saveConfig();
                     return { success: true, message: 'Árfolyamok frissítve (AI)', method: 'ai' };
                 }
             }
 
             // Priority 2: Fallback to Hardcoded Today's Rates (2025-12-21)
-            // Verify if current rates drastically differ from DEFAULT_RATES, if so, reset
-            // For now, we just touch the timestamp
             this.config.rates = { ...DEFAULT_RATES }; // Reset to 'Today's' known good values
             this.config.lastUpdated = now;
+            this.config.updateSource = 'system';
             this.saveConfig();
 
             return { success: true, message: 'Mai napi árfolyamok betöltve (Offline)', method: 'fallback' };
@@ -269,7 +282,11 @@ class CurrencyServiceClass {
         }
 
         try {
-            const currencies = ['EUR', 'USD', 'GBP', 'CHF', 'PLN', 'CZK', 'RON'];
+            // Get all currencies except HUF (base)
+            const currencies = AVAILABLE_CURRENCIES
+                .map(c => c.code)
+                .filter(code => code !== 'HUF');
+
             const prompt = `
                 Kérlek add meg a mai (${new Date().toLocaleDateString()}) árfolyamokat HUF (Forint) alapon.
                 Válaszolj CSAK JSON formátumban, semmi más szöveget ne írj:
@@ -278,7 +295,7 @@ class CurrencyServiceClass {
                 Az érték azt jelenti, hogy 1 [pénznem] = X Forint.
             `;
 
-            const result = await AIService.generateText({ prompt, maxTokens: 200 });
+            const result = await AIService.generateText({ prompt, maxTokens: 1000 }); // Increased tokens just in case
 
             // Parse JSON from response
             const jsonMatch = result.text.match(/\{[^}]+\}/);
@@ -289,7 +306,7 @@ class CurrencyServiceClass {
                         this.setRate(currency, rate);
                     }
                 });
-                return { success: true, message: `Árfolyamok frissítve: ${Object.keys(rates).join(', ')}` };
+                return { success: true, message: `Árfolyamok frissítve: ${Object.keys(rates).length} db pénznem` };
             }
 
             return { success: false, message: 'Nem sikerült feldolgozni az AI válaszát.' };
@@ -309,7 +326,8 @@ class CurrencyServiceClass {
                 this.config = {
                     baseCurrency: parsed.baseCurrency || 'HUF',
                     rates: { ...DEFAULT_RATES, ...parsed.rates },
-                    lastUpdated: parsed.lastUpdated || 0
+                    lastUpdated: parsed.lastUpdated || 0,
+                    updateSource: parsed.updateSource || 'system'
                 };
             }
         } catch (e) {
