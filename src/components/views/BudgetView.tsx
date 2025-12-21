@@ -82,15 +82,52 @@ const BudgetView: React.FC = () => {
     }));
   }, [transactions, CATEGORIES]);
 
-  // Mock cash flow data for visual demonstration (real data would need grouping by month)
-  const cashFlowData = [
-    { name: t('months.january') ? t('months.january').slice(0, 3) : 'Jan', income: 450000, expense: 320000 },
-    { name: t('months.february') ? t('months.february').slice(0, 3) : 'Feb', income: 520000, expense: 340000 },
-    { name: t('months.march') ? t('months.march').slice(0, 3) : 'Mar', income: 480000, expense: 310000 },
-    { name: t('months.april') ? t('months.april').slice(0, 3) : 'Apr', income: 610000, expense: 380000 },
-    { name: t('months.may') ? t('months.may').slice(0, 3) : 'May', income: 590000, expense: 360000 },
-    { name: t('months.june') ? t('months.june').slice(0, 3) : 'Jun', income: 720000, expense: 410000 },
-  ];
+  // Cash flow data from real transactions, grouped by month
+  const cashFlowData = useMemo(() => {
+    const monthNames = [
+      t('months.january'), t('months.february'), t('months.march'),
+      t('months.april'), t('months.may'), t('months.june'),
+      t('months.july'), t('months.august'), t('months.september'),
+      t('months.october'), t('months.november'), t('months.december')
+    ];
+
+    // Get last 6 months
+    const now = new Date();
+    const monthsData: { name: string; income: number; expense: number }[] = [];
+
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthIdx = date.getMonth();
+      const year = date.getFullYear();
+      const monthName = monthNames[monthIdx] ? monthNames[monthIdx].slice(0, 3) : `M${monthIdx + 1}`;
+
+      // Aggregate transactions for this month
+      let income = 0;
+      let expense = 0;
+
+      transactions.forEach(tr => {
+        const trDate = new Date(tr.date);
+        if (trDate.getMonth() === monthIdx && trDate.getFullYear() === year) {
+          if (tr.type === 'income') {
+            income += Math.abs(tr.amount);
+          } else {
+            expense += Math.abs(tr.amount);
+          }
+        }
+      });
+
+      monthsData.push({ name: monthName, income, expense });
+    }
+
+    // If no data at all, show a placeholder message
+    const hasData = monthsData.some(m => m.income > 0 || m.expense > 0);
+    if (!hasData) {
+      // Return empty months so chart shows but with zero values
+      return monthsData;
+    }
+
+    return monthsData;
+  }, [transactions, t]);
 
   // Handlers
   const handleAddTransaction = () => {

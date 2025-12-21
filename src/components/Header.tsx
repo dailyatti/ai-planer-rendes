@@ -1,7 +1,7 @@
-import React from 'react';
-import { Menu, Moon, Sun, Calendar, Download, Settings, Sparkles } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Menu, Moon, Sun, Calendar, Download, Settings, Sparkles, Globe, ChevronDown } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
-import { useLanguage } from '../contexts/LanguageContext';
+import { useLanguage, Language, LANGUAGE_NAMES } from '../contexts/LanguageContext';
 import ImportExportModal from './common/ImportExportModal';
 
 import { ViewType } from '../types/planner';
@@ -15,8 +15,30 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen, onSettingsClick, activeView }) => {
   const { isDark, toggleTheme } = useTheme();
-  const { t } = useLanguage();
-  const [showImportExport, setShowImportExport] = React.useState(false);
+  const { t, language, setLanguage } = useLanguage();
+  const [showImportExport, setShowImportExport] = useState(false);
+  const [showLangDropdown, setShowLangDropdown] = useState(false);
+  const langDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close language dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target as Node)) {
+        setShowLangDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Language flag/code mapping
+  const languageFlags: Record<Language, string> = {
+    en: '🇬🇧', hu: '🇭🇺', ro: '🇷🇴', sk: '🇸🇰', hr: '🇭🇷',
+    de: '🇩🇪', fr: '🇫🇷', es: '🇪🇸', it: '🇮🇹', pl: '🇵🇱',
+    cn: '🇨🇳', jp: '🇯🇵', pt: '🇵🇹', tr: '🇹🇷', ar: '🇸🇦',
+    ru: '🇷🇺', hi: '🇮🇳', bn: '🇧🇩', ur: '🇵🇰', th: '🇹🇭',
+    id: '🇮🇩', ko: '🇰🇷'
+  };
 
   const getHeaderInfo = () => {
     switch (activeView) {
@@ -28,7 +50,6 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen, onSettingsCli
       case 'notes': return { title: t('notes.title'), subtitle: t('notes.subtitle') };
       case 'goals': return { title: t('goals.title'), subtitle: t('goals.subtitle') };
       case 'drawing': return { title: t('visual.title'), subtitle: t('visual.subtitle') };
-      case 'visual': return { title: t('visual.title'), subtitle: t('visual.subtitle') };
       case 'budget': return { title: t('budget.title'), subtitle: t('budget.subtitle') };
       case 'invoicing': return { title: t('invoicing.title'), subtitle: t('invoicing.subtitle') };
       case 'pomodoro': return { title: t('pomodoro.title'), subtitle: t('pomodoro.subtitle') };
@@ -123,6 +144,43 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen, onSettingsCli
                     )}
                   </div>
                 </button>
+
+                {/* Language Selector */}
+                <div className="relative" ref={langDropdownRef}>
+                  <button
+                    onClick={() => setShowLangDropdown(!showLangDropdown)}
+                    className="relative p-2.5 rounded-xl text-gray-600 dark:text-gray-300 
+                             hover:bg-gray-100 dark:hover:bg-gray-800 
+                             active:scale-95 transition-all duration-200 
+                             min-w-[44px] min-h-[44px] flex items-center justify-center gap-1
+                             group"
+                    title={t('settings.language')}
+                    aria-label="Change language"
+                  >
+                    <span className="text-lg">{languageFlags[language]}</span>
+                    <ChevronDown size={12} className={`transition-transform duration-200 ${showLangDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {showLangDropdown && (
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50 max-h-80 overflow-y-auto">
+                      {(Object.entries(LANGUAGE_NAMES) as [Language, string][]).map(([code, name]) => (
+                        <button
+                          key={code}
+                          onClick={() => {
+                            setLanguage(code);
+                            setShowLangDropdown(false);
+                          }}
+                          className={`w-full px-4 py-2 text-left text-sm flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors
+                            ${language === code ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 font-medium' : 'text-gray-700 dark:text-gray-300'}`}
+                        >
+                          <span className="text-lg">{languageFlags[code]}</span>
+                          <span>{name}</span>
+                          {language === code && <Globe size={14} className="ml-auto text-primary-500" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {/* Import/Export */}
                 <button

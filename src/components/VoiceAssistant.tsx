@@ -168,6 +168,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     const [isConnecting, setIsConnecting] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
     const [volume, setVolume] = useState(0);
+    const [showNoApiWarning, setShowNoApiWarning] = useState(false);
     // const [transcript, setTranscript] = useState('');
     const [showPanel, setShowPanel] = useState(false);
 
@@ -198,7 +199,8 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
 
         if (!apiKey) {
             console.log('Voice Assistant: API key not configured');
-            // Could show a toast or modal to configure API key
+            setShowNoApiWarning(true);
+            setTimeout(() => setShowNoApiWarning(false), 5000);
             return;
         }
 
@@ -318,6 +320,27 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
           `}
                 />
             </button>
+
+            {/* API Key Missing Warning */}
+            {showNoApiWarning && (
+                <div className="fixed bottom-24 right-6 z-[9999] animate-in slide-in-from-bottom-2 fade-in duration-300">
+                    <div className="bg-amber-50 dark:bg-amber-900/90 border border-amber-200 dark:border-amber-700 rounded-xl p-4 shadow-lg max-w-xs">
+                        <div className="flex items-start gap-3">
+                            <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-800">
+                                <MicOff size={16} className="text-amber-600 dark:text-amber-400" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                                    {t('voice.noApiKey') || 'API Key Required'}
+                                </p>
+                                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                    {t('voice.configureInIntegrations') || 'Please configure Gemini API key in Integrations settings'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Expanded Panel (when active) */}
             {showPanel && (

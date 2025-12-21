@@ -48,6 +48,7 @@ const IntegrationsView: React.FC = () => {
             icon: Zap,
             color: 'from-green-500 to-emerald-600',
             connected: !!apiKeys.openaiKey,
+            comingSoon: false,
             features: [
                 t('integrations.openai.feat1'),
                 t('integrations.openai.feat2'),
@@ -63,6 +64,7 @@ const IntegrationsView: React.FC = () => {
             icon: Mic,
             color: 'from-blue-500 to-indigo-600',
             connected: !!apiKeys.geminiKey,
+            comingSoon: false,
             features: [
                 t('integrations.gemini.feat1'),
                 t('integrations.gemini.feat2'),
@@ -78,6 +80,7 @@ const IntegrationsView: React.FC = () => {
             icon: Calendar,
             color: 'from-red-500 to-orange-500',
             connected: !!apiKeys.googleCalendarKey,
+            comingSoon: true,
             features: [
                 t('integrations.gcal.feat1'),
                 t('integrations.gcal.feat2'),
@@ -93,6 +96,7 @@ const IntegrationsView: React.FC = () => {
             icon: FileText,
             color: 'from-gray-700 to-gray-900',
             connected: !!apiKeys.notionKey,
+            comingSoon: true,
             features: [
                 t('integrations.notion.feat1'),
                 t('integrations.notion.feat2'),
@@ -108,6 +112,7 @@ const IntegrationsView: React.FC = () => {
             icon: CheckSquare,
             color: 'from-red-500 to-red-600',
             connected: !!apiKeys.todoistKey,
+            comingSoon: true,
             features: [
                 t('integrations.todoist.feat1'),
                 t('integrations.todoist.feat2'),
@@ -123,6 +128,7 @@ const IntegrationsView: React.FC = () => {
             icon: Mail,
             color: 'from-blue-500 to-blue-700',
             connected: !!apiKeys.outlookKey,
+            comingSoon: true,
             features: [
                 t('integrations.outlook.feat1'),
                 t('integrations.outlook.feat2'),
@@ -286,13 +292,17 @@ const IntegrationsView: React.FC = () => {
                                                 <h3 className="font-bold text-lg text-gray-900 dark:text-white truncate pr-2">
                                                     {integration.name}
                                                 </h3>
-                                                {integration.connected ? (
+                                                {integration.comingSoon ? (
+                                                    <span className="badge bg-amber-100/80 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 shrink-0 backdrop-blur-md border border-amber-200 dark:border-amber-800">
+                                                        ⏳ {t('integrations.comingSoon') || 'Coming Soon'}
+                                                    </span>
+                                                ) : integration.connected ? (
                                                     <span className="badge badge-success shrink-0 backdrop-blur-md">
                                                         <Check size={12} /> {t('integrations.connected')}
                                                     </span>
                                                 ) : (
                                                     <span className="badge bg-gray-100/80 dark:bg-gray-700/80 text-gray-600 dark:text-gray-400 shrink-0 backdrop-blur-md">
-                                                        {t('integrations.disconnect').replace('Disconnect', 'Not Connected')}
+                                                        {t('integrations.notConnected') || 'Not Connected'}
                                                     </span>
                                                 )}
                                             </div>
@@ -310,8 +320,8 @@ const IntegrationsView: React.FC = () => {
                                             <button
                                                 onClick={() => handleConnect(integration.id)}
                                                 className={`w-full py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 ${integration.connected
-                                                        ? 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                                        : 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30 hover:shadow-primary-500/50 hover:-translate-y-0.5'
+                                                    ? 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                                    : 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30 hover:shadow-primary-500/50 hover:-translate-y-0.5'
                                                     }`}
                                             >
                                                 {integration.connected ? (

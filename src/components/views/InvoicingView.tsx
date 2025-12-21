@@ -562,7 +562,7 @@ const InvoicingView: React.FC = () => {
                             </div>
 
                             {/* Invoice Details Row */}
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
                                 <div>
                                     <label className="label-text">{t('invoicing.invoiceNumber')}</label>
                                     <input
@@ -586,6 +586,42 @@ const InvoicingView: React.FC = () => {
                                 <div>
                                     <label className="label-text">{t('invoicing.dueDate')}</label>
                                     <input type="date" className="input-field bg-white dark:bg-gray-800" value={newInvoice.dueDate?.toISOString().split('T')[0]} onChange={(e) => setNewInvoice({ ...newInvoice, dueDate: new Date(e.target.value) })} />
+                                </div>
+                            </div>
+
+                            {/* Hungarian NAV-compliant fields */}
+                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
+                                <div>
+                                    <label className="label-text flex items-center gap-1.5">
+                                        {t('invoicing.fulfillmentDate') || 'Teljesítés dátuma'}
+                                        <span className="text-xs text-indigo-500">(NAV)</span>
+                                    </label>
+                                    <input
+                                        type="date"
+                                        className="input-field bg-white dark:bg-gray-800"
+                                        value={newInvoice.fulfillmentDate?.toISOString().split('T')[0] || newInvoice.issueDate?.toISOString().split('T')[0] || ''}
+                                        onChange={(e) => setNewInvoice({ ...newInvoice, fulfillmentDate: new Date(e.target.value) })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="label-text">{t('invoicing.paymentMethod') || 'Fizetési mód'}</label>
+                                    <select
+                                        className="input-field bg-white dark:bg-gray-800"
+                                        value={newInvoice.paymentMethod || 'transfer'}
+                                        onChange={(e) => setNewInvoice({ ...newInvoice, paymentMethod: e.target.value as 'transfer' | 'cash' | 'card' })}
+                                    >
+                                        <option value="transfer">{t('invoicing.paymentTransfer') || 'Átutalás'}</option>
+                                        <option value="cash">{t('invoicing.paymentCash') || 'Készpénz'}</option>
+                                        <option value="card">{t('invoicing.paymentCard') || 'Bankkártya'}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="label-text">{t('invoicing.paymentDeadline') || 'Fizetési határidő'}</label>
+                                    <div className="input-field bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 flex items-center">
+                                        {newInvoice.dueDate && newInvoice.issueDate ? (
+                                            `${Math.ceil((newInvoice.dueDate.getTime() - newInvoice.issueDate.getTime()) / (1000 * 60 * 60 * 24))} ${t('common.days') || 'nap'}`
+                                        ) : '—'}
+                                    </div>
                                 </div>
                             </div>
 
@@ -840,7 +876,18 @@ const InvoicingView: React.FC = () => {
                                     <h3 className="text-4xl font-bold tracking-tight text-gray-900 mb-2">{previewInvoice.invoiceNumber}</h3>
                                     <div className="space-y-1 text-gray-600 text-sm">
                                         <p><span className="font-semibold text-gray-800">{t('invoicing.issueDate')}:</span> {formatDate(previewInvoice.issueDate)}</p>
+
+                                        {/* Fulfillment Date (NAV) */}
+                                        <p><span className="font-semibold text-gray-800">{t('invoicing.fulfillmentDate') || 'Teljesítés'}:</span> {formatDate(previewInvoice.fulfillmentDate || previewInvoice.issueDate)}</p>
+
                                         <p><span className="font-semibold text-gray-800">{t('invoicing.dueDate')}:</span> {formatDate(previewInvoice.dueDate)}</p>
+
+                                        {/* Payment Method */}
+                                        <p><span className="font-semibold text-gray-800">{t('invoicing.paymentMethod') || 'Fizetési mód'}:</span> {
+                                            previewInvoice.paymentMethod === 'cash' ? (t('invoicing.paymentCash') || 'Készpénz') :
+                                                previewInvoice.paymentMethod === 'card' ? (t('invoicing.paymentCard') || 'Bankkártya') :
+                                                    (t('invoicing.paymentTransfer') || 'Átutalás')
+                                        }</p>
                                     </div>
                                 </div>
                                 <div className="text-right">

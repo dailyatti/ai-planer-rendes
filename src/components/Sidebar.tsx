@@ -3,10 +3,10 @@ import {
   Clock, Calendar, CalendarDays, CalendarRange,
   CalendarCheck, StickyNote, Target, Brush,
   DollarSign, Timer, BarChart3, FileText, Link2,
-  X
+  X, Globe
 } from 'lucide-react';
 import { ViewType } from '../types/planner';
-import { useLanguage } from '../contexts/LanguageContext';
+import { useLanguage, Language, LANGUAGE_NAMES } from '../contexts/LanguageContext';
 
 interface SidebarProps {
   activeView: ViewType;
@@ -16,7 +16,16 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onClose }) => {
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
+
+  // Language flag/code mapping
+  const languageFlags: Record<Language, string> = {
+    en: '🇬🇧', hu: '🇭🇺', ro: '🇷🇴', sk: '🇸🇰', hr: '🇭🇷',
+    de: '🇩🇪', fr: '🇫🇷', es: '🇪🇸', it: '🇮🇹', pl: '🇵🇱',
+    cn: '🇨🇳', jp: '🇯🇵', pt: '🇵🇹', tr: '🇹🇷', ar: '🇸🇦',
+    ru: '🇷🇺', hi: '🇮🇳', bn: '🇧🇩', ur: '🇵🇰', th: '🇹🇭',
+    id: '🇮🇩', ko: '🇰🇷'
+  };
 
   const menuItems = [
     { id: 'hourly' as ViewType, label: t('nav.hourlyPlanning'), icon: Clock, color: 'from-blue-500 to-cyan-500' },
@@ -168,7 +177,25 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onC
         </nav>
 
         {/* Footer */}
-        <div className="px-4 py-4 border-t border-gray-200/50 dark:border-gray-700/50">
+        <div className="px-4 py-4 border-t border-gray-200/50 dark:border-gray-700/50 space-y-3">
+          {/* Language Selector */}
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-gray-100/50 dark:bg-gray-800/50">
+            <Globe size={16} className="text-gray-500 dark:text-gray-400" />
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as Language)}
+              className="flex-1 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 
+                         border-0 focus:ring-0 cursor-pointer"
+            >
+              {(Object.entries(LANGUAGE_NAMES) as [Language, string][]).map(([code, name]) => (
+                <option key={code} value={code}>
+                  {languageFlags[code]} {name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Version Info */}
           <div className="p-3 rounded-xl bg-gradient-to-br from-primary-500/5 to-secondary-500/5 dark:from-primary-500/10 dark:to-secondary-500/10">
             <p className="text-xs font-semibold text-gray-900 dark:text-white">
               ContentPlanner Pro

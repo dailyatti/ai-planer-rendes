@@ -94,6 +94,8 @@ export interface Invoice {
   status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
   issueDate: Date;
   dueDate: Date;
+  fulfillmentDate?: Date; // Hungarian NAV requirement: teljesítés dátuma
+  paymentMethod?: 'transfer' | 'cash' | 'card'; // Fizetési mód
   paidDate?: Date;
   notes: string;
   currency: string;
