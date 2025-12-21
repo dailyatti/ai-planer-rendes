@@ -3,7 +3,6 @@ import { Plus, CalendarDays, ChevronLeft, ChevronRight, CheckCircle, Circle, Pen
 import { useData } from '../../contexts/DataContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { PlanItem } from '../../types/planner';
-import LinkifiedText from '../common/LinkifiedText';
 
 const WeeklyView: React.FC = () => {
   const { plans, addPlan, updatePlan, deletePlan } = useData();
@@ -130,14 +129,30 @@ const WeeklyView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigateWeek('prev')}
-              className="p-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
-            >
-              <ChevronLeft size={20} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => navigateWeek('prev')}
+                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+              >
+                <ChevronLeft size={20} />
+              </button>
 
-            <div className="text-center">
+              <button
+                onClick={() => setCurrentWeek(new Date())}
+                className="px-3 py-1.5 text-sm font-medium text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 rounded-md hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
+              >
+                {t('common.today') || 'Ma'}
+              </button>
+
+              <button
+                onClick={() => navigateWeek('next')}
+                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+
+            <div className="text-center min-w-[140px]">
               <div className="text-lg font-semibold text-gray-900 dark:text-white">
                 {monthNames[weekDays[0].getMonth()]} {weekDays[0].getFullYear()}
               </div>
@@ -145,13 +160,6 @@ const WeeklyView: React.FC = () => {
                 {weekDays[0].getDate()}. - {weekDays[6].getDate()}.
               </div>
             </div>
-
-            <button
-              onClick={() => navigateWeek('next')}
-              className="p-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
-            >
-              <ChevronRight size={20} />
-            </button>
           </div>
         </div>
       </div>
