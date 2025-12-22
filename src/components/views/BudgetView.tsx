@@ -12,7 +12,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { useData } from '../../contexts/DataContext';
 import { Transaction, TransactionPeriod } from '../../types/planner';
 import { AVAILABLE_CURRENCIES } from '../../constants/currencyData';
-import { FinancialEngine } from '../../utils/FinancialEngine';
+import { CurrencyService } from '../../services/CurrencyService';
 
 const BudgetView: React.FC = () => {
   const { t, language } = useLanguage();
@@ -46,10 +46,9 @@ const BudgetView: React.FC = () => {
   const [rateSource, setRateSource] = useState<'system' | 'ai' | 'api'>('system');
 
   // Fetch rates on mount
-  // Fetch rates on mount
   React.useEffect(() => {
-    FinancialEngine.refreshRates().then(() => {
-      setRateSource(FinancialEngine.getRateSource());
+    CurrencyService.fetchRealTimeRates().then(() => {
+      setRateSource(CurrencyService.getUpdateSource());
     });
   }, []);
 
@@ -59,6 +58,23 @@ const BudgetView: React.FC = () => {
       setNewTransaction(prev => ({ ...prev, currency: currency }));
     }
   }, [currency]);
+
+  // Formatters (Moved up to avoid ReferenceError in useMemo)
+  const formatMoney = (amount: number) => {
+    return new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
+      style: 'currency',
+      currency: currency,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
+  const formatDate = (date: Date) => {
+    return new Intl.DateTimeFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    }).format(date);
+  };
 
   // Categories with translated labels
   const CATEGORIES = useMemo(() => ({
@@ -78,8 +94,13 @@ const BudgetView: React.FC = () => {
     if (isNaN(amount)) return null;
 
     // Convert TO the view currency (which is usually base)
-    const converted = FinancialEngine.convert(amount, newTransaction.currency, currency);
-    return `≈ ${formatMoney(converted)} (${t('budget.estimated')})`;
+    try {
+      const converted = CurrencyService.convert(amount, newTransaction.currency, currency);
+      return `≈ ${formatMoney(converted)} (${t('budget.estimated')})`;
+    } catch (e) {
+      console.warn('Conversion error:', e);
+      return null;
+    }
   }, [newTransaction.amount, newTransaction.currency, currency]);
 
   // ... (existing useMemos)
@@ -91,7 +112,7 @@ const BudgetView: React.FC = () => {
       .reduce((acc, tr) => {
         const amount = Math.abs(tr.amount);
         const trCurrency = tr.currency || 'HUF';
-        return acc + FinancialEngine.convert(amount, trCurrency, currency);
+        return acc + CurrencyService.convert(amount, trCurrency, currency);
       }, 0);
 
     const expense = transactions
@@ -99,7 +120,7 @@ const BudgetView: React.FC = () => {
       .reduce((acc, tr) => {
         const amount = Math.abs(tr.amount);
         const trCurrency = tr.currency || 'HUF';
-        return acc + FinancialEngine.convert(amount, trCurrency, currency);
+        return acc + CurrencyService.convert(amount, trCurrency, currency);
       }, 0);
 
     const recurring = transactions
@@ -107,27 +128,24 @@ const BudgetView: React.FC = () => {
       .reduce((acc, tr) => {
         const amount = Math.abs(tr.amount);
         const trCurrency = tr.currency || 'HUF';
-        return acc + FinancialEngine.convert(amount, trCurrency, currency);
+        return acc + CurrencyService.convert(amount, trCurrency, currency);
       }, 0);
 
     return { totalIncome: income, totalExpense: expense, balance: income - expense, recurringMonthly: recurring };
   }, [transactions, currency]);
 
-  // Formatters
-  const formatMoney = (amount: number) => {
-    return new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
-      style: 'currency',
-      currency: currency,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
 
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    }).format(date);
+
+  // Helper for stat breakdown
+  const getTransactionAmountsByCurrency = (type: 'income' | 'expense') => {
+    const result: Record<string, number> = {};
+    transactions.filter(t => t.type === type).forEach(t => {
+      const trCurrency = t.currency || 'HUF';
+      const amount = Math.abs(t.amount);
+      if (!result[trCurrency]) result[trCurrency] = 0;
+      result[trCurrency] += amount;
+    });
+    return result;
   };
 
   // Chart Data preparation
@@ -136,7 +154,7 @@ const BudgetView: React.FC = () => {
     transactions.filter(tr => tr.type === 'expense').forEach(tr => {
       const amount = Math.abs(tr.amount);
       const trCurrency = tr.currency || 'HUF';
-      const converted = FinancialEngine.convert(amount, trCurrency, currency);
+      const converted = CurrencyService.convert(amount, trCurrency, currency);
       expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + converted;
     });
 
@@ -175,7 +193,7 @@ const BudgetView: React.FC = () => {
         if (trDate.getMonth() === monthIdx && trDate.getFullYear() === year) {
           const amount = Math.abs(tr.amount);
           const trCurrency = tr.currency || 'HUF';
-          const converted = FinancialEngine.convert(amount, trCurrency, currency);
+          const converted = CurrencyService.convert(amount, trCurrency, currency);
 
           if (tr.type === 'income') {
             income += converted;
@@ -391,7 +409,7 @@ const BudgetView: React.FC = () => {
           onClick={(e) => {
             e.stopPropagation();
             const rect = e.currentTarget.getBoundingClientRect();
-            const breakdown = FinancialEngine.getTransactionAmountsByCurrency(transactions, 'income');
+            const breakdown = getTransactionAmountsByCurrency('income');
             setSelectedStat({ title: t('budget.income'), breakdown, rect });
           }}
           className="card p-6 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-xl shadow-blue-500/20 hover:shadow-2xl hover:shadow-blue-500/30 transition-all duration-300 hover:scale-[1.02] text-left w-full group"
@@ -413,7 +431,7 @@ const BudgetView: React.FC = () => {
           onClick={(e) => {
             e.stopPropagation();
             const rect = e.currentTarget.getBoundingClientRect();
-            const breakdown = FinancialEngine.getTransactionAmountsByCurrency(transactions, 'expense');
+            const breakdown = getTransactionAmountsByCurrency('expense');
             setSelectedStat({ title: t('budget.expense'), breakdown, rect });
           }}
           className="card p-6 bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-xl shadow-orange-500/20 hover:shadow-2xl hover:shadow-orange-500/30 transition-all duration-300 hover:scale-[1.02] text-left w-full group"
@@ -929,10 +947,10 @@ const BudgetView: React.FC = () => {
                     style: 'currency',
                     currency: convTo,
                     maximumFractionDigits: 2
-                  }).format(FinancialEngine.convert(parseFloat(convAmount) || 0, convFrom, convTo))}
+                  }).format(CurrencyService.convert(parseFloat(convAmount) || 0, convFrom, convTo))}
                 </div>
                 <div className="mt-3 flex items-center justify-between text-xs opacity-70">
-                  <span>1 {convFrom} ≈ {FinancialEngine.convert(1, convFrom, convTo).toFixed(4)} {convTo}</span>
+                  <span>1 {convFrom} ≈ {CurrencyService.convert(1, convFrom, convTo).toFixed(4)} {convTo}</span>
                   <div className="flex items-center gap-1">
                     {rateSource === 'system' ? '⚠️ Becsült' : '✅ Friss'}
                   </div>
@@ -949,8 +967,8 @@ const BudgetView: React.FC = () => {
                       btn.setAttribute('disabled', 'true');
                     }
 
-                    await FinancialEngine.refreshRates(true);
-                    setRateSource(FinancialEngine.getRateSource());
+                    await CurrencyService.fetchRealTimeRates(true);
+                    setRateSource(CurrencyService.getUpdateSource());
 
                     if (btn) {
                       btn.textContent = 'Valós idejű árfolyamok lekérése (API)';

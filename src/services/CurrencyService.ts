@@ -106,6 +106,12 @@ class CurrencyServiceClass {
         // Use HUF as technical base regardless of display settings
         const technicalBase = 'HUF';
 
+        // Defensive check for config presence
+        if (!this.config || !this.config.rates) {
+            console.warn('CurrencyService: Config or rates missing, returning raw amount');
+            return amount;
+        }
+
         // Convert to technical base first
         let inBase: number;
         if (from === technicalBase) {
