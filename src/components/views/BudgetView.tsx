@@ -60,10 +60,10 @@ const BudgetView: React.FC = () => {
   }, [currency]);
 
   // Formatters (Moved up to avoid ReferenceError in useMemo)
-  const formatMoney = (amount: number) => {
+  const formatMoney = (amount: number, currencyOverride?: string) => {
     return new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
       style: 'currency',
-      currency: currency,
+      currency: currencyOverride || currency,
       maximumFractionDigits: 0
     }).format(amount);
   };
@@ -76,15 +76,23 @@ const BudgetView: React.FC = () => {
     }).format(date);
   };
 
-  // Categories with translated labels
-  const CATEGORIES = useMemo(() => ({
-    software: { color: '#4361ee', label: t('budget.software') },
-    marketing: { color: '#a855f7', label: t('budget.marketing') },
-    office: { color: '#06b6d4', label: t('budget.office') },
-    travel: { color: '#f59e0b', label: t('budget.travel') },
-    service: { color: '#10b981', label: t('budget.service') },
-    freelance: { color: '#3b82f6', label: t('budget.freelance') },
-    other: { color: '#9ca3af', label: t('budget.other') }
+  // ... (Lines 74-615 skipped)
+
+  <div className="text-right flex items-center gap-4">
+    <span className={`text-lg font-bold block ${tr.type === 'income' ? 'text-green-600' : 'text-gray-900 dark:text-white'}`}>
+      {tr.type === 'income' ? '+' : ''}{formatMoney(tr.amount, tr.currency)}
+    </span>
+    <button
+
+      // Categories with translated labels
+      const CATEGORIES= useMemo(() => ({
+      software: {color: '#4361ee', label: t('budget.software') },
+    marketing: {color: '#a855f7', label: t('budget.marketing') },
+    office: {color: '#06b6d4', label: t('budget.office') },
+    travel: {color: '#f59e0b', label: t('budget.travel') },
+    service: {color: '#10b981', label: t('budget.service') },
+    freelance: {color: '#3b82f6', label: t('budget.freelance') },
+    other: {color: '#9ca3af', label: t('budget.other') }
   }), [t]);
 
   // Calculate conversion preview
@@ -96,114 +104,114 @@ const BudgetView: React.FC = () => {
     // Convert TO the view currency (which is usually base)
     try {
       const converted = CurrencyService.convert(amount, newTransaction.currency, currency);
-      return `≈ ${formatMoney(converted)} (${t('budget.estimated')})`;
+    return `≈ ${formatMoney(converted)} (${t('budget.estimated')})`;
     } catch (e) {
       console.warn('Conversion error:', e);
-      return null;
+    return null;
     }
   }, [newTransaction.amount, newTransaction.currency, currency]);
 
-  // ... (existing useMemos)
+    // ... (existing useMemos)
 
-  // Calculate totals
-  const { totalIncome, totalExpense, balance, recurringMonthly } = useMemo(() => {
+    // Calculate totals
+    const {totalIncome, totalExpense, balance, recurringMonthly} = useMemo(() => {
     const income = transactions
       .filter(tr => tr.type === 'income')
       .reduce((acc, tr) => {
         const amount = Math.abs(tr.amount);
-        const trCurrency = tr.currency || 'HUF';
-        return acc + CurrencyService.convert(amount, trCurrency, currency);
+    const trCurrency = tr.currency || 'HUF';
+    return acc + CurrencyService.convert(amount, trCurrency, currency);
       }, 0);
 
     const expense = transactions
       .filter(tr => tr.type === 'expense')
       .reduce((acc, tr) => {
         const amount = Math.abs(tr.amount);
-        const trCurrency = tr.currency || 'HUF';
-        return acc + CurrencyService.convert(amount, trCurrency, currency);
+    const trCurrency = tr.currency || 'HUF';
+    return acc + CurrencyService.convert(amount, trCurrency, currency);
       }, 0);
 
     const recurring = transactions
       .filter(tr => tr.type === 'expense' && tr.recurring)
       .reduce((acc, tr) => {
         const amount = Math.abs(tr.amount);
-        const trCurrency = tr.currency || 'HUF';
-        return acc + CurrencyService.convert(amount, trCurrency, currency);
+    const trCurrency = tr.currency || 'HUF';
+    return acc + CurrencyService.convert(amount, trCurrency, currency);
       }, 0);
 
-    return { totalIncome: income, totalExpense: expense, balance: income - expense, recurringMonthly: recurring };
+    return {totalIncome: income, totalExpense: expense, balance: income - expense, recurringMonthly: recurring };
   }, [transactions, currency]);
 
 
 
   // Helper for stat breakdown
   const getTransactionAmountsByCurrency = (type: 'income' | 'expense') => {
-    const result: Record<string, number> = {};
+    const result: Record<string, number> = { };
     transactions.filter(t => t.type === type).forEach(t => {
       const trCurrency = t.currency || 'HUF';
-      const amount = Math.abs(t.amount);
-      if (!result[trCurrency]) result[trCurrency] = 0;
-      result[trCurrency] += amount;
+    const amount = Math.abs(t.amount);
+    if (!result[trCurrency]) result[trCurrency] = 0;
+    result[trCurrency] += amount;
     });
     return result;
   };
 
   // Chart Data preparation
   const categoryData = useMemo(() => {
-    const expensesByCategory: Record<string, number> = {};
+    const expensesByCategory: Record<string, number> = { };
     transactions.filter(tr => tr.type === 'expense').forEach(tr => {
       const amount = Math.abs(tr.amount);
-      const trCurrency = tr.currency || 'HUF';
-      const converted = CurrencyService.convert(amount, trCurrency, currency);
-      expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + converted;
+    const trCurrency = tr.currency || 'HUF';
+    const converted = CurrencyService.convert(amount, trCurrency, currency);
+    expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + converted;
     });
 
     return Object.entries(expensesByCategory).map(([cat, val]) => ({
       name: (CATEGORIES as any)[cat]?.label || cat,
-      value: val,
-      color: (CATEGORIES as any)[cat]?.color || '#9ca3af'
+    value: val,
+    color: (CATEGORIES as any)[cat]?.color || '#9ca3af'
     }));
   }, [transactions, CATEGORIES, currency]);
 
   // Cash flow data from real transactions, grouped by month
   const cashFlowData = useMemo(() => {
     const monthNames = [
-      t('months.january'), t('months.february'), t('months.march'),
-      t('months.april'), t('months.may'), t('months.june'),
-      t('months.july'), t('months.august'), t('months.september'),
-      t('months.october'), t('months.november'), t('months.december')
+    t('months.january'), t('months.february'), t('months.march'),
+    t('months.april'), t('months.may'), t('months.june'),
+    t('months.july'), t('months.august'), t('months.september'),
+    t('months.october'), t('months.november'), t('months.december')
     ];
 
     // Get last 6 months
     const now = new Date();
-    const monthsData: { name: string; income: number; expense: number }[] = [];
+    const monthsData: {name: string; income: number; expense: number }[] = [];
 
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthIdx = date.getMonth();
-      const year = date.getFullYear();
-      const monthName = monthNames[monthIdx] ? monthNames[monthIdx].slice(0, 3) : `M${monthIdx + 1} `;
+    const monthIdx = date.getMonth();
+    const year = date.getFullYear();
+    const monthName = monthNames[monthIdx] ? monthNames[monthIdx].slice(0, 3) : `M${monthIdx + 1} `;
 
-      // Aggregate transactions for this month
-      let income = 0;
-      let expense = 0;
+    // Aggregate transactions for this month
+    let income = 0;
+    let expense = 0;
 
       transactions.forEach(tr => {
         const trDate = new Date(tr.date);
-        if (trDate.getMonth() === monthIdx && trDate.getFullYear() === year) {
+    if (trDate.getMonth() === monthIdx && trDate.getFullYear() === year) {
           const amount = Math.abs(tr.amount);
-          const trCurrency = tr.currency || 'HUF';
-          const converted = CurrencyService.convert(amount, trCurrency, currency);
+    const trCurrency = tr.currency || 'HUF';
+    const converted = CurrencyService.convert(amount, trCurrency, currency);
 
-          if (tr.type === 'income') {
-            income += converted;
+    if (tr.type === 'income') {
+      income += converted;
           } else {
-            expense += converted;
+      expense += converted;
           }
         }
       });
 
-      monthsData.push({ name: monthName, income, expense });
+    monthsData.push({name: monthName, income, expense });
     }
 
     // If no data at all, show a placeholder message
@@ -226,7 +234,7 @@ const BudgetView: React.FC = () => {
 
     if (isNaN(amount)) {
       alert("Kérlek adj meg egy érvényes számot!"); // Basic validation feedback
-      return;
+    return;
     }
 
     if (editingTransaction) {
@@ -266,30 +274,30 @@ const BudgetView: React.FC = () => {
         recurring: false,
         interestRate: ''
       });
-      setEditingTransaction(null);
-      setShowAddModal(false);
+    setEditingTransaction(null);
+    setShowAddModal(false);
     } catch (e) {
       console.error('Error in handleAddTransaction reset:', e);
-      alert('Hiba történt a mentés során. Kérlek próbáld újra!');
+    alert('Hiba történt a mentés során. Kérlek próbáld újra!');
     }
   };
 
-  const filteredTransactions = filterCategory === 'all'
+    const filteredTransactions = filterCategory === 'all'
     ? transactions
     : transactions.filter(tr => tr.category === filterCategory);
 
   const getPeriodLabel = (period: TransactionPeriod = 'oneTime') => {
     const labels: Record<TransactionPeriod, string> = {
       daily: t('budget.daily'),
-      weekly: t('budget.weekly'),
-      monthly: t('budget.monthly'),
-      yearly: t('budget.yearly'),
-      oneTime: t('budget.oneTime')
+    weekly: t('budget.weekly'),
+    monthly: t('budget.monthly'),
+    yearly: t('budget.yearly'),
+    oneTime: t('budget.oneTime')
     };
     return labels[period] || period;
   };
 
-  return (
+    return (
     <div className="view-container max-w-7xl mx-auto space-y-8 p-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -996,7 +1004,7 @@ const BudgetView: React.FC = () => {
         </div>
       )}
     </div>
-  );
+    );
 };
 
-export default BudgetView;
+    export default BudgetView;
