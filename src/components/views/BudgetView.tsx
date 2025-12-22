@@ -11,7 +11,7 @@ import { Search } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useData } from '../../contexts/DataContext';
 import { Transaction, TransactionPeriod } from '../../types/planner';
-import CurrencyService, { AVAILABLE_CURRENCIES } from '../../services/CurrencyService';
+import { AVAILABLE_CURRENCIES } from '../../services/CurrencyService';
 import { FinancialEngine } from '../../utils/FinancialEngine';
 
 const BudgetView: React.FC = () => {
@@ -46,9 +46,10 @@ const BudgetView: React.FC = () => {
   const [rateSource, setRateSource] = useState<'system' | 'ai' | 'api'>('system');
 
   // Fetch rates on mount
+  // Fetch rates on mount
   React.useEffect(() => {
-    CurrencyService.fetchRealTimeRates().then(() => {
-      setRateSource(CurrencyService.getUpdateSource());
+    FinancialEngine.refreshRates().then(() => {
+      setRateSource(FinancialEngine.getRateSource());
     });
   }, []);
 
@@ -77,7 +78,7 @@ const BudgetView: React.FC = () => {
     if (isNaN(amount)) return null;
 
     // Convert TO the view currency (which is usually base)
-    const converted = CurrencyService.convert(amount, newTransaction.currency, currency);
+    const converted = FinancialEngine.convert(amount, newTransaction.currency, currency);
     return `≈ ${formatMoney(converted)} (${t('budget.estimated')})`;
   }, [newTransaction.amount, newTransaction.currency, currency]);
 
@@ -90,7 +91,7 @@ const BudgetView: React.FC = () => {
       .reduce((acc, tr) => {
         const amount = Math.abs(tr.amount);
         const trCurrency = tr.currency || 'HUF';
-        return acc + CurrencyService.convert(amount, trCurrency, currency);
+        return acc + FinancialEngine.convert(amount, trCurrency, currency);
       }, 0);
 
     const expense = transactions
@@ -98,7 +99,7 @@ const BudgetView: React.FC = () => {
       .reduce((acc, tr) => {
         const amount = Math.abs(tr.amount);
         const trCurrency = tr.currency || 'HUF';
-        return acc + CurrencyService.convert(amount, trCurrency, currency);
+        return acc + FinancialEngine.convert(amount, trCurrency, currency);
       }, 0);
 
     const recurring = transactions
@@ -106,7 +107,7 @@ const BudgetView: React.FC = () => {
       .reduce((acc, tr) => {
         const amount = Math.abs(tr.amount);
         const trCurrency = tr.currency || 'HUF';
-        return acc + CurrencyService.convert(amount, trCurrency, currency);
+        return acc + FinancialEngine.convert(amount, trCurrency, currency);
       }, 0);
 
     return { totalIncome: income, totalExpense: expense, balance: income - expense, recurringMonthly: recurring };
@@ -135,7 +136,7 @@ const BudgetView: React.FC = () => {
     transactions.filter(tr => tr.type === 'expense').forEach(tr => {
       const amount = Math.abs(tr.amount);
       const trCurrency = tr.currency || 'HUF';
-      const converted = CurrencyService.convert(amount, trCurrency, currency);
+      const converted = FinancialEngine.convert(amount, trCurrency, currency);
       expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + converted;
     });
 
@@ -174,7 +175,7 @@ const BudgetView: React.FC = () => {
         if (trDate.getMonth() === monthIdx && trDate.getFullYear() === year) {
           const amount = Math.abs(tr.amount);
           const trCurrency = tr.currency || 'HUF';
-          const converted = CurrencyService.convert(amount, trCurrency, currency);
+          const converted = FinancialEngine.convert(amount, trCurrency, currency);
 
           if (tr.type === 'income') {
             income += converted;
@@ -928,10 +929,10 @@ const BudgetView: React.FC = () => {
                     style: 'currency',
                     currency: convTo,
                     maximumFractionDigits: 2
-                  }).format(CurrencyService.convert(parseFloat(convAmount) || 0, convFrom, convTo))}
+                  }).format(FinancialEngine.convert(parseFloat(convAmount) || 0, convFrom, convTo))}
                 </div>
                 <div className="mt-3 flex items-center justify-between text-xs opacity-70">
-                  <span>1 {convFrom} ≈ {CurrencyService.convert(1, convFrom, convTo).toFixed(4)} {convTo}</span>
+                  <span>1 {convFrom} ≈ {FinancialEngine.convert(1, convFrom, convTo).toFixed(4)} {convTo}</span>
                   <div className="flex items-center gap-1">
                     {rateSource === 'system' ? '⚠️ Becsült' : '✅ Friss'}
                   </div>
@@ -948,8 +949,8 @@ const BudgetView: React.FC = () => {
                       btn.setAttribute('disabled', 'true');
                     }
 
-                    await CurrencyService.fetchRealTimeRates(true);
-                    setRateSource(CurrencyService.getUpdateSource());
+                    await FinancialEngine.refreshRates(true);
+                    setRateSource(FinancialEngine.getRateSource());
 
                     if (btn) {
                       btn.textContent = 'Valós idejű árfolyamok lekérése (API)';

@@ -128,14 +128,25 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
 
             if (isCurrencyRelated && AIService.isConfigured()) {
                 console.log('Currency intent detected. Fetching live rates...');
-                await CurrencyService.fetchRealTimeRates(true); // Force API/AI fetch
+                await FinancialEngine.refreshRates(true); // Force API/AI fetch via Engine
             }
 
             // Generate response using Unified AI Service
+            // For prompts, we can still use CurrencyService.getAllRates() if exposed, or fallback to engine.
+            // Better to keep accessing static data via CurrencyService if it's just reading data?
+            // "CurrencyService.getBaseCurrency()" might be safe if it's just reading.
+            // But for consistency let's stick to CurrencyService for data access if FinancialEngine doesn't expose it,
+            // OR add accessors to FinancialEngine.
+            // FinancialEngine.getRateSource() exists.
+
+            // Let's rely on CurrencyService for simple state access since VoiceAssistant is not a heavy view component and loads later.
+            // BUT to be safe, let's keep it consistent.
+
+            // Actually, for VoiceAssistant, keeping CurrencyService is okay if imports are fine.
+            // But let's use FinancialEngine.convert() at least.
+
             const baseCurrency = CurrencyService.getBaseCurrency();
             const rates = CurrencyService.getAllRates(); // This will now have fresh data
-
-            // Calculate Recurring Monthly Income from Budget
 
             // Calculate Recurring Monthly Income from Budget
             // IMPORTANT: Only count transactions explicitly marked as recurring
@@ -145,7 +156,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             // Debug: Calculate what each recurring income contributes
             const recurringIncome = recurringIncomeTransactions
                 .reduce((sum, t) => {
-                    let amount = CurrencyService.convert(t.amount, t.currency || baseCurrency, baseCurrency);
+                    let amount = FinancialEngine.convert(t.amount, t.currency || baseCurrency, baseCurrency);
                     switch (t.period) {
                         case 'daily': return sum + (amount * 30);
                         case 'weekly': return sum + (amount * 4);
@@ -164,7 +175,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
 
             const recurringExpenses = recurringExpenseTransactions
                 .reduce((sum, t) => {
-                    let amount = CurrencyService.convert(Math.abs(t.amount), t.currency || baseCurrency, baseCurrency);
+                    let amount = FinancialEngine.convert(Math.abs(t.amount), t.currency || baseCurrency, baseCurrency);
                     switch (t.period) {
                         case 'daily': return sum + (amount * 30);
                         case 'weekly': return sum + (amount * 4);
@@ -184,9 +195,9 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
 
             // Calculate average annual interest rate for income (weighted by amount)
             const incomeWithInterest = transactions.filter(t => t.type === 'income' && t.interestRate);
-            const totalIncomeWithInterest = incomeWithInterest.reduce((sum, t) => sum + CurrencyService.convert(t.amount, t.currency || baseCurrency, baseCurrency), 0);
+            const totalIncomeWithInterest = incomeWithInterest.reduce((sum, t) => sum + FinancialEngine.convert(t.amount, t.currency || baseCurrency, baseCurrency), 0);
             const weightedSumRate = incomeWithInterest.reduce((sum, t) => {
-                const amt = CurrencyService.convert(t.amount, t.currency || baseCurrency, baseCurrency);
+                const amt = FinancialEngine.convert(t.amount, t.currency || baseCurrency, baseCurrency);
                 return sum + (amt * (t.interestRate || 0));
             }, 0);
             const avgInterestRate = totalIncomeWithInterest > 0 ? (weightedSumRate / totalIncomeWithInterest) : 0;
@@ -216,7 +227,7 @@ Te egy profi Pénzügyi Asszisztens vagy. Nyelv: ${currentLanguage}. Nézet: ${c
 
 === AKTUÁLIS PÉNZÜGYI HELYZET ===
 Jelenlegi Egyenleg: ${Math.round(currentBalance)} ${baseCurrency}
-Euróban kifejezve: ${CurrencyService.convert(currentBalance, baseCurrency, 'EUR').toFixed(2)} EUR
+Euróban kifejezve: ${FinancialEngine.convert(currentBalance, baseCurrency, 'EUR').toFixed(2)} EUR
 
 === JÖVŐBELI ELŐREJELZÉS ADATOK (PHD SZINT) ===
 Ezeket használd a jövőbeli egyenleg kiszámolásához (Kamatos Kamattal számolva):

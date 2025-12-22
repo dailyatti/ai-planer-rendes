@@ -15,6 +15,20 @@ export class FinancialEngine {
     }
 
     /**
+     * Refresh exchange rates via CurrencyService
+     */
+    static async refreshRates(force: boolean = false) {
+        return CurrencyService.fetchRealTimeRates(force);
+    }
+
+    /**
+     * Get update source from CurrencyService
+     */
+    static getRateSource() {
+        return CurrencyService.getUpdateSource();
+    }
+
+    /**
      * Calculate Total Revenue from Invoices
      * Aggregates invoices converting all to the target currency
      */
