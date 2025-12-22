@@ -4,7 +4,8 @@ import { useData } from '../../contexts/DataContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useLanguage, Language } from '../../contexts/LanguageContext';
 import { useSettings } from '../../contexts/SettingsContext';
-import { CurrencyService, AVAILABLE_CURRENCIES } from '../../services/CurrencyService';
+import { CurrencyService } from '../../services/CurrencyService';
+import { AVAILABLE_CURRENCIES } from '../../constants/currencyData';
 import { AIService } from '../../services/AIService';
 
 const SettingsView: React.FC = () => {
@@ -296,7 +297,7 @@ const SettingsView: React.FC = () => {
                         onClick={async () => {
                           setIsFetchingRates(true);
                           setRateMessage(null);
-                          const result = await CurrencyService.fetchRatesWithAI(tempSettings.currency);
+                          const result = await CurrencyService.fetchRatesWithAI();
                           setRateMessage(result.message);
                           if (result.success) {
                             setExchangeRates(CurrencyService.getAllRates());

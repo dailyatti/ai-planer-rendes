@@ -11,7 +11,7 @@ import { Search } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useData } from '../../contexts/DataContext';
 import { Transaction, TransactionPeriod } from '../../types/planner';
-import { AVAILABLE_CURRENCIES } from '../../services/CurrencyService';
+import { AVAILABLE_CURRENCIES } from '../../constants/currencyData';
 import { FinancialEngine } from '../../utils/FinancialEngine';
 
 const BudgetView: React.FC = () => {

@@ -1,5 +1,5 @@
 import { AIService } from './AIService';
-
+import { AVAILABLE_CURRENCIES, DEFAULT_RATES, LANGUAGE_CURRENCY_MAP } from '../constants/currencyData';
 /**
  * CurrencyService - Professional Currency Management
  * 
@@ -11,96 +11,7 @@ import { AIService } from './AIService';
  * - localStorage persistence
  */
 
-// Common world currencies
-export const AVAILABLE_CURRENCIES = [
-    { code: 'HUF', name: 'Magyar Forint', symbol: 'Ft' },
-    { code: 'EUR', name: 'Euro', symbol: '€' },
-    { code: 'USD', name: 'US Dollar', symbol: '$' },
-    { code: 'GBP', name: 'British Pound', symbol: '£' },
-    { code: 'CHF', name: 'Swiss Franc', symbol: 'Fr' },
-    { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
-    { code: 'PLN', name: 'Polish Zloty', symbol: 'zł' },
-    { code: 'CZK', name: 'Czech Koruna', symbol: 'Kč' },
-    { code: 'RON', name: 'Romanian Leu', symbol: 'lei' },
-    { code: 'RSD', name: 'Serbian Dinar', symbol: 'дин' },
-    { code: 'HRK', name: 'Croatian Kuna', symbol: 'kn' },
-    { code: 'UAH', name: 'Ukrainian Hryvnia', symbol: '₴' },
-    { code: 'RUB', name: 'Russian Ruble', symbol: '₽' },
-    { code: 'TRY', name: 'Turkish Lira', symbol: '₺' },
-    { code: 'SEK', name: 'Swedish Krona', symbol: 'kr' },
-    { code: 'NOK', name: 'Norwegian Krone', symbol: 'kr' },
-    { code: 'DKK', name: 'Danish Krone', symbol: 'kr' },
-    { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
-    { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
-    { code: 'CNY', name: 'Chinese Yuan', symbol: '¥' },
-    { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
-    { code: 'BRL', name: 'Brazilian Real', symbol: 'R$' },
-    { code: 'MXN', name: 'Mexican Peso', symbol: '$' },
-    { code: 'KRW', name: 'South Korean Won', symbol: '₩' },
-    { code: 'THB', name: 'Thai Baht', symbol: '฿' },
-    { code: 'IDR', name: 'Indonesian Rupiah', symbol: 'Rp' },
-    { code: 'AED', name: 'UAE Dirham', symbol: 'د.إ' },
-    { code: 'SAR', name: 'Saudi Riyal', symbol: '﷼' },
-];
-
-// Language to default currency mapping
-const LANGUAGE_CURRENCY_MAP: Record<string, string> = {
-    hu: 'HUF',
-    en: 'USD',
-    de: 'EUR',
-    fr: 'EUR',
-    es: 'EUR',
-    it: 'EUR',
-    ro: 'RON',
-    sk: 'EUR',
-    hr: 'EUR',
-    pl: 'PLN',
-    cn: 'CNY',
-    jp: 'JPY',
-    pt: 'EUR',
-    tr: 'TRY',
-    ar: 'SAR',
-    ru: 'RUB',
-    hi: 'INR',
-    bn: 'INR',
-    ur: 'PKR',
-    th: 'THB',
-    id: 'IDR',
-    ko: 'KRW',
-};
-
-// Default exchange rates (Value in HUF - Technical Base)
-// Updated: 2025-12-21
-const DEFAULT_RATES: Record<string, number> = {
-    HUF: 1,
-    EUR: 387.2,  // Dec 21, 2025 rates
-    USD: 330.6,
-    GBP: 442.4,
-    CHF: 415.8,
-    JPY: 2.14,
-    PLN: 92.0,
-    CZK: 15.9,
-    RON: 76.1,
-    RSD: 3.3,
-    HRK: 51.4,
-    UAH: 7.8,
-    RUB: 3.5,
-    TRY: 7.7,
-    SEK: 35.5,
-    NOK: 32.5,
-    DKK: 51.8,
-    CAD: 239.7,
-    AUD: 218.5,
-    CNY: 46.9,
-    INR: 3.66,
-    BRL: 59.9,
-    MXN: 18.3,
-    KRW: 0.223,
-    THB: 10.5,
-    IDR: 0.0197,
-    AED: 89.9,
-    SAR: 88.0,
-};
+// Definitions moved to constants/currencyData.ts
 
 interface CurrencyConfig {
     baseCurrency: string;
