@@ -359,7 +359,7 @@ const IntegrationsView: React.FC = () => {
                                         <Zap size={20} className="text-white" />
                                     </div>
                                     <h4 className="font-bold text-gray-900 dark:text-white text-lg">OpenAI (ChatGPT)</h4>
-                                    {apiKeys.openaiKey && <span className="badge badge-success text-xs"><Check size={12} /> {t('integrations.configured')}</span>}
+                                    {activeProvider === 'openai' && <span className="badge badge-success text-xs"><Check size={12} /> {t('integrations.configured')}</span>}
                                 </div>
                                 <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
                                     <p className="font-medium">{t('integrations.howToSetup') || 'How to setup:'}</p>
@@ -384,7 +384,7 @@ const IntegrationsView: React.FC = () => {
                                         <Mic size={20} className="text-white" />
                                     </div>
                                     <h4 className="font-bold text-gray-900 dark:text-white text-lg">Google Gemini AI</h4>
-                                    {apiKeys.geminiKey && <span className="badge badge-success text-xs"><Check size={12} /> {t('integrations.configured')}</span>}
+                                    {activeProvider === 'gemini' && <span className="badge badge-success text-xs"><Check size={12} /> {t('integrations.configured')}</span>}
                                 </div>
                                 <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
                                     <p className="font-medium">{t('integrations.howToSetup') || 'How to setup:'}</p>
