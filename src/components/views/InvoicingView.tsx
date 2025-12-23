@@ -440,9 +440,12 @@ const InvoicingView: React.FC = () => {
                         ))}
 
                         {/* Clients Card (Static) */}
-                        <div className="card p-6 border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all">
+                        <div
+                            onClick={() => setActiveTab('clients')}
+                            className="card p-6 border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                        >
                             <div className="flex items-center justify-between mb-4">
-                                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('invoicing.clients')}</span>
+                                <span className="text-sm font-medium text-gray-500 dark:text-gray-400 group-hover:text-primary-600 transition-colors">{t('invoicing.clients')}</span>
                                 <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600">
                                     <Users size={20} />
                                 </div>
@@ -495,7 +498,11 @@ const InvoicingView: React.FC = () => {
                         </div>
                         <div className="space-y-4">
                             {invoices.slice(0, 5).map(invoice => (
-                                <div key={invoice.id} className="group flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-white dark:hover:bg-gray-800 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-all shadow-sm hover:shadow-md cursor-pointer">
+                                <div
+                                    key={invoice.id}
+                                    onClick={() => handleDownloadPdf(invoice)}
+                                    className="group flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-white dark:hover:bg-gray-800 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-all shadow-sm hover:shadow-md cursor-pointer"
+                                >
                                     <div className="flex items-center gap-4">
                                         <div className="p-2.5 rounded-lg bg-white dark:bg-gray-700 shadow-sm border border-gray-100 dark:border-gray-600">
                                             <FileText size={20} className="text-gray-500" />
