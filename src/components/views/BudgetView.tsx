@@ -758,7 +758,15 @@ const BudgetView: React.FC = () => {
                   </label>
                   <select
                     value={newTransaction.period}
-                    onChange={(e) => setNewTransaction({ ...newTransaction, period: e.target.value as TransactionPeriod })}
+                    onChange={(e) => {
+                      const period = e.target.value as TransactionPeriod;
+                      setNewTransaction({
+                        ...newTransaction,
+                        period: period,
+                        // PhD Logic: Automatically set recurring flag unless it's oneTime
+                        recurring: period !== 'oneTime'
+                      });
+                    }}
                     className="input-field w-full"
                   >
                     <option value="daily">{t('budget.daily')}</option>

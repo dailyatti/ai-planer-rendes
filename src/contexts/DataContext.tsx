@@ -2,7 +2,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Note, Goal, PlanItem, Drawing, Subscription, BudgetSettings, Transaction, Invoice, Client, CompanyProfile } from '../types/planner';
 import { StorageService } from '../services/StorageService';
-import { FinancialMathService } from '../utils/financialMath';
 import { FinancialEngine } from '../utils/FinancialEngine';
 
 interface DataContextType {
@@ -144,45 +143,97 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [transactions, invoices, isInitialized]);
   useEffect(() => {
     if (!isInitialized) return;
+
+    // PhD Level: Only process recurring transactions once per day to prevent infinite loops
+    const lastProcessed = StorageService.get<string>('recurring-last-processed');
+    const todayStr = new Date().toDateString();
+
+    if (lastProcessed === todayStr) {
+      // Already processed today, skip
+      return;
+    }
+
     const processRecurring = () => {
       const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const newTx: Transaction[] = [];
-      let updatedTx = [...transactions];
-      const toProcess = transactions.filter(tr => tr.recurring && tr.period !== 'oneTime');
-      toProcess.forEach(tr => {
+      // Set time to end of day to ensure we catch everything due today
+      now.setHours(23, 59, 59, 999);
+
+      let hasChanges = false;
+      const newHistoryTransactions: Transaction[] = [];
+
+      // We map over transactions to create the updated list of "Masters"
+      const updatedTransactions = transactions.map(tr => {
+        // Skip if not recurring or if it's OneTime
+        if (!tr.recurring || tr.period === 'oneTime') return tr;
+
         const trDate = new Date(tr.date);
-        let nextDue: Date | null = null;
-        switch (tr.period) {
-          case 'daily':
-            if (trDate < today) nextDue = new Date(today);
-            break;
-          // other periods could be added here
-        }
-        if (nextDue && nextDue.getTime() !== trDate.getTime()) {
-          // create new instance if not existing
-          const exists = transactions.some(t => t.description === tr.description && t.amount === tr.amount && new Date(t.date).toDateString() === nextDue!.toDateString());
-          if (!exists) {
-            newTx.push({ ...tr, id: Math.random().toString(36).substr(2, 9), date: nextDue });
+
+        // If the Master is already in the future, we don't need to do anything
+        if (trDate.getTime() > now.getTime()) return tr;
+
+        // "Catch Up" Logic - PhD Level
+        // We need to generate history items for every occurrence strictly <= Today
+        // And move the Master to the first date > Today
+
+        let currentDate = new Date(trDate);
+        let nextDate = new Date(trDate);
+        let modifiedMaster = { ...tr };
+        let iterations = 0;
+        const MAX_CATCHUP = 120; // Safety limit
+
+        // We know at least one iteration is needed because trDate <= now
+        hasChanges = true;
+
+        while (currentDate.getTime() <= now.getTime() && iterations < MAX_CATCHUP) {
+          // Create a concrete "History" record for this occurrence
+          const historyItem: Transaction = {
+            ...tr,
+            id: Math.random().toString(36).substr(2, 9), // Unique ID
+            date: new Date(currentDate), // Freeze the date
+            recurring: false, // History items are NOT recurring (they are done)
+          };
+          newHistoryTransactions.push(historyItem);
+
+          // Calculate the NEXT occurrence
+          switch (tr.period) {
+            case 'daily':
+              nextDate.setDate(nextDate.getDate() + 1);
+              break;
+            case 'weekly':
+              nextDate.setDate(nextDate.getDate() + 7);
+              break;
+            case 'monthly':
+              nextDate.setMonth(nextDate.getMonth() + 1);
+              break;
+            case 'yearly':
+              nextDate.setFullYear(nextDate.getFullYear() + 1);
+              break;
+            default:
+              nextDate.setDate(nextDate.getDate() + 1);
+              break;
           }
-          // update original transaction date
-          updatedTx = updatedTx.map(t => (t.id === tr.id ? { ...t, date: nextDue } : t));
+
+          // Advance current date for next loop check
+          currentDate = new Date(nextDate);
+          iterations++;
         }
+
+        // Update the Master Transaction to be the next FUTURE occurrence
+        modifiedMaster.date = new Date(nextDate);
+
+        return modifiedMaster;
       });
-      if (newTx.length) {
-        setTransactions(updatedTx.concat(newTx));
-      } else if (updatedTx.length !== transactions.length) {
-        setTransactions(updatedTx);
+
+      if (hasChanges) {
+        setTransactions([...updatedTransactions, ...newHistoryTransactions]);
       }
     };
-    // Run once and then daily check via localStorage flag
-    const last = StorageService.get<string>('recurring-last-processed');
-    const todayStr = new Date().toDateString();
-    if (last !== todayStr) {
-      processRecurring();
-      StorageService.set('recurring-last-processed', todayStr);
-    }
-  }, [isInitialized, transactions]);
+
+    // Run the logic and mark as processed for today
+    processRecurring();
+    StorageService.set('recurring-last-processed', todayStr);
+
+  }, [isInitialized]); // CRITICAL: Removed 'transactions' from dependency to prevent infinite loop
 
   // Financial helper functions
   const computeProjection = (months: number) => {
