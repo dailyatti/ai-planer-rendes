@@ -107,7 +107,13 @@ const BudgetView: React.FC = () => {
 
   // Calculate totals
   const { totalIncome, totalExpense, balance, recurringMonthly } = useMemo(() => {
-    const income = transactions
+    // Current date set to end of day to include all transactions from today
+    const now = new Date();
+    now.setHours(23, 59, 59, 999);
+
+    const activeTransactions = transactions.filter(tr => new Date(tr.date).getTime() <= now.getTime());
+
+    const income = activeTransactions
       .filter(tr => tr.type === 'income')
       .reduce((acc, tr) => {
         const amount = Math.abs(tr.amount);
@@ -115,7 +121,7 @@ const BudgetView: React.FC = () => {
         return acc + CurrencyService.convert(amount, trCurrency, currency);
       }, 0);
 
-    const expense = transactions
+    const expense = activeTransactions
       .filter(tr => tr.type === 'expense')
       .reduce((acc, tr) => {
         const amount = Math.abs(tr.amount);
@@ -123,7 +129,7 @@ const BudgetView: React.FC = () => {
         return acc + CurrencyService.convert(amount, trCurrency, currency);
       }, 0);
 
-    const recurring = transactions
+    const recurring = activeTransactions
       .filter(tr => tr.type === 'expense' && tr.recurring)
       .reduce((acc, tr) => {
         const amount = Math.abs(tr.amount);
