@@ -104,6 +104,8 @@ export interface Invoice {
   paymentMethod?: 'transfer' | 'cash' | 'card'; // Fizetési mód
   paidDate?: Date;
   currency: string;
+  customExchangeRate?: number; // Egyedi árfolyam
+  showSignatures?: boolean; // Aláírások megjelenítése
   notes: string;
   createdAt: Date;
 }

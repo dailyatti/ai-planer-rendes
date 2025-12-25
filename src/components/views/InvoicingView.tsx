@@ -349,13 +349,11 @@ const InvoicingView: React.FC = () => {
             draft: 'Piszkozat',
             sent: 'Függőben',
             paid: 'Fizetve',
-            overdue: 'Lejárt',
             cancelled: 'Törölve',
         };
         return (
             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${styles[status]}`}>
                 {status === 'paid' && <CheckCircle size={12} />}
-                {status === 'overdue' && <AlertCircle size={12} />}
                 {labels[status]}
             </span>
         );
@@ -456,15 +454,6 @@ const InvoicingView: React.FC = () => {
                                 color: 'text-amber-600',
                                 bg: 'bg-amber-50 dark:bg-amber-900/20',
                                 status: 'sent' as const
-                            },
-                            {
-                                id: 'overdue',
-                                label: 'Lejárt',
-                                value: formatCurrency(stats.overdueAmount, 'USD'),
-                                icon: AlertCircle,
-                                color: 'text-red-600',
-                                bg: 'bg-red-50 dark:bg-red-900/20',
-                                status: 'overdue' as const
                             },
                         ].map((stat, i) => (
                             <button
@@ -874,14 +863,14 @@ const InvoicingView: React.FC = () => {
                                     <div className="flex items-center justify-between">
                                         <h3 className="text-sm font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
                                             <Building2 size={16} />
-                                            {t('company.issuer')}
+                                            KIÁLLÍTÓ
                                         </h3>
                                         <button onClick={() => setShowAddCompanyProfile(true)} className="text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 flex items-center gap-1 hover:underline">
-                                            <Plus size={14} /> {t('company.new')}
+                                            <Plus size={14} /> + Új
                                         </button>
                                     </div>
                                     <select className="input-field w-full bg-white dark:bg-gray-800" value={selectedCompanyId} onChange={(e) => setSelectedCompanyId(e.target.value)}>
-                                        <option value="">{t('company.select')}</option>
+                                        <option value="">Válassz...</option>
                                         {companyProfiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                     </select>
                                     {selectedCompanyId && (() => {
@@ -904,14 +893,14 @@ const InvoicingView: React.FC = () => {
                                     <div className="flex items-center justify-between">
                                         <h3 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2">
                                             <User size={16} />
-                                            {t('client.buyer')}
+                                            VEVŐ
                                         </h3>
                                         <button onClick={() => setShowAddClient(true)} className="text-xs text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 flex items-center gap-1 hover:underline">
-                                            <Plus size={14} /> {t('client.new')}
+                                            <Plus size={14} /> + Új
                                         </button>
                                     </div>
                                     <select className="input-field w-full bg-white dark:bg-gray-800" value={newInvoice.clientId || ''} onChange={(e) => setNewInvoice({ ...newInvoice, clientId: e.target.value })}>
-                                        <option value="">{t('client.select')}</option>
+                                        <option value="">Válassz...</option>
                                         {clients.map(c => <option key={c.id} value={c.id}>{c.name} - {c.company}</option>)}
                                     </select>
                                     {newInvoice.clientId && (() => {
@@ -987,6 +976,32 @@ const InvoicingView: React.FC = () => {
                                             `${Math.ceil((newInvoice.dueDate.getTime() - newInvoice.issueDate.getTime()) / (1000 * 60 * 60 * 24))} ${t('common.days') || 'nap'}`
                                         ) : '—'}
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Additional Options: Exchange Rate & Signatures */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                                <div>
+                                    <label className="label-text">Egyedi Árfolyam (Opcionális)</label>
+                                    <input
+                                        type="number"
+                                        placeholder="pl. 385.5"
+                                        className="input-field w-full"
+                                        value={newInvoice.customExchangeRate || ''}
+                                        onChange={(e) => setNewInvoice({ ...newInvoice, customExchangeRate: parseFloat(e.target.value) || undefined })}
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">Ha üres, a rendszer az aktuális középárfolyamot használja.</p>
+                                </div>
+                                <div className="flex items-end pb-3">
+                                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                                        <input
+                                            type="checkbox"
+                                            className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                            checked={newInvoice.showSignatures || false}
+                                            onChange={(e) => setNewInvoice({ ...newInvoice, showSignatures: e.target.checked })}
+                                        />
+                                        <span className="font-medium text-gray-700 dark:text-gray-300">Aláírások megjelenítése (Eladó/Vevő)</span>
+                                    </label>
                                 </div>
                             </div>
 
@@ -1332,6 +1347,34 @@ const InvoicingView: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Custom Exchange Rate Display */}
+                            {previewInvoice.customExchangeRate && (
+                                <div className="flex justify-end mb-8 text-sm text-gray-500 italic">
+                                    * Alkalmazott árfolyam: 1 {previewInvoice.currency} = {previewInvoice.customExchangeRate} HUF
+                                </div>
+                            )}
+
+                            {/* Signatures */}
+                            {previewInvoice.showSignatures && (
+                                <div className="flex justify-between items-end mt-20 mb-10 px-10">
+                                    <div className="text-center w-1/3">
+                                        <div className="border-b border-gray-400 mb-2"></div>
+                                        <p className="font-bold text-gray-900">{previewCompany.name}</p>
+                                        <p className="text-sm text-gray-500">Kiállító (Eladó)</p>
+                                    </div>
+                                    <div className="text-center w-1/3">
+                                        <div className="border-b border-gray-400 mb-2"></div>
+                                        <p className="font-bold text-gray-900">
+                                            {(() => {
+                                                const client = clients.find(c => c.id === previewInvoice.clientId);
+                                                return client ? (client.company || client.name) : 'Vevő';
+                                            })()}
+                                        </p>
+                                        <p className="text-sm text-gray-500">Vevő</p>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Footer */}
                             <div className="mt-auto border-t border-gray-200 pt-8 text-center text-sm text-gray-500">
