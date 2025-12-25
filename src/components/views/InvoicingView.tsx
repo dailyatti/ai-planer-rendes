@@ -10,7 +10,7 @@ import { useData } from '../../contexts/DataContext';
 import { Invoice, InvoiceItem, Client, CompanyProfile } from '../../types/planner';
 import { FinancialEngine } from '../../utils/FinancialEngine';
 import { CurrencyService } from '../../services/CurrencyService';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 const printStyles = `
   @media print {
@@ -53,7 +53,7 @@ const InvoicingView: React.FC = () => {
     const { t, language } = useLanguage();
     const {
         invoices, clients, companyProfiles,
-        addInvoice, updateInvoice, addClient, addCompanyProfile,
+        addInvoice, updateInvoice, deleteInvoice, addClient, addCompanyProfile,
         getFinancialSummary
     } = useData();
 
@@ -172,8 +172,14 @@ const InvoicingView: React.FC = () => {
     const stats = useMemo(() => {
         const summary = getFinancialSummary('USD'); // Default to USD base
         const totalClients = clients.length;
+
+        // Total Revenue = sum of ALL invoices (not just paid)
+        const totalAllInvoices = invoices.reduce((sum, inv) => {
+            return sum + CurrencyService.convert(inv.total || 0, inv.currency || 'USD', 'USD');
+        }, 0);
+
         return {
-            totalRevenue: summary.revenue,
+            totalRevenue: totalAllInvoices, // All invoices total
             pendingAmount: summary.pending,
             overdueAmount: summary.overdue,
             totalClients
@@ -591,6 +597,17 @@ const InvoicingView: React.FC = () => {
                                                 )}
                                                 <button onClick={() => handleDownloadPdf(invoice)} className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title={t('invoicing.downloadPdf')}><Download size={16} /></button>
                                                 <button onClick={() => handleShare(invoice)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title={t('invoicing.share')}><Share2 size={16} /></button>
+                                                <button
+                                                    onClick={() => {
+                                                        if (window.confirm(t('invoicing.confirmDelete') || 'Biztosan törölni szeretnéd ezt a számlát?')) {
+                                                            deleteInvoice(invoice.id);
+                                                        }
+                                                    }}
+                                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                    title={t('common.delete') || 'Törlés'}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
