@@ -114,58 +114,43 @@ const BudgetView: React.FC = () => {
   // ... (existing useMemos)
 
   // PhD Level: Period to monthly multiplier for "Havi Fix Költségek" normalization
-  const periodToMonthlyMultiplier = (period?: TransactionPeriod) => {
-    switch (period) {
-      case 'daily': return 30.44;      // average days in a month
-      case 'weekly': return 52 / 12;   // ~4.333
-      case 'monthly': return 1;
-      case 'yearly': return 1 / 12;
-      default: return 0;               // oneTime doesn't count as fixed monthly
-    }
-  };
+
 
   // Calculate totals
-  const { totalIncome, totalExpense, balance, recurringMonthly } = useMemo(() => {
+  // Calculate totals
+  const { totalIncome, totalExpense, balance } = useMemo(() => {
     // Current date set to end of day to include all transactions from today
     const now = new Date();
     now.setHours(23, 59, 59, 999);
 
-    // Filter to only include "actual payments" (history items, not master templates)
-    // Use both kind='history' check AND recurring=false for backward compatibility
-    const activeTransactions = transactions
+    // Helper to calculate sum of a specific transaction set
+    const calculateSum = (txs: Transaction[], type: 'income' | 'expense') => {
+      return txs
+        .filter(tr => tr.type === type)
+        .reduce((acc, tr) => {
+          const amount = Math.abs(tr.amount);
+          const trCurrency = tr.currency || 'HUF';
+          return acc + CurrencyService.convert(amount, trCurrency, currency);
+        }, 0);
+    };
+
+    // 1. Total Income & Expense: Include ALL transactions (Master + History + Future)
+    // User Request: "hozzá kell adni [osszeget]... csak akkor amikor ideje van... csak az egyenleghez nem kell adni"
+    // Interpretation: Show global volume in Income/Expense cards, but strict balance.
+    const income = calculateSum(transactions, 'income');
+    const expense = calculateSum(transactions, 'expense');
+
+    // 2. Balance: Strict "Cash in Hand" logic
+    // Exclude Master templates and Future transactions
+    const balanceTransactions = transactions
       .filter(tr => new Date(tr.date).getTime() <= now.getTime())
       .filter(tr => tr.kind === 'history' || (!tr.recurring && tr.kind !== 'master'));
 
-    const income = activeTransactions
-      .filter(tr => tr.type === 'income')
-      .reduce((acc, tr) => {
-        const amount = Math.abs(tr.amount);
-        const trCurrency = tr.currency || 'HUF';
-        return acc + CurrencyService.convert(amount, trCurrency, currency);
-      }, 0);
+    const strictIncome = calculateSum(balanceTransactions, 'income');
+    const strictExpense = calculateSum(balanceTransactions, 'expense');
+    const strictBalance = strictIncome - strictExpense;
 
-    const expense = activeTransactions
-      .filter(tr => tr.type === 'expense')
-      .reduce((acc, tr) => {
-        const amount = Math.abs(tr.amount);
-        const trCurrency = tr.currency || 'HUF';
-        return acc + CurrencyService.convert(amount, trCurrency, currency);
-      }, 0);
-
-    // "Havi Fix Költségek" - Normalize all recurring expenses to monthly value
-    // Uses the MASTER transactions (kind='master' OR recurring=true) to show the monthly commitment
-    const recurringMasters = transactions.filter(tr =>
-      (tr.kind === 'master' || tr.recurring) && tr.type === 'expense'
-    );
-    const recurring = recurringMasters.reduce((acc, tr) => {
-      const amount = Math.abs(tr.amount);
-      const trCurrency = tr.currency || 'HUF';
-      const converted = CurrencyService.convert(amount, trCurrency, currency);
-      const multiplier = periodToMonthlyMultiplier(tr.period as TransactionPeriod);
-      return acc + converted * multiplier;
-    }, 0);
-
-    return { totalIncome: income, totalExpense: expense, balance: income - expense, recurringMonthly: recurring };
+    return { totalIncome: income, totalExpense: expense, balance: strictBalance };
   }, [transactions, currency]);
 
 
@@ -479,7 +464,7 @@ const BudgetView: React.FC = () => {
       </div>
 
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
         {/* Balance Card */}
         <div className="card p-6 bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-xl shadow-emerald-500/20 hover:shadow-2xl hover:shadow-emerald-500/30 transition-all duration-300 hover:scale-[1.02]">
           <div className="flex justify-between items-start mb-4">
@@ -539,17 +524,7 @@ const BudgetView: React.FC = () => {
           </div>
         </button>
 
-        {/* Recurring Card (Kept static for now as it's a subset) */}
-        <div className="card p-6 bg-gradient-to-br from-purple-500 to-violet-600 text-white shadow-xl shadow-purple-500/20 hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-300 hover:scale-[1.02]">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <p className="text-sm font-medium opacity-80">{t('budget.monthlyFixed')}</p>
-              <h3 className="text-3xl font-bold mt-1">{formatMoney(recurringMonthly)}</h3>
-            </div>
-            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><Repeat size={20} /></div>
-          </div>
-          <div className="text-sm opacity-80">{t('budget.recurringLabel')}</div>
-        </div>
+
       </div>
 
       {/* Charts Row */}
