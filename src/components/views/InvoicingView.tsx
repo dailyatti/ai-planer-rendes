@@ -489,7 +489,7 @@ const InvoicingView: React.FC = () => {
                                 )}
                             </div>
                             <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700 text-xs text-center text-gray-400">
-                                Árfolyam: 1 EUR ≈ {CurrencyService.getRate('EUR').toFixed(2)} HUF
+                                Árfolyam: 1 EUR ≈ {CurrencyService.getRate('EUR').toFixed(2)} USD
                             </div>
                         </div>
                     )}
@@ -528,7 +528,21 @@ const InvoicingView: React.FC = () => {
                                             <div className="font-bold text-gray-900 dark:text-white">{formatCurrency(invoice.total, invoice.currency)}</div>
                                             <div className="flex justify-end mt-1">{getStatusBadge(invoice.status)}</div>
                                         </div>
-                                        <ChevronRight size={18} className="text-gray-300 group-hover:text-primary-500 transition-colors" />
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (window.confirm(t('invoicing.confirmDelete') || 'Biztosan törölni szeretnéd ezt a számlát?')) {
+                                                        deleteInvoice(invoice.id);
+                                                    }
+                                                }}
+                                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                                title={t('common.delete') || 'Törlés'}
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                            <ChevronRight size={18} className="text-gray-300 group-hover:text-primary-500 transition-colors" />
+                                        </div>
                                     </div>
                                 </div>
                             ))}
