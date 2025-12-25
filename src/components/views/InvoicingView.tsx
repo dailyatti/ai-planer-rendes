@@ -346,11 +346,11 @@ const InvoicingView: React.FC = () => {
             cancelled: 'bg-gray-50 text-gray-500 dark:bg-gray-800/50 dark:text-gray-400 border border-gray-200 dark:border-gray-700',
         };
         const labels: Record<string, string> = {
-            draft: t('invoicing.statusDraft'),
-            sent: t('invoicing.statusPending') || 'Függőben',
-            paid: t('invoicing.statusPaid'),
-            overdue: t('invoicing.statusOverdue'),
-            cancelled: t('invoicing.statusCancelled'),
+            draft: 'Piszkozat',
+            sent: 'Függőben',
+            paid: 'Fizetve',
+            overdue: 'Lejárt',
+            cancelled: 'Törölve',
         };
         return (
             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${styles[status]}`}>
@@ -441,7 +441,7 @@ const InvoicingView: React.FC = () => {
                         {[
                             {
                                 id: 'revenue',
-                                label: t('invoicing.totalInvoiced') || 'Számlák összege',
+                                label: 'Számlák összege',
                                 value: formatCurrency(stats.totalRevenue, 'USD'),
                                 icon: Wallet,
                                 color: 'text-emerald-600',
@@ -450,7 +450,7 @@ const InvoicingView: React.FC = () => {
                             },
                             {
                                 id: 'pending',
-                                label: t('invoicing.pending'),
+                                label: 'Függőben',
                                 value: formatCurrency(stats.pendingAmount, 'USD'),
                                 icon: Clock,
                                 color: 'text-amber-600',
@@ -459,7 +459,7 @@ const InvoicingView: React.FC = () => {
                             },
                             {
                                 id: 'overdue',
-                                label: t('invoicing.overdue'),
+                                label: 'Lejárt',
                                 value: formatCurrency(stats.overdueAmount, 'USD'),
                                 icon: AlertCircle,
                                 color: 'text-red-600',
@@ -475,7 +475,7 @@ const InvoicingView: React.FC = () => {
                                     const breakdown = FinancialEngine.getAmountsByCurrency(invoices, stat.status);
                                     setSelectedStat({ title: stat.label, breakdown, rect });
                                 }}
-                                className="card p-6 border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all text-left relative group w-full"
+                                className="card p-6 border border-transparent shadow-sm hover:shadow-xl transition-all text-left relative group w-full bg-white dark:bg-gray-800 hover:-translate-y-1 duration-300"
                             >
                                 <div className="flex items-center justify-between mb-4">
                                     <span className="text-sm font-medium text-gray-500 dark:text-gray-400 group-hover:text-primary-600 transition-colors flex items-center gap-2">
