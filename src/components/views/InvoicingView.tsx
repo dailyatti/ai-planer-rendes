@@ -2,8 +2,9 @@ import React, { useState, useMemo } from 'react';
 import {
     FileText, Users, Plus, X, Mail, Clock, Wallet, Building2, AlertCircle,
     Download, ChevronRight, PieChart, User, CheckCircle, Search,
-    TrendingUp, Filter, Check, Send, Share2, MoreHorizontal, Trash2,
-    Upload, Settings
+    TrendingUp, TrendingDown, Filter, Check, Send, Share2, MoreHorizontal,
+    Trash2, Upload, Settings, Repeat, RefreshCcw, ArrowUpRight,
+    ArrowDownRight, CheckSquare, Square, AlertTriangle, BarChart3
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useData } from '../../contexts/DataContext';
@@ -11,7 +12,7 @@ import { Invoice, InvoiceItem, Client, CompanyProfile } from '../../types/planne
 import { FinancialEngine } from '../../utils/FinancialEngine';
 import { CurrencyService } from '../../services/CurrencyService';
 import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
-
+import { AVAILABLE_CURRENCIES } from '../../constants/currencyData';
 const printStyles = `
   @media print {
     @page { 
@@ -103,6 +104,15 @@ const InvoicingView: React.FC = () => {
         rect: DOMRect;
     } | null>(null);
 
+    // Converter State
+    const [showConverter, setShowConverter] = useState(false);
+    const [convAmount, setConvAmount] = useState('100');
+    const [convFrom, setConvFrom] = useState('EUR');
+    const [convTo, setConvTo] = useState('USD');
+
+    // Bulk Selection State
+    const [selectedInvoices, setSelectedInvoices] = useState<Set<string>>(new Set());
+
     // Close popover on click outside
     React.useEffect(() => {
         const handleClick = () => setSelectedStat(null);
@@ -149,7 +159,7 @@ const InvoicingView: React.FC = () => {
         items: [{ id: Date.now().toString(), description: '', quantity: 1, rate: 0, amount: 0 }],
         currency: 'USD',
         taxRate: 27,
-        status: 'draft',
+        status: 'sent',
         issueDate: new Date(),
         dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) // 14 days net
     });
@@ -259,6 +269,40 @@ const InvoicingView: React.FC = () => {
         setNewInvoice({ ...newInvoice, items, subtotal, tax, total });
     };
 
+    // Bulk Selection Handlers
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            setSelectedInvoices(new Set(invoices.map(i => i.id)));
+        } else {
+            setSelectedInvoices(new Set());
+        }
+    };
+
+    const handleToggleSelect = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const newSelected = new Set(selectedInvoices);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedInvoices(newSelected);
+    };
+
+    const handleBulkDelete = () => {
+        if (window.confirm(t('invoicing.confirmBulkDelete') || `Biztosan törölni szeretnéd a kijelölt ${selectedInvoices.size} számlát?`)) {
+            selectedInvoices.forEach(id => deleteInvoice(id));
+            setSelectedInvoices(new Set());
+        }
+    };
+
+    const handleDeleteAll = () => {
+        if (window.confirm(t('invoicing.confirmDeleteAll') || 'Biztosan törölni szeretnéd AZ ÖSSZES számlát? Ez a művelet nem visszavonható!')) {
+            invoices.forEach(i => deleteInvoice(i.id));
+            setSelectedInvoices(new Set());
+        }
+    };
+
     const handleSaveInvoice = () => {
         if (newInvoice.clientId && newInvoice.items?.length) {
             // Use provided invoice number or generate fallback
@@ -285,7 +329,7 @@ const InvoicingView: React.FC = () => {
                 items: [{ id: Date.now().toString(), description: '', quantity: 1, rate: 0, amount: 0 }],
                 currency: 'USD',
                 taxRate: 27,
-                status: 'draft',
+                status: 'sent',
                 issueDate: new Date(),
                 dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
             });
@@ -303,7 +347,7 @@ const InvoicingView: React.FC = () => {
         };
         const labels: Record<string, string> = {
             draft: t('invoicing.statusDraft'),
-            sent: t('invoicing.statusSent'),
+            sent: t('invoicing.statusPending') || 'Függőben',
             paid: t('invoicing.statusPaid'),
             overdue: t('invoicing.statusOverdue'),
             cancelled: t('invoicing.statusCancelled'),
@@ -332,6 +376,14 @@ const InvoicingView: React.FC = () => {
                 </div>
 
                 <div className="flex flex-wrap gap-3">
+                    <button
+                        onClick={() => setShowConverter(true)}
+                        className="btn-secondary flex items-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
+                        title="Valutaváltó"
+                    >
+                        <RefreshCcw size={18} />
+                        <span className="hidden sm:inline">Valutaváltó</span>
+                    </button>
                     <button onClick={() => setShowAddClient(true)} className="btn-secondary flex items-center gap-2 px-4 py-2.5">
                         <Users size={18} />
                         <span>{t('invoicing.addClient')}</span>
@@ -342,7 +394,7 @@ const InvoicingView: React.FC = () => {
                             items: [{ id: Date.now().toString(), description: '', quantity: 1, rate: 0, amount: 0 }],
                             currency: 'USD',
                             taxRate: 27,
-                            status: 'draft',
+                            status: 'sent',
                             issueDate: new Date(),
                             dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
                             invoiceNumber: `INV-2026-${randomNum}`
@@ -389,7 +441,7 @@ const InvoicingView: React.FC = () => {
                         {[
                             {
                                 id: 'revenue',
-                                label: t('invoicing.totalRevenue'),
+                                label: t('invoicing.totalInvoiced') || 'Számlák összege',
                                 value: formatCurrency(stats.totalRevenue, 'USD'),
                                 icon: Wallet,
                                 color: 'text-emerald-600',
@@ -554,20 +606,51 @@ const InvoicingView: React.FC = () => {
             {/* Invoices Tab */}
             {activeTab === 'invoices' && (
                 <div className="card border border-gray-100 dark:border-gray-800 shadow-sm animate-in fade-in">
-                    <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                        <div className="relative flex-1">
+                    <div className="flex flex-col sm:flex-row gap-4 mb-6 justify-between items-center">
+                        <div className="relative flex-1 w-full sm:w-auto">
                             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input type="text" placeholder={t('invoicing.searchPlaceholder')} className="input-field pl-10 w-full" />
                         </div>
-                        <button className="btn-secondary flex items-center gap-2">
-                            <Filter size={18} /> {t('common.filter')}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {selectedInvoices.size > 0 && (
+                                <button
+                                    onClick={handleBulkDelete}
+                                    className="btn-danger flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-lg transition-all animate-in fade-in"
+                                >
+                                    <Trash2 size={16} />
+                                    <span>Kijelöltek törlése ({selectedInvoices.size})</span>
+                                </button>
+                            )}
+                            {invoices.length > 0 && (
+                                <button
+                                    onClick={handleDeleteAll}
+                                    className="btn-secondary flex items-center gap-2 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                    title="Összes törlése"
+                                >
+                                    <Trash2 size={16} />
+                                    <span className="hidden sm:inline">Összes törlése</span>
+                                </button>
+                            )}
+                            <button className="btn-secondary flex items-center gap-2">
+                                <Filter size={18} /> {t('common.filter')}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="border-b border-gray-200 dark:border-gray-700">
+                                    <th className="py-3 px-4 w-10">
+                                        <div className="flex items-center justify-center">
+                                            <input
+                                                type="checkbox"
+                                                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 transition-colors cursor-pointer"
+                                                checked={invoices.length > 0 && selectedInvoices.size === invoices.length}
+                                                onChange={handleSelectAll}
+                                            />
+                                        </div>
+                                    </th>
                                     <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('invoicing.invoiceNumber')}</th>
                                     <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('invoicing.clients')}</th>
                                     <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('invoicing.invoiceDate')}</th>
@@ -583,6 +666,17 @@ const InvoicingView: React.FC = () => {
                                         className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
                                         onClick={() => handleDownloadPdf(invoice)}
                                     >
+                                        <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex items-center justify-center">
+                                                <input
+                                                    type="checkbox"
+                                                    className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 transition-colors cursor-pointer"
+                                                    checked={selectedInvoices.has(invoice.id)}
+                                                    onClick={(e) => handleToggleSelect(invoice.id, e)}
+                                                    onChange={() => { }}
+                                                />
+                                            </div>
+                                        </td>
                                         <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">{invoice.invoiceNumber}</td>
                                         <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{clients.find(c => c.id === invoice.clientId)?.name}</td>
                                         <td className="py-3 px-4 text-gray-500">{formatDate(invoice.issueDate)}</td>
@@ -1372,6 +1466,92 @@ const InvoicingView: React.FC = () => {
                     <div className="flex items-center gap-3 px-5 py-3 bg-gray-900 text-white rounded-xl shadow-2xl border border-gray-700">
                         <Check size={18} className="text-green-400" />
                         <span className="font-medium">{toast}</span>
+                    </div>
+                </div>
+            )}
+            {/* Currency Converter Modal */}
+            {showConverter && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden transform animate-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-blue-500/5 to-indigo-500/5">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <RefreshCcw size={20} className="text-blue-500" />
+                                    Valutaváltó
+                                </h3>
+                                <button
+                                    onClick={() => setShowConverter(false)}
+                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-gray-400 transition-colors"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Összeg</label>
+                                <input
+                                    type="number"
+                                    value={convAmount}
+                                    onChange={(e) => setConvAmount(e.target.value)}
+                                    className="input-field w-full text-lg font-bold"
+                                    placeholder="0.00"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 items-center">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ebből</label>
+                                    <select
+                                        value={convFrom}
+                                        onChange={(e) => setConvFrom(e.target.value)}
+                                        className="input-field w-full py-3"
+                                    >
+                                        {AVAILABLE_CURRENCIES.map(c => (
+                                            <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="flex justify-center pt-6">
+                                    <button
+                                        onClick={() => {
+                                            const temp = convFrom;
+                                            setConvFrom(convTo);
+                                            setConvTo(temp);
+                                        }}
+                                        className="p-3 bg-gray-100 dark:bg-gray-800 rounded-2xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all active:scale-95 text-gray-600 dark:text-gray-400"
+                                    >
+                                        <Repeat size={20} />
+                                    </button>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ebbe</label>
+                                    <select
+                                        value={convTo}
+                                        onChange={(e) => setConvTo(e.target.value)}
+                                        className="input-field w-full py-3"
+                                    >
+                                        {AVAILABLE_CURRENCIES.map(c => (
+                                            <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-3xl text-white shadow-xl shadow-blue-500/20">
+                                <div className="text-sm opacity-80 mb-1">Eredmény ({convTo}):</div>
+                                <div className="text-3xl font-black">
+                                    {new Intl.NumberFormat('en-US', {
+                                        style: 'currency',
+                                        currency: convTo,
+                                        maximumFractionDigits: 2
+                                    }).format(CurrencyService.convert(parseFloat(convAmount) || 0, convFrom, convTo))}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
