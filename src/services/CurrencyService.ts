@@ -24,7 +24,7 @@ const STORAGE_KEY = 'contentplanner_currency_config';
 
 class CurrencyServiceClass {
     private config: CurrencyConfig = {
-        baseCurrency: 'HUF',
+        baseCurrency: 'USD',
         rates: { ...DEFAULT_RATES },
         lastUpdated: Date.now(),
         updateSource: 'system'
@@ -138,7 +138,7 @@ class CurrencyServiceClass {
         const symbol = cur?.symbol || currency;
 
         // Format based on currency conventions
-        const formatted = new Intl.NumberFormat('hu-HU', {
+        const formatted = new Intl.NumberFormat('en-US', {
             minimumFractionDigits: currency === 'HUF' || currency === 'JPY' ? 0 : 2,
             maximumFractionDigits: currency === 'HUF' || currency === 'JPY' ? 0 : 2,
         }).format(amount);
@@ -243,7 +243,7 @@ class CurrencyServiceClass {
             if (saved) {
                 const parsed = JSON.parse(saved);
                 this.config = {
-                    baseCurrency: parsed.baseCurrency || 'HUF',
+                    baseCurrency: parsed.baseCurrency || 'USD',
                     rates: { ...DEFAULT_RATES, ...parsed.rates },
                     lastUpdated: parsed.lastUpdated || 0,
                     updateSource: parsed.updateSource || 'system'
