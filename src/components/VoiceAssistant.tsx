@@ -91,7 +91,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                 addTransaction({
                     type: data.type as any,
                     amount: Number(data.amount),
-                    currency: data.currency || 'HUF',
+                    currency: data.currency || 'USD',
                     category: data.category || 'Egyéb',
                     date: new Date(data.date),
                     description: data.description || '',

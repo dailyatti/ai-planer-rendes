@@ -268,11 +268,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const pending = invoices
       .filter(i => i.status === 'sent')
-      .reduce((sum, i) => sum + FinancialEngine.convert(i.total, i.currency || 'HUF', targetCurrency), 0);
+      .reduce((sum, i) => sum + FinancialEngine.convert(i.total, i.currency || 'USD', targetCurrency), 0);
 
     const overdue = invoices
       .filter(i => i.status === 'overdue')
-      .reduce((sum, i) => sum + FinancialEngine.convert(i.total, i.currency || 'HUF', targetCurrency), 0);
+      .reduce((sum, i) => sum + FinancialEngine.convert(i.total, i.currency || 'USD', targetCurrency), 0);
 
     return { revenue, pending, overdue };
   };

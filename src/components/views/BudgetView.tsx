@@ -129,7 +129,7 @@ const BudgetView: React.FC = () => {
         .filter(tr => tr.type === type)
         .reduce((acc, tr) => {
           const amount = Math.abs(tr.amount);
-          const trCurrency = tr.currency || 'HUF';
+          const trCurrency = tr.currency || 'USD';
           return acc + CurrencyService.convert(amount, trCurrency, currency);
         }, 0);
     };

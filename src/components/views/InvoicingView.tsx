@@ -277,7 +277,7 @@ const InvoicingView: React.FC = () => {
 
             setNewInvoice({
                 items: [{ id: Date.now().toString(), description: '', quantity: 1, rate: 0, amount: 0 }],
-                currency: 'HUF',
+                currency: 'USD',
                 taxRate: 27,
                 status: 'draft',
                 issueDate: new Date(),
@@ -334,7 +334,7 @@ const InvoicingView: React.FC = () => {
                         const randomNum = Math.floor(Math.random() * 9000 + 1000); // 4 digit random
                         setNewInvoice({
                             items: [{ id: Date.now().toString(), description: '', quantity: 1, rate: 0, amount: 0 }],
-                            currency: 'HUF',
+                            currency: 'USD',
                             taxRate: 27,
                             status: 'draft',
                             issueDate: new Date(),
@@ -384,7 +384,7 @@ const InvoicingView: React.FC = () => {
                             {
                                 id: 'revenue',
                                 label: t('invoicing.totalRevenue'),
-                                value: formatCurrency(stats.totalRevenue, 'HUF'),
+                                value: formatCurrency(stats.totalRevenue, 'USD'),
                                 icon: Wallet,
                                 color: 'text-emerald-600',
                                 bg: 'bg-emerald-50 dark:bg-emerald-900/20',
@@ -393,7 +393,7 @@ const InvoicingView: React.FC = () => {
                             {
                                 id: 'pending',
                                 label: t('invoicing.pending'),
-                                value: formatCurrency(stats.pendingAmount, 'HUF'),
+                                value: formatCurrency(stats.pendingAmount, 'USD'),
                                 icon: Clock,
                                 color: 'text-amber-600',
                                 bg: 'bg-amber-50 dark:bg-amber-900/20',
@@ -402,7 +402,7 @@ const InvoicingView: React.FC = () => {
                             {
                                 id: 'overdue',
                                 label: t('invoicing.overdue'),
-                                value: formatCurrency(stats.overdueAmount, 'HUF'),
+                                value: formatCurrency(stats.overdueAmount, 'USD'),
                                 icon: AlertCircle,
                                 color: 'text-red-600',
                                 bg: 'bg-red-50 dark:bg-red-900/20',
@@ -654,7 +654,7 @@ const InvoicingView: React.FC = () => {
                         </div>
 
                         {(() => {
-                            const forecast = FinancialEngine.generateForecast(invoices, 'HUF', 6);
+                            const forecast = FinancialEngine.generateForecast(invoices, 'USD', 6);
                             const chartData = forecast.labels.map((label, i) => ({
                                 name: label,
                                 actual: forecast.actual[i],
@@ -671,7 +671,7 @@ const InvoicingView: React.FC = () => {
                                             <Tooltip
                                                 contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }}
                                                 labelStyle={{ color: '#fff' }}
-                                                formatter={(value: number) => [`${value.toLocaleString()} Ft`, '']}
+                                                formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
                                             />
                                             <Legend />
                                             <Bar dataKey="actual" name="Tény (Múlt)" fill="#10B981" radius={[4, 4, 0, 0]} />
@@ -687,10 +687,10 @@ const InvoicingView: React.FC = () => {
                                 <div className="text-sm text-emerald-600 dark:text-emerald-400 mb-1">Elmúlt 3 hónap átlag</div>
                                 <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
                                     {(() => {
-                                        const forecast = FinancialEngine.generateForecast(invoices, 'HUF', 6);
+                                        const forecast = FinancialEngine.generateForecast(invoices, 'USD', 6);
                                         const pastActual = forecast.actual.filter(v => v > 0);
                                         const avg = pastActual.length ? pastActual.reduce((a, b) => a + b, 0) / pastActual.length : 0;
-                                        return avg.toLocaleString('hu-HU') + ' Ft';
+                                        return '$' + avg.toLocaleString('en-US');
                                     })()}
                                 </div>
                             </div>
@@ -698,10 +698,10 @@ const InvoicingView: React.FC = () => {
                                 <div className="text-sm text-indigo-600 dark:text-indigo-400 mb-1">Következő 3 hónap várható</div>
                                 <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
                                     {(() => {
-                                        const forecast = FinancialEngine.generateForecast(invoices, 'HUF', 6);
+                                        const forecast = FinancialEngine.generateForecast(invoices, 'USD', 6);
                                         const futurePredicted = forecast.predicted.filter(v => v > 0);
                                         const sum = futurePredicted.slice(0, 3).reduce((a, b) => a + b, 0);
-                                        return sum.toLocaleString('hu-HU') + ' Ft';
+                                        return '$' + sum.toLocaleString('en-US');
                                     })()}
                                 </div>
                             </div>
@@ -709,7 +709,7 @@ const InvoicingView: React.FC = () => {
                                 <div className="text-sm text-amber-600 dark:text-amber-400 mb-1">Trend</div>
                                 <div className="text-2xl font-bold text-amber-700 dark:text-amber-300 flex items-center gap-2">
                                     {(() => {
-                                        const forecast = FinancialEngine.generateForecast(invoices, 'HUF', 6);
+                                        const forecast = FinancialEngine.generateForecast(invoices, 'USD', 6);
                                         const pastActual = forecast.actual.filter(v => v > 0);
                                         const futurePredicted = forecast.predicted.filter(v => v > 0);
                                         const pastAvg = pastActual.length ? pastActual.reduce((a, b) => a + b, 0) / pastActual.length : 0;
