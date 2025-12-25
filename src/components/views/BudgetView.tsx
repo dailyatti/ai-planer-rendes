@@ -110,13 +110,28 @@ const BudgetView: React.FC = () => {
 
   // ... (existing useMemos)
 
+  // PhD Level: Period to monthly multiplier for "Havi Fix Költségek" normalization
+  const periodToMonthlyMultiplier = (period?: TransactionPeriod) => {
+    switch (period) {
+      case 'daily': return 30.44;      // average days in a month
+      case 'weekly': return 52 / 12;   // ~4.333
+      case 'monthly': return 1;
+      case 'yearly': return 1 / 12;
+      default: return 0;               // oneTime doesn't count as fixed monthly
+    }
+  };
+
   // Calculate totals
   const { totalIncome, totalExpense, balance, recurringMonthly } = useMemo(() => {
     // Current date set to end of day to include all transactions from today
     const now = new Date();
     now.setHours(23, 59, 59, 999);
 
-    const activeTransactions = transactions.filter(tr => new Date(tr.date).getTime() <= now.getTime());
+    // FIX #1: Filter out "Master" recurring transactions (recurring=true)
+    // Only "History" items (recurring=false, created by processRecurring) count as actual payments
+    const activeTransactions = transactions
+      .filter(tr => new Date(tr.date).getTime() <= now.getTime())
+      .filter(tr => !tr.recurring); // Exclude Master templates
 
     const income = activeTransactions
       .filter(tr => tr.type === 'income')
@@ -134,13 +149,16 @@ const BudgetView: React.FC = () => {
         return acc + CurrencyService.convert(amount, trCurrency, currency);
       }, 0);
 
-    const recurring = activeTransactions
-      .filter(tr => tr.type === 'expense' && tr.recurring)
-      .reduce((acc, tr) => {
-        const amount = Math.abs(tr.amount);
-        const trCurrency = tr.currency || 'HUF';
-        return acc + CurrencyService.convert(amount, trCurrency, currency);
-      }, 0);
+    // FIX #2: "Havi Fix Költségek" - Normalize all recurring expenses to monthly value
+    // Uses the MASTER transactions (recurring=true) to show the monthly commitment
+    const recurringMasters = transactions.filter(tr => tr.recurring && tr.type === 'expense');
+    const recurring = recurringMasters.reduce((acc, tr) => {
+      const amount = Math.abs(tr.amount);
+      const trCurrency = tr.currency || 'HUF';
+      const converted = CurrencyService.convert(amount, trCurrency, currency);
+      const multiplier = periodToMonthlyMultiplier(tr.period as TransactionPeriod);
+      return acc + converted * multiplier;
+    }, 0);
 
     return { totalIncome: income, totalExpense: expense, balance: income - expense, recurringMonthly: recurring };
   }, [transactions, currency]);

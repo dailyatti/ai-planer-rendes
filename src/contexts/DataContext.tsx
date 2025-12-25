@@ -81,6 +81,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [financialStats, setFinancialStats] = useState<any>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // FIX #4: Guard ref to prevent infinite loops when transactions is in dependency
+  const processingRecurringRef = React.useRef(false);
+
   // Load persisted data
   useEffect(() => {
     const loadData = () => {
@@ -143,58 +146,48 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [transactions, invoices, isInitialized]);
   useEffect(() => {
     if (!isInitialized) return;
-
-    // PhD Level: Only process recurring transactions once per day to prevent infinite loops
-    const lastProcessed = StorageService.get<string>('recurring-last-processed');
-    const todayStr = new Date().toDateString();
-
-    if (lastProcessed === todayStr) {
-      // Already processed today, skip
-      return;
-    }
+    // FIX #4: Prevent re-entry while processing
+    if (processingRecurringRef.current) return;
 
     const processRecurring = () => {
       const now = new Date();
-      // Set time to end of day to ensure we catch everything due today
       now.setHours(23, 59, 59, 999);
 
       let hasChanges = false;
       const newHistoryTransactions: Transaction[] = [];
 
-      // We map over transactions to create the updated list of "Masters"
       const updatedTransactions = transactions.map(tr => {
-        // Skip if not recurring or if it's OneTime
         if (!tr.recurring || tr.period === 'oneTime') return tr;
 
         const trDate = new Date(tr.date);
-
-        // If the Master is already in the future, we don't need to do anything
         if (trDate.getTime() > now.getTime()) return tr;
-
-        // "Catch Up" Logic - PhD Level
-        // We need to generate history items for every occurrence strictly <= Today
-        // And move the Master to the first date > Today
 
         let currentDate = new Date(trDate);
         let nextDate = new Date(trDate);
         let modifiedMaster = { ...tr };
         let iterations = 0;
-        const MAX_CATCHUP = 120; // Safety limit
+        const MAX_CATCHUP = 120;
 
-        // We know at least one iteration is needed because trDate <= now
         hasChanges = true;
 
         while (currentDate.getTime() <= now.getTime() && iterations < MAX_CATCHUP) {
-          // Create a concrete "History" record for this occurrence
-          const historyItem: Transaction = {
-            ...tr,
-            id: Math.random().toString(36).substr(2, 9), // Unique ID
-            date: new Date(currentDate), // Freeze the date
-            recurring: false, // History items are NOT recurring (they are done)
-          };
-          newHistoryTransactions.push(historyItem);
+          // FIX #3: Deterministic history ID based on master ID + date
+          const dayKey = new Date(currentDate).toISOString().slice(0, 10);
+          const historyId = `${tr.id}_${dayKey}`;
 
-          // Calculate the NEXT occurrence
+          // FIX #3: Check if this history already exists (duplicate prevention)
+          const alreadyExists = transactions.some(x => x.id === historyId);
+
+          if (!alreadyExists) {
+            const historyItem: Transaction = {
+              ...tr,
+              id: historyId,
+              date: new Date(currentDate),
+              recurring: false,
+            };
+            newHistoryTransactions.push(historyItem);
+          }
+
           switch (tr.period) {
             case 'daily':
               nextDate.setDate(nextDate.getDate() + 1);
@@ -213,27 +206,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
               break;
           }
 
-          // Advance current date for next loop check
           currentDate = new Date(nextDate);
           iterations++;
         }
 
-        // Update the Master Transaction to be the next FUTURE occurrence
         modifiedMaster.date = new Date(nextDate);
-
         return modifiedMaster;
       });
 
-      if (hasChanges) {
+      // Only update if there are actual new history items to add
+      if (hasChanges && newHistoryTransactions.length > 0) {
         setTransactions([...updatedTransactions, ...newHistoryTransactions]);
       }
     };
 
-    // Run the logic and mark as processed for today
-    processRecurring();
-    StorageService.set('recurring-last-processed', todayStr);
+    processingRecurringRef.current = true;
+    try {
+      processRecurring();
+    } finally {
+      processingRecurringRef.current = false;
+    }
 
-  }, [isInitialized]); // CRITICAL: Removed 'transactions' from dependency to prevent infinite loop
+  }, [isInitialized, transactions]); // FIX #4: transactions back in dependency with guard
 
   // Financial helper functions
   const computeProjection = (months: number) => {
