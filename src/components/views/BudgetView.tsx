@@ -159,7 +159,7 @@ const BudgetView: React.FC = () => {
   const getTransactionAmountsByCurrency = (type: 'income' | 'expense') => {
     const result: Record<string, number> = {};
     transactions.filter(t => t.type === type).forEach(t => {
-      const trCurrency = t.currency || 'HUF';
+      const trCurrency = t.currency || 'USD';
       const amount = Math.abs(t.amount);
       if (!result[trCurrency]) result[trCurrency] = 0;
       result[trCurrency] += amount;
@@ -172,7 +172,7 @@ const BudgetView: React.FC = () => {
     const expensesByCategory: Record<string, number> = {};
     transactions.filter(tr => tr.type === 'expense').forEach(tr => {
       const amount = Math.abs(tr.amount);
-      const trCurrency = tr.currency || 'HUF';
+      const trCurrency = tr.currency || 'USD';
       const converted = CurrencyService.convert(amount, trCurrency, currency);
       expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + converted;
     });
@@ -211,7 +211,7 @@ const BudgetView: React.FC = () => {
         const trDate = new Date(tr.date);
         if (trDate.getMonth() === monthIdx && trDate.getFullYear() === year) {
           const amount = Math.abs(tr.amount);
-          const trCurrency = tr.currency || 'HUF';
+          const trCurrency = tr.currency || 'USD';
           const converted = CurrencyService.convert(amount, trCurrency, currency);
 
           if (tr.type === 'income') {
@@ -394,10 +394,10 @@ const BudgetView: React.FC = () => {
           <button
             onClick={() => setShowConverter(true)}
             className="btn-secondary flex items-center gap-2 px-4 py-2.5 bg-blue-500/10 text-blue-600 border-blue-200 hover:bg-blue-500/20"
-            title="Valutaváltó"
+            title={t('budget.converter') || 'Currency Converter'}
           >
             <RefreshCcw size={18} />
-            <span className="hidden sm:inline">Valutaváltó</span>
+            <span className="hidden sm:inline">{t('budget.converter') || 'Currency Converter'}</span>
           </button>
           <button
             onClick={() => {

@@ -88,6 +88,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const loadData = () => {
       try {
+        // ... (loading logic) ...
         const savedNotes = StorageService.get<Note[]>('notes', []);
         if (savedNotes) setNotes(savedNotes.map(n => ({ ...n, createdAt: new Date(n.createdAt) })));
 
@@ -125,7 +126,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const savedCompanyProfiles = StorageService.get<CompanyProfile[]>('company-profiles', []);
         if (savedCompanyProfiles) setCompanyProfiles(savedCompanyProfiles.map(p => ({ ...p, createdAt: new Date(p.createdAt) })));
 
-        const savedSettings = StorageService.get<BudgetSettings>('budget-settings');
+        // PhD Migration Logic: Force USD default if not yet migrated
+        const MIGRATION_KEY = 'v1.0.39_usd_migration';
+        const hasMigrated = localStorage.getItem(MIGRATION_KEY);
+
+        let savedSettings = StorageService.get<BudgetSettings>('budget-settings');
+
+        if (!hasMigrated) {
+          console.log('Performing one-time migration to USD default...');
+          // Force settings to USD even if saved as HUF
+          savedSettings = {
+            ...(savedSettings || { monthlyBudget: 0, notifications: true, warningThreshold: 80 }),
+            currency: 'USD'
+          };
+          // Also force language to EN? Language is handled in LanguageContext but we can try to hint it here? 
+          // LanguageContext loads independently. We focus on Budget Settings here.
+          localStorage.setItem(MIGRATION_KEY, 'true');
+          // Force save immediately to overwrite old value
+          StorageService.set('budget-settings', savedSettings);
+        }
+
         if (savedSettings) setBudgetSettings(savedSettings);
 
       } catch (e) {
