@@ -78,7 +78,7 @@ export class FinancialEngine {
         invoices.forEach(inv => {
             if (status && inv.status !== status) return;
 
-            const currency = inv.currency || 'HUF';
+            const currency = inv.currency || 'USD';
             const amount = inv.total || 0;
 
             if (!result[currency]) {
@@ -167,7 +167,7 @@ export class FinancialEngine {
         const result: Record<string, number> = {};
 
         transactions.filter(t => t.type === type).forEach(t => {
-            const currency = (t as any).currency || 'HUF'; // Transaction might not have currency yet, default to HUF
+            const currency = (t as any).currency || 'USD'; // Transaction might not have currency yet, default to USD
             const amount = Math.abs(t.amount);
 
             if (!result[currency]) {

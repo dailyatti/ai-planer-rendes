@@ -243,7 +243,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // PhD Level Financial Summary
-  const getFinancialSummary = (targetCurrency: string = 'HUF') => {
+  const getFinancialSummary = (targetCurrency: string = 'USD') => {
     const revenue = FinancialEngine.calculateTotalRevenue(invoices, targetCurrency);
 
     const pending = invoices

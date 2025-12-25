@@ -1,7 +1,7 @@
 export const AVAILABLE_CURRENCIES = [
-    { code: 'HUF', name: 'Magyar Forint', symbol: 'Ft' },
-    { code: 'EUR', name: 'Euro', symbol: '€' },
     { code: 'USD', name: 'US Dollar', symbol: '$' },
+    { code: 'EUR', name: 'Euro', symbol: '€' },
+    { code: 'HUF', name: 'Magyar Forint', symbol: 'Ft' },
     { code: 'GBP', name: 'British Pound', symbol: '£' },
     { code: 'CHF', name: 'Swiss Franc', symbol: 'Fr' },
     { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
