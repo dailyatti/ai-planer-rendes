@@ -164,24 +164,27 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         let currentDate = new Date(trDate);
         let nextDate = new Date(trDate);
-        let modifiedMaster = { ...tr };
+        // Mark master with kind: 'master'
+        let modifiedMaster = { ...tr, kind: 'master' as const };
         let iterations = 0;
         const MAX_CATCHUP = 120;
 
         hasChanges = true;
 
         while (currentDate.getTime() <= now.getTime() && iterations < MAX_CATCHUP) {
-          // FIX #3: Deterministic history ID based on master ID + date
+          // Deterministic history ID based on master ID + date
           const dayKey = new Date(currentDate).toISOString().slice(0, 10);
           const historyId = `${tr.id}_${dayKey}`;
 
-          // FIX #3: Check if this history already exists (duplicate prevention)
+          // Check if this history already exists (duplicate prevention)
           const alreadyExists = transactions.some(x => x.id === historyId);
 
           if (!alreadyExists) {
             const historyItem: Transaction = {
               ...tr,
               id: historyId,
+              originId: tr.id, // Link back to master
+              kind: 'history', // Mark as history (actual payment)
               date: new Date(currentDate),
               recurring: false,
             };

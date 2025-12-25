@@ -72,6 +72,10 @@ export interface Transaction {
   recurring?: boolean;
   currency?: string;
   interestRate?: number; // Annual interest rate in % (Compound Interest support)
+
+  // PhD Level: Master/History model for recurring transactions
+  kind?: 'master' | 'history'; // 'master' = template, 'history' = actual payment
+  originId?: string; // For history items: the ID of the master they came from
 }
 
 // PhD-Level Invoice Types

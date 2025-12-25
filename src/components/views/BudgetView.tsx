@@ -127,11 +127,11 @@ const BudgetView: React.FC = () => {
     const now = new Date();
     now.setHours(23, 59, 59, 999);
 
-    // FIX #1: Filter out "Master" recurring transactions (recurring=true)
-    // Only "History" items (recurring=false, created by processRecurring) count as actual payments
+    // Filter to only include "actual payments" (history items, not master templates)
+    // Use both kind='history' check AND recurring=false for backward compatibility
     const activeTransactions = transactions
       .filter(tr => new Date(tr.date).getTime() <= now.getTime())
-      .filter(tr => !tr.recurring); // Exclude Master templates
+      .filter(tr => tr.kind === 'history' || (!tr.recurring && tr.kind !== 'master'));
 
     const income = activeTransactions
       .filter(tr => tr.type === 'income')
@@ -149,9 +149,11 @@ const BudgetView: React.FC = () => {
         return acc + CurrencyService.convert(amount, trCurrency, currency);
       }, 0);
 
-    // FIX #2: "Havi Fix Költségek" - Normalize all recurring expenses to monthly value
-    // Uses the MASTER transactions (recurring=true) to show the monthly commitment
-    const recurringMasters = transactions.filter(tr => tr.recurring && tr.type === 'expense');
+    // "Havi Fix Költségek" - Normalize all recurring expenses to monthly value
+    // Uses the MASTER transactions (kind='master' OR recurring=true) to show the monthly commitment
+    const recurringMasters = transactions.filter(tr =>
+      (tr.kind === 'master' || tr.recurring) && tr.type === 'expense'
+    );
     const recurring = recurringMasters.reduce((acc, tr) => {
       const amount = Math.abs(tr.amount);
       const trCurrency = tr.currency || 'HUF';
@@ -267,7 +269,9 @@ const BudgetView: React.FC = () => {
         currency: newTransaction.currency,
         date: new Date(newTransaction.date),
         period: newTransaction.period,
-        recurring: newTransaction.recurring, // Use explicit flag
+        recurring: newTransaction.recurring,
+        // Set kind: 'master' for recurring transactions, undefined for one-time
+        kind: newTransaction.recurring ? 'master' : undefined,
         interestRate: parseFloat(newTransaction.interestRate.replace(/,/g, '.')) || undefined
       });
     } else {
@@ -279,7 +283,9 @@ const BudgetView: React.FC = () => {
         currency: newTransaction.currency,
         date: new Date(newTransaction.date),
         period: newTransaction.period,
-        recurring: newTransaction.recurring, // Use explicit flag
+        recurring: newTransaction.recurring,
+        // Set kind: 'master' for recurring transactions, undefined for one-time
+        kind: newTransaction.recurring ? 'master' : undefined,
         interestRate: parseFloat(newTransaction.interestRate.replace(/,/g, '.')) || undefined
       });
     }
