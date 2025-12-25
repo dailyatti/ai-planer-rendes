@@ -18,7 +18,7 @@ const BudgetView: React.FC = () => {
   const { t, language } = useLanguage();
   const { transactions, addTransaction, updateTransaction, deleteTransaction } = useData();
 
-  const [currency, setCurrency] = useState<string>('HUF');
+  const [currency, setCurrency] = useState<string>('USD');
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'planning'>('overview');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedStat, setSelectedStat] = useState<{ title: string; breakdown: Record<string, number>; rect: DOMRect } | null>(null);
@@ -28,7 +28,7 @@ const BudgetView: React.FC = () => {
   const [showConverter, setShowConverter] = useState(false);
   const [convAmount, setConvAmount] = useState('100');
   const [convFrom, setConvFrom] = useState('EUR');
-  const [convTo, setConvTo] = useState('HUF');
+  const [convTo, setConvTo] = useState('USD');
 
   // PhD Level: Multi-select deletion state
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
