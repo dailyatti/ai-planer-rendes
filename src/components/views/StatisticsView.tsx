@@ -1,52 +1,86 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
-
+import { useLanguage } from '../../contexts/LanguageContext';
 import {
-  BarChart3, TrendingUp, TrendingDown,
-  Activity, Target, ArrowUpRight, ArrowDownRight,
-  Download, X, Wallet, Clock
+  BarChart3, TrendingUp,
+  Activity, Target,
+  X, Wallet, Clock, CheckCircle2, AlertCircle
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, PieChart as RePieChart, Pie, Cell, Legend
 } from 'recharts';
-import { useLanguage } from '../../contexts/LanguageContext';
 
 const StatisticsView: React.FC = () => {
   const { t } = useLanguage();
-  const [timeRange, setTimeRange] = useState('month');
+  const { plans, goals, computeProjection, computeRunway } = useData();
+  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
   const [showFinancialModal, setShowFinancialModal] = useState(false);
   const [projectionMonths, setProjectionMonths] = useState(6);
 
-  // Mock Data for PhD-Level Charts
-  const productivityData = [
-    { name: t('days.short.monday'), completed: 8, planned: 10, focus: 85 },
-    { name: t('days.short.tuesday'), completed: 12, planned: 12, focus: 92 },
-    { name: t('days.short.wednesday'), completed: 7, planned: 9, focus: 78 },
-    { name: t('days.short.thursday'), completed: 10, planned: 11, focus: 88 },
-    { name: t('days.short.friday'), completed: 9, planned: 10, focus: 82 },
-    { name: t('days.short.saturday'), completed: 5, planned: 6, focus: 75 },
-    { name: t('days.short.sunday'), completed: 4, planned: 4, focus: 90 },
-  ];
+  // 1. Calculate Productivity Score & Task Metrics
+  const taskMetrics = useMemo(() => {
+    const now = new Date();
+    // Filter plans based on timeRange
+    const filteredPlans = plans.filter(p => {
+      const pDate = new Date(p.date);
+      if (timeRange === 'week') {
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(now.getDate() - 7);
+        return pDate >= oneWeekAgo && pDate <= now;
+      } else if (timeRange === 'month') {
+        return pDate.getMonth() === now.getMonth() && pDate.getFullYear() === now.getFullYear();
+      } else {
+        return pDate.getFullYear() === now.getFullYear();
+      }
+    });
 
-  const categoryData = [
-    { name: t('statistics.categories.contentCreation'), value: 35, color: '#4361ee' },
-    { name: t('statistics.categories.planning'), value: 20, color: '#a855f7' },
-    { name: t('statistics.categories.meetings'), value: 15, color: '#06b6d4' },
-    { name: t('statistics.categories.admin'), value: 10, color: '#f59e0b' },
-    { name: t('statistics.categories.learning'), value: 20, color: '#10b981' },
-  ];
+    const total = filteredPlans.length;
+    const completed = filteredPlans.filter(p => p.completed).length;
+    const score = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-  const focusTrendData = [
-    { time: '09:00', score: 95 },
-    { time: '11:00', score: 88 },
-    { time: '13:00', score: 75 },
-    { time: '15:00', score: 82 },
-    { time: '17:00', score: 90 },
-  ];
+    // Priority Distribution
+    const priorityCounts = { high: 0, medium: 0, low: 0 };
+    filteredPlans.forEach(p => {
+      if (p.priority && priorityCounts[p.priority] !== undefined) {
+        priorityCounts[p.priority]++;
+      }
+    });
 
-  // Use financial helpers from DataContext
-  const { computeProjection, computeRunway } = useData();
+    return { total, completed, score, priorityCounts, filteredPlans };
+  }, [plans, timeRange]);
+
+  // 2. Goal Progress
+  const goalMetrics = useMemo(() => {
+    const activeGoals = goals.filter(g => g.status === 'in-progress');
+    const totalProgress = activeGoals.reduce((acc, g) => acc + g.progress, 0);
+    const avgProgress = activeGoals.length > 0 ? Math.round(totalProgress / activeGoals.length) : 0;
+    return { activeCount: activeGoals.length, avgProgress };
+  }, [goals]);
+
+  // 3. Chart Data Preparation
+  const chartData = useMemo(() => {
+    // Group by Date for Area/Bar Charts
+    const groupedByDate: Record<string, { date: string; completed: number; planned: number }> = {};
+
+    taskMetrics.filteredPlans.forEach(p => {
+      const dateKey = new Date(p.date).toLocaleDateString();
+      if (!groupedByDate[dateKey]) {
+        groupedByDate[dateKey] = { date: dateKey, completed: 0, planned: 0 };
+      }
+      groupedByDate[dateKey].planned++;
+      if (p.completed) groupedByDate[dateKey].completed++;
+    });
+
+    // Sort by date
+    return Object.values(groupedByDate).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [taskMetrics.filteredPlans]);
+
+  const priorityChartData = [
+    { name: t('priority.high') || 'Magas', value: taskMetrics.priorityCounts.high, color: '#ef4444' }, // Red
+    { name: t('priority.medium') || 'Közepes', value: taskMetrics.priorityCounts.medium, color: '#f59e0b' }, // Amber
+    { name: t('priority.low') || 'Alacsony', value: taskMetrics.priorityCounts.low, color: '#10b981' }, // Green
+  ].filter(d => d.value > 0);
 
   return (
     <div className="view-container">
@@ -63,78 +97,87 @@ const StatisticsView: React.FC = () => {
             {t('statistics.subtitle')}
           </p>
         </div>
-        {/* Financial Model Button */}
-        <button
-          className="btn-primary px-4 py-2"
-          onClick={() => setShowFinancialModal(true)}
-        >
-          {t('statistics.financialModelButton') || 'Financial Model'}
-        </button>
 
+        {/* Actions */}
         <div className="flex items-center gap-3">
+          <button
+            className="btn-primary px-4 py-2 flex items-center gap-2"
+            onClick={() => setShowFinancialModal(true)}
+          >
+            <Wallet size={18} />
+            {t('statistics.financialModelButton') || 'Pénzügyi Modell'}
+          </button>
+
+          <div className="h-8 w-[1px] bg-gray-200 dark:bg-gray-700 mx-1" />
+
           <select
             value={timeRange}
-            onChange={(e) => setTimeRange(e.target.value)}
+            onChange={(e) => setTimeRange(e.target.value as any)}
             className="input-field max-w-[140px] py-2"
           >
             <option value="week">{t('statistics.thisWeek')}</option>
             <option value="month">{t('statistics.thisMonth')}</option>
             <option value="year">{t('statistics.thisYear')}</option>
           </select>
-          <button className="btn-secondary p-2.5">
-            <Download size={20} />
-          </button>
         </div>
       </div>
 
       {/* Key Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {/* Productivity Score */}
         <div className="stat-card stat-card-primary">
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium opacity-90">{t('statistics.productivityScore')}</span>
               <Activity size={20} className="opacity-80" />
             </div>
-            <div className="text-3xl font-bold">87%</div>
+            <div className="text-3xl font-bold">{taskMetrics.score}%</div>
             <div className="text-sm opacity-80 mt-1 flex items-center gap-1">
-              <ArrowUpRight size={14} /> +5% {t('statistics.vsLastWeek')}
+              <CheckCircle2 size={14} /> {taskMetrics.completed} / {taskMetrics.total} {t('statistics.tasksCompleted')}
             </div>
           </div>
         </div>
 
+        {/* Goal Progress - Replaces "Tasks Completed" mock */}
         <div className="stat-card stat-card-success">
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium opacity-90">{t('statistics.tasksCompleted')}</span>
+              <span className="text-sm font-medium opacity-90">{t('goals.title') || 'Célok Haladása'}</span>
               <Target size={20} className="opacity-80" />
             </div>
-            <div className="text-3xl font-bold">45</div>
+            <div className="text-3xl font-bold">{goalMetrics.avgProgress}%</div>
             <div className="text-sm opacity-80 mt-1 flex items-center gap-1">
-              <ArrowUpRight size={14} /> 12 {t('statistics.moreThanPlanned')}
+              <TrendingUp size={14} /> {goalMetrics.activeCount} {t('goals.active') || 'aktív cél'}
             </div>
           </div>
         </div>
 
+        {/* Financial Runway - Replaces "Focus Time" mock */}
         <div className="stat-card stat-card-accent">
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium opacity-90">{t('statistics.focusTime')}</span>
-              <TrendingUp size={20} className="opacity-80" />
+              <span className="text-sm font-medium opacity-90">{t('statistics.runway') || 'Pénzügyi Kifutópálya'}</span>
+              <Clock size={20} className="opacity-80" />
             </div>
-            <div className="text-3xl font-bold">32h</div>
-            <div className="text-sm opacity-80 mt-1">{t('statistics.avgPerDay')} 6.4h</div>
+            <div className="text-3xl font-bold">
+              {computeRunway() !== null ? `${computeRunway()} ${t('statistics.months') || 'hó'}` : '∞'}
+            </div>
+            <div className="text-sm opacity-80 mt-1">
+              {t('statistics.runwayDesc') || 'Jelenlegi költségekkel'}
+            </div>
           </div>
         </div>
 
+        {/* Pending Tasks - Replaces "Interruptions" mock */}
         <div className="stat-card stat-card-warning">
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium opacity-90">{t('statistics.interruptions')}</span>
-              <TrendingDown size={20} className="opacity-80" />
+              <span className="text-sm font-medium opacity-90">{t('statistics.pendingTasks') || 'Hátralévő'}</span>
+              <AlertCircle size={20} className="opacity-80" />
             </div>
-            <div className="text-3xl font-bold">12</div>
+            <div className="text-3xl font-bold">{taskMetrics.total - taskMetrics.completed}</div>
             <div className="text-sm opacity-80 mt-1 flex items-center gap-1">
-              <ArrowDownRight size={14} /> -3 {t('statistics.vsLastWeek')}
+              {t('statistics.tasksRemaining') || 'feladat van még hátra'}
             </div>
           </div>
         </div>
@@ -142,121 +185,74 @@ const StatisticsView: React.FC = () => {
 
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Productivity Trend */}
-        <div className="card">
-          <h3 className="section-title mb-6">{t('statistics.productivityTrend')}</h3>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={productivityData}>
-                <defs>
-                  <linearGradient id="colorFocus" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4361ee" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#4361ee" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                    borderRadius: '12px',
-                    border: 'none',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="focus"
-                  stroke="#4361ee"
-                  strokeWidth={3}
-                  fillOpacity={1}
-                  fill="url(#colorFocus)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Task Completion */}
+        {/* Planned vs Completed Chart */}
         <div className="card">
           <h3 className="section-title mb-6">{t('statistics.plannedVsCompleted')}</h3>
           <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={productivityData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} />
-                <Tooltip
-                  cursor={{ fill: 'rgba(0,0,0,0.05)' }}
-                  contentStyle={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                    borderRadius: '12px',
-                    border: 'none',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                  }}
-                />
-                <Legend iconType="circle" />
-                <Bar dataKey="planned" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="completed" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Time Distribution */}
-        <div className="card">
-          <h3 className="section-title mb-6">{t('statistics.timeDistribution')}</h3>
-          <div className="h-[300px] w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <RePieChart>
-                <Pie
-                  data={categoryData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend verticalAlign="middle" align="right" layout="vertical" />
-              </RePieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Focus Quality */}
-        <div className="card">
-          <h3 className="section-title mb-6">{t('statistics.dailyFocusQuality')}</h3>
-          <div className="space-y-4">
-            {focusTrendData.map((item, index) => (
-              <div key={index} className="flex items-center gap-4">
-                <span className="text-sm font-medium text-gray-500 w-12">{item.time}</span>
-                <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-primary-500 to-secondary-500 rounded-full"
-                    style={{ width: `${item.score}%` }}
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} allowDecimals={false} />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
                   />
-                </div>
-                <span className="text-sm font-bold text-gray-700">{item.score}%</span>
+                  <Legend iconType="circle" />
+                  <Bar dataKey="planned" name={t('statistics.planned') || 'Tervezett'} fill="#e2e8f0" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="completed" name={t('statistics.completed') || 'Befejezett'} fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400">
+                <p>{t('common.noData') || 'Nincs megjeleníthető adat erre az időszakra'}</p>
               </div>
-            ))}
+            )}
+          </div>
+        </div>
+
+        {/* Priority Distribution Pie Chart */}
+        <div className="card">
+          <h3 className="section-title mb-6">{t('statistics.priorityDistribution') || 'Prioritás Eloszlás'}</h3>
+          <div className="h-[300px] w-full flex items-center justify-center">
+            {priorityChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <RePieChart>
+                  <Pie
+                    data={priorityChartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {priorityChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend verticalAlign="middle" align="right" layout="vertical" />
+                </RePieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400">
+                <p>{t('common.noData') || 'Nincs megjeleníthető adat'}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
-      {/* Financial Model Modal - Professionally Redesigned */}
+
+      {/* Financial Model Modal (Kept functionality but integrated with button) */}
       {showFinancialModal && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => setShowFinancialModal(false)}
         >
           <div
-            className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden"
+            className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden animate-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
