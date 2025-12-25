@@ -296,971 +296,970 @@ const BudgetView: React.FC = () => {
     } else {
       addTransaction(transactionPayload);
     }
-  }
 
-  try {
-    setNewTransaction({
-      description: '',
-      amount: '',
-      category: 'other',
-      currency: currency,
-      period: 'oneTime',
-      date: new Date().toISOString().split('T')[0],
-      recurring: false,
-      interestRate: ''
-    });
-    setAddToBalanceImmediately(true); // Reset default
-    setEditingTransaction(null);
-    setShowAddModal(false);
-  } catch (e) {
-    console.error('Error in handleAddTransaction reset:', e);
-    alert('Hiba történt a mentés során. Kérlek próbáld újra!');
-  }
-};
-
-const filteredTransactions = filterCategory === 'all'
-  ? transactions
-  : transactions.filter(tr => tr.category === filterCategory);
-
-const getPeriodLabel = (period: TransactionPeriod = 'oneTime') => {
-  const labels: Record<TransactionPeriod, string> = {
-    daily: t('budget.daily'),
-    weekly: t('budget.weekly'),
-    monthly: t('budget.monthly'),
-    yearly: t('budget.yearly'),
-    oneTime: t('budget.oneTime')
-  };
-  return labels[period] || period;
-};
-
-// PhD Level: Multi-select helper functions
-const toggleTransactionSelection = (id: string) => {
-  setSelectedTransactions(prev => {
-    const newSet = new Set(prev);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
+    try {
+      setNewTransaction({
+        description: '',
+        amount: '',
+        category: 'other',
+        currency: currency,
+        period: 'oneTime',
+        date: new Date().toISOString().split('T')[0],
+        recurring: false,
+        interestRate: ''
+      });
+      setAddToBalanceImmediately(true); // Reset default
+      setEditingTransaction(null);
+      setShowAddModal(false);
+    } catch (e) {
+      console.error('Error in handleAddTransaction reset:', e);
+      alert('Hiba történt a mentés során. Kérlek próbáld újra!');
     }
-    return newSet;
-  });
-};
+  };
 
-const selectAllTransactions = () => {
-  setSelectedTransactions(new Set(filteredTransactions.map(t => t.id)));
-};
+  const filteredTransactions = filterCategory === 'all'
+    ? transactions
+    : transactions.filter(tr => tr.category === filterCategory);
 
-const clearSelection = () => {
-  setSelectedTransactions(new Set());
-};
+  const getPeriodLabel = (period: TransactionPeriod = 'oneTime') => {
+    const labels: Record<TransactionPeriod, string> = {
+      daily: t('budget.daily'),
+      weekly: t('budget.weekly'),
+      monthly: t('budget.monthly'),
+      yearly: t('budget.yearly'),
+      oneTime: t('budget.oneTime')
+    };
+    return labels[period] || period;
+  };
 
-// Period counts for filter buttons
-const periodCounts = useMemo(() => ({
-  daily: transactions.filter(t => t.period === 'daily').length,
-  weekly: transactions.filter(t => t.period === 'weekly').length,
-  monthly: transactions.filter(t => t.period === 'monthly').length,
-  yearly: transactions.filter(t => t.period === 'yearly').length,
-  oneTime: transactions.filter(t => t.period === 'oneTime').length,
-  all: transactions.length
-}), [transactions]);
+  // PhD Level: Multi-select helper functions
+  const toggleTransactionSelection = (id: string) => {
+    setSelectedTransactions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
 
-// Bulk delete handlers
-const handleDeleteSelected = () => {
-  selectedTransactions.forEach(id => deleteTransaction(id));
-  setSelectedTransactions(new Set());
-  setShowDeleteConfirm(null);
-};
+  const selectAllTransactions = () => {
+    setSelectedTransactions(new Set(filteredTransactions.map(t => t.id)));
+  };
 
-const handleDeleteByPeriod = (period: TransactionPeriod | 'all') => {
-  if (period === 'all') {
-    transactions.forEach(t => deleteTransaction(t.id));
-  } else {
-    transactions.filter(t => t.period === period).forEach(t => deleteTransaction(t.id));
-  }
-  setSelectedTransactions(new Set());
-  setShowDeleteConfirm(null);
-};
+  const clearSelection = () => {
+    setSelectedTransactions(new Set());
+  };
 
-return (
-  <div className="view-container max-w-7xl mx-auto space-y-8 p-6">
-    {/* Header */}
-    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl shadow-emerald-500/20">
-            <Wallet size={28} className="text-white" />
-          </div>
-          {t('budget.title')}
-        </h1>
-        <p className="mt-2 text-gray-500 dark:text-gray-400 text-lg">{t('budget.subtitle')}</p>
-      </div>
+  // Period counts for filter buttons
+  const periodCounts = useMemo(() => ({
+    daily: transactions.filter(t => t.period === 'daily').length,
+    weekly: transactions.filter(t => t.period === 'weekly').length,
+    monthly: transactions.filter(t => t.period === 'monthly').length,
+    yearly: transactions.filter(t => t.period === 'yearly').length,
+    oneTime: transactions.filter(t => t.period === 'oneTime').length,
+    all: transactions.length
+  }), [transactions]);
 
-      <div className="flex flex-wrap items-center gap-3">
-        <select
-          className="input-field w-auto font-bold text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-200 dark:border-gray-700"
-          value={currency}
-          onChange={(e) => {
-            setCurrency(e.target.value);
-          }}
-        >
-          {AVAILABLE_CURRENCIES.map(c => (
-            <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
-          ))}
-        </select>
-        <button
-          onClick={() => setShowConverter(true)}
-          className="btn-secondary flex items-center gap-2 px-4 py-2.5 bg-blue-500/10 text-blue-600 border-blue-200 hover:bg-blue-500/20"
-          title="Valutaváltó"
-        >
-          <RefreshCcw size={18} />
-          <span className="hidden sm:inline">Valutaváltó</span>
-        </button>
-        <button
-          onClick={() => {
-            setTransactionType('income');
-            setEditingTransaction(null);
-            setNewTransaction({
-              description: '',
-              amount: '',
-              category: 'other',
-              currency: currency,
-              period: 'oneTime',
-              date: new Date().toISOString().split('T')[0],
-              recurring: false,
-              interestRate: ''
-            });
-            setShowAddModal(true);
-          }}
-          className="btn-secondary flex items-center gap-2 px-4 py-2.5 bg-green-500/10 text-green-600 border-green-200 hover:bg-green-500/20"
-        >
-          <TrendingUp size={18} />
-          <span>{t('budget.addIncome')}</span>
-        </button>
-        <button
-          onClick={() => {
-            setTransactionType('expense');
-            setEditingTransaction(null);
-            setNewTransaction({
-              description: '',
-              amount: '',
-              category: 'other',
-              currency: currency,
-              period: 'oneTime',
-              date: new Date().toISOString().split('T')[0],
-              recurring: false,
-              interestRate: ''
-            });
-            setShowAddModal(true);
-          }}
-          className="btn-primary flex items-center gap-2 px-4 py-2.5 shadow-lg shadow-primary-500/25"
-        >
-          <Plus size={18} />
-          <span>{t('budget.addExpense')}</span>
-        </button>
-      </div>
-    </div>
+  // Bulk delete handlers
+  const handleDeleteSelected = () => {
+    selectedTransactions.forEach(id => deleteTransaction(id));
+    setSelectedTransactions(new Set());
+    setShowDeleteConfirm(null);
+  };
 
-    {/* Tabs */}
-    <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
-      {(['overview', 'transactions', 'planning'] as const).map(tab => (
-        <button
-          key={tab}
-          onClick={() => setActiveTab(tab)}
-          className={`px - 6 py - 3 font - medium transition - all relative ${activeTab === tab
-            ? 'text-primary-600 dark:text-primary-400'
-            : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            } `}
-        >
-          {t(`budget.${tab} `)}
-          {activeTab === tab && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-500 rounded-full" />
-          )}
-        </button>
-      ))}
-    </div>
+  const handleDeleteByPeriod = (period: TransactionPeriod | 'all') => {
+    if (period === 'all') {
+      transactions.forEach(t => deleteTransaction(t.id));
+    } else {
+      transactions.filter(t => t.period === period).forEach(t => deleteTransaction(t.id));
+    }
+    setSelectedTransactions(new Set());
+    setShowDeleteConfirm(null);
+  };
 
-    {/* Overview Cards */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
-      {/* Balance Card */}
-      <div className="card p-6 bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-xl shadow-emerald-500/20 hover:shadow-2xl hover:shadow-emerald-500/30 transition-all duration-300 hover:scale-[1.02]">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <p className="text-sm font-medium opacity-80">{t('budget.balance')}</p>
-            <h3 className="text-3xl font-bold mt-1">{formatMoney(balance)}</h3>
-          </div>
-          <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><Wallet size={20} /></div>
-        </div>
-        <div className="text-sm opacity-80 flex items-center gap-1">
-          {balance >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-          {balance >= 0 ? t('budget.profit') : t('budget.loss')}
-        </div>
-      </div>
-
-      {/* Income Card - Button for Breakdown */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          const rect = e.currentTarget.getBoundingClientRect();
-          const breakdown = getTransactionAmountsByCurrency('income');
-          setSelectedStat({ title: t('budget.income'), breakdown, rect });
-        }}
-        className="card p-6 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-xl shadow-blue-500/20 hover:shadow-2xl hover:shadow-blue-500/30 transition-all duration-300 hover:scale-[1.02] text-left w-full group"
-      >
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <p className="text-sm font-medium opacity-80 flex items-center gap-2">
-              {t('budget.income')}
-              <Search size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-            </p>
-            <h3 className="text-3xl font-bold mt-1">{formatMoney(totalIncome)}</h3>
-          </div>
-          <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><TrendingUp size={20} /></div>
-        </div>
-      </button>
-
-      {/* Expense Card - Button for Breakdown */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          const rect = e.currentTarget.getBoundingClientRect();
-          const breakdown = getTransactionAmountsByCurrency('expense');
-          setSelectedStat({ title: t('budget.expense'), breakdown, rect });
-        }}
-        className="card p-6 bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-xl shadow-orange-500/20 hover:shadow-2xl hover:shadow-orange-500/30 transition-all duration-300 hover:scale-[1.02] text-left w-full group"
-      >
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <p className="text-sm font-medium opacity-80 flex items-center gap-2">
-              {t('budget.expense')}
-              <Search size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-            </p>
-            <h3 className="text-3xl font-bold mt-1">{formatMoney(totalExpense)}</h3>
-          </div>
-          <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><TrendingDown size={20} /></div>
-        </div>
-      </button>
-
-      {/* Recurring Card (Kept static for now as it's a subset) */}
-      <div className="card p-6 bg-gradient-to-br from-purple-500 to-violet-600 text-white shadow-xl shadow-purple-500/20 hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-300 hover:scale-[1.02]">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <p className="text-sm font-medium opacity-80">{t('budget.monthlyFixed')}</p>
-            <h3 className="text-3xl font-bold mt-1">{formatMoney(recurringMonthly)}</h3>
-          </div>
-          <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><Repeat size={20} /></div>
-        </div>
-        <div className="text-sm opacity-80">{t('budget.recurringLabel')}</div>
-      </div>
-    </div>
-
-    {/* Charts Row */}
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Cash Flow Chart */}
-      <div className="card lg:col-span-2 p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-all duration-300">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <BarChart3 size={20} className="text-primary-500" />
-            {t('budget.cashFlow')}
-          </h3>
-        </div>
-        <div className="h-[320px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={cashFlowData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} tickFormatter={(value) => value >= 1000 ? `${value / 1000} k` : String(value)} />
-              <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 40px -10px rgba(0,0,0,0.2)', backdropFilter: 'blur(8px)' }} formatter={(value: number) => formatMoney(value)} />
-              <Area type="monotone" dataKey="income" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorIncome)" name={t('budget.income')} />
-              <Area type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorExpense)" name={t('budget.expense')} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Expense Breakdown */}
-      <div className="card p-6 flex flex-col bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-all duration-300">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <PieChart size={20} className="text-purple-500" />
-            {t('budget.expenseCategories')}
-          </h3>
-        </div>
-        <div className="h-[300px] relative flex-1 min-h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <RechartsPieChart>
-              <Pie
-                data={categoryData}
-                cx="50%"
-                cy="45%"
-                innerRadius={70}
-                outerRadius={90}
-                paddingAngle={5}
-                dataKey="value"
-              >
-                {categoryData.map((entry, index) => (
-                  <Cell key={`cell - ${index} `} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value: number) => formatMoney(value)} />
-              <Legend
-                verticalAlign="bottom"
-                height={80}
-                content={(props) => {
-                  const { payload } = props;
-                  return (
-                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-4 text-xs">
-                      {payload?.map((entry: any, index: number) => (
-                        <div key={`item - ${index} `} className="flex items-center gap-1.5">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                          <span className="truncate text-gray-600 dark:text-gray-300">{entry.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                }}
-              />
-            </RechartsPieChart>
-          </ResponsiveContainer>
-          <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-            <div className="text-xs text-gray-400 uppercase tracking-wider">{t('common.total')}</div>
-            <div className="font-bold text-gray-900 dark:text-white text-lg">{formatMoney(totalExpense)}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* Transactions List */}
-    <div className="card p-0 overflow-hidden border border-gray-100 dark:border-gray-800 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
-      {/* Header with title and filters */}
-      <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex flex-col gap-4 bg-gray-50/50 dark:bg-gray-800/50">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('budget.transactions')}</h3>
-          <div className="flex gap-2 flex-wrap">
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="input-field text-sm py-1.5 pr-8"
-            >
-              <option value="all">{t('budget.filter')}: {t('budget.other')}</option>
-              {Object.entries(CATEGORIES).map(([key, val]) => (
-                <option key={key} value={key}>{val.label}</option>
-              ))}
-            </select>
-          </div>
+  return (
+    <div className="view-container max-w-7xl mx-auto space-y-8 p-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl shadow-emerald-500/20">
+              <Wallet size={28} className="text-white" />
+            </div>
+            {t('budget.title')}
+          </h1>
+          <p className="mt-2 text-gray-500 dark:text-gray-400 text-lg">{t('budget.subtitle')}</p>
         </div>
 
-        {/* PhD Level: Selection Toolbar */}
-        {transactions.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Select All / Clear */}
-            {selectedTransactions.size > 0 ? (
-              <button
-                onClick={clearSelection}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
-              >
-                <X size={14} />
-                Kijelölés törlése ({selectedTransactions.size})
-              </button>
-            ) : (
-              <button
-                onClick={selectAllTransactions}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
-              >
-                <CheckSquare size={14} />
-                Összes kijelölése
-              </button>
-            )}
-
-            {/* Delete Selected */}
-            {selectedTransactions.size > 0 && (
-              <button
-                onClick={() => setShowDeleteConfirm('selected')}
-                className="px-3 py-1.5 text-sm font-bold rounded-lg bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 transition-all flex items-center gap-2"
-              >
-                <Trash2 size={14} />
-                Kijelöltek törlése ({selectedTransactions.size})
-              </button>
-            )}
-
-            {/* Divider */}
-            <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
-
-            {/* Period-based delete buttons */}
-            <span className="text-xs text-gray-500 font-medium">Törlés típus szerint:</span>
-            {(['daily', 'weekly', 'monthly', 'yearly', 'oneTime'] as TransactionPeriod[]).map(period => (
-              periodCounts[period] > 0 && (
-                <button
-                  key={period}
-                  onClick={() => {
-                    setDeletePeriodFilter(period);
-                    setShowDeleteConfirm('period');
-                  }}
-                  className="px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors"
-                >
-                  {getPeriodLabel(period)} ({periodCounts[period]})
-                </button>
-              )
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            className="input-field w-auto font-bold text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-200 dark:border-gray-700"
+            value={currency}
+            onChange={(e) => {
+              setCurrency(e.target.value);
+            }}
+          >
+            {AVAILABLE_CURRENCIES.map(c => (
+              <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
             ))}
-
-            {/* Delete ALL button */}
-            <button
-              onClick={() => {
-                setDeletePeriodFilter('all');
-                setShowDeleteConfirm('all');
-              }}
-              className="px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-red-600 to-rose-700 text-white shadow-lg shadow-red-500/25 hover:shadow-xl transition-all flex items-center gap-1.5"
-            >
-              <AlertTriangle size={12} />
-              ÖSSZES TÖRLÉSE ({periodCounts.all})
-            </button>
-          </div>
-        )}
+          </select>
+          <button
+            onClick={() => setShowConverter(true)}
+            className="btn-secondary flex items-center gap-2 px-4 py-2.5 bg-blue-500/10 text-blue-600 border-blue-200 hover:bg-blue-500/20"
+            title="Valutaváltó"
+          >
+            <RefreshCcw size={18} />
+            <span className="hidden sm:inline">Valutaváltó</span>
+          </button>
+          <button
+            onClick={() => {
+              setTransactionType('income');
+              setEditingTransaction(null);
+              setNewTransaction({
+                description: '',
+                amount: '',
+                category: 'other',
+                currency: currency,
+                period: 'oneTime',
+                date: new Date().toISOString().split('T')[0],
+                recurring: false,
+                interestRate: ''
+              });
+              setShowAddModal(true);
+            }}
+            className="btn-secondary flex items-center gap-2 px-4 py-2.5 bg-green-500/10 text-green-600 border-green-200 hover:bg-green-500/20"
+          >
+            <TrendingUp size={18} />
+            <span>{t('budget.addIncome')}</span>
+          </button>
+          <button
+            onClick={() => {
+              setTransactionType('expense');
+              setEditingTransaction(null);
+              setNewTransaction({
+                description: '',
+                amount: '',
+                category: 'other',
+                currency: currency,
+                period: 'oneTime',
+                date: new Date().toISOString().split('T')[0],
+                recurring: false,
+                interestRate: ''
+              });
+              setShowAddModal(true);
+            }}
+            className="btn-primary flex items-center gap-2 px-4 py-2.5 shadow-lg shadow-primary-500/25"
+          >
+            <Plus size={18} />
+            <span>{t('budget.addExpense')}</span>
+          </button>
+        </div>
       </div>
-      <div className="divide-y divide-gray-100 dark:divide-gray-800">
-        {filteredTransactions.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">
-            <Wallet size={48} className="mx-auto mb-4 opacity-50" />
-            <p>{t('budget.noTransactions')}</p>
-          </div>
-        ) : (
-          filteredTransactions.map((tr) => (
-            <div
-              key={tr.id}
-              onClick={() => {
-                setTransactionType(tr.type as 'income' | 'expense');
-                setEditingTransaction(tr);
-                setNewTransaction({
-                  description: tr.description,
-                  amount: Math.abs(tr.amount).toString(),
-                  category: tr.category,
-                  currency: (tr as any).currency || currency,
-                  period: tr.period as TransactionPeriod,
-                  date: new Date(tr.date).toISOString().split('T')[0],
-                  recurring: tr.recurring || false,
-                  interestRate: tr.interestRate?.toString() || ''
-                });
-                // If editing existing, assume it was added. For recurring, default to true if editing master.
-                setAddToBalanceImmediately(true);
-                setShowAddModal(true);
-              }}
-              className={`p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group cursor-pointer ${selectedTransactions.has(tr.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
-            >
-              <div className="flex items-center gap-4">
-                {/* PhD Level: Selection Checkbox */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleTransactionSelection(tr.id);
-                  }}
-                  className={`p-2 rounded-lg transition-all ${selectedTransactions.has(tr.id)
-                    ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-blue-100 hover:text-blue-500 dark:hover:bg-blue-900/30'
-                    }`}
-                >
-                  {selectedTransactions.has(tr.id) ? <CheckSquare size={16} /> : <Square size={16} />}
-                </button>
 
-                <div className={`p-3 rounded-xl ${tr.type === 'income'
-                  ? 'bg-green-100 text-green-600 dark:bg-green-900/20'
-                  : 'bg-red-100 text-red-600 dark:bg-red-900/20'
-                  }`}>
-                  {tr.type === 'income' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
-                </div>
-                <div>
-                  <h4 className="font-bold text-gray-900 dark:text-white">{tr.description}</h4>
-                  <div className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
-                    <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider" style={{ backgroundColor: (CATEGORIES as any)[tr.category]?.color + '20', color: (CATEGORIES as any)[tr.category]?.color }}>
-                      {(CATEGORIES as any)[tr.category]?.label || tr.category}
-                    </span>
-                    <span>• {formatDate(tr.date)}</span>
-                    <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                      {getPeriodLabel(tr.period)}
-                    </span>
-                    {tr.recurring && <span className="flex items-center gap-1 text-purple-600 bg-purple-50 dark:bg-purple-900/20 px-1.5 rounded"><Repeat size={10} /></span>}
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+        {(['overview', 'transactions', 'planning'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px - 6 py - 3 font - medium transition - all relative ${activeTab === tab
+              ? 'text-primary-600 dark:text-primary-400'
+              : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              } `}
+          >
+            {t(`budget.${tab} `)}
+            {activeTab === tab && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-500 rounded-full" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Overview Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
+        {/* Balance Card */}
+        <div className="card p-6 bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-xl shadow-emerald-500/20 hover:shadow-2xl hover:shadow-emerald-500/30 transition-all duration-300 hover:scale-[1.02]">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <p className="text-sm font-medium opacity-80">{t('budget.balance')}</p>
+              <h3 className="text-3xl font-bold mt-1">{formatMoney(balance)}</h3>
+            </div>
+            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><Wallet size={20} /></div>
+          </div>
+          <div className="text-sm opacity-80 flex items-center gap-1">
+            {balance >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+            {balance >= 0 ? t('budget.profit') : t('budget.loss')}
+          </div>
+        </div>
+
+        {/* Income Card - Button for Breakdown */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const rect = e.currentTarget.getBoundingClientRect();
+            const breakdown = getTransactionAmountsByCurrency('income');
+            setSelectedStat({ title: t('budget.income'), breakdown, rect });
+          }}
+          className="card p-6 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-xl shadow-blue-500/20 hover:shadow-2xl hover:shadow-blue-500/30 transition-all duration-300 hover:scale-[1.02] text-left w-full group"
+        >
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <p className="text-sm font-medium opacity-80 flex items-center gap-2">
+                {t('budget.income')}
+                <Search size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+              </p>
+              <h3 className="text-3xl font-bold mt-1">{formatMoney(totalIncome)}</h3>
+            </div>
+            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><TrendingUp size={20} /></div>
+          </div>
+        </button>
+
+        {/* Expense Card - Button for Breakdown */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const rect = e.currentTarget.getBoundingClientRect();
+            const breakdown = getTransactionAmountsByCurrency('expense');
+            setSelectedStat({ title: t('budget.expense'), breakdown, rect });
+          }}
+          className="card p-6 bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-xl shadow-orange-500/20 hover:shadow-2xl hover:shadow-orange-500/30 transition-all duration-300 hover:scale-[1.02] text-left w-full group"
+        >
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <p className="text-sm font-medium opacity-80 flex items-center gap-2">
+                {t('budget.expense')}
+                <Search size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+              </p>
+              <h3 className="text-3xl font-bold mt-1">{formatMoney(totalExpense)}</h3>
+            </div>
+            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><TrendingDown size={20} /></div>
+          </div>
+        </button>
+
+        {/* Recurring Card (Kept static for now as it's a subset) */}
+        <div className="card p-6 bg-gradient-to-br from-purple-500 to-violet-600 text-white shadow-xl shadow-purple-500/20 hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-300 hover:scale-[1.02]">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <p className="text-sm font-medium opacity-80">{t('budget.monthlyFixed')}</p>
+              <h3 className="text-3xl font-bold mt-1">{formatMoney(recurringMonthly)}</h3>
+            </div>
+            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><Repeat size={20} /></div>
+          </div>
+          <div className="text-sm opacity-80">{t('budget.recurringLabel')}</div>
+        </div>
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Cash Flow Chart */}
+        <div className="card lg:col-span-2 p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-all duration-300">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <BarChart3 size={20} className="text-primary-500" />
+              {t('budget.cashFlow')}
+            </h3>
+          </div>
+          <div className="h-[320px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={cashFlowData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} tickFormatter={(value) => value >= 1000 ? `${value / 1000} k` : String(value)} />
+                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 40px -10px rgba(0,0,0,0.2)', backdropFilter: 'blur(8px)' }} formatter={(value: number) => formatMoney(value)} />
+                <Area type="monotone" dataKey="income" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorIncome)" name={t('budget.income')} />
+                <Area type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorExpense)" name={t('budget.expense')} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Expense Breakdown */}
+        <div className="card p-6 flex flex-col bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-all duration-300">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <PieChart size={20} className="text-purple-500" />
+              {t('budget.expenseCategories')}
+            </h3>
+          </div>
+          <div className="h-[300px] relative flex-1 min-h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <RechartsPieChart>
+                <Pie
+                  data={categoryData}
+                  cx="50%"
+                  cy="45%"
+                  innerRadius={70}
+                  outerRadius={90}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {categoryData.map((entry, index) => (
+                    <Cell key={`cell - ${index} `} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value: number) => formatMoney(value)} />
+                <Legend
+                  verticalAlign="bottom"
+                  height={80}
+                  content={(props) => {
+                    const { payload } = props;
+                    return (
+                      <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-4 text-xs">
+                        {payload?.map((entry: any, index: number) => (
+                          <div key={`item - ${index} `} className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                            <span className="truncate text-gray-600 dark:text-gray-300">{entry.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }}
+                />
+              </RechartsPieChart>
+            </ResponsiveContainer>
+            <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+              <div className="text-xs text-gray-400 uppercase tracking-wider">{t('common.total')}</div>
+              <div className="font-bold text-gray-900 dark:text-white text-lg">{formatMoney(totalExpense)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Transactions List */}
+      <div className="card p-0 overflow-hidden border border-gray-100 dark:border-gray-800 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+        {/* Header with title and filters */}
+        <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex flex-col gap-4 bg-gray-50/50 dark:bg-gray-800/50">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('budget.transactions')}</h3>
+            <div className="flex gap-2 flex-wrap">
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="input-field text-sm py-1.5 pr-8"
+              >
+                <option value="all">{t('budget.filter')}: {t('budget.other')}</option>
+                {Object.entries(CATEGORIES).map(([key, val]) => (
+                  <option key={key} value={key}>{val.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* PhD Level: Selection Toolbar */}
+          {transactions.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Select All / Clear */}
+              {selectedTransactions.size > 0 ? (
+                <button
+                  onClick={clearSelection}
+                  className="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
+                >
+                  <X size={14} />
+                  Kijelölés törlése ({selectedTransactions.size})
+                </button>
+              ) : (
+                <button
+                  onClick={selectAllTransactions}
+                  className="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
+                >
+                  <CheckSquare size={14} />
+                  Összes kijelölése
+                </button>
+              )}
+
+              {/* Delete Selected */}
+              {selectedTransactions.size > 0 && (
+                <button
+                  onClick={() => setShowDeleteConfirm('selected')}
+                  className="px-3 py-1.5 text-sm font-bold rounded-lg bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 transition-all flex items-center gap-2"
+                >
+                  <Trash2 size={14} />
+                  Kijelöltek törlése ({selectedTransactions.size})
+                </button>
+              )}
+
+              {/* Divider */}
+              <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
+
+              {/* Period-based delete buttons */}
+              <span className="text-xs text-gray-500 font-medium">Törlés típus szerint:</span>
+              {(['daily', 'weekly', 'monthly', 'yearly', 'oneTime'] as TransactionPeriod[]).map(period => (
+                periodCounts[period] > 0 && (
+                  <button
+                    key={period}
+                    onClick={() => {
+                      setDeletePeriodFilter(period);
+                      setShowDeleteConfirm('period');
+                    }}
+                    className="px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors"
+                  >
+                    {getPeriodLabel(period)} ({periodCounts[period]})
+                  </button>
+                )
+              ))}
+
+              {/* Delete ALL button */}
+              <button
+                onClick={() => {
+                  setDeletePeriodFilter('all');
+                  setShowDeleteConfirm('all');
+                }}
+                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-red-600 to-rose-700 text-white shadow-lg shadow-red-500/25 hover:shadow-xl transition-all flex items-center gap-1.5"
+              >
+                <AlertTriangle size={12} />
+                ÖSSZES TÖRLÉSE ({periodCounts.all})
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="divide-y divide-gray-100 dark:divide-gray-800">
+          {filteredTransactions.length === 0 ? (
+            <div className="p-12 text-center text-gray-400">
+              <Wallet size={48} className="mx-auto mb-4 opacity-50" />
+              <p>{t('budget.noTransactions')}</p>
+            </div>
+          ) : (
+            filteredTransactions.map((tr) => (
+              <div
+                key={tr.id}
+                onClick={() => {
+                  setTransactionType(tr.type as 'income' | 'expense');
+                  setEditingTransaction(tr);
+                  setNewTransaction({
+                    description: tr.description,
+                    amount: Math.abs(tr.amount).toString(),
+                    category: tr.category,
+                    currency: (tr as any).currency || currency,
+                    period: tr.period as TransactionPeriod,
+                    date: new Date(tr.date).toISOString().split('T')[0],
+                    recurring: tr.recurring || false,
+                    interestRate: tr.interestRate?.toString() || ''
+                  });
+                  // If editing existing, assume it was added. For recurring, default to true if editing master.
+                  setAddToBalanceImmediately(true);
+                  setShowAddModal(true);
+                }}
+                className={`p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group cursor-pointer ${selectedTransactions.has(tr.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+              >
+                <div className="flex items-center gap-4">
+                  {/* PhD Level: Selection Checkbox */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleTransactionSelection(tr.id);
+                    }}
+                    className={`p-2 rounded-lg transition-all ${selectedTransactions.has(tr.id)
+                      ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-blue-100 hover:text-blue-500 dark:hover:bg-blue-900/30'
+                      }`}
+                  >
+                    {selectedTransactions.has(tr.id) ? <CheckSquare size={16} /> : <Square size={16} />}
+                  </button>
+
+                  <div className={`p-3 rounded-xl ${tr.type === 'income'
+                    ? 'bg-green-100 text-green-600 dark:bg-green-900/20'
+                    : 'bg-red-100 text-red-600 dark:bg-red-900/20'
+                    }`}>
+                    {tr.type === 'income' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900 dark:text-white">{tr.description}</h4>
+                    <div className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
+                      <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider" style={{ backgroundColor: (CATEGORIES as any)[tr.category]?.color + '20', color: (CATEGORIES as any)[tr.category]?.color }}>
+                        {(CATEGORIES as any)[tr.category]?.label || tr.category}
+                      </span>
+                      <span>• {formatDate(tr.date)}</span>
+                      <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                        {getPeriodLabel(tr.period)}
+                      </span>
+                      {tr.recurring && <span className="flex items-center gap-1 text-purple-600 bg-purple-50 dark:bg-purple-900/20 px-1.5 rounded"><Repeat size={10} /></span>}
+                    </div>
                   </div>
                 </div>
+                <div className="text-right flex items-center gap-4">
+                  <span className={`text-lg font-bold block ${tr.type === 'income' ? 'text-green-600' : 'text-gray-900 dark:text-white'}`}>
+                    {tr.type === 'income' ? '+' : ''}{formatMoney(tr.amount, tr.currency)}
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteTransaction(tr.id);
+                    }}
+                    className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
-              <div className="text-right flex items-center gap-4">
-                <span className={`text-lg font-bold block ${tr.type === 'income' ? 'text-green-600' : 'text-gray-900 dark:text-white'}`}>
-                  {tr.type === 'income' ? '+' : ''}{formatMoney(tr.amount, tr.currency)}
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteTransaction(tr.id);
-                  }}
-                  className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          ))
-        )}
+            ))
+          )}
+        </div>
       </div>
-    </div>
 
-    {/* Add Transaction Modal */}
-    {showAddModal && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 m-4 animate-slide-up border border-gray-100 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              {transactionType === 'income' ? (
-                <><TrendingUp className="text-green-500" size={24} /> {t('budget.addIncome')}</>
-              ) : (
-                <><TrendingDown className="text-red-500" size={24} /> {t('budget.addExpense')}</>
-              )}
-            </h2>
-            <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-              <X size={20} />
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('budget.transactionName')}
-              </label>
-              <input
-                type="text"
-                value={newTransaction.description}
-                onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
-                className="input-field w-full"
-                placeholder={transactionType === 'income' ? t('budget.exampleIncome') : t('budget.exampleExpense')}
-              />
+      {/* Add Transaction Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 m-4 animate-slide-up border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                {transactionType === 'income' ? (
+                  <><TrendingUp className="text-green-500" size={24} /> {t('budget.addIncome')}</>
+                ) : (
+                  <><TrendingDown className="text-red-500" size={24} /> {t('budget.addExpense')}</>
+                )}
+              </h2>
+              <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                <X size={20} />
+              </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('budget.amount')}
+                  {t('budget.transactionName')}
+                </label>
+                <input
+                  type="text"
+                  value={newTransaction.description}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
+                  className="input-field w-full"
+                  placeholder={transactionType === 'income' ? t('budget.exampleIncome') : t('budget.exampleExpense')}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {t('budget.amount')}
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={newTransaction.amount}
+                    onChange={(e) => {
+                      // Allow only numbers, commas and dots
+                      const val = e.target.value;
+                      if (/^[0-9.,]*$/.test(val)) {
+                        setNewTransaction({ ...newTransaction, amount: val });
+                      }
+                    }}
+                    className="input-field w-full"
+                    placeholder="0"
+                  />
+                  {conversionPreview && (
+                    <p className="text-xs text-blue-500 mt-1 font-medium">{conversionPreview}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Pénznem
+                  </label>
+                  <select
+                    value={newTransaction.currency}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, currency: e.target.value })}
+                    className="input-field w-full appearance-none"
+                  >
+                    {AVAILABLE_CURRENCIES.map(c => (
+                      <option key={c.code} value={c.code}>
+                        {c.code} ({c.symbol})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Rate Source Warning */}
+              {newTransaction.currency !== currency && (
+                <div className={`mt-2 p-3 rounded-lg text-sm flex items-center gap-3 ${rateSource === 'system'
+                  ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-100 dark:border-red-800'
+                  : 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 border border-green-100 dark:border-green-800'
+                  }`}>
+                  {rateSource === 'system' ? (
+                    <>
+                      <div className="p-1.5 bg-red-100 dark:bg-red-900/50 rounded-full">⚠️</div>
+                      <div className="flex-1">
+                        <div className="font-bold">Ez nem a mai napi árfolyam!</div>
+                        <div className="text-xs opacity-90">Ez egy becsült árfolyam. A pontos adatokhoz állítsd be az AI API-t a beállításokban.</div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-1.5 bg-green-100 dark:bg-green-900/50 rounded-full">✅</div>
+                      <div className="flex-1">
+                        <div className="font-bold">Mai árfolyam (AI)</div>
+                        <div className="text-xs opacity-90">Frissítve: {new Date().toLocaleDateString()}</div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {t('budget.category')}
+                  </label>
+                  <select
+                    value={newTransaction.category}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value })}
+                    className="input-field w-full"
+                  >
+                    {Object.entries(CATEGORIES).map(([key, val]) => (
+                      <option key={key} value={key}>{val.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {t('budget.period')}
+                  </label>
+                  <select
+                    value={newTransaction.period}
+                    onChange={(e) => {
+                      const period = e.target.value as TransactionPeriod;
+                      setNewTransaction({
+                        ...newTransaction,
+                        period: period,
+                        recurring: period !== 'oneTime'
+                      });
+                      // Auto-uncheck for recurring by default (user logic), check for OneTime
+                      setAddToBalanceImmediately(period === 'oneTime');
+                    }}
+                    className="input-field w-full"
+                  >
+                    <option value="daily">{t('budget.daily')}</option>
+                    <option value="weekly">{t('budget.weekly')}</option>
+                    <option value="monthly">{t('budget.monthly')}</option>
+                    <option value="yearly">{t('budget.yearly')}</option>
+                    <option value="oneTime">{t('budget.oneTime')}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* PhD Level: Add to Balance Checkbox for Recurring Items */}
+              {newTransaction.period !== 'oneTime' && (
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
+                  <button
+                    onClick={() => setAddToBalanceImmediately(!addToBalanceImmediately)}
+                    className={`p-2 rounded-lg transition-all ${addToBalanceImmediately
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                      : 'bg-white dark:bg-gray-800 text-gray-400 hover:text-blue-500 border border-gray-200 dark:border-gray-700'
+                      }`}
+                  >
+                    {addToBalanceImmediately ? <CheckSquare size={18} /> : <Square size={18} />}
+                  </button>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">
+                      Hozzáadás az egyenleghez most
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {addToBalanceImmediately
+                        ? "Az első részletet azonnal levonja/hozzáadja."
+                        : `Az első részlet csak egy ${getPeriodLabel(newTransaction.period).toLowerCase()} múlva lesz esedékes.`
+                      }
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('budget.date')}
+                </label>
+                <input
+                  type="date"
+                  value={newTransaction.date}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
+                  className="input-field w-full"
+                />
+              </div>
+
+              {/* PhD: Interest Rate Row */}
+              <div>
+                <label className="block text-sm font-medium text-purple-600 dark:text-purple-400 mb-1 flex items-center gap-2">
+                  <TrendingUp size={14} />
+                  Éves kamatláb (%) — PhD Szint
                 </label>
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={newTransaction.amount}
+                  value={newTransaction.interestRate}
                   onChange={(e) => {
-                    // Allow only numbers, commas and dots
                     const val = e.target.value;
                     if (/^[0-9.,]*$/.test(val)) {
-                      setNewTransaction({ ...newTransaction, amount: val });
+                      setNewTransaction({ ...newTransaction, interestRate: val });
                     }
                   }}
-                  className="input-field w-full"
-                  placeholder="0"
+                  className="input-field w-full border-purple-100 dark:border-purple-900 focus:ring-purple-500"
+                  placeholder="0.00"
                 />
-                {conversionPreview && (
-                  <p className="text-xs text-blue-500 mt-1 font-medium">{conversionPreview}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Pénznem
-                </label>
-                <select
-                  value={newTransaction.currency}
-                  onChange={(e) => setNewTransaction({ ...newTransaction, currency: e.target.value })}
-                  className="input-field w-full appearance-none"
-                >
-                  {AVAILABLE_CURRENCIES.map(c => (
-                    <option key={c.code} value={c.code}>
-                      {c.code} ({c.symbol})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Rate Source Warning */}
-            {newTransaction.currency !== currency && (
-              <div className={`mt-2 p-3 rounded-lg text-sm flex items-center gap-3 ${rateSource === 'system'
-                ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-100 dark:border-red-800'
-                : 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 border border-green-100 dark:border-green-800'
-                }`}>
-                {rateSource === 'system' ? (
-                  <>
-                    <div className="p-1.5 bg-red-100 dark:bg-red-900/50 rounded-full">⚠️</div>
-                    <div className="flex-1">
-                      <div className="font-bold">Ez nem a mai napi árfolyam!</div>
-                      <div className="text-xs opacity-90">Ez egy becsült árfolyam. A pontos adatokhoz állítsd be az AI API-t a beállításokban.</div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="p-1.5 bg-green-100 dark:bg-green-900/50 rounded-full">✅</div>
-                    <div className="flex-1">
-                      <div className="font-bold">Mai árfolyam (AI)</div>
-                      <div className="text-xs opacity-90">Frissítve: {new Date().toLocaleDateString()}</div>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('budget.category')}
-                </label>
-                <select
-                  value={newTransaction.category}
-                  onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value })}
-                  className="input-field w-full"
-                >
-                  {Object.entries(CATEGORIES).map(([key, val]) => (
-                    <option key={key} value={key}>{val.label}</option>
-                  ))}
-                </select>
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Ha megadsz kamatot, az AI ezzel számol az elkövetkező évekre.
+                </p>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('budget.period')}
-                </label>
-                <select
-                  value={newTransaction.period}
-                  onChange={(e) => {
-                    const period = e.target.value as TransactionPeriod;
-                    setNewTransaction({
-                      ...newTransaction,
-                      period: period,
-                      recurring: period !== 'oneTime'
-                    });
-                    // Auto-uncheck for recurring by default (user logic), check for OneTime
-                    setAddToBalanceImmediately(period === 'oneTime');
-                  }}
-                  className="input-field w-full"
-                >
-                  <option value="daily">{t('budget.daily')}</option>
-                  <option value="weekly">{t('budget.weekly')}</option>
-                  <option value="monthly">{t('budget.monthly')}</option>
-                  <option value="yearly">{t('budget.yearly')}</option>
-                  <option value="oneTime">{t('budget.oneTime')}</option>
-                </select>
-              </div>
-            </div>
-
-            {/* PhD Level: Add to Balance Checkbox for Recurring Items */}
-            {newTransaction.period !== 'oneTime' && (
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
-                <button
-                  onClick={() => setAddToBalanceImmediately(!addToBalanceImmediately)}
-                  className={`p-2 rounded-lg transition-all ${addToBalanceImmediately
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                    : 'bg-white dark:bg-gray-800 text-gray-400 hover:text-blue-500 border border-gray-200 dark:border-gray-700'
-                    }`}
-                >
-                  {addToBalanceImmediately ? <CheckSquare size={18} /> : <Square size={18} />}
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setShowAddModal(false)} className="btn-secondary flex-1">
+                  {t('common.cancel')}
                 </button>
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-gray-900 dark:text-white">
-                    Hozzáadás az egyenleghez most
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {addToBalanceImmediately
-                      ? "Az első részletet azonnal levonja/hozzáadja."
-                      : `Az első részlet csak egy ${getPeriodLabel(newTransaction.period).toLowerCase()} múlva lesz esedékes.`
-                    }
-                  </p>
-                </div>
+                <button onClick={handleAddTransaction} className={`flex - 1 flex items - center justify - center gap - 2 ${transactionType === 'income' ? 'btn-primary bg-green-600 hover:bg-green-700' : 'btn-primary'} `}>
+                  <Check size={18} />
+                  {t('budget.saveTransaction')}
+                </button>
               </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('budget.date')}
-              </label>
-              <input
-                type="date"
-                value={newTransaction.date}
-                onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
-                className="input-field w-full"
-              />
-            </div>
-
-            {/* PhD: Interest Rate Row */}
-            <div>
-              <label className="block text-sm font-medium text-purple-600 dark:text-purple-400 mb-1 flex items-center gap-2">
-                <TrendingUp size={14} />
-                Éves kamatláb (%) — PhD Szint
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={newTransaction.interestRate}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (/^[0-9.,]*$/.test(val)) {
-                    setNewTransaction({ ...newTransaction, interestRate: val });
-                  }
-                }}
-                className="input-field w-full border-purple-100 dark:border-purple-900 focus:ring-purple-500"
-                placeholder="0.00"
-              />
-              <p className="text-[10px] text-gray-500 mt-1">
-                Ha megadsz kamatot, az AI ezzel számol az elkövetkező évekre.
-              </p>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowAddModal(false)} className="btn-secondary flex-1">
-                {t('common.cancel')}
-              </button>
-              <button onClick={handleAddTransaction} className={`flex - 1 flex items - center justify - center gap - 2 ${transactionType === 'income' ? 'btn-primary bg-green-600 hover:bg-green-700' : 'btn-primary'} `}>
-                <Check size={18} />
-                {t('budget.saveTransaction')}
-              </button>
             </div>
           </div>
         </div>
-      </div>
-    )}
-    {/* Breakdown Popover */}
-    {selectedStat && (
-      <>
-        <div
-          className="fixed inset-0 z-[100]"
-          onClick={() => setSelectedStat(null)}
-        />
-        <div
-          className="fixed z-[101] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 p-4 min-w-[280px] animate-in fade-in zoom-in-95 duration-200"
-          style={{
-            top: selectedStat.rect.bottom + 10,
-            left: Math.min(selectedStat.rect.left, window.innerWidth - 300)
-          }}
-        >
-          <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100 dark:border-gray-700">
-            <h4 className="font-bold text-gray-900 dark:text-white">{selectedStat.title} Részletezése</h4>
-            <button onClick={() => setSelectedStat(null)} className="text-gray-400 hover:text-gray-600">
-              <X size={16} />
-            </button>
+      )}
+      {/* Breakdown Popover */}
+      {selectedStat && (
+        <>
+          <div
+            className="fixed inset-0 z-[100]"
+            onClick={() => setSelectedStat(null)}
+          />
+          <div
+            className="fixed z-[101] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 p-4 min-w-[280px] animate-in fade-in zoom-in-95 duration-200"
+            style={{
+              top: selectedStat.rect.bottom + 10,
+              left: Math.min(selectedStat.rect.left, window.innerWidth - 300)
+            }}
+          >
+            <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100 dark:border-gray-700">
+              <h4 className="font-bold text-gray-900 dark:text-white">{selectedStat.title} Részletezése</h4>
+              <button onClick={() => setSelectedStat(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="space-y-3">
+              {Object.entries(selectedStat.breakdown).map(([curr, amount]) => (
+                <div key={curr} className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">{curr}</span>
+                  <span className="font-bold text-gray-900 dark:text-white">
+                    {new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
+                      style: 'currency',
+                      currency: curr,
+                      maximumFractionDigits: 0
+                    }).format(amount)}
+                  </span>
+                </div>
+              ))}
+              {Object.keys(selectedStat.breakdown).length === 0 && (
+                <div className="text-center text-sm text-gray-400 py-2">
+                  Nincs adat.
+                </div>
+              )}
+            </div>
+
+            {/* Global Exchange Rate Info */}
+            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+              <p className="text-xs text-gray-400">
+                Az átváltási árfolyamokat a Beállítások menüben módosíthatod.
+              </p>
+            </div>
           </div>
-          <div className="space-y-3">
-            {Object.entries(selectedStat.breakdown).map(([curr, amount]) => (
-              <div key={curr} className="flex justify-between items-center">
-                <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">{curr}</span>
-                <span className="font-bold text-gray-900 dark:text-white">
+        </>
+      )}
+      {/* Currency Converter Modal */}
+      {showConverter && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden transform animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-blue-500/5 to-indigo-500/5">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <RefreshCcw size={20} className="text-blue-500" />
+                  Valutaváltó (Any-to-Any)
+                </h3>
+                <button
+                  onClick={() => setShowConverter(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-gray-400 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Számolj át bármilyen pénznemet bármilyenre real-time.
+              </p>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Amount */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Összeg</label>
+                <input
+                  type="number"
+                  value={convAmount}
+                  onChange={(e) => setConvAmount(e.target.value)}
+                  className="input-field w-full text-lg font-bold"
+                  placeholder="0.00"
+                />
+              </div>
+
+              {/* Conversion Path */}
+              <div className="grid grid-cols-2 gap-4 items-center">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ebből</label>
+                  <select
+                    value={convFrom}
+                    onChange={(e) => setConvFrom(e.target.value)}
+                    className="input-field w-full py-3"
+                  >
+                    {AVAILABLE_CURRENCIES.map(c => (
+                      <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex justify-center pt-6">
+                  <button
+                    onClick={() => {
+                      const temp = convFrom;
+                      setConvFrom(convTo);
+                      setConvTo(temp);
+                    }}
+                    className="p-3 bg-gray-100 dark:bg-gray-800 rounded-2xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all active:scale-95 text-gray-600 dark:text-gray-400"
+                  >
+                    <Repeat size={20} />
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ebbe</label>
+                  <select
+                    value={convTo}
+                    onChange={(e) => setConvTo(e.target.value)}
+                    className="input-field w-full py-3"
+                  >
+                    {AVAILABLE_CURRENCIES.map(c => (
+                      <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Result Card */}
+              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-3xl text-white shadow-xl shadow-blue-500/20">
+                <div className="text-sm opacity-80 mb-1">Eredmény ({convTo}):</div>
+                <div className="text-3xl font-black">
                   {new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
                     style: 'currency',
-                    currency: curr,
-                    maximumFractionDigits: 0
-                  }).format(amount)}
-                </span>
-              </div>
-            ))}
-            {Object.keys(selectedStat.breakdown).length === 0 && (
-              <div className="text-center text-sm text-gray-400 py-2">
-                Nincs adat.
-              </div>
-            )}
-          </div>
-
-          {/* Global Exchange Rate Info */}
-          <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
-            <p className="text-xs text-gray-400">
-              Az átváltási árfolyamokat a Beállítások menüben módosíthatod.
-            </p>
-          </div>
-        </div>
-      </>
-    )}
-    {/* Currency Converter Modal */}
-    {showConverter && (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden transform animate-in zoom-in-95 duration-200">
-          <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-blue-500/5 to-indigo-500/5">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <RefreshCcw size={20} className="text-blue-500" />
-                Valutaváltó (Any-to-Any)
-              </h3>
-              <button
-                onClick={() => setShowConverter(false)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-gray-400 transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Számolj át bármilyen pénznemet bármilyenre real-time.
-            </p>
-          </div>
-
-          <div className="p-6 space-y-6">
-            {/* Amount */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Összeg</label>
-              <input
-                type="number"
-                value={convAmount}
-                onChange={(e) => setConvAmount(e.target.value)}
-                className="input-field w-full text-lg font-bold"
-                placeholder="0.00"
-              />
-            </div>
-
-            {/* Conversion Path */}
-            <div className="grid grid-cols-2 gap-4 items-center">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ebből</label>
-                <select
-                  value={convFrom}
-                  onChange={(e) => setConvFrom(e.target.value)}
-                  className="input-field w-full py-3"
-                >
-                  {AVAILABLE_CURRENCIES.map(c => (
-                    <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex justify-center pt-6">
-                <button
-                  onClick={() => {
-                    const temp = convFrom;
-                    setConvFrom(convTo);
-                    setConvTo(temp);
-                  }}
-                  className="p-3 bg-gray-100 dark:bg-gray-800 rounded-2xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all active:scale-95 text-gray-600 dark:text-gray-400"
-                >
-                  <Repeat size={20} />
-                </button>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ebbe</label>
-                <select
-                  value={convTo}
-                  onChange={(e) => setConvTo(e.target.value)}
-                  className="input-field w-full py-3"
-                >
-                  {AVAILABLE_CURRENCIES.map(c => (
-                    <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Result Card */}
-            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-3xl text-white shadow-xl shadow-blue-500/20">
-              <div className="text-sm opacity-80 mb-1">Eredmény ({convTo}):</div>
-              <div className="text-3xl font-black">
-                {new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
-                  style: 'currency',
-                  currency: convTo,
-                  maximumFractionDigits: 2
-                }).format(CurrencyService.convert(parseFloat(convAmount) || 0, convFrom, convTo))}
-              </div>
-              <div className="mt-3 flex items-center justify-between text-xs opacity-70">
-                <span>1 {convFrom} ≈ {CurrencyService.convert(1, convFrom, convTo).toFixed(4)} {convTo}</span>
-                <div className="flex items-center gap-1">
-                  {rateSource === 'system' ? '⚠️ Becsült' : '✅ Friss'}
+                    currency: convTo,
+                    maximumFractionDigits: 2
+                  }).format(CurrencyService.convert(parseFloat(convAmount) || 0, convFrom, convTo))}
+                </div>
+                <div className="mt-3 flex items-center justify-between text-xs opacity-70">
+                  <span>1 {convFrom} ≈ {CurrencyService.convert(1, convFrom, convTo).toFixed(4)} {convTo}</span>
+                  <div className="flex items-center gap-1">
+                    {rateSource === 'system' ? '⚠️ Becsült' : '✅ Friss'}
+                  </div>
                 </div>
               </div>
+
+              {/* Optional Live Update Button */}
+              <div className="flex justify-center">
+                <button
+                  onClick={async () => {
+                    const btn = document.getElementById('live-refresh-btn');
+                    if (btn) {
+                      btn.textContent = 'Frissítés...';
+                      btn.setAttribute('disabled', 'true');
+                    }
+
+                    await CurrencyService.fetchRealTimeRates(true);
+                    setRateSource(CurrencyService.getUpdateSource());
+
+                    if (btn) {
+                      btn.textContent = 'Valós idejű árfolyamok lekérése (API)';
+                      btn.removeAttribute('disabled');
+                    }
+                  }}
+                  id="live-refresh-btn"
+                  className="text-xs text-blue-500 dark:text-blue-400 font-medium hover:underline flex items-center gap-1"
+                >
+                  <RefreshCcw size={12} />
+                  Frissítés valós idejű adatokkal (API)
+                </button>
+              </div>
             </div>
 
-            {/* Optional Live Update Button */}
-            <div className="flex justify-center">
+            <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800">
               <button
-                onClick={async () => {
-                  const btn = document.getElementById('live-refresh-btn');
-                  if (btn) {
-                    btn.textContent = 'Frissítés...';
-                    btn.setAttribute('disabled', 'true');
-                  }
-
-                  await CurrencyService.fetchRealTimeRates(true);
-                  setRateSource(CurrencyService.getUpdateSource());
-
-                  if (btn) {
-                    btn.textContent = 'Valós idejű árfolyamok lekérése (API)';
-                    btn.removeAttribute('disabled');
-                  }
-                }}
-                id="live-refresh-btn"
-                className="text-xs text-blue-500 dark:text-blue-400 font-medium hover:underline flex items-center gap-1"
+                onClick={() => setShowConverter(false)}
+                className="btn-primary w-full py-3 rounded-2xl"
               >
-                <RefreshCcw size={12} />
-                Frissítés valós idejű adatokkal (API)
+                Bezárás
               </button>
             </div>
           </div>
-
-          <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800">
-            <button
-              onClick={() => setShowConverter(false)}
-              className="btn-primary w-full py-3 rounded-2xl"
-            >
-              Bezárás
-            </button>
-          </div>
         </div>
-      </div>
-    )}
+      )}
 
-    {/* PhD Level: Delete Confirmation Modal */}
-    {showDeleteConfirm && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 m-4 animate-slide-up border border-gray-100 dark:border-gray-700">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="p-3 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600">
-              <AlertTriangle size={24} />
+      {/* PhD Level: Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 m-4 animate-slide-up border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="p-3 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600">
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Törlés megerősítése
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {showDeleteConfirm === 'selected' && `${selectedTransactions.size} kijelölt tranzakció törlése`}
+                  {showDeleteConfirm === 'period' && `Összes "${getPeriodLabel(deletePeriodFilter as TransactionPeriod)}" típusú tranzakció törlése (${periodCounts[deletePeriodFilter as keyof typeof periodCounts]} db)`}
+                  {showDeleteConfirm === 'all' && `ÖSSZES tranzakció törlése (${periodCounts.all} db)`}
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                Törlés megerősítése
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {showDeleteConfirm === 'selected' && `${selectedTransactions.size} kijelölt tranzakció törlése`}
-                {showDeleteConfirm === 'period' && `Összes "${getPeriodLabel(deletePeriodFilter as TransactionPeriod)}" típusú tranzakció törlése (${periodCounts[deletePeriodFilter as keyof typeof periodCounts]} db)`}
-                {showDeleteConfirm === 'all' && `ÖSSZES tranzakció törlése (${periodCounts.all} db)`}
+
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl mb-6 border border-red-100 dark:border-red-800">
+              <p className="text-sm text-red-700 dark:text-red-300 font-medium">
+                ⚠️ Ez a művelet nem vonható vissza! A törölt tranzakciók véglegesen elvesznek.
               </p>
             </div>
-          </div>
 
-          <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl mb-6 border border-red-100 dark:border-red-800">
-            <p className="text-sm text-red-700 dark:text-red-300 font-medium">
-              ⚠️ Ez a művelet nem vonható vissza! A törölt tranzakciók véglegesen elvesznek.
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowDeleteConfirm(null)}
-              className="flex-1 px-4 py-3 rounded-xl font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-            >
-              Mégsem
-            </button>
-            <button
-              onClick={() => {
-                if (showDeleteConfirm === 'selected') {
-                  handleDeleteSelected();
-                } else if (showDeleteConfirm === 'period' || showDeleteConfirm === 'all') {
-                  handleDeleteByPeriod(deletePeriodFilter);
-                }
-              }}
-              className="flex-1 px-4 py-3 rounded-xl font-bold bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 transition-all flex items-center justify-center gap-2"
-            >
-              <Trash2 size={18} />
-              Törlés
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="flex-1 px-4 py-3 rounded-xl font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Mégsem
+              </button>
+              <button
+                onClick={() => {
+                  if (showDeleteConfirm === 'selected') {
+                    handleDeleteSelected();
+                  } else if (showDeleteConfirm === 'period' || showDeleteConfirm === 'all') {
+                    handleDeleteByPeriod(deletePeriodFilter);
+                  }
+                }}
+                className="flex-1 px-4 py-3 rounded-xl font-bold bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 transition-all flex items-center justify-center gap-2"
+              >
+                <Trash2 size={18} />
+                Törlés
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    )}
-  </div>
-);
+      )}
+    </div>
+  );
 };
 
 export default BudgetView;
