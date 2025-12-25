@@ -20,7 +20,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onC
 
   // Language flag/code mapping
   const languageFlags: Record<Language, string> = {
-    en: '🇬🇧', hu: '🇭🇺', ro: '🇷🇴', sk: '🇸🇰', hr: '🇭🇷',
+    en: '🇺🇸', hu: '🇭🇺', ro: '🇷🇴', sk: '🇸🇰', hr: '🇭🇷',
     de: '🇩🇪', fr: '🇫🇷', es: '🇪🇸', it: '🇮🇹', pl: '🇵🇱',
     cn: '🇨🇳', jp: '🇯🇵', pt: '🇵🇹', tr: '🇹🇷', ar: '🇸🇦',
     ru: '🇷🇺', hi: '🇮🇳', bn: '🇧🇩', ur: '🇵🇰', th: '🇹🇭',

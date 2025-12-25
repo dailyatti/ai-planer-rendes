@@ -147,7 +147,7 @@ const InvoicingView: React.FC = () => {
     const [newClient, setNewClient] = useState<Partial<Client>>({});
     const [newInvoice, setNewInvoice] = useState<Partial<Invoice>>({
         items: [{ id: Date.now().toString(), description: '', quantity: 1, rate: 0, amount: 0 }],
-        currency: 'HUF',
+        currency: 'USD',
         taxRate: 27,
         status: 'draft',
         issueDate: new Date(),
@@ -170,7 +170,7 @@ const InvoicingView: React.FC = () => {
     // Calculations
     // Calculations using FinancialEngine
     const stats = useMemo(() => {
-        const summary = getFinancialSummary('HUF'); // Default to HUF base
+        const summary = getFinancialSummary('USD'); // Default to USD base
         const totalClients = clients.length;
         return {
             totalRevenue: summary.revenue,
