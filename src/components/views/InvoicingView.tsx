@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
     FileText, Users, Plus, X, Mail, Clock, Wallet, Building2, AlertCircle,
     Download, ChevronRight, PieChart, User, CheckCircle, Search,
-    TrendingUp, Filter, Check, Send, Share2, MoreHorizontal,
+    TrendingUp, Filter, Check, Send, MoreHorizontal,
     Trash2, Upload, Settings, Repeat, RefreshCcw
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -34,19 +34,45 @@ const printStyles = `
     body { 
       -webkit-print-color-adjust: exact !important; 
       print-color-adjust: exact !important; 
+      background-color: white !important;
     }
     /* Hide browser headers/footers */
-    header, footer, nav, .no-print { 
+    header, footer, nav, .no-print, .modal-backdrop { 
       display: none !important; 
     }
+    /* Force Modal Content to be visible and clean */
+    .modal-backdrop {
+        position: static !important;
+        background: white !important;
+        display: block !important;
+        padding: 0 !important;
+    }
+    .modal-backdrop > div {
+        box-shadow: none !important;
+        max-width: none !important;
+        width: 100% !important;
+        background: white !important;
+        color: black !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+    }
+
     /* Fix dark mode leaks in print */
-    .print-container {
+    .print-container, .print\\:bg-white {
         background-color: white !important;
         color: black !important;
+        border: none !important;
     }
-    .print-container * {
+    
+    * {
         border-color: #e5e7eb !important; /* gray-200 */
         color: black !important;
+        text-shadow: none !important;
+    }
+    
+    /* Hide specific dark mode elements that might leak */
+    .dark .print\\:hidden {
+        display: none !important;
     }
   }
 `;
@@ -1308,14 +1334,14 @@ const InvoicingView: React.FC = () => {
                                     <input type="file" accept="image/*" className="hidden" onChange={handleCompanyLogoUpload} />
                                 </label>
                             </div>
-                            <input type="text" className="input-field" placeholder={`${t('company.name')} *`} value={newCompanyProfile.name || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, name: e.target.value })} />
-                            <input type="text" className="input-field" placeholder={t('company.address')} value={newCompanyProfile.address || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, address: e.target.value })} />
+                            <input type="text" className="input-field dark:bg-gray-700 dark:text-white dark:border-gray-600" placeholder={`${t('company.name')} *`} value={newCompanyProfile.name || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, name: e.target.value })} />
+                            <input type="text" className="input-field dark:bg-gray-700 dark:text-white dark:border-gray-600" placeholder={t('company.address')} value={newCompanyProfile.address || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, address: e.target.value })} />
                             <div className="grid grid-cols-2 gap-3">
-                                <input type="email" className="input-field" placeholder={`${t('company.email')} *`} value={newCompanyProfile.email || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, email: e.target.value })} />
-                                <input type="text" className="input-field" placeholder={t('company.phone')} value={newCompanyProfile.phone || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, phone: e.target.value })} />
+                                <input type="email" className="input-field dark:bg-gray-700 dark:text-white dark:border-gray-600" placeholder={`${t('company.email')} *`} value={newCompanyProfile.email || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, email: e.target.value })} />
+                                <input type="text" className="input-field dark:bg-gray-700 dark:text-white dark:border-gray-600" placeholder={t('company.phone')} value={newCompanyProfile.phone || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, phone: e.target.value })} />
                             </div>
-                            <input type="text" className="input-field" placeholder={t('company.taxNumber')} value={newCompanyProfile.taxNumber || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, taxNumber: e.target.value })} />
-                            <input type="text" className="input-field" placeholder={t('company.bankAccount')} value={newCompanyProfile.bankAccount || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, bankAccount: e.target.value })} />
+                            <input type="text" className="input-field dark:bg-gray-700 dark:text-white dark:border-gray-600" placeholder={t('company.taxNumber')} value={newCompanyProfile.taxNumber || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, taxNumber: e.target.value })} />
+                            <input type="text" className="input-field dark:bg-gray-700 dark:text-white dark:border-gray-600" placeholder={t('company.bankAccount')} value={newCompanyProfile.bankAccount || ''} onChange={(e) => setNewCompanyProfile({ ...newCompanyProfile, bankAccount: e.target.value })} />
                             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                                 <button onClick={() => setShowAddCompanyProfile(false)} className="btn-ghost">{t('common.cancel')}</button>
                                 <button onClick={handleAddCompanyProfileSubmit} className="btn-primary">{t('common.save')}</button>

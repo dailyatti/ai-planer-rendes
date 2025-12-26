@@ -355,30 +355,7 @@ const translations: Translations = {
     id: 'Penjadwalan per jam yang rinci'
   },
 
-  // Goals View
-  'goals.title': {
-    en: 'Goals & Milestones', ko: 'Goals & Milestones',
-    hu: 'Célkitűzések és Mérföldkövek',
-    ro: 'Obiective și Repere',
-    sk: 'Ciele a Míľniky',
-    hr: 'Ciljevi i Prekretnice',
-    de: 'Ziele & Meilensteine',
-    fr: 'Objectifs & Etapes',
-    es: 'Metas e Hitos',
-    it: 'Obiettivi e Traguardi',
-    pl: 'Cele i Kamienie Milowe',
-    cn: '目标与里程碑',
-    jp: '目標とマイルストーン',
-    pt: 'Metas e Marcos',
-    tr: 'Hedefler ve Kilometre Taşları',
-    ar: 'الأهداف والمعالم',
-    ru: 'Цели и Вехи',
-    hi: 'लक्ष्य और मील के पत्थर',
-    bn: 'লক্ষ্য এবং মাইলফলক',
-    ur: 'اہداف اور سنگ میل',
-    th: 'เป้าหมายและเหตุการณ์สำคัญ',
-    id: 'Tujuan & Tonggak Sejarah'
-  },
+
 
 
   // Statistics View
@@ -677,6 +654,18 @@ const translations: Translations = {
 
   // Settings
   'settings.timeZone': { en: 'Time Zone', ko: 'Time Zone', hu: 'Időzóna', ro: 'Fus Orar', sk: 'Časové Pásmo', hr: 'Time Zone', de: 'Zeitzone', fr: 'Fuseau horaire', es: 'Zona horaria', it: 'Fuso orario', pl: 'Strefa czasowa', cn: '时区', jp: 'タイムゾーン', pt: 'Time Zone', tr: 'Saat Dilimi', ar: 'المنطقة الزمنية', ru: 'Часовой пояс', hi: 'समय क्षेत्र', bn: 'Time Zone', ur: 'Time Zone', th: 'Time Zone', id: 'Time Zone' },
+  'settings.exportFailed': {
+    en: 'Export failed',
+    hu: 'Az exportálás sikertelen'
+  },
+  'settings.importConfirm': {
+    en: 'Are you sure? This will overwrite all existing data!',
+    hu: 'Biztos vagy benne? Ez felülír minden meglévő adatot!'
+  },
+  'settings.importFailed': {
+    en: 'Import failed: ',
+    hu: 'Az importálás sikertelen: '
+  },
   'settings.dateFormat': { en: 'Date Format', ko: 'Date Format', hu: 'Dátum Formátum', ro: 'Format Dată', sk: 'Formát Dátumu', hr: 'Date Format', de: 'Datumsformat', fr: 'Format de date', es: 'Formato de fecha', it: 'Formato data', pl: 'Format daty', cn: '日期格式', jp: '日付形式', pt: 'Date Format', tr: 'Tarih Formatı', ar: 'تنسيق التاريخ', ru: 'Формат даты', hi: 'दिनांक प्रारूप', bn: 'Date Format', ur: 'Date Format', th: 'Date Format', id: 'Date Format' },
   'lang.urdu': { en: 'Urdu', ko: 'Urdu', hu: 'Urdu', pt: 'Urdu', tr: 'Urduca', ar: 'أردي', ru: 'Урду', hi: 'उर्दू', bn: 'উর্দু', ur: 'اردو', th: 'อูรดู', id: 'Urdu', ro: 'Urdu', sk: 'Urdčina', hr: 'Urdu', de: 'Urdu', fr: 'Urdu', es: 'Urdu', it: 'Urdu', pl: 'Urdu', cn: '乌尔都语', jp: 'ウルドゥー語' },
   'lang.thai': { en: 'Thai', ko: 'Thai', hu: 'Thai', pt: 'Tailandês', tr: 'Tayca', ar: 'تايلاندي', ru: 'Тайский', hi: 'थाई', bn: 'থাই', ur: 'تھائی', th: 'ไทย', id: 'Thailand', ro: 'Thailandeză', sk: 'Thajčina', hr: 'Tajlandski', de: 'Thailändisch', fr: 'Thaï', es: 'Tailandés', it: 'Tailandese', pl: 'Tajski', cn: '泰语', jp: 'タイ語' },

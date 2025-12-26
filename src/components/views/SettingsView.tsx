@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Save, Download, Upload, Palette, Bell, Globe, Shield, User, Moon, Sun } from 'lucide-react';
+import { Settings, Save, Download, Upload, Palette, Bell, Globe, Shield, Moon, Sun } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useLanguage, Language } from '../../contexts/LanguageContext';
@@ -7,12 +7,13 @@ import { useSettings } from '../../contexts/SettingsContext';
 import { CurrencyService } from '../../services/CurrencyService';
 import { AVAILABLE_CURRENCIES } from '../../constants/currencyData';
 import { AIService } from '../../services/AIService';
+import { DataTransferService } from '../../services/DataTransferService';
 
 const SettingsView: React.FC = () => {
   const { budgetSettings, updateBudgetSettings } = useData();
   const { isDark, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
-  const { settings, updateSettings, resetSettings, exportSettings, importSettings } = useSettings();
+  const { settings, updateSettings } = useSettings();
   const [tempSettings, setTempSettings] = useState(budgetSettings);
   const [activeSection, setActiveSection] = useState<'general' | 'budget' | 'appearance' | 'notifications' | 'data'>('general');
   const [exchangeRates, setExchangeRates] = useState<Record<string, number>>(CurrencyService.getAllRates());
@@ -44,7 +45,7 @@ const SettingsView: React.FC = () => {
     { code: 'id', name: t('lang.indonesian'), nativeName: 'Bahasa Indonesia' },
     { code: 'ko', name: t('lang.korean'), nativeName: '한국어' },
   ];
-  const themes = ['System', 'Light', 'Dark', 'Auto'];
+
 
   const handleSaveBudgetSettings = () => {
     updateBudgetSettings(tempSettings);
@@ -549,15 +550,54 @@ const SettingsView: React.FC = () => {
                   <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('settings.dataManagement')}</h4>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <button className="flex items-center justify-center gap-2 p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
+                    <button
+                      onClick={() => {
+                        const result = DataTransferService.exportAll();
+                        if (!result.success) {
+                          alert(t('settings.exportFailed') || 'Export failed');
+                        }
+                      }}
+                      className="flex items-center justify-center gap-2 p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                    >
                       <Download size={20} />
                       <span>{t('settings.exportAllData')}</span>
                     </button>
 
-                    <button className="flex items-center justify-center gap-2 p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
+                    <label className="flex items-center justify-center gap-2 p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 cursor-pointer">
                       <Upload size={20} />
                       <span>{t('settings.importData')}</span>
-                    </button>
+                      <input
+                        type="file"
+                        accept=".json"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+
+                          if (!confirm(t('settings.importConfirm') || 'Are you sure? This will overwrite all existing data!')) {
+                            e.target.value = ''; // Reset input to allow re-selection of same file
+                            return;
+                          }
+
+                          const reader = new FileReader();
+                          reader.onload = async (event) => {
+                            try {
+                              const json = JSON.parse(event.target?.result as string);
+                              const result = await DataTransferService.importAll(json);
+                              if (result.success) {
+                                alert(result.message);
+                                window.location.reload();
+                              } else {
+                                alert(t('settings.importFailed') || 'Import failed: ' + result.message);
+                              }
+                            } catch (err) {
+                              alert('Invalid JSON file');
+                            }
+                          };
+                          reader.readAsText(file);
+                        }}
+                      />
+                    </label>
                   </div>
                 </div>
 
