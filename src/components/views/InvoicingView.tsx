@@ -641,7 +641,7 @@ const InvoicingView: React.FC = () => {
                                 )}
                             </div>
                             <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700 text-xs text-center text-gray-400">
-                                Árfolyam: 1 EUR ≈ {CurrencyService.getRate('EUR').toFixed(2)} USD
+                                {t('invoicing.exchangeRateLabel')}: 1 EUR ≈ {CurrencyService.getRate('EUR').toFixed(2)} USD
                             </div>
                         </div>
                     )}
@@ -1364,7 +1364,7 @@ const InvoicingView: React.FC = () => {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <h1 className="text-3xl font-bold text-gray-900">{t('invoicing.invoiceType')}</h1>
-                                    <p className="text-gray-500 mt-1">Invoice #{previewInvoice.invoiceNumber}</p>
+                                    <p className="text-gray-500 mt-1">{t('invoicing.invoiceNumberHash')}{previewInvoice.invoiceNumber}</p>
                                 </div>
                                 <div className="text-right">
                                     <h2 className="text-xl font-bold text-primary-600">{companyInfo.name || t('company.name')}</h2>
