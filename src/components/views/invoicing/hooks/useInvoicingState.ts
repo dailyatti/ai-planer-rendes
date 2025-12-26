@@ -22,12 +22,13 @@ interface State {
 type Action =
     | { type: 'SET_TAB'; payload: Tab }
     | { type: 'OPEN_MODAL'; payload: keyof State['modals'] }
-    | { type: 'CLOSE_ALL_MODALS' }
+    | { type: 'CLOSE_MODALS' }
     | { type: 'SET_SEARCH'; payload: string }
     | { type: 'TOGGLE_SELECTION'; payload: string }
     | { type: 'SELECT_ALL'; payload: string[] } // Pass all IDs to select
     | { type: 'CLEAR_SELECTION' }
-    | { type: 'SET_PREVIEW'; payload: Invoice | null };
+    | { type: 'SET_PREVIEW'; payload: Invoice | null }
+    | { type: 'CLOSE_PREVIEW' };
 
 const initialState: State = {
     activeTab: 'dashboard',
@@ -51,13 +52,13 @@ function reducer(state: State, action: Action): State {
             return { ...state, activeTab: action.payload };
         case 'OPEN_MODAL':
             return { ...state, modals: { ...state.modals, [action.payload]: true } };
-        case 'CLOSE_ALL_MODALS':
+        case 'CLOSE_MODALS':
             return {
                 ...state,
-                modals: { createInvoice: false, addClient: false, addCompany: false },
-                previewInvoice: null // Close preview too if considered a modal, or keep separate? 
-                // In refactor, Preview might be a modal. Keep specific closes if needed.
+                modals: { createInvoice: false, addClient: false, addCompany: false }
             };
+        case 'CLOSE_PREVIEW':
+            return { ...state, previewInvoice: null };
         case 'SET_SEARCH':
             return { ...state, filters: { ...state.filters, searchQuery: action.payload } };
         case 'TOGGLE_SELECTION': {
@@ -85,7 +86,8 @@ export function useInvoicingState() {
 
     const setActiveTab = useCallback((tab: Tab) => dispatch({ type: 'SET_TAB', payload: tab }), []);
     const openModal = useCallback((modal: keyof State['modals']) => dispatch({ type: 'OPEN_MODAL', payload: modal }), []);
-    const closeModals = useCallback(() => dispatch({ type: 'CLOSE_ALL_MODALS' }), []);
+    const closeModals = useCallback(() => dispatch({ type: 'CLOSE_MODALS' }), []);
+    const closePreview = useCallback(() => dispatch({ type: 'CLOSE_PREVIEW' }), []);
     const setSearchQuery = useCallback((query: string) => dispatch({ type: 'SET_SEARCH', payload: query }), []);
     const toggleSelection = useCallback((id: string) => dispatch({ type: 'TOGGLE_SELECTION', payload: id }), []);
     const selectAll = useCallback((ids: string[]) => dispatch({ type: 'SELECT_ALL', payload: ids }), []);
@@ -97,6 +99,7 @@ export function useInvoicingState() {
         setActiveTab,
         openModal,
         closeModals,
+        closePreview,
         setSearchQuery,
         toggleSelection,
         selectAll,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, ChevronRight, FileText, Trash2, Users, ArrowUpRight, Clock, CheckCircle } from 'lucide-react';
 import { useLanguage } from '../../../../contexts/LanguageContext';
 import { Invoice, Client } from '../../../../types/planner';
@@ -25,23 +25,30 @@ export const InvoicingDashboard: React.FC<InvoicingDashboardProps> = ({
     const { t } = useLanguage();
     const [selectedStat, setSelectedStat] = useState<{ title: string; breakdown: Record<string, number>; rect: DOMRect } | null>(null);
 
-    // Close popover when clicking outside
+    const popoverRef = useRef<HTMLDivElement>(null);
+
+    // Close popover on outside click
     useEffect(() => {
-        const handleClickOutside = () => setSelectedStat(null);
+        const handleClickOutside = (event: MouseEvent) => {
+            if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+                setSelectedStat(null);
+            }
+        };
+
         if (selectedStat) {
-            document.addEventListener('click', handleClickOutside);
+            document.addEventListener('mousedown', handleClickOutside);
         }
         return () => {
-            document.removeEventListener('click', handleClickOutside);
+            document.removeEventListener('mousedown', handleClickOutside);
         };
     }, [selectedStat]);
 
-    const stats = {
+    const stats = useMemo(() => ({
         outstanding: formatCurrency(FinancialEngine.calculatePending(invoices, 'USD'), 'USD'),
         overdue: formatCurrency(FinancialEngine.calculateOverdue(invoices, 'USD'), 'USD'),
         paid: formatCurrency(FinancialEngine.calculatePaid(invoices, 'USD'), 'USD'),
         totalClients: clients.length
-    };
+    }), [invoices, clients.length]);
 
     const statCards = [
         {
@@ -121,8 +128,8 @@ export const InvoicingDashboard: React.FC<InvoicingDashboardProps> = ({
             {/* Popover */}
             {selectedStat && (
                 <div
-                    className="fixed z-50 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 p-4 min-w-[250px] animate-in zoom-in-95 duration-200"
-                    style={{ top: selectedStat.rect.bottom + 10, left: selectedStat.rect.left }}
+                    ref={popoverRef}
+                    className="absolute top-full left-0 mt-4 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 p-4 animate-in fade-in zoom-in-95 duration-200"
                     onClick={(e) => e.stopPropagation()}
                 >
                     <h4 className="font-bold text-gray-900 dark:text-white mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">

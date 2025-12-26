@@ -23,6 +23,7 @@ export const invoiceSchema = z.object({
     subtotal: z.number(),
     tax: z.number(),
     total: z.number(),
+    notes: z.string().optional(),
 });
 
 export const clientSchema = z.object({

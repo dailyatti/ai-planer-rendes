@@ -19,6 +19,7 @@ import { InvoicePreviewModal } from './invoicing/modals/InvoicePreviewModal';
 import { useInvoicingState } from './invoicing/hooks/useInvoicingState';
 import { ClientFormData, InvoiceFormData } from './invoicing/schemas';
 import { Client, Invoice } from '../../types/planner';
+import { InvoiceCalculator } from '../../utils/InvoiceCalculator';
 
 // Main Component
 const InvoicingView: React.FC = () => {
@@ -31,8 +32,8 @@ const InvoicingView: React.FC = () => {
         addInvoice,
         deleteInvoice,
         addClient,
-        addCompanyProfile,
-        updateCompanyProfile
+        addCompanyProfile
+        // updateCompanyProfile 
     } = useData();
 
     const {
@@ -40,6 +41,7 @@ const InvoicingView: React.FC = () => {
         setActiveTab,
         openModal,
         closeModals,
+        closePreview,
         setSearchQuery,
         toggleSelection,
         selectAll,
@@ -49,35 +51,62 @@ const InvoicingView: React.FC = () => {
 
     // Derived State
     const filteredInvoices = useMemo(() => {
-        if (!state.filters.searchQuery) return invoices;
-        const lowerQuery = state.filters.searchQuery.toLowerCase();
-        return invoices.filter(inv =>
-            inv.invoiceNumber.toLowerCase().includes(lowerQuery) ||
-            clients.find(c => c.id === inv.clientId)?.name.toLowerCase().includes(lowerQuery)
-        );
+        const q = state.filters.searchQuery.trim().toLowerCase();
+        if (!q) return invoices;
+
+        return invoices.filter(inv => {
+            const invoiceNumber = (inv.invoiceNumber ?? '').toLowerCase();
+            const clientName = (clients.find(c => c.id === inv.clientId)?.name ?? '').toLowerCase();
+            return invoiceNumber.includes(q) || clientName.includes(q);
+        });
     }, [invoices, clients, state.filters.searchQuery]);
 
     // Handlers
     const handleCreateInvoice = (data: InvoiceFormData) => {
-        // Look up issuer (optional validation)
-        // const issuer = companyProfiles.find(p => p.id === data.companyProfileId);
+        // Recalculate totals to ensure consistency
+        const calcItems = data.items.map(i => ({
+            ...i,
+            quantity: i.quantity || 0,
+            rate: i.rate || 0
+        }));
+
+        // Import needed? It's used in calculator.
+        // Assuming InvoiceCalculator import needs to be added or file read.
+        // I will add import in next step if missing.
+        // Actually, let's use the plain calculation here if simple, OR better: use the helper if available.
+        // "InvoiceCalculator" is in utils. I need to make sure it is imported.
+        // For now, I will assume it's imported or I will add it.
+        // Wait, I can't easily add import in this block replacement if it's top of file.
+        // I will do a separate import fix.
+        // Here I will put the logic assuming usage of InvoiceCalculator.
+
+        // Fix: Use InvoiceCalculator from utils
+        const totals = InvoiceCalculator.calculateTotals(calcItems, data.taxRate || 0, data.currency);
+
+        // Since I cannot verify import existence in this specific tool call (it's lower down), 
+        // I will manually recalc here to be safe OR rely on next step to add import.
+        // User asked for "single source of truth". I SHOULD use InvoiceCalculator.
+        // I'll add the import in a separate call.
 
         const newInvoice: Invoice = {
             id: crypto.randomUUID(),
             ...data,
-            // companyProfileId is mapped directly from data
-            // Items are mapped
-            items: data.items.map(i => ({
+            invoiceNumber: data.invoiceNumber || 'DRAFT', // Fallback for stricter type
+            companyProfileId: data.companyProfileId,
+            items: calcItems.map(i => ({
                 ...i,
                 id: i.id || crypto.randomUUID(),
                 description: i.description || '',
-                quantity: i.quantity || 0,
-                rate: i.rate || 0,
-                amount: (i.quantity || 0) * (i.rate || 0)
+                quantity: i.quantity,
+                rate: i.rate,
+                amount: i.quantity * i.rate
             })),
-            status: 'draft',
+            status: data.status || 'draft', // Respect form status
             createdAt: new Date(),
-            notes: ''
+            notes: data.notes || '',
+            subtotal: totals.subtotal,
+            tax: totals.taxAmount,
+            total: totals.total
         };
         addInvoice(newInvoice);
         closeModals();
@@ -108,8 +137,8 @@ const InvoicingView: React.FC = () => {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as any)} // Cast as any because state type might be strict literal union
                             className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${state.activeTab === tab.id
-                                    ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300 shadow-sm'
-                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-gray-200'
+                                ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300 shadow-sm'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-gray-200'
                                 }`}
                         >
                             <tab.icon size={18} />
@@ -173,11 +202,16 @@ const InvoicingView: React.FC = () => {
                         }
                     }}
                     onDownload={setPreviewInvoice}
-                    onShare={(inv) => {
-                        const url = window.location.href;
-                        navigator.clipboard.writeText(`${url}?invoice=${inv.id}`)
-                            .then(() => alert(t('invoicing.linkCopied')))
-                            .catch(() => alert('Failed to copy'));
+                    onShare={async (inv) => {
+                        try {
+                            const url = new URL(window.location.href);
+                            url.searchParams.set('invoice', inv.id);
+                            await navigator.clipboard.writeText(url.toString());
+                            alert(t('invoicing.linkCopied'));
+                        } catch (err) {
+                            const url = `${window.location.href}?invoice=${inv.id}`;
+                            prompt(t('invoicing.linkCopied'), url);
+                        }
                     }}
                 />
             )}
@@ -211,7 +245,10 @@ const InvoicingView: React.FC = () => {
                     const newClient: Client = {
                         id: crypto.randomUUID(),
                         ...data,
+                        email: data.email || '',
                         company: data.company || '',
+                        address: data.address || '',
+                        taxId: data.taxId || '',
                         createdAt: new Date()
                     };
                     addClient(newClient);
@@ -226,6 +263,11 @@ const InvoicingView: React.FC = () => {
                     const newProfile = {
                         id: crypto.randomUUID(),
                         ...data,
+                        email: data.email || '',
+                        address: data.address || '',
+                        phone: data.phone || '',
+                        taxNumber: data.taxNumber || '',
+                        bankAccount: data.bankAccount || '',
                         createdAt: new Date(),
                         logo: data.logo || null
                     };
@@ -238,7 +280,7 @@ const InvoicingView: React.FC = () => {
                 invoice={state.previewInvoice}
                 companyProfile={companyProfiles.find(c => c.id === state.previewInvoice?.companyProfileId) || companyProfiles[0]}
                 client={clients.find(c => c.id === state.previewInvoice?.clientId)}
-                onClose={() => setPreviewInvoice(null)}
+                onClose={closePreview}
             />
         </div>
     );
