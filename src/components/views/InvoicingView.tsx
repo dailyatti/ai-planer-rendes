@@ -441,11 +441,6 @@ const InvoicingView: React.FC = () => {
         }, 300);
     };
 
-    const handleShare = (invoice: Invoice) => {
-        // In a real app, this would be a public link. For now, we simulate copy link.
-        navigator.clipboard.writeText(`${invoice.invoiceNumber}`); // Copy Invoice Number
-        showToast(t('invoicing.linkCopied'));
-    };
 
     const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -807,7 +802,6 @@ const InvoicingView: React.FC = () => {
                                                     </button>
                                                 )}
                                                 <button onClick={() => handleDownloadPdf(invoice)} className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title={t('invoicing.downloadPdf')}><Download size={16} /></button>
-                                                <button onClick={() => handleShare(invoice)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title={t('invoicing.share')}><Share2 size={16} /></button>
                                                 <button
                                                     onClick={() => {
                                                         if (window.confirm(t('invoicing.confirmDelete'))) {
