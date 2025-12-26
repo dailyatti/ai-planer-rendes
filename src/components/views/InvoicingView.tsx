@@ -350,10 +350,10 @@ const InvoicingView: React.FC = () => {
             cancelled: 'bg-gray-50 text-gray-500 dark:bg-gray-800/50 dark:text-gray-400 border border-gray-200 dark:border-gray-700',
         };
         const labels: Record<string, string> = {
-            draft: 'Piszkozat',
-            sent: 'Függőben',
-            paid: 'Fizetve',
-            cancelled: 'Törölve',
+            draft: t('invoicing.statusDraft'),
+            sent: t('invoicing.pending'),
+            paid: t('invoicing.paid'),
+            cancelled: t('invoicing.statusCancelled'),
         };
         return (
             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${styles[status]}`}>
@@ -443,7 +443,7 @@ const InvoicingView: React.FC = () => {
                         {[
                             {
                                 id: 'revenue',
-                                label: 'Számlák összege',
+                                label: t('invoicing.totalInvoiced'),
                                 value: formatCurrency(stats.totalRevenue, 'USD'),
                                 icon: Wallet,
                                 color: 'text-indigo-600',
@@ -452,7 +452,7 @@ const InvoicingView: React.FC = () => {
                             },
                             {
                                 id: 'paid',
-                                label: 'Fizetve',
+                                label: t('invoicing.paid'),
                                 value: formatCurrency(stats.paidAmount, 'USD'),
                                 icon: CheckCircle,
                                 color: 'text-emerald-600',
@@ -461,7 +461,7 @@ const InvoicingView: React.FC = () => {
                             },
                             {
                                 id: 'pending',
-                                label: 'Függőben',
+                                label: t('invoicing.pending'),
                                 value: formatCurrency(stats.pendingAmount, 'USD'),
                                 icon: Clock,
                                 color: 'text-amber-600',
