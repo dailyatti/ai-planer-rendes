@@ -373,8 +373,8 @@ const InvoicingView: React.FC = () => {
         };
         const labels: Record<string, string> = {
             draft: t('invoicing.statusDraft'),
-            sent: t('invoicing.statusSent'), // Fixed mapping: Pending -> Sent (Elküldve)
-            paid: t('invoicing.statusPaid'), // Fixed mapping: Paid -> Paid (Fizetve)
+            sent: t('invoicing.pending'), // Reverted to 'pending' as per user request
+            paid: t('invoicing.paid'),    // Kept 'paid'
             cancelled: t('invoicing.statusCancelled'),
         };
         return (
