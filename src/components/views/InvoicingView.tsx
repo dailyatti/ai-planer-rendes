@@ -172,8 +172,15 @@ const InvoicingView: React.FC = () => {
         }).format(amount);
     };
 
-    const formatDate = (date: Date) => {
-        return new Intl.DateTimeFormat(language === 'hu' ? 'hu-HU' : 'en-US').format(date);
+    const formatDate = (date: Date | string | undefined | null): string => {
+        if (!date) return '-';
+        try {
+            const dateObj = typeof date === 'string' ? new Date(date) : date;
+            if (isNaN(dateObj.getTime())) return '-';
+            return new Intl.DateTimeFormat(language === 'hu' ? 'hu-HU' : 'en-US').format(dateObj);
+        } catch {
+            return '-';
+        }
     };
 
     // Calculations
