@@ -2,11 +2,11 @@ import React, { useEffect } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { X, Plus, Trash2, Calendar, Download, Send, Save } from 'lucide-react';
-import { useLanguage } from '../../../contexts/LanguageContext';
-import { Client, CompanyProfile, Invoice } from '../../../types/planner';
+import { useLanguage } from '../../../../contexts/LanguageContext';
+import { Client, CompanyProfile, Invoice } from '../../../../types/planner';
 import { invoiceSchema, InvoiceFormData } from '../schemas';
-import { InvoiceCalculator } from '../../../utils/InvoiceCalculator';
-import { SequenceService } from '../../../services/SequenceService';
+import { InvoiceCalculator } from '../../../../utils/InvoiceCalculator';
+import { SequenceService } from '../../../../services/SequenceService';
 
 interface CreateInvoiceModalProps {
     isOpen: boolean;
