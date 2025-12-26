@@ -27,52 +27,60 @@ interface CompanyInfo {
 
 const printStyles = `
   @media print {
+    /* Reset page margins */
     @page { 
       margin: 0mm; 
       size: auto;
     }
-    body { 
-      -webkit-print-color-adjust: exact !important; 
-      print-color-adjust: exact !important; 
-      background-color: white !important;
-    }
-    /* Hide browser headers/footers */
-    header, footer, nav, .no-print, .modal-backdrop { 
-      display: none !important; 
-    }
-    /* Force Modal Content to be visible and clean */
-    .modal-backdrop {
-        position: static !important;
-        background: white !important;
-        display: block !important;
-        padding: 0 !important;
-    }
-    .modal-backdrop > div {
-        box-shadow: none !important;
-        max-width: none !important;
-        width: 100% !important;
-        background: white !important;
-        color: black !important;
-        margin: 0 !important;
-        border-radius: 0 !important;
+
+    /* Hide everything by default */
+    body * {
+      visibility: hidden;
     }
 
-    /* Fix dark mode leaks in print */
-    .print-container, .print\\:bg-white {
+    /* Only show the invoice modal and its children */
+    #invoice-print-modal, #invoice-print-modal * {
+      visibility: visible;
+    }
+
+    /* Position the modal to fill the page */
+    #invoice-print-modal {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+      background-color: white !important;
+      z-index: 9999;
+    }
+
+    /* Ensure backgrounds are white and text is black */
+    body {
+        background-color: white !important;
+        -webkit-print-color-adjust: exact !important; 
+        print-color-adjust: exact !important; 
+    }
+    
+    /* Clean up the modal content for print */
+    #invoice-print-modal .bg-white, 
+    #invoice-print-modal .dark\\:bg-gray-900 {
         background-color: white !important;
         color: black !important;
-        border: none !important;
+        box-shadow: none !important;
     }
-    
-    * {
-        border-color: #e5e7eb !important; /* gray-200 */
+
+    /* Ensure all text is black */
+    #invoice-print-modal * {
         color: black !important;
         text-shadow: none !important;
+        border-color: #e5e7eb !important; /* gray-200 */
     }
-    
-    /* Hide specific dark mode elements that might leak */
-    .dark .print\\:hidden {
-        display: none !important;
+
+    /* Hide browser headers/footers if possible (controlled by @page usually) */
+    header, footer, nav, .no-print { 
+      display: none !important; 
     }
   }
 `;
@@ -1349,7 +1357,7 @@ const InvoicingView: React.FC = () => {
 
             {/* Invoice Preview Modal */}
             {previewInvoice && (
-                <div className="modal-backdrop print:bg-white">
+                <div id="invoice-print-modal" className="modal-backdrop print:bg-white">
                     <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-auto print:shadow-none print:max-w-none print:max-h-none print:rounded-none">
                         {/* Print Header - Hidden on screen, shown in print */}
                         <div className="hidden print:block p-8 border-b-2 border-gray-200">
