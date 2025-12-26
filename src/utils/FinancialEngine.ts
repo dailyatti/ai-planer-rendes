@@ -34,6 +34,19 @@ export class FinancialEngine {
      */
     static calculateTotalRevenue(invoices: Invoice[], targetCurrency: string): number {
         return invoices
+            .filter(inv => ['paid', 'sent', 'overdue'].includes(inv.status))
+            .reduce((sum, inv) => {
+                const amount = inv.total || 0;
+                const currency = inv.currency || targetCurrency;
+                return sum + CurrencyService.convert(amount, currency, targetCurrency);
+            }, 0);
+    }
+
+    /**
+     * Calculate Paid Amount
+     */
+    static calculatePaid(invoices: Invoice[], targetCurrency: string): number {
+        return invoices
             .filter(inv => inv.status === 'paid')
             .reduce((sum, inv) => {
                 const amount = inv.total || 0;

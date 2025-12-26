@@ -19,7 +19,7 @@ interface DataContextType {
   financialStats: any;
   computeProjection: (months: number) => number[];
   computeRunway: () => number | null;
-  getFinancialSummary: (currency: string) => { revenue: number; pending: number; overdue: number };
+  getFinancialSummary: (currency: string) => { revenue: number; paid: number; pending: number; overdue: number };
   // CRUD operations
   addNote: (note: Omit<Note, 'id' | 'createdAt'>) => void;
   updateNote: (id: string, updates: Partial<Note>) => void;
@@ -265,6 +265,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // PhD Level Financial Summary
   const getFinancialSummary = (targetCurrency: string = 'USD') => {
     const revenue = FinancialEngine.calculateTotalRevenue(invoices, targetCurrency);
+    const paid = FinancialEngine.calculatePaid(invoices, targetCurrency);
 
     const pending = invoices
       .filter(i => i.status === 'sent')
@@ -274,7 +275,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .filter(i => i.status === 'overdue')
       .reduce((sum, i) => sum + FinancialEngine.convert(i.total, i.currency || 'USD', targetCurrency), 0);
 
-    return { revenue, pending, overdue };
+    return { revenue, paid, pending, overdue };
   };
 
   // CRUD implementations (refactored to use StorageService effect listeners would be overkill, so we construct syncs elsewhere or rely on simple effects? 

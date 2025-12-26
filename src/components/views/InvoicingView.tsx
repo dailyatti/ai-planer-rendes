@@ -2,9 +2,8 @@ import React, { useState, useMemo } from 'react';
 import {
     FileText, Users, Plus, X, Mail, Clock, Wallet, Building2, AlertCircle,
     Download, ChevronRight, PieChart, User, CheckCircle, Search,
-    TrendingUp, TrendingDown, Filter, Check, Send, Share2, MoreHorizontal,
-    Trash2, Upload, Settings, Repeat, RefreshCcw, ArrowUpRight,
-    ArrowDownRight, CheckSquare, Square, AlertTriangle, BarChart3
+    TrendingUp, Filter, Check, Send, Share2, MoreHorizontal,
+    Trash2, Upload, Settings, Repeat, RefreshCcw
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useData } from '../../contexts/DataContext';
@@ -183,13 +182,11 @@ const InvoicingView: React.FC = () => {
         const summary = getFinancialSummary('USD'); // Default to USD base
         const totalClients = clients.length;
 
-        // Total Revenue = sum of ALL invoices (not just paid)
-        const totalAllInvoices = invoices.reduce((sum, inv) => {
-            return sum + CurrencyService.convert(inv.total || 0, inv.currency || 'USD', 'USD');
-        }, 0);
+
 
         return {
-            totalRevenue: totalAllInvoices, // All invoices total
+            totalRevenue: summary.revenue, // Now implies Total Invoiced (Paid+Sent+Overdue)
+            paidAmount: summary.paid,     // New Paid Amount
             pendingAmount: summary.pending,
             overdueAmount: summary.overdue,
             totalClients
@@ -442,6 +439,15 @@ const InvoicingView: React.FC = () => {
                                 label: 'Számlák összege',
                                 value: formatCurrency(stats.totalRevenue, 'USD'),
                                 icon: Wallet,
+                                color: 'text-indigo-600',
+                                bg: 'bg-indigo-50 dark:bg-indigo-900/20',
+                                status: undefined // Total doesn't filter by status
+                            },
+                            {
+                                id: 'paid',
+                                label: 'Fizetve',
+                                value: formatCurrency(stats.paidAmount, 'USD'),
+                                icon: CheckCircle,
                                 color: 'text-emerald-600',
                                 bg: 'bg-emerald-50 dark:bg-emerald-900/20',
                                 status: 'paid' as const
