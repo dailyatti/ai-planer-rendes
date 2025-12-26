@@ -731,10 +731,10 @@ const InvoicingView: React.FC = () => {
                                 <button
                                     onClick={handleDeleteAll}
                                     className="btn-secondary flex items-center gap-2 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                    title="Összes törlése"
+                                    title={t('invoicing.deleteAll')}
                                 >
                                     <Trash2 size={16} />
-                                    <span className="hidden sm:inline">Összes törlése</span>
+                                    <span className="hidden sm:inline">{t('invoicing.deleteAll')}</span>
                                 </button>
                             )}
                             <button className="btn-secondary flex items-center gap-2">

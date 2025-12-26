@@ -81,7 +81,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onC
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between px-4 py-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Menu
+            {t('nav.menu')}
           </h2>
           <button
             onClick={onClose}
@@ -201,7 +201,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onC
               ContentPlanner Pro
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              v2.0 • PhD-Level Planning
+              v1.1.7 • {t('nav.tagline')}
             </p>
           </div>
         </div>

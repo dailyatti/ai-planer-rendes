@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
+
 export type Language = 'en' | 'hu' | 'ro' | 'sk' | 'hr' | 'de' | 'fr' | 'es' | 'it' | 'pl' | 'cn' | 'jp' | 'pt' | 'tr' | 'ar' | 'ru' | 'hi' | 'bn' | 'ur' | 'th' | 'id' | 'ko';
 
 // Map language to text direction
@@ -44,6 +45,8 @@ interface Translations {
 }
 
 const translations: Translations = {
+
+
   // Invoicing View
   'invoicing.title': {
     en: 'Invoicing & Clients', ko: 'Invoicing & Clients',
@@ -155,6 +158,7 @@ const translations: Translations = {
   'invoicing.issuerSeller': { en: 'Issuer (Seller)', hu: 'Kiállító (Eladó)', ro: 'Emitent (Vânzător)', sk: 'Vystaviteľ (Predávajúci)', hr: 'Izdavatelj (Prodavač)', de: 'Aussteller (Verkäufer)', fr: 'Émetteur (Vendeur)', es: 'Emisor (Vendedor)', it: 'Emittente (Venditore)', pl: 'Wystawca (Sprzedawca)', cn: '开票人（卖方）', jp: '発行者（販売者）', pt: 'Emissor (Vendedor)', tr: 'Düzenleyen (Satıcı)', ar: 'المصدر (البائع)', ru: 'Издатель (Продавец)', hi: 'जारीकर्ता (विक्रेता)', bn: 'ইস্যুকারী (বিক্রেতা)', ur: 'جاری کرنے والا (بیچنے والا)', th: 'ผู้ออก (ผู้ขาย)', id: 'Penerbit (Penjual)' },
   'invoicing.clientBuyer': { en: 'Client (Buyer)', hu: 'Vevő', ro: 'Client (Cumpărător)', sk: 'Odberateľ (Kupujúci)', hr: 'Klijent (Kupac)', de: 'Kunde (Käufer)', fr: 'Client (Acheteur)', es: 'Cliente (Comprador)', it: 'Cliente (Acquirente)', pl: 'Klient (Kupujący)', cn: '客户（买方）', jp: 'クライアント（購入者）', pt: 'Cliente (Comprador)', tr: 'Müşteri (Alıcı)', ar: 'العميل (المشتري)', ru: 'Клиент (Покупатель)', hi: 'ग्राहक (खरीदार)', bn: 'ক্লায়েন্ট (ক্রেতা)', ur: 'گاہک (خریدار)', th: 'ลูกค้า (ผู้ซื้อ)', id: 'Klien (Pembeli)' },
   'invoicing.detailsOf': { en: '{label} details', ko: '{label} details', hu: '{label} részletei', ro: 'Detalii {label}', sk: 'Podrobnosti {label}', hr: 'Detalji {label}', de: '{label} Details', fr: 'Détails de {label}', es: 'Detalles de {label}', it: 'Dettagli {label}', pl: 'Szczegóły {label}', cn: '{label} 详情', jp: '{label} の詳細', pt: 'Detalhes de {label}', tr: '{label} Detayları', ar: 'تفاصيل {label}', ru: 'Детали {label}', hi: '{label} विवरण', bn: '{label} বিস্তারিত', ur: '{label} تفصیلات', th: 'รายละเอียด {label}', id: 'Rincian {label}' },
+  'invoicing.deleteAll': { en: 'Delete All', hu: 'Összes törlése' },
 
   // Currency Converter
   'currency.converter': { en: 'Currency Converter', ko: 'Currency Converter', hu: 'Valutaváltó', ro: 'Convertor Valutar', sk: 'Prevodník Mien', hr: 'Konverter Valuta', de: 'Währungsrechner', fr: 'Convertisseur de Devises', es: 'Conversor de Moneda', it: 'Convertitore di Valuta', pl: 'Przelicznik Walut', cn: '货币转换器', jp: '通貨コンバーター', pt: 'Conversor de Moeda', tr: 'Para Birimi Dönüştürücü', ar: 'محول العملات', ru: 'Конвертер Валют', hi: 'मुद्रा परिवर्तक', bn: 'মুদ্রা রূপান্তরকারী', ur: 'کرنسی کنورٹر', th: 'เครื่องแปลงสกุลเงิน', id: 'Konverter Mata Uang' },
@@ -583,6 +587,8 @@ const translations: Translations = {
   'integrations.subtitle': { en: 'Connect your favorite tools and apps', ko: 'Connect your favorite tools and apps', hu: 'Csatlakoztasd kedvenc eszközeidet és alkalmazásaidat', ro: 'Conectați instrumentele și aplicațiile preferate', sk: 'Pripojte svoje obľúbené nástroje a aplikácie', hr: 'Connect tools', de: 'Tools verbinden', fr: 'Connecter des outils', es: 'Conectar herramientas', it: 'Collega strumenti', pl: 'Połącz narzędzia', cn: '连接工具', jp: 'ツールを接続', pt: 'Connect tools', tr: 'Araçları bağla', ar: 'ربط الأدوات', ru: 'Подключение инструментов', hi: 'उपकरण कनेक्ट करें', bn: 'Connect tools', ur: 'Connect tools', th: 'Connect tools', id: 'Connect tools' },
 
   // Navigation
+  'nav.menu': { en: 'Menu', hu: 'Menü' },
+  'nav.tagline': { en: 'PhD-Level Planning', hu: 'PhD Szintű Tervezés' },
   'nav.hourlyPlanning': { en: 'Hourly Planning', ko: 'Hourly Planning', hu: 'Órarend', ro: 'Planificare Orară', sk: 'Hodinové Plánovanie', hr: 'Satno Planiranje', de: 'Stundenplanung', fr: 'Planification Horaire', es: 'Planificación Horaria', it: 'Pianificazione Oraria', pl: 'Planowanie Godzinowe', cn: '每小时计划', jp: '時間ごとの計画', pt: 'Planejamento Horário', tr: 'Saatlik Planlama', ar: 'التخطيط الساعي', ru: 'Почасовое Планирование', hi: 'प्रति घंटा योजना', bn: 'ঘণ্টa পরিকল্পনা', ur: 'گھنٹہ وار منصوبہ بندی', th: 'การวางแผนรายชั่วโมง', id: 'Perencanaan Per Jam' },
   'nav.dailyPlanning': { en: 'Daily Planning', ko: 'Daily Planning', hu: 'Napi Terv', ro: 'Planificare Zilnică', sk: 'Denné Plánovanie', hr: 'Dnevno Planiranje', de: 'Tagesplanung', fr: 'Planification Quotidienne', es: 'Planificación Diaria', it: 'Pianificazione Giornaliera', pl: 'Planowanie Dzienne', cn: '每日计划', jp: '日次計画', pt: 'Planejamento Diário', tr: 'Günlük Planlama', ar: 'التخطيط اليومي', ru: 'Ежедневное Планирование', hi: 'दैनिक योजना', bn: 'দৈnik পরিকল্পনা', ur: 'روزانہ منصوبہ بندی', th: 'การวางแผนรายวัน', id: 'Perencanaan Harian' },
   'nav.weeklyPlanning': { en: 'Weekly Planning', ko: 'Weekly Planning', hu: 'Heti Terv', ro: 'Planificare Săptămânală', sk: 'Týždenné Plánovanie', hr: 'Tjedno Planiranje', de: 'Wochenplanung', fr: 'Planification Hebdomadaire', es: 'Planificación Semanal', it: 'Pianificazione Settimanale', pl: 'Planowanie Tygodniowe', cn: '每周计划', jp: '週次計画', pt: 'Planejamento Semanal', tr: 'Haftalık Planlama', ar: 'التخطيط الأسبوعي', ru: 'Еженедельное Планирование', hi: 'साप्ताहिक योजना', bn: 'সাপ্তাহিক পরিকল্পনা', ur: 'ہفتہ وار منصوبہ بندی', th: 'การวางแผนรายสัปดาห์', id: 'Perencanaan Mingguan' },
@@ -608,6 +614,59 @@ const translations: Translations = {
   'settings.appearance': { en: 'Appearance', ko: 'Appearance', hu: 'Megjelenés', ro: 'Aspect', sk: 'Vzhľad', hr: 'Izgled', de: 'Erscheinungsbild', fr: 'Apparence', es: 'Apariencia', it: 'Aspetto', pl: 'Wygląd', cn: '外观', jp: '外観', pt: 'Aparência', tr: 'Görünüm', ar: 'المظهر', ru: 'Внешний Вид', hi: 'दिखावट', bn: 'চেহারা', ur: 'ظاہری شکل', th: 'ลักษณะ', id: 'Penampilan' },
   'settings.dataPrivacy': { en: 'Data & Privacy', ko: 'Data & Privacy', hu: 'Adatvédelem', ro: 'Date și Confidențialitate', sk: 'Údaje a Súkromie', hr: 'Podaci i Privatnost', de: 'Daten & Datenschutz', fr: 'Données et Confidentialité', es: 'Datos y Privacidad', it: 'Dati e Privacy', pl: 'Dane i Prywatność', cn: '数据与隐私', jp: 'データとプライバシー', pt: 'Dados e Privacidade', tr: 'Veri ve Gizlilik', ar: 'البيانات والخصوصية', ru: 'Данные и Конфиденциальность', hi: 'डेटा और गोपनीयता', bn: 'ডেটা এবং গোপনীয়তা', ur: 'ڈیٹا اور پرائیویسی', th: 'ข้อมูลและความเป็นส่วนตัว', id: 'Data & Privasi' },
   'settings.autoSave': { en: 'Auto Save', ko: 'Auto Save', hu: 'Auto-Mentés', ro: 'Salvare Automată', sk: 'Automatické Ukladanie', hr: 'Automatsko Spremanje', de: 'Automatisches Speichern', fr: 'Enregistrement Automatique', es: 'Guardado Automático', it: 'Salvataggio Automatico', pl: 'Autozapis', cn: '自动保存', jp: '自動保存', pt: 'Salvamento Automático', tr: 'Otomatik Kaydetme', ar: 'الحفظ التلقائي', ru: 'Автосохранение', hi: 'स्वतः सहेजें', bn: 'স্বয়ংক্রিয় সংরক্ষণ', ur: 'خودکار محفوظ', th: 'บันทึกอัตโนมัติ', id: 'Simpan Otomatis' },
+
+  // Detailed Settings
+  'settings.dateFormatUS': { en: 'MM/DD/YYYY (US)', hu: 'HH/NN/ÉÉÉÉ (US)' },
+  'settings.dateFormatEU': { en: 'DD/MM/YYYY (EU)', hu: 'NN/HH/ÉÉÉÉ (EU)' },
+  'settings.dateFormatISO': { en: 'YYYY-MM-DD (ISO)', hu: 'ÉÉÉÉ-HH-NN (ISO)' },
+  'settings.autoSaveDesc': { en: 'Automatically save changes as you work', hu: 'Változások automatikus mentése munka közben' },
+  'settings.monthlyBudget': { en: 'Monthly Budget Target', hu: 'Havi Költségvetési Cél' },
+  'settings.defaultCurrency': { en: 'Default Currency', hu: 'Alapértelmezett Pénznem' },
+  'settings.warningThreshold': { en: 'Warning Threshold', hu: 'Figyelmeztetési Küszöb' },
+  'settings.budgetNotifications': { en: 'Budget Alerts', hu: 'Költségvetési Értesítések' },
+  'settings.budgetNotificationsDesc': { en: 'Get notified when you approach limits', hu: 'Értesítés a limitek megközelítésekor' },
+  'settings.exchangeRates': { en: 'Exchange Rates', hu: 'Árfolyamok' },
+  'settings.fetching': { en: 'Fetching...', hu: 'Lekérés...' },
+  'settings.fetchRatesAI': { en: 'AI Exchange Rates', hu: 'AI Árfolyam Lekérés' },
+  'settings.baseCurrencyDesc': { en: 'Base currency: {currency}. Enter value of 1 unit in {currency}.', hu: 'Alap pénznem: {currency}. Adj meg, 1 egység mennyit ér {currency}-ben.' },
+  'settings.saveBudgetSettings': { en: 'Save Budget Settings', hu: 'Költségvetési Beállítások Mentése' },
+  'settings.theme': { en: 'Theme', hu: 'Téma' },
+  'settings.lightTheme': { en: 'Light Mode', hu: 'Világos Mód' },
+  'settings.lightThemeDesc': { en: 'Best for bright environments', hu: 'Ideális világos környezetben' },
+  'settings.darkTheme': { en: 'Dark Mode', hu: 'Sötét Mód' },
+  'settings.darkThemeDesc': { en: 'Easy on the eyes at night', hu: 'Kíméli a szemet éjszaka' },
+  'settings.sidebarPosition': { en: 'Sidebar Position', hu: 'Oldalsáv Pozíciója' },
+  'settings.leftSide': { en: 'Left Side', hu: 'Bal Oldal' },
+  'settings.rightSide': { en: 'Right Side', hu: 'Jobb Oldal' },
+  'settings.compactMode': { en: 'Compact Mode', hu: 'Kompakt Mód' },
+  'settings.compactModeDesc': { en: 'Show more content on screen', hu: 'Több tartalom megjelenítése a képernyőn' },
+  'settings.animations': { en: 'Animations', hu: 'Animációk' },
+  'settings.animationsDesc': { en: 'Enable smooth transitions', hu: 'Finom áttűnések engedélyezése' },
+  'settings.notificationSettings': { en: 'Notification Preferences', hu: 'Értesítési Beállítások' },
+  'settings.taskReminders': { en: 'Task Reminders', hu: 'Feladat Emlékeztetők' },
+  'settings.taskRemindersDesc': { en: 'Get reminded about upcoming tasks', hu: 'Emlékeztető a közelgő feladatokról' },
+  'settings.goalMilestones': { en: 'Goal Milestones', hu: 'Cél Mérföldkövek' },
+  'settings.goalMilestonesDesc': { en: 'Updates on your goal progress', hu: 'Frissítések a célok előrehaladásáról' },
+  'settings.subscriptionPayments': { en: 'Subscription Payments', hu: 'Előfizetési Fizetések' },
+  'settings.subscriptionPaymentsDesc': { en: 'Alerts for upcoming bills', hu: 'Értesítés a közelgő számlákról' },
+  'settings.weeklySummary': { en: 'Weekly Summary', hu: 'Heti Összefoglaló' },
+  'settings.weeklySummaryDesc': { en: 'Get a summary of your week', hu: 'Heti tevékenység összefoglalása' },
+  'settings.notificationTime': { en: 'Daily Notification Time', hu: 'Napi Értesítés Ideje' },
+  'settings.privacyMatters': { en: 'Your Privacy Matters', hu: 'Az Ön adatvédelme fontos' },
+  'settings.privacyDesc': { en: 'We do not sell your personal data. All sensitive financial information is stored locally on your device.', hu: 'Nem adjuk el személyes adatait. Minden érzékeny pénzügyi információ helyileg, az Ön készülékén tárolódik.' },
+  'settings.analytics': { en: 'Usage Analytics', hu: 'Használati Statisztika' },
+  'settings.analyticsDesc': { en: 'Help us improve by sending anonymous usage data', hu: 'Segítsen fejleszteni névtelen használati adatok küldésével' },
+  'settings.crashReports': { en: 'Crash Reports', hu: 'Hibajelentések' },
+  'settings.crashReportsDesc': { en: 'Automatically send error reports', hu: 'Hibajelentések automatikus küldése' },
+  'settings.dataManagement': { en: 'Data Management', hu: 'Adatkezelés' },
+  'settings.exportAllData': { en: 'Export All Data (JSON)', hu: 'Minden Adat Exportálása (JSON)' },
+  'settings.importData': { en: 'Import Data', hu: 'Adatok Importálása' },
+  'settings.importConfirm': { en: 'Are you sure? This will overwrite all existing data!', hu: 'Biztos benne? Ez felülírja az összes meglévő adatot!' },
+  'settings.exportFailed': { en: 'Export failed!', hu: 'Az exportálás sikertelen!' },
+  'settings.importFailed': { en: 'Import failed!', hu: 'Az importálás sikertelen!' },
+  'settings.dangerZone': { en: 'Danger Zone', hu: 'Veszélyzóna' },
+  'settings.dangerZoneDesc': { en: 'Irreversible actions', hu: 'Visszafordíthatatlan műveletek' },
+  'settings.clearAllData': { en: 'Clear All Data', hu: 'Minden Adat Törlése' },
 
   // Language Names
   'lang.english': { en: 'English', hu: 'Angol', pt: 'Inglês', tr: 'İngilizce', ar: 'إنجليزي', ru: 'Английский', hi: 'अंग्रेज़ी', bn: 'ইংরেজি', ur: 'انگریزی', th: 'อังกฤษ', id: 'Inggris', ro: 'Engleză', sk: 'Angličtina', hr: 'Engleski', de: 'Englisch', fr: 'Anglais', es: 'Inglés', it: 'Inglese', pl: 'Angielski', cn: '英语', jp: '英語' },
@@ -656,18 +715,7 @@ const translations: Translations = {
 
   // Settings
   'settings.timeZone': { en: 'Time Zone', ko: 'Time Zone', hu: 'Időzóna', ro: 'Fus Orar', sk: 'Časové Pásmo', hr: 'Time Zone', de: 'Zeitzone', fr: 'Fuseau horaire', es: 'Zona horaria', it: 'Fuso orario', pl: 'Strefa czasowa', cn: '时区', jp: 'タイムゾーン', pt: 'Time Zone', tr: 'Saat Dilimi', ar: 'المنطقة الزمنية', ru: 'Часовой пояс', hi: 'समय क्षेत्र', bn: 'Time Zone', ur: 'Time Zone', th: 'Time Zone', id: 'Time Zone' },
-  'settings.exportFailed': {
-    en: 'Export failed',
-    hu: 'Az exportálás sikertelen'
-  },
-  'settings.importConfirm': {
-    en: 'Are you sure? This will overwrite all existing data!',
-    hu: 'Biztos vagy benne? Ez felülír minden meglévő adatot!'
-  },
-  'settings.importFailed': {
-    en: 'Import failed: ',
-    hu: 'Az importálás sikertelen: '
-  },
+
   'settings.dateFormat': { en: 'Date Format', ko: 'Date Format', hu: 'Dátum Formátum', ro: 'Format Dată', sk: 'Formát Dátumu', hr: 'Date Format', de: 'Datumsformat', fr: 'Format de date', es: 'Formato de fecha', it: 'Formato data', pl: 'Format daty', cn: '日期格式', jp: '日付形式', pt: 'Date Format', tr: 'Tarih Formatı', ar: 'تنسيق التاريخ', ru: 'Формат даты', hi: 'दिनांक प्रारूप', bn: 'Date Format', ur: 'Date Format', th: 'Date Format', id: 'Date Format' },
   'lang.urdu': { en: 'Urdu', ko: 'Urdu', hu: 'Urdu', pt: 'Urdu', tr: 'Urduca', ar: 'أردي', ru: 'Урду', hi: 'उर्दू', bn: 'উর্দু', ur: 'اردو', th: 'อูรดู', id: 'Urdu', ro: 'Urdu', sk: 'Urdčina', hr: 'Urdu', de: 'Urdu', fr: 'Urdu', es: 'Urdu', it: 'Urdu', pl: 'Urdu', cn: '乌尔都语', jp: 'ウルドゥー語' },
   'lang.thai': { en: 'Thai', ko: 'Thai', hu: 'Thai', pt: 'Tailandês', tr: 'Tayca', ar: 'تايلاندي', ru: 'Тайский', hi: 'थाई', bn: 'থাই', ur: 'تھائی', th: 'ไทย', id: 'Thailand', ro: 'Thailandeză', sk: 'Thajčina', hr: 'Tajlandski', de: 'Thailändisch', fr: 'Thaï', es: 'Tailandés', it: 'Tailandese', pl: 'Tajski', cn: '泰语', jp: 'タイ語' },

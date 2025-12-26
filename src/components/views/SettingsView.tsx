@@ -218,7 +218,7 @@ const SettingsView: React.FC = () => {
             {activeSection === 'budget' && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Budget Settings</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">{t('settings.budget')}</h3>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -291,7 +291,7 @@ const SettingsView: React.FC = () => {
                 <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                      💱 {t('settings.exchangeRates') || 'Árfolyamok'}
+                      💱 {t('settings.exchangeRates')}
                     </h4>
                     {AIService.isConfigured() && (
                       <button
@@ -309,9 +309,9 @@ const SettingsView: React.FC = () => {
                         className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50"
                       >
                         {isFetchingRates ? (
-                          <><span className="animate-spin">⏳</span> Lekérés...</>
+                          <><span className="animate-spin">⏳</span> {t('settings.fetching')}</>
                         ) : (
-                          <><span>🤖</span> AI Árfolyam Lekérés</>
+                          <><span>🤖</span> {t('settings.fetchRatesAI')}</>
                         )}
                       </button>
                     )}
@@ -324,7 +324,7 @@ const SettingsView: React.FC = () => {
                   )}
 
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    Alap pénznem: <strong>{tempSettings.currency}</strong>. Adj meg, 1 egység mennyit ér {tempSettings.currency}-ben.
+                    {t('settings.baseCurrencyDesc').split('{currency}').join(tempSettings.currency)}
                   </p>
 
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -364,7 +364,7 @@ const SettingsView: React.FC = () => {
             {activeSection === 'appearance' && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Appearance Settings</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">{t('settings.appearance')}</h3>
                 </div>
 
                 <div>
@@ -509,7 +509,7 @@ const SettingsView: React.FC = () => {
             {activeSection === 'data' && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Data & Privacy</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">{t('settings.dataPrivacy')}</h3>
                 </div>
 
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
