@@ -973,7 +973,7 @@ const InvoicingView: React.FC = () => {
                                                 }));
                                             }
                                         }}
-                                        className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer"
+                                        className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer"
                                     >
                                         <option value="">{t('invoicing.selectPlaceholder')}</option>
                                         {companyProfiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
