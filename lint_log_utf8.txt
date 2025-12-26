@@ -1,0 +1,153 @@
+﻿
+> contentplanner-pro@1.0.55 lint
+> eslint .
+
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\App.tsx
+  22:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\MainContent.tsx
+  23:64  error  'sidebarOpen' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\VoiceAssistant.tsx
+   17:11  error    Unexpected any. Specify a different type                                                                                             @typescript-eslint/no-explicit-any
+   37:35  error    Unexpected any. Specify a different type                                                                                             @typescript-eslint/no-explicit-any
+   43:50  error    Unexpected any. Specify a different type                                                                                             @typescript-eslint/no-explicit-any
+   43:87  error    Unexpected any. Specify a different type                                                                                             @typescript-eslint/no-explicit-any
+   49:55  error    Unexpected any. Specify a different type                                                                                             @typescript-eslint/no-explicit-any
+   51:35  error    Unexpected any. Specify a different type                                                                                             @typescript-eslint/no-explicit-any
+   64:54  error    Unexpected any. Specify a different type                                                                                             @typescript-eslint/no-explicit-any
+   70:8   warning  React Hook useEffect has missing dependencies: 'handleCommand' and 'transcript'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+   92:40  error    Unexpected any. Specify a different type                                                                                             @typescript-eslint/no-explicit-any
+  159:25  error    'amount' is never reassigned. Use 'const' instead                                                                                    prefer-const
+  178:25  error    'amount' is never reassigned. Use 'const' instead                                                                                    prefer-const
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\common\ImportExportModal.tsx
+   27:9   error  'data' is never reassigned. Use 'const' instead  prefer-const
+   27:15  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  113:36  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  128:36  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  144:36  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  163:42  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  176:52  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  195:50  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  225:14  error  'error' is defined but never used                @typescript-eslint/no-unused-vars
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\BudgetView.tsx
+   68:6    warning  React Hook React.useEffect has a missing dependency: 'newTransaction.currency'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  112:6    warning  React Hook useMemo has missing dependencies: 'formatMoney' and 't'. Either include them or remove the dependency array            react-hooks/exhaustive-deps
+  181:28   error    Unexpected any. Specify a different type                                                                                          @typescript-eslint/no-explicit-any
+  183:29   error    Unexpected any. Specify a different type                                                                                          @typescript-eslint/no-explicit-any
+  252:9    error    'transactionDate' is never reassigned. Use 'const' instead                                                                        prefer-const
+  596:47   error    Unexpected any. Specify a different type                                                                                          @typescript-eslint/no-explicit-any
+  720:38   error    Unexpected any. Specify a different type                                                                                          @typescript-eslint/no-explicit-any
+  756:149  error    Unexpected any. Specify a different type                                                                                          @typescript-eslint/no-explicit-any
+  756:204  error    Unexpected any. Specify a different type                                                                                          @typescript-eslint/no-explicit-any
+  757:41   error    Unexpected any. Specify a different type                                                                                          @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\DailyView.tsx
+    2:62  error  'Clock' is defined but never used         @typescript-eslint/no-unused-vars
+  164:89  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\DrawingView.tsx
+   14:6    error    'ToolbarItem' is defined but never used                                                                                 @typescript-eslint/no-unused-vars
+   20:6    error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+   23:18   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  159:9    error    Unexpected lexical declaration in case block                                                                            no-case-declarations
+  253:6    warning  React Hook useCallback has a missing dependency: 'handleImageUpload'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  291:51   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  291:153  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  294:53   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  294:75   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  297:55   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  297:90   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  300:68   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  300:154  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  341:76   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\GoalsView.tsx
+  261:89  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\HourlyView.tsx
+  191:89  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\IntegrationsView.tsx
+    8:12  error  'AlertTriangle' is defined but never used              @typescript-eslint/no-unused-vars
+  116:18  error  'error' is defined but never used                      @typescript-eslint/no-unused-vars
+  136:11  error  'handleDisconnect' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\InvoicingView.tsx
+  174:8   warning  React Hook useMemo has an unnecessary dependency: 'invoices'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+  275:11  error    'handleRemoveItem' is assigned a value but never used                                                           @typescript-eslint/no-unused-vars
+  494:63  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\MonthlyView.tsx
+  2:52  error  'Pencil' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\PomodoroView.tsx
+   62:6   warning  React Hook useEffect has a missing dependency: 'handleTimerComplete'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  104:65  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\SettingsView.tsx
+    2:74  error  'User' is defined but never used                     @typescript-eslint/no-unused-vars
+   15:37  error  'resetSettings' is assigned a value but never used   @typescript-eslint/no-unused-vars
+   15:52  error  'exportSettings' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   15:68  error  'importSettings' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   47:9   error  'themes' is assigned a value but never used          @typescript-eslint/no-unused-vars
+   83:67  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  133:85  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  162:89  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  175:89  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  188:89  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\StatisticsView.tsx
+  115:61  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\WeeklyView.tsx
+  216:89  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\YearlyView.tsx
+  2:10  error  'Plus' is defined but never used        @typescript-eslint/no-unused-vars
+  8:11  error  't' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\contexts\DataContext.tsx
+   19:19  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+   56:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   81:56  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  186:13  error    'nextDate' is never reassigned. Use 'const' instead                                                                             prefer-const
+  188:13  error    'modifiedMaster' is never reassigned. Use 'const' instead                                                                       prefer-const
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\contexts\LanguageContext.tsx
+   15:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  735:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\contexts\SettingsContext.tsx
+  67:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\contexts\ThemeContext.tsx
+  10:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\hooks\useLocalStorage.ts
+  1:20  error  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\services\AIService.ts
+   30:11  error  'VoiceSessionOptions' is defined but never used  @typescript-eslint/no-unused-vars
+  199:25  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  214:19  error  'result' is assigned a value but never used      @typescript-eslint/no-unused-vars
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\services\CurrencyService.ts
+  190:18  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\types\planner.ts
+  158:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\utils\FinancialEngine.ts
+  183:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  201:89  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\utils\InvoiceCalculator.ts
+  54:18  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+Ôťľ 91 problems (80 errors, 11 warnings)
+  6 errors and 0 warnings potentially fixable with the `--fix` option.
+

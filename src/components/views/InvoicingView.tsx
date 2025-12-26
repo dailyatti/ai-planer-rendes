@@ -491,7 +491,7 @@ const InvoicingView: React.FC = () => {
                 ].map((tab) => (
                     <button
                         key={tab.id}
-                        onClick={() => setActiveTab(tab.id as any)}
+                        onClick={() => setActiveTab(tab.id as 'dashboard' | 'invoices' | 'clients' | 'analytics')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${activeTab === tab.id
                             ? 'bg-white dark:bg-gray-800 text-primary-600 shadow-sm'
                             : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
@@ -998,14 +998,14 @@ const InvoicingView: React.FC = () => {
                                     <div className="flex items-center justify-between">
                                         <h3 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2">
                                             <User size={16} />
-                                            VEVŐ
+                                            {t('invoicing.client')}
                                         </h3>
                                         <button onClick={() => setShowAddClient(true)} className="text-xs text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 flex items-center gap-1 hover:underline">
-                                            <Plus size={14} /> + Új
+                                            <Plus size={14} /> + {t('invoicing.new')}
                                         </button>
                                     </div>
                                     <select className="input-field w-full bg-white dark:bg-gray-800" value={newInvoice.clientId || ''} onChange={(e) => setNewInvoice({ ...newInvoice, clientId: e.target.value })}>
-                                        <option value="">Válassz...</option>
+                                        <option value="">{t('invoicing.selectPlaceholder')}</option>
                                         {clients.map(c => <option key={c.id} value={c.id}>{c.name} - {c.company}</option>)}
                                     </select>
                                     {newInvoice.clientId && (() => {
@@ -1169,7 +1169,7 @@ const InvoicingView: React.FC = () => {
                                                     {formatCurrency(item.amount, newInvoice.currency || 'USD')}
                                                 </td>
                                                 <td className="py-4 text-right">
-                                                    <button className="text-gray-300 hover:text-red-500 transition-colors p-1">
+                                                    <button onClick={() => handleRemoveItem(index)} className="text-gray-300 hover:text-red-500 transition-colors p-1">
                                                         <Trash2 size={18} />
                                                     </button>
                                                 </td>
