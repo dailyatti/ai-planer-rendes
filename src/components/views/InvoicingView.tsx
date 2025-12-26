@@ -67,7 +67,16 @@ const InvoicingView: React.FC = () => {
     const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
     const [selectedStat, setSelectedStat] = useState<{ title: string; breakdown: Record<string, number>; rect: DOMRect } | null>(null);
 
-    // Selection state
+    // Close popover when clicking outside
+    React.useEffect(() => {
+        const handleClickOutside = () => setSelectedStat(null);
+        if (selectedStat) {
+            document.addEventListener('click', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, [selectedStat]);
     const [selectedInvoices, setSelectedInvoices] = useState<Set<string>>(new Set());
 
     // New Invoice State
@@ -441,10 +450,10 @@ const InvoicingView: React.FC = () => {
                     <button
                         onClick={() => setShowConverter(true)}
                         className="btn-secondary flex items-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
-                        title="Valutaváltó"
+                        title={t('currency.converter') || 'Valutaváltó'}
                     >
                         <RefreshCcw size={18} />
-                        <span className="hidden sm:inline">Valutaváltó</span>
+                        <span className="hidden sm:inline">{t('currency.converter')}</span>
                     </button>
                     <button onClick={() => setShowAddClient(true)} className="btn-secondary flex items-center gap-2 px-4 py-2.5">
                         <Users size={18} />
@@ -553,7 +562,7 @@ const InvoicingView: React.FC = () => {
                                 {/* Exchange rate hint */}
                                 {Object.keys(CurrencyService.getAllRates()).length > 1 && (
                                     <div className="absolute bottom-2 right-4 text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        Részletekhez kattints
+                                        {t('common.details') || 'Részletek'}
                                     </div>
                                 )}
                             </button>
@@ -585,7 +594,7 @@ const InvoicingView: React.FC = () => {
                             onClick={(e) => e.stopPropagation()}
                         >
                             <h4 className="font-bold text-gray-900 dark:text-white mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
-                                {selectedStat.title} részletei
+                                {t('invoicing.detailsOf')?.replace('{label}', selectedStat.title) || `${selectedStat.title} részletei`}
                             </h4>
                             <div className="space-y-2">
                                 {Object.entries(selectedStat.breakdown).map(([currency, amount]) => (
@@ -599,7 +608,7 @@ const InvoicingView: React.FC = () => {
                                     </div>
                                 ))}
                                 {Object.keys(selectedStat.breakdown).length === 0 && (
-                                    <div className="text-gray-400 text-sm italic text-center py-2">Nincs összeg</div>
+                                    <div className="text-gray-400 text-sm italic text-center py-2">{t('common.noData') || 'Nincs adat'}</div>
                                 )}
                             </div>
                             <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700 text-xs text-center text-gray-400">
@@ -1611,7 +1620,7 @@ const InvoicingView: React.FC = () => {
                             <div className="flex justify-between items-center">
                                 <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                     <RefreshCcw size={20} className="text-blue-500" />
-                                    Valutaváltó
+                                    {t('currency.converter')}
                                 </h3>
                                 <button
                                     onClick={() => setShowConverter(false)}
@@ -1624,7 +1633,7 @@ const InvoicingView: React.FC = () => {
 
                         <div className="p-6 space-y-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Összeg</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('currency.amount')}</label>
                                 <input
                                     type="number"
                                     value={convAmount}
@@ -1636,7 +1645,7 @@ const InvoicingView: React.FC = () => {
 
                             <div className="grid grid-cols-2 gap-4 items-center">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ebből</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('currency.from')}</label>
                                     <select
                                         value={convFrom}
                                         onChange={(e) => setConvFrom(e.target.value)}
@@ -1662,7 +1671,7 @@ const InvoicingView: React.FC = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ebbe</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('currency.to')}</label>
                                     <select
                                         value={convTo}
                                         onChange={(e) => setConvTo(e.target.value)}
@@ -1676,7 +1685,7 @@ const InvoicingView: React.FC = () => {
                             </div>
 
                             <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-3xl text-white shadow-xl shadow-blue-500/20">
-                                <div className="text-sm opacity-80 mb-1">Eredmény ({convTo}):</div>
+                                <div className="text-sm opacity-80 mb-1">{t('currency.result')} ({convTo}):</div>
                                 <div className="text-3xl font-black">
                                     {new Intl.NumberFormat('en-US', {
                                         style: 'currency',

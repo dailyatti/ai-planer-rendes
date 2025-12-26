@@ -337,12 +337,14 @@ ROLE: SYSTEM ADMIN | UNLIMITED AUTHORITY.
 
     if (!isOpen) {
         return (
-            <button
-                onClick={toggleOpen}
-                className="fixed bottom-6 right-6 p-4 bg-gradient-to-r from-primary-600 to-indigo-600 text-white rounded-full shadow-lg hover:scale-105 transition-all z-50 animate-bounce-subtle"
-            >
-                <Mic size={24} />
-            </button>
+            <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4 print:hidden">
+                <button
+                    onClick={toggleOpen}
+                    className="p-4 bg-gradient-to-r from-primary-600 to-indigo-600 text-white rounded-full shadow-lg hover:scale-105 transition-all animate-bounce-subtle"
+                >
+                    <Mic size={24} />
+                </button>
+            </div>
         );
     }
 
