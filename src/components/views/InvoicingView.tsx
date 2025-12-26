@@ -312,14 +312,14 @@ const InvoicingView: React.FC = () => {
     };
 
     const handleBulkDelete = () => {
-        if (window.confirm(t('invoicing.confirmBulkDelete') || `Biztosan törölni szeretnéd a kijelölt ${selectedInvoices.size} számlát?`)) {
+        if (window.confirm(t('invoicing.confirmBulkDelete'))) {
             selectedInvoices.forEach(id => deleteInvoice(id));
             setSelectedInvoices(new Set());
         }
     };
 
     const handleDeleteAll = () => {
-        if (window.confirm(t('invoicing.confirmDeleteAll') || 'Biztosan törölni szeretnéd AZ ÖSSZES számlát? Ez a művelet nem visszavonható!')) {
+        if (window.confirm(t('invoicing.confirmDeleteAll'))) {
             invoices.forEach(i => deleteInvoice(i.id));
             setSelectedInvoices(new Set());
         }
@@ -365,7 +365,7 @@ const InvoicingView: React.FC = () => {
             setShowCreateInvoice(false);
             showToast(t('invoicing.invoiceSaved'));
         } else {
-            alert(t('invoicing.fillRequired') || 'Kérjük töltsön ki minden kötelező mezőt (Ügyfél, Tételek)!');
+            alert(t('invoicing.fillRequired'));
         }
     };
 
@@ -418,7 +418,7 @@ const InvoicingView: React.FC = () => {
     const handleShare = (invoice: Invoice) => {
         // In a real app, this would be a public link. For now, we simulate copy link.
         navigator.clipboard.writeText(`${invoice.invoiceNumber}`); // Copy Invoice Number
-        showToast(t('invoicing.linkCopied') || 'Link másolva!');
+        showToast(t('invoicing.linkCopied'));
     };
 
     const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -450,7 +450,7 @@ const InvoicingView: React.FC = () => {
                     <button
                         onClick={() => setShowConverter(true)}
                         className="btn-secondary flex items-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
-                        title={t('currency.converter') || 'Valutaváltó'}
+                        title={t('currency.converter')}
                     >
                         <RefreshCcw size={18} />
                         <span className="hidden sm:inline">{t('currency.converter')}</span>
@@ -487,7 +487,7 @@ const InvoicingView: React.FC = () => {
                     { id: 'dashboard', label: t('invoicing.dashboard'), icon: PieChart },
                     { id: 'invoices', label: t('invoicing.invoices'), icon: FileText },
                     { id: 'clients', label: t('invoicing.clients'), icon: Users },
-                    { id: 'analytics', label: t('invoicing.analytics') || 'Előrejelzés', icon: TrendingUp },
+                    { id: 'analytics', label: t('invoicing.analytics'), icon: TrendingUp },
                 ].map((tab) => (
                     <button
                         key={tab.id}
@@ -562,7 +562,7 @@ const InvoicingView: React.FC = () => {
                                 {/* Exchange rate hint */}
                                 {Object.keys(CurrencyService.getAllRates()).length > 1 && (
                                     <div className="absolute bottom-2 right-4 text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        {t('common.details') || 'Részletek'}
+                                        {t('common.details')}
                                     </div>
                                 )}
                             </button>
@@ -608,7 +608,7 @@ const InvoicingView: React.FC = () => {
                                     </div>
                                 ))}
                                 {Object.keys(selectedStat.breakdown).length === 0 && (
-                                    <div className="text-gray-400 text-sm italic text-center py-2">{t('common.noData') || 'Nincs adat'}</div>
+                                    <div className="text-gray-400 text-sm italic text-center py-2">{t('common.noData')}</div>
                                 )}
                             </div>
                             <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700 text-xs text-center text-gray-400">
@@ -655,12 +655,12 @@ const InvoicingView: React.FC = () => {
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    if (window.confirm(t('invoicing.confirmDelete') || 'Biztosan törölni szeretnéd ezt a számlát?')) {
+                                                    if (window.confirm(t('invoicing.confirmDelete'))) {
                                                         deleteInvoice(invoice.id);
                                                     }
                                                 }}
                                                 className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                                                title={t('common.delete') || 'Törlés'}
+                                                title={t('common.delete')}
                                             >
                                                 <Trash2 size={18} />
                                             </button>
@@ -695,7 +695,7 @@ const InvoicingView: React.FC = () => {
                                     className="btn-danger flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-lg transition-all animate-in fade-in"
                                 >
                                     <Trash2 size={16} />
-                                    <span>Kijelöltek törlése ({selectedInvoices.size})</span>
+                                    <span>{t('invoicing.deleteSelected')} ({selectedInvoices.size})</span>
                                 </button>
                             )}
                             {invoices.length > 0 && (
@@ -766,7 +766,7 @@ const InvoicingView: React.FC = () => {
                                                     <button
                                                         onClick={() => handleStatusChange(invoice.id, 'paid')}
                                                         className="p-1.5 text-emerald-500 hover:text-white hover:bg-emerald-500 rounded-lg transition-all"
-                                                        title={t('invoicing.markAsPaid') || 'Kifizetve jelölés'}
+                                                        title={t('invoicing.markAsPaid')}
                                                     >
                                                         <Check size={16} />
                                                     </button>
@@ -775,7 +775,7 @@ const InvoicingView: React.FC = () => {
                                                     <button
                                                         onClick={() => handleStatusChange(invoice.id, 'sent')}
                                                         className="p-1.5 text-blue-500 hover:text-white hover:bg-blue-500 rounded-lg transition-all"
-                                                        title={t('invoicing.markAsSent') || 'Elküldve jelölés'}
+                                                        title={t('invoicing.markAsSent')}
                                                     >
                                                         <Send size={16} />
                                                     </button>
@@ -784,12 +784,12 @@ const InvoicingView: React.FC = () => {
                                                 <button onClick={() => handleShare(invoice)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title={t('invoicing.share')}><Share2 size={16} /></button>
                                                 <button
                                                     onClick={() => {
-                                                        if (window.confirm(t('invoicing.confirmDelete') || 'Biztosan törölni szeretnéd ezt a számlát?')) {
+                                                        if (window.confirm(t('invoicing.confirmDelete'))) {
                                                             deleteInvoice(invoice.id);
                                                         }
                                                     }}
                                                     className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                    title={t('common.delete') || 'Törlés'}
+                                                    title={t('common.delete')}
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>
@@ -848,7 +848,7 @@ const InvoicingView: React.FC = () => {
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                 <TrendingUp className="text-primary-600" />
-                                {t('invoicing.revenueForcast') || 'Bevétel Előrejelzés'}
+                                {t('invoicing.revenueForcast')}
                             </h3>
                             <span className="text-sm text-gray-500">
                                 Lineáris regresszió alapú előrejelzés
@@ -948,17 +948,34 @@ const InvoicingView: React.FC = () => {
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                                 {/* Company Profile (Kiállító) */}
                                 <div className="space-y-4 p-5 rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-100 dark:border-indigo-800/50">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-sm font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
-                                            <Building2 size={16} />
-                                            KIÁLLÍTÓ
-                                        </h3>
-                                        <button onClick={() => setShowAddCompanyProfile(true)} className="text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 flex items-center gap-1 hover:underline">
-                                            <Plus size={14} /> + Új
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                                            <Building2 className="w-3.5 h-3.5" />
+                                            {t('invoicing.issuer')}
+                                        </label>
+                                        <button
+                                            onClick={() => setShowAddCompanyProfile(true)}
+                                            className="text-[10px] font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded transition-colors"
+                                        >
+                                            + {t('invoicing.new')}
                                         </button>
                                     </div>
-                                    <select className="input-field w-full bg-white dark:bg-gray-800" value={selectedCompanyId} onChange={(e) => setSelectedCompanyId(e.target.value)}>
-                                        <option value="">Válassz...</option>
+                                    <select
+                                        value={selectedCompanyId}
+                                        onChange={(e) => {
+                                            const profile = companyProfiles.find(p => p.id === e.target.value);
+                                            if (profile) {
+                                                setSelectedCompanyId(profile.id);
+                                                setNewInvoice(prev => ({
+                                                    ...prev,
+                                                    issuerId: profile.id,
+                                                    issuer: profile
+                                                }));
+                                            }
+                                        }}
+                                        className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer"
+                                    >
+                                        <option value="">{t('invoicing.selectPlaceholder')}</option>
                                         {companyProfiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                     </select>
                                     {selectedCompanyId && (() => {
@@ -1076,27 +1093,34 @@ const InvoicingView: React.FC = () => {
                             </div>
 
                             {/* Additional Options: Exchange Rate & Signatures */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                                <div>
-                                    <label className="label-text">Egyedi Árfolyam (Opcionális)</label>
+                            {/* Options */}
+                            <div className="pt-4 border-t border-gray-100 flex flex-col md:flex-row gap-4">
+                                <div className="flex-1">
+                                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1.5">
+                                        {t('invoicing.customExchangeRate')}
+                                    </label>
                                     <input
                                         type="number"
-                                        placeholder="pl. 385.5"
-                                        className="input-field w-full"
+                                        step="0.01"
+                                        placeholder={t('invoicing.exchangeRatePlaceholder')}
                                         value={newInvoice.customExchangeRate || ''}
                                         onChange={(e) => setNewInvoice({ ...newInvoice, customExchangeRate: parseFloat(e.target.value) || undefined })}
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                                     />
-                                    <p className="text-xs text-gray-500 mt-1">Ha üres, a rendszer az aktuális középárfolyamot használja.</p>
+                                    <p className="mt-1 text-[10px] text-gray-400">
+                                        {t('invoicing.exchangeRateHint')}
+                                    </p>
                                 </div>
-                                <div className="flex items-end pb-3">
-                                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                                        <input
-                                            type="checkbox"
-                                            className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                                            checked={newInvoice.showSignatures || false}
-                                            onChange={(e) => setNewInvoice({ ...newInvoice, showSignatures: e.target.checked })}
-                                        />
-                                        <span className="font-medium text-gray-700 dark:text-gray-300">Aláírások megjelenítése (Eladó/Vevő)</span>
+                                <div className="flex items-center gap-2 pt-6">
+                                    <input
+                                        type="checkbox"
+                                        id="showSignatures"
+                                        checked={newInvoice.showSignatures}
+                                        onChange={(e) => setNewInvoice({ ...newInvoice, showSignatures: e.target.checked })}
+                                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                    />
+                                    <label htmlFor="showSignatures" className="text-sm text-gray-600 cursor-pointer">
+                                        {t('invoicing.showSignatures')}
                                     </label>
                                 </div>
                             </div>
@@ -1142,7 +1166,7 @@ const InvoicingView: React.FC = () => {
                                                     />
                                                 </td>
                                                 <td className="py-4 pl-4 text-right font-semibold text-gray-900 dark:text-white">
-                                                    {formatCurrency(item.amount, newInvoice.currency || 'HUF')}
+                                                    {formatCurrency(item.amount, newInvoice.currency || 'USD')}
                                                 </td>
                                                 <td className="py-4 text-right">
                                                     <button className="text-gray-300 hover:text-red-500 transition-colors p-1">
@@ -1163,7 +1187,7 @@ const InvoicingView: React.FC = () => {
                                 <div className="w-80 space-y-3">
                                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
                                         <span>{t('invoicing.subtotal')}</span>
-                                        <span>{formatCurrency(newInvoice.subtotal || 0, newInvoice.currency || 'HUF')}</span>
+                                        <span>{formatCurrency(newInvoice.subtotal || 0, newInvoice.currency || 'USD')}</span>
                                     </div>
                                     <div className="flex justify-between items-center text-gray-600 dark:text-gray-400">
                                         <div className="flex items-center gap-2">
@@ -1182,7 +1206,7 @@ const InvoicingView: React.FC = () => {
                                                 %
                                             </div>
                                         </div>
-                                        <span>{formatCurrency(newInvoice.tax || 0, newInvoice.currency || 'HUF')}</span>
+                                        <span>{formatCurrency(newInvoice.tax || 0, newInvoice.currency || 'USD')}</span>
                                     </div>
                                     <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
                                     <div className="flex justify-between text-xl font-bold text-gray-900 dark:text-white">
@@ -1311,12 +1335,12 @@ const InvoicingView: React.FC = () => {
                         <div className="hidden print:block p-8 border-b-2 border-gray-200">
                             <div className="flex justify-between items-start">
                                 <div>
-                                    <h1 className="text-3xl font-bold text-gray-900">SZÁMLA</h1>
+                                    <h1 className="text-3xl font-bold text-gray-900">{t('invoicing.invoiceType')}</h1>
                                     <p className="text-gray-500 mt-1">Invoice #{previewInvoice.invoiceNumber}</p>
                                 </div>
                                 <div className="text-right">
-                                    <h2 className="text-xl font-bold text-primary-600">{companyInfo.name || 'Cégnév'}</h2>
-                                    <p className="text-sm text-gray-500">{companyInfo.address || 'Cím'}</p>
+                                    <h2 className="text-xl font-bold text-primary-600">{companyInfo.name || t('company.name')}</h2>
+                                    <p className="text-sm text-gray-500">{companyInfo.address || t('company.address')}</p>
                                 </div>
                             </div>
                         </div>
@@ -1330,7 +1354,7 @@ const InvoicingView: React.FC = () => {
                                     className="btn-secondary flex items-center gap-2"
                                 >
                                     <Settings size={18} />
-                                    Cégadatok
+                                    {t('invoicing.companyData')}
                                 </button>
                                 <button
                                     onClick={handlePrint}
@@ -1381,8 +1405,8 @@ const InvoicingView: React.FC = () => {
                                         <p>{previewCompany.address}</p>
                                         <p>{previewCompany.email}</p>
                                         <p>{previewCompany.phone}</p>
-                                        {previewCompany.taxNumber && <p className="font-medium text-gray-800">Adószám: {previewCompany.taxNumber}</p>}
-                                        {previewCompany.bankAccount && <p className="font-mono text-xs mt-2">Bankszámla: {previewCompany.bankAccount}</p>}
+                                        {previewCompany.taxNumber && <p className="font-medium text-gray-800">{t('company.taxNumber')}: {previewCompany.taxNumber}</p>}
+                                        {previewCompany.bankAccount && <p className="font-mono text-xs mt-2">{t('company.bankAccount')}: {previewCompany.bankAccount}</p>}
                                     </div>
                                 </div>
                             </div>
@@ -1399,7 +1423,7 @@ const InvoicingView: React.FC = () => {
                                                 {client.company && <p className="text-gray-700">{client.name}</p>}
                                                 <p className="text-gray-600">{client.address}</p>
                                                 <p className="text-gray-600">{client.email}</p>
-                                                {client.taxId && <p className="text-sm mt-2"><span className="font-medium">Adószám:</span> {client.taxId}</p>}
+                                                {client.taxId && <p className="text-sm mt-2"><span className="font-medium">{t('company.taxNumber')}:</span> {client.taxId}</p>}
                                             </div>
                                         ) : null;
                                     })()}
@@ -1451,7 +1475,7 @@ const InvoicingView: React.FC = () => {
                             {/* Custom Exchange Rate Display */}
                             {previewInvoice.customExchangeRate && (
                                 <div className="flex justify-end mb-8 text-sm text-gray-500 italic">
-                                    * Alkalmazott árfolyam: 1 {previewInvoice.currency} = {previewInvoice.customExchangeRate} HUF
+                                    * {t('invoicing.appliedExchangeRate')}: 1 {previewInvoice.currency} = {previewInvoice.customExchangeRate} HUF
                                 </div>
                             )}
 
@@ -1461,17 +1485,17 @@ const InvoicingView: React.FC = () => {
                                     <div className="text-center w-1/3">
                                         <div className="border-b border-gray-400 mb-2"></div>
                                         <p className="font-bold text-gray-900">{previewCompany.name}</p>
-                                        <p className="text-sm text-gray-500">Kiállító (Eladó)</p>
+                                        <p className="text-sm text-gray-500">{t('invoicing.issuerSeller')}</p>
                                     </div>
                                     <div className="text-center w-1/3">
                                         <div className="border-b border-gray-400 mb-2"></div>
                                         <p className="font-bold text-gray-900">
                                             {(() => {
                                                 const client = clients.find(c => c.id === previewInvoice.clientId);
-                                                return client ? (client.company || client.name) : 'Vevő';
+                                                return client ? (client.company || client.name) : t('invoicing.clientBuyer');
                                             })()}
                                         </p>
-                                        <p className="text-sm text-gray-500">Vevő</p>
+                                        <p className="text-sm text-gray-500">{t('invoicing.clientBuyer')}</p>
                                     </div>
                                 </div>
                             )}
@@ -1494,7 +1518,7 @@ const InvoicingView: React.FC = () => {
                 <div className="modal-backdrop z-[60]">
                     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6">
                         <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Cégadatok Beállítása</h2>
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t('invoicing.companySettingsTitle')}</h2>
                             <button
                                 onClick={() => setShowCompanySettings(false)}
                                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
@@ -1506,7 +1530,7 @@ const InvoicingView: React.FC = () => {
                         <div className="space-y-4">
                             {/* Logo Upload */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Logo</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('company.logo')}</label>
                                 <div className="flex items-center gap-4">
                                     {companyInfo.logo ? (
                                         <img src={companyInfo.logo} alt="Logo" className="w-16 h-16 rounded-xl object-contain" />
@@ -1518,7 +1542,7 @@ const InvoicingView: React.FC = () => {
                                     <div className="flex-1">
                                         <label className="cursor-pointer btn-secondary inline-flex items-center gap-2">
                                             <Upload size={16} />
-                                            Logo Feltöltése
+                                            {t('company.uploadLogo')}
                                             <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
                                         </label>
                                         {companyInfo.logo && (
@@ -1526,7 +1550,7 @@ const InvoicingView: React.FC = () => {
                                                 onClick={() => saveCompanyInfo({ ...companyInfo, logo: null })}
                                                 className="ml-2 text-red-500 text-sm hover:underline"
                                             >
-                                                Törlés
+                                                {t('common.delete')}
                                             </button>
                                         )}
                                     </div>
@@ -1535,42 +1559,42 @@ const InvoicingView: React.FC = () => {
 
                             {/* Company Name */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cégnév *</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('company.name')} *</label>
                                 <input
                                     type="text"
                                     value={companyInfo.name}
                                     onChange={(e) => saveCompanyInfo({ ...companyInfo, name: e.target.value })}
                                     className="input-field w-full"
-                                    placeholder="Pl. Példa Kft."
+                                    placeholder={t('company.namePlaceholder')}
                                 />
                             </div>
 
                             {/* Address */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cím</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('company.address')}</label>
                                 <input
                                     type="text"
                                     value={companyInfo.address}
                                     onChange={(e) => saveCompanyInfo({ ...companyInfo, address: e.target.value })}
                                     className="input-field w-full"
-                                    placeholder="Pl. 1234 Budapest, Példa utca 1."
+                                    placeholder={t('company.addressPlaceholder')}
                                 />
                             </div>
 
                             {/* Email & Phone */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('company.email')}</label>
                                     <input
                                         type="email"
                                         value={companyInfo.email}
                                         onChange={(e) => saveCompanyInfo({ ...companyInfo, email: e.target.value })}
                                         className="input-field w-full"
-                                        placeholder="info@pelda.hu"
+                                        placeholder="info@example.com"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefon</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('company.phone')}</label>
                                     <input
                                         type="tel"
                                         value={companyInfo.phone}
@@ -1583,7 +1607,7 @@ const InvoicingView: React.FC = () => {
 
                             {/* Tax Number */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Adószám</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('company.taxNumber')}</label>
                                 <input
                                     type="text"
                                     value={companyInfo.taxNumber}
@@ -1596,7 +1620,7 @@ const InvoicingView: React.FC = () => {
 
                         <div className="flex justify-end mt-6">
                             <button onClick={() => setShowCompanySettings(false)} className="btn-primary">
-                                Mentés és Bezárás
+                                {t('common.saveAndClose')}
                             </button>
                         </div>
                     </div>
