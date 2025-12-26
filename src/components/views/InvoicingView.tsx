@@ -11,11 +11,24 @@ import { Invoice, InvoiceItem, Client, CompanyProfile } from '../../types/planne
 import { FinancialEngine } from '../../utils/FinancialEngine';
 import { CurrencyService } from '../../services/CurrencyService';
 import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { SequenceService } from '../../services/SequenceService';
+import { InvoiceCalculator } from '../../utils/InvoiceCalculator';
 import { AVAILABLE_CURRENCIES } from '../../constants/currencyData';
+
+interface CompanyInfo {
+    name: string;
+    address: string;
+    taxNumber: string;
+    bankAccount: string;
+    email: string;
+    phone: string;
+    logo: string | null;
+}
+
 const printStyles = `
   @media print {
     @page { 
-      margin: 10mm; 
+      margin: 0mm; 
       size: auto;
     }
     body { 
@@ -26,150 +39,91 @@ const printStyles = `
     header, footer, nav, .no-print { 
       display: none !important; 
     }
+    /* Fix dark mode leaks in print */
+    .print-container {
+        background-color: white !important;
+        color: black !important;
+    }
+    .print-container * {
+        border-color: #e5e7eb !important; /* gray-200 */
+        color: black !important;
+    }
   }
 `;
 
-// Company Info type
-interface CompanyInfo {
-    name: string;
-    address: string;
-    email: string;
-    phone: string;
-    taxNumber: string;
-    bankAccount?: string;
-    logo: string | null;
-}
-
-const DEFAULT_COMPANY_INFO: CompanyInfo = {
-    name: '',
-    address: '',
-    email: '',
-    phone: '',
-    taxNumber: '',
-    logo: null,
-};
+// ... (Client info type remains)
 
 const InvoicingView: React.FC = () => {
     const { t, language } = useLanguage();
     const {
         invoices, clients, companyProfiles,
-        addInvoice, updateInvoice, deleteInvoice, addClient, addCompanyProfile,
+        addInvoice, updateInvoice, deleteInvoice,
+        addClient, addCompanyProfile,
         getFinancialSummary
     } = useData();
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'invoices' | 'clients' | 'analytics'>('dashboard');
-    const [toast, setToast] = useState<string | null>(null);
+    const [showCreateInvoice, setShowCreateInvoice] = useState(false);
     const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
-    const [showCompanySettings, setShowCompanySettings] = useState(false);
-    const [showAddCompanyProfile, setShowAddCompanyProfile] = useState(false);
-    const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
-    const [newCompanyProfile, setNewCompanyProfile] = useState<Partial<CompanyProfile>>({
-        name: '', address: '', email: '', phone: '', taxNumber: '', bankAccount: '', logo: null
+    const [selectedStat, setSelectedStat] = useState<{ title: string; breakdown: Record<string, number>; rect: DOMRect } | null>(null);
+
+    // Selection state
+    const [selectedInvoices, setSelectedInvoices] = useState<Set<string>>(new Set());
+
+    // New Invoice State
+    const [newInvoice, setNewInvoice] = useState<Partial<Invoice>>({
+        currency: 'USD',
+        taxRate: 0,
+        items: [],
+        status: 'draft'
     });
 
-    // Company info state with localStorage
+    const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+
+    // Modal states
+    const [showAddClient, setShowAddClient] = useState(false);
+    const [newClient, setNewClient] = useState<Partial<Client>>({});
+
+    const [showAddCompanyProfile, setShowAddCompanyProfile] = useState(false);
+    const [newCompanyProfile, setNewCompanyProfile] = useState<Partial<CompanyProfile>>({});
+    const [showCompanySettings, setShowCompanySettings] = useState(false);
+
+    // Default Company Info Logic
+    const DEFAULT_COMPANY_INFO: CompanyInfo = {
+        name: '',
+        address: '',
+        taxNumber: '',
+        bankAccount: '',
+        email: '',
+        phone: '',
+        logo: null
+    };
+
     const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(() => {
-        const saved = localStorage.getItem('invoiceCompanyInfo');
+        const saved = localStorage.getItem('companyInfo');
         return saved ? JSON.parse(saved) : DEFAULT_COMPANY_INFO;
     });
 
-    // Save company info to localStorage
     const saveCompanyInfo = (info: CompanyInfo) => {
         setCompanyInfo(info);
-        localStorage.setItem('invoiceCompanyInfo', JSON.stringify(info));
+        localStorage.setItem('companyInfo', JSON.stringify(info));
     };
 
-    // Logo upload handler
-    const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const newInfo = { ...companyInfo, logo: reader.result as string };
-                saveCompanyInfo(newInfo);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    // State
-    const [showCreateInvoice, setShowCreateInvoice] = useState(false);
-    const [showAddClient, setShowAddClient] = useState(false);
-
-    // Dashboard interactions
-    const [selectedStat, setSelectedStat] = useState<{
-        title: string;
-        breakdown: Record<string, number>;
-        rect: DOMRect;
-    } | null>(null);
-
-    // Converter State
+    const [toast, setToast] = useState<string | null>(null);
+    // Currency Converter State
     const [showConverter, setShowConverter] = useState(false);
-    const [convAmount, setConvAmount] = useState('100');
-    const [convFrom, setConvFrom] = useState('EUR');
-    const [convTo, setConvTo] = useState('USD');
+    const [convAmount, setConvAmount] = useState('');
+    const [convFrom, setConvFrom] = useState('USD');
+    const [convTo, setConvTo] = useState('EUR');
 
-    // Bulk Selection State
-    const [selectedInvoices, setSelectedInvoices] = useState<Set<string>>(new Set());
-
-    // Close popover on click outside
-    React.useEffect(() => {
-        const handleClick = () => setSelectedStat(null);
-        if (selectedStat) {
-            window.addEventListener('click', handleClick);
-        }
-        return () => window.removeEventListener('click', handleClick);
-    }, [selectedStat]);
-
-    // Download PDF handler - open preview first
-    const handleDownloadPdf = (invoice: Invoice) => {
-        setPreviewInvoice(invoice);
-    };
-
-    // Actual print function
-    const handlePrint = () => {
-        window.print();
-    };
-
-    // Share handler
-    const handleShare = (invoice: Invoice) => {
-        const url = `${window.location.origin}/invoice/${invoice.id}`;
-        navigator.clipboard.writeText(url);
-        setToast(t('invoicing.linkCopied'));
+    const showToast = (msg: string) => {
+        setToast(msg);
         setTimeout(() => setToast(null), 3000);
     };
-
-    // Status change handler
-    const handleStatusChange = (invoiceId: string, newStatus: 'draft' | 'sent' | 'paid' | 'overdue') => {
-        updateInvoice(invoiceId, { status: newStatus });
-        const statusLabels = {
-            draft: t('invoicing.statusDraft') || 'Piszkozat',
-            sent: t('invoicing.statusSent') || 'Elküldve',
-            paid: t('invoicing.statusPaid') || 'Kifizetve',
-            overdue: t('invoicing.statusOverdue') || 'Lejárt'
-        };
-        setToast(`Státusz módosítva: ${statusLabels[newStatus]}`);
-        setTimeout(() => setToast(null), 3000);
-    };
-
-    // Form States
-    const [newClient, setNewClient] = useState<Partial<Client>>({});
-    const [newInvoice, setNewInvoice] = useState<Partial<Invoice>>({
-        items: [{ id: Date.now().toString(), description: '', quantity: 1, rate: 0, amount: 0 }],
-        currency: 'USD',
-        taxRate: 27,
-        status: 'sent',
-        issueDate: new Date(),
-        dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) // 14 days net
-    });
 
     // Formatting
     const formatCurrency = (amount: number, currency: string) => {
-        return new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
-            style: 'currency',
-            currency: currency,
-            maximumFractionDigits: 0
-        }).format(amount);
+        return InvoiceCalculator.formatCurrency(amount, currency, language === 'hu' ? 'hu-HU' : 'en-US');
     };
 
     const formatDate = (date: Date | string | undefined | null): string => {
@@ -183,7 +137,17 @@ const InvoicingView: React.FC = () => {
         }
     };
 
-    // Calculations
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const filteredInvoices = useMemo(() => {
+        if (!searchQuery) return invoices;
+        const lower = searchQuery.toLowerCase();
+        return invoices.filter(i =>
+            i.invoiceNumber.toLowerCase().includes(lower) ||
+            clients.find(c => c.id === i.clientId)?.name.toLowerCase().includes(lower)
+        );
+    }, [invoices, searchQuery, clients]);
+
     // Calculations using FinancialEngine
     const stats = useMemo(() => {
         const summary = getFinancialSummary('USD'); // Default to USD base
@@ -260,17 +224,62 @@ const InvoicingView: React.FC = () => {
         });
     };
 
+    // Centralized recalculation helper
+    const recalcInvoice = (items: InvoiceItem[], taxRate: number, currency: string) => {
+        // Ensure items have correct amount
+        const processedItems = items.map(item => ({
+            ...item,
+            amount: item.quantity * item.rate
+        }));
+
+        const totals = InvoiceCalculator.calculateTotals(
+            processedItems,
+            taxRate,
+            currency
+        );
+
+        return {
+            items: processedItems,
+            ...totals
+        };
+    };
+
     const updateItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
         const items = [...(newInvoice.items || [])];
         items[index] = { ...items[index], [field]: value };
-        items[index].amount = items[index].quantity * items[index].rate;
 
-        // Recalculate totals
-        const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
-        const tax = subtotal * ((newInvoice.taxRate || 0) / 100);
-        const total = subtotal + tax;
+        const updatedData = recalcInvoice(
+            items,
+            newInvoice.taxRate || 0,
+            newInvoice.currency || 'USD'
+        );
 
-        setNewInvoice({ ...newInvoice, items, subtotal, tax, total });
+        setNewInvoice({
+            ...newInvoice,
+            items: updatedData.items,
+            subtotal: updatedData.subtotal,
+            tax: updatedData.taxAmount, // Note: InvoiceCalculator returns taxAmount, Invoice type expects tax
+            total: updatedData.total
+        });
+    };
+
+    const handleRemoveItem = (index: number) => {
+        const items = [...(newInvoice.items || [])];
+        items.splice(index, 1);
+
+        const updatedData = recalcInvoice(
+            items,
+            newInvoice.taxRate || 0,
+            newInvoice.currency || 'USD'
+        );
+
+        setNewInvoice({
+            ...newInvoice,
+            items: updatedData.items,
+            subtotal: updatedData.subtotal,
+            tax: updatedData.taxAmount,
+            total: updatedData.total
+        });
     };
 
     // Bulk Selection Handlers
@@ -309,8 +318,14 @@ const InvoicingView: React.FC = () => {
 
     const handleSaveInvoice = () => {
         if (newInvoice.clientId && newInvoice.items?.length) {
-            // Use provided invoice number or generate fallback
-            const invoiceNumber = newInvoice.invoiceNumber || `INV-2026-${Math.floor(Math.random() * 9000 + 1000)}`;
+            // Check if we need to generate a persistent sequence number
+            let invoiceNumber = newInvoice.invoiceNumber;
+
+            // If it's a placeholder or empty, generate the real sequence number
+            if (!invoiceNumber || invoiceNumber.includes('XXXX')) {
+                // Pass the company ID to sequence service for multi-company support
+                invoiceNumber = SequenceService.getNextInvoiceNumber(selectedCompanyId);
+            }
 
             addInvoice({
                 ...newInvoice,
@@ -320,13 +335,14 @@ const InvoicingView: React.FC = () => {
                 // Ensure required fields
                 items: newInvoice.items || [],
                 subtotal: newInvoice.subtotal || 0,
-                tax: newInvoice.tax || 0,
+                tax: newInvoice.taxRate ? (filterTax(newInvoice.subtotal || 0, newInvoice.taxRate)) : 0, // Recalculate if needed or trust state
                 total: newInvoice.total || 0,
                 issueDate: newInvoice.issueDate || new Date(),
                 dueDate: newInvoice.dueDate || new Date(),
                 fulfillmentDate: newInvoice.fulfillmentDate || newInvoice.issueDate || new Date(),
                 paymentMethod: newInvoice.paymentMethod || 'transfer',
-                createdAt: new Date()
+                createdAt: new Date(),
+                status: newInvoice.status || 'sent'
             } as Invoice);
 
             setNewInvoice({
@@ -338,8 +354,14 @@ const InvoicingView: React.FC = () => {
                 dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
             });
             setShowCreateInvoice(false);
+            showToast(t('invoicing.invoiceSaved'));
+        } else {
+            alert(t('invoicing.fillRequired') || 'Kérjük töltsön ki minden kötelező mezőt (Ügyfél, Tételek)!');
         }
     };
+
+    // Helper to calculate tax if missing from state (safety)
+    const filterTax = (subtotal: number, rate: number) => subtotal * (rate / 100);
 
     const getStatusBadge = (status: Invoice['status']) => {
         const styles = {
@@ -351,8 +373,8 @@ const InvoicingView: React.FC = () => {
         };
         const labels: Record<string, string> = {
             draft: t('invoicing.statusDraft'),
-            sent: t('invoicing.pending'),
-            paid: t('invoicing.paid'),
+            sent: t('invoicing.statusSent'), // Fixed mapping: Pending -> Sent (Elküldve)
+            paid: t('invoicing.statusPaid'), // Fixed mapping: Paid -> Paid (Fizetve)
             cancelled: t('invoicing.statusCancelled'),
         };
         return (
@@ -361,6 +383,44 @@ const InvoicingView: React.FC = () => {
                 {labels[status]}
             </span>
         );
+    };
+
+    const handleStatusChange = (id: string, newStatus: Invoice['status']) => {
+        const inv = invoices.find(i => i.id === id);
+        if (inv) {
+            updateInvoice({ ...inv, status: newStatus });
+        }
+    };
+
+    const handlePrint = () => {
+        window.print();
+    };
+
+    const handleDownloadPdf = (invoice?: Invoice) => {
+        if (invoice) {
+            setPreviewInvoice(invoice);
+        }
+        // Small delay to ensure preview is rendered before printing
+        setTimeout(() => {
+            window.print();
+        }, 300);
+    };
+
+    const handleShare = (invoice: Invoice) => {
+        // In a real app, this would be a public link. For now, we simulate copy link.
+        navigator.clipboard.writeText(`${invoice.invoiceNumber}`); // Copy Invoice Number
+        showToast(t('invoicing.linkCopied') || 'Link másolva!');
+    };
+
+    const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setCompanyInfo(prev => ({ ...prev, logo: reader.result as string }));
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     return (
@@ -611,7 +671,13 @@ const InvoicingView: React.FC = () => {
                     <div className="flex flex-col sm:flex-row gap-4 mb-6 justify-between items-center">
                         <div className="relative flex-1 w-full sm:w-auto">
                             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input type="text" placeholder={t('invoicing.searchPlaceholder')} className="input-field pl-10 w-full" />
+                            <input
+                                type="text"
+                                placeholder={t('invoicing.searchPlaceholder')}
+                                className="input-field pl-10 w-full"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
                         </div>
                         <div className="flex items-center gap-2">
                             {selectedInvoices.size > 0 && (
@@ -662,7 +728,7 @@ const InvoicingView: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                                {invoices.map(invoice => (
+                                {filteredInvoices.map(invoice => (
                                     <tr
                                         key={invoice.id}
                                         className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
@@ -942,7 +1008,15 @@ const InvoicingView: React.FC = () => {
                                 </div>
                                 <div>
                                     <label className="label-text">{t('invoicing.currency')}</label>
-                                    <select className="input-field bg-white dark:bg-gray-800" value={newInvoice.currency} onChange={(e) => setNewInvoice({ ...newInvoice, currency: e.target.value })}>
+                                    <select
+                                        className="input-field bg-white dark:bg-gray-800"
+                                        value={newInvoice.currency}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            const updated = recalcInvoice(newInvoice.items || [], newInvoice.taxRate || 0, val);
+                                            setNewInvoice({ ...newInvoice, currency: val, subtotal: updated.subtotal, tax: updated.taxAmount, total: updated.total });
+                                        }}
+                                    >
                                         <option value="HUF">HUF (Ft)</option><option value="EUR">EUR (€)</option><option value="USD">USD ($)</option>
                                     </select>
                                 </div>
@@ -1090,7 +1164,11 @@ const InvoicingView: React.FC = () => {
                                                     type="number"
                                                     className="w-8 bg-transparent text-right outline-none"
                                                     value={newInvoice.taxRate}
-                                                    onChange={(e) => setNewInvoice({ ...newInvoice, taxRate: Number(e.target.value) })}
+                                                    onChange={(e) => {
+                                                        const val = Number(e.target.value);
+                                                        const updated = recalcInvoice(newInvoice.items || [], val, newInvoice.currency || 'USD');
+                                                        setNewInvoice({ ...newInvoice, taxRate: val, subtotal: updated.subtotal, tax: updated.taxAmount, total: updated.total });
+                                                    }}
                                                 />
                                                 %
                                             </div>
