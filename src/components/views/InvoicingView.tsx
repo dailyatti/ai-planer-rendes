@@ -53,6 +53,8 @@ const printStyles = `
 
 // ... (Client info type remains)
 
+const toDateInput = (d?: Date) => (d && d instanceof Date && !isNaN(d.getTime())) ? d.toISOString().slice(0, 10) : '';
+
 const InvoicingView: React.FC = () => {
     const { t, language } = useLanguage();
     const {
@@ -152,10 +154,13 @@ const InvoicingView: React.FC = () => {
         if (!searchQuery) return invoices;
         const lower = searchQuery.toLowerCase();
         return invoices.filter(i =>
-            i.invoiceNumber.toLowerCase().includes(lower) ||
-            clients.find(c => c.id === i.clientId)?.name.toLowerCase().includes(lower)
+            (i.invoiceNumber || '').toLowerCase().includes(lower) ||
+            (clients.find(c => c.id === i.clientId)?.name || '').toLowerCase().includes(lower)
         );
     }, [invoices, searchQuery, clients]);
+
+    // Optimize forecast calculation
+    const forecast = useMemo(() => FinancialEngine.generateForecast(invoices, 'USD', 6), [invoices]);
 
     // Calculations using FinancialEngine
     const stats = useMemo(() => {
@@ -235,7 +240,6 @@ const InvoicingView: React.FC = () => {
 
     // Centralized recalculation helper
     const recalcInvoice = (items: InvoiceItem[], taxRate: number, currency: string) => {
-        // Ensure items have correct amount
         const processedItems = items.map(item => ({
             ...item,
             amount: item.quantity * item.rate
@@ -249,8 +253,11 @@ const InvoicingView: React.FC = () => {
 
         return {
             items: processedItems,
-            ...totals
+            subtotal: totals.subtotal,
+            tax: totals.taxAmount, // Unify tax naming
+            total: totals.total
         };
+
     };
 
     const updateItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
@@ -267,7 +274,7 @@ const InvoicingView: React.FC = () => {
             ...newInvoice,
             items: updatedData.items,
             subtotal: updatedData.subtotal,
-            tax: updatedData.taxAmount, // Note: InvoiceCalculator returns taxAmount, Invoice type expects tax
+            tax: updatedData.tax, // Note: InvoiceCalculator returns taxAmount, Invoice type expects tax
             total: updatedData.total
         });
     };
@@ -286,7 +293,7 @@ const InvoicingView: React.FC = () => {
             ...newInvoice,
             items: updatedData.items,
             subtotal: updatedData.subtotal,
-            tax: updatedData.taxAmount,
+            tax: updatedData.tax,
             total: updatedData.total
         });
     };
@@ -294,7 +301,7 @@ const InvoicingView: React.FC = () => {
     // Bulk Selection Handlers
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            setSelectedInvoices(new Set(invoices.map(i => i.id)));
+            setSelectedInvoices(new Set(filteredInvoices.map(i => i.id)));
         } else {
             setSelectedInvoices(new Set());
         }
@@ -332,20 +339,26 @@ const InvoicingView: React.FC = () => {
 
             // If it's a placeholder or empty, generate the real sequence number
             if (!invoiceNumber || invoiceNumber.includes('XXXX')) {
-                // Pass the company ID to sequence service for multi-company support
                 invoiceNumber = SequenceService.getNextInvoiceNumber(selectedCompanyId);
             }
+
+            // Recalculate everything to be safe
+            const calculations = recalcInvoice(
+                newInvoice.items || [],
+                newInvoice.taxRate || 0,
+                newInvoice.currency || 'USD'
+            );
 
             addInvoice({
                 ...newInvoice,
                 companyProfileId: selectedCompanyId,
-                id: Date.now().toString(),
+                id: newInvoice.id || crypto.randomUUID(), // Safer ID
                 invoiceNumber: invoiceNumber,
-                // Ensure required fields
-                items: newInvoice.items || [],
-                subtotal: newInvoice.subtotal || 0,
-                tax: newInvoice.taxRate ? (filterTax(newInvoice.subtotal || 0, newInvoice.taxRate)) : 0, // Recalculate if needed or trust state
-                total: newInvoice.total || 0,
+                // Use unified calculations
+                items: calculations.items,
+                subtotal: calculations.subtotal,
+                tax: calculations.tax,
+                total: calculations.total,
                 issueDate: newInvoice.issueDate || new Date(),
                 dueDate: newInvoice.dueDate || new Date(),
                 fulfillmentDate: newInvoice.fulfillmentDate || newInvoice.issueDate || new Date(),
@@ -355,7 +368,7 @@ const InvoicingView: React.FC = () => {
             } as Invoice);
 
             setNewInvoice({
-                items: [{ id: Date.now().toString(), description: '', quantity: 1, rate: 0, amount: 0 }],
+                items: [{ id: crypto.randomUUID(), description: '', quantity: 1, rate: 0, amount: 0 }],
                 currency: 'USD',
                 taxRate: 27,
                 status: 'sent',
@@ -370,7 +383,7 @@ const InvoicingView: React.FC = () => {
     };
 
     // Helper to calculate tax if missing from state (safety)
-    const filterTax = (subtotal: number, rate: number) => subtotal * (rate / 100);
+
 
     const getStatusBadge = (status: Invoice['status']) => {
         const styles = {
@@ -384,6 +397,7 @@ const InvoicingView: React.FC = () => {
             draft: t('invoicing.statusDraft'),
             sent: t('invoicing.pending'), // Reverted to 'pending' as per user request
             paid: t('invoicing.paid'),    // Kept 'paid'
+            overdue: t('invoicing.overdue'),
             cancelled: t('invoicing.statusCancelled'),
         };
         return (
@@ -397,7 +411,7 @@ const InvoicingView: React.FC = () => {
     const handleStatusChange = (id: string, newStatus: Invoice['status']) => {
         const inv = invoices.find(i => i.id === id);
         if (inv) {
-            updateInvoice({ ...inv, status: newStatus });
+            updateInvoice(inv.id, { ...inv, status: newStatus });
         }
     };
 
@@ -889,7 +903,7 @@ const InvoicingView: React.FC = () => {
                                 <div className="text-sm text-emerald-600 dark:text-emerald-400 mb-1">Elmúlt 3 hónap átlag</div>
                                 <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
                                     {(() => {
-                                        const forecast = FinancialEngine.generateForecast(invoices, 'USD', 6);
+
                                         const pastActual = forecast.actual.filter(v => v > 0);
                                         const avg = pastActual.length ? pastActual.reduce((a, b) => a + b, 0) / pastActual.length : 0;
                                         return '$' + avg.toLocaleString('en-US');
@@ -900,7 +914,7 @@ const InvoicingView: React.FC = () => {
                                 <div className="text-sm text-indigo-600 dark:text-indigo-400 mb-1">Következő 3 hónap várható</div>
                                 <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
                                     {(() => {
-                                        const forecast = FinancialEngine.generateForecast(invoices, 'USD', 6);
+
                                         const futurePredicted = forecast.predicted.filter(v => v > 0);
                                         const sum = futurePredicted.slice(0, 3).reduce((a, b) => a + b, 0);
                                         return '$' + sum.toLocaleString('en-US');
@@ -911,7 +925,7 @@ const InvoicingView: React.FC = () => {
                                 <div className="text-sm text-amber-600 dark:text-amber-400 mb-1">Trend</div>
                                 <div className="text-2xl font-bold text-amber-700 dark:text-amber-300 flex items-center gap-2">
                                     {(() => {
-                                        const forecast = FinancialEngine.generateForecast(invoices, 'USD', 6);
+
                                         const pastActual = forecast.actual.filter(v => v > 0);
                                         const futurePredicted = forecast.predicted.filter(v => v > 0);
                                         const pastAvg = pastActual.length ? pastActual.reduce((a, b) => a + b, 0) / pastActual.length : 0;
@@ -1040,7 +1054,7 @@ const InvoicingView: React.FC = () => {
                                         onChange={(e) => {
                                             const val = e.target.value;
                                             const updated = recalcInvoice(newInvoice.items || [], newInvoice.taxRate || 0, val);
-                                            setNewInvoice({ ...newInvoice, currency: val, subtotal: updated.subtotal, tax: updated.taxAmount, total: updated.total });
+                                            setNewInvoice({ ...newInvoice, currency: val, subtotal: updated.subtotal, tax: updated.tax, total: updated.total });
                                         }}
                                     >
                                         <option value="HUF">HUF (Ft)</option><option value="EUR">EUR (€)</option><option value="USD">USD ($)</option>
@@ -1066,7 +1080,7 @@ const InvoicingView: React.FC = () => {
                                     <input
                                         type="date"
                                         className="input-field bg-white dark:bg-gray-800"
-                                        value={newInvoice.fulfillmentDate?.toISOString().split('T')[0] || newInvoice.issueDate?.toISOString().split('T')[0] || ''}
+                                        value={toDateInput(newInvoice.fulfillmentDate || newInvoice.issueDate) || ''}
                                         onChange={(e) => setNewInvoice({ ...newInvoice, fulfillmentDate: new Date(e.target.value) })}
                                     />
                                 </div>
@@ -1200,7 +1214,7 @@ const InvoicingView: React.FC = () => {
                                                     onChange={(e) => {
                                                         const val = Number(e.target.value);
                                                         const updated = recalcInvoice(newInvoice.items || [], val, newInvoice.currency || 'USD');
-                                                        setNewInvoice({ ...newInvoice, taxRate: val, subtotal: updated.subtotal, tax: updated.taxAmount, total: updated.total });
+                                                        setNewInvoice({ ...newInvoice, taxRate: val, subtotal: updated.subtotal, tax: updated.tax, total: updated.total });
                                                     }}
                                                 />
                                                 %
