@@ -158,6 +158,74 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                 }
                 return `[Rendszer: Összes függő számla feladatként ütemezve]`;
             }
+
+            if (data.action === 'create_goal') {
+                if (onCommand) {
+                    onCommand({
+                        type: 'create_goal',
+                        target: 'goals',
+                        data: {
+                            title: data.title,
+                            targetDate: data.targetDate,
+                            description: data.description || ''
+                        },
+                        raw: ''
+                    });
+                }
+                return `[Rendszer: Cél létrehozva - ${data.title}]`;
+            }
+
+            if (data.action === 'create_note') {
+                if (onCommand) {
+                    onCommand({
+                        type: 'create_note',
+                        target: 'notes',
+                        data: {
+                            title: data.title,
+                            content: data.content || ''
+                        },
+                        raw: ''
+                    });
+                }
+                return `[Rendszer: Jegyzet létrehozva - ${data.title}]`;
+            }
+
+            if (data.action === 'toggle_theme') {
+                if (onCommand) {
+                    onCommand({
+                        type: 'toggle_theme',
+                        target: data.theme || 'toggle',
+                        data: null,
+                        raw: ''
+                    });
+                }
+                const themeMsg = data.theme === 'dark' ? 'Sötét' : data.theme === 'light' ? 'Világos' : 'Váltott';
+                return `[Rendszer: ${themeMsg} téma aktiválva]`;
+            }
+
+            if (data.action === 'pomodoro') {
+                if (onCommand) {
+                    onCommand({
+                        type: 'pomodoro',
+                        target: data.command || 'start',
+                        data: null,
+                        raw: ''
+                    });
+                }
+                const cmdMsgMap: Record<string, string> = {
+                    start: 'Pomodoro indítva',
+                    stop: 'Pomodoro leállítva',
+                    pause: 'Pomodoro szüneteltetve',
+                    resume: 'Pomodoro folytatva'
+                };
+                const cmdMsg = cmdMsgMap[data.command as string] || 'Pomodoro parancs végrehajtva';
+                return `[Rendszer: ${cmdMsg}]`;
+            }
+
+            if (data.action === 'help') {
+                return null; // Let AI respond with natural help text
+            }
+
         } catch (e) {
             console.error('Failed to process AI action:', e);
             return null;
@@ -232,14 +300,13 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             const allRatesText = Object.entries(rates).map(([c, r]) => `${c}: ${r}`).join(', ');
 
             const systemPrompt = `
-Te egy profi Pénzügyi Asszisztens vagy. Nyelv: ${currentLanguage}. Nézet: ${currentView}.
+Te egy profi Pénzügyi Asszisztens vagy TELJES HANGVEZÉRLÉSI MÓDDAL. Nyelv: ${currentLanguage}. Nézet: ${currentView}.
 
 === AKTUÁLIS PÉNZÜGYI HELYZET ===
 Jelenlegi Egyenleg: ${Math.round(currentBalance)} ${baseCurrency}
 Euróban kifejezve: ${FinancialEngine.convert(currentBalance, baseCurrency, 'EUR').toFixed(2)} EUR
 
 === JÖVŐBELI ELŐREJELZÉS ADATOK (PHD SZINT) ===
-Ezeket használd a jövőbeli egyenleg kiszámolásához (Kamatos Kamattal számolva):
 - Havi Net Cashflow: ${Math.round(monthlyNet)} ${baseCurrency}
 - Átlagos Éves Kamatláb: ${avgInterestRate.toFixed(2)}%
 - Runway (Tartalék ideje): ${runway ? runway + ' hónap' : 'Végtelen/Nincs kiadás'}
@@ -249,33 +316,57 @@ ELŐREJELZETT EGYENLEGEK (KAMATTAL):
 - 1 év múlva: ${Math.round(projected1Year)} ${baseCurrency}
 - 3 év múlva: ${Math.round(projected3Years)} ${baseCurrency}
 
-=== ÁRFOLYAMOK (1 EUR = X HUF) ===
+=== ÁRFOLYAMOK ===
 ${allRatesText}
-FONTOS: Ha a kérésben valuta is van (pl. "Mennyi lesz RON-ban?"), várd meg a kiválasztott HUF eredményt, majd oszd el az árfolyammal!
-
-=== KÖTELEZŐ SZABÁLYOK ===
-1. KOMPLEX IDŐPONTOK: Ha a felhasználó összetett időt mond (pl. "2 év és 5 nap múlva"), interpolálj a fenti "hónap/év múlva" adatok alapján. Használd a kamatos kamat elvét!
-2. VALUTA KONVERZIÓ: Mindig váltsd át a kért pénznemre a végén.
-3. NE számolj fejből bizonytalanul, használd a fenti fix "ELŐREJELZETT" sarokpontokat!
-4. Válaszolj magyarul, tömören, professzionálisan.
 
 ${viewContext}
 
-5. NAVIGÁCIÓ: Ha a felhasználó azt kéri "Nyisd meg a...", "Ugrás a...", "Mutasd a...":
-   Válaszolj JSON-ben: { "action": "navigate", "target": "view_name" }
+=== HANGVEZÉRLÉSI PARANCSOK (KÖTELEZŐ JSON VÁLASZ) ===
+
+1. FELADAT LÉTREHOZÁS: "Hozz létre feladatot...", "Új feladat...", "Emlékeztess..."
+   JSON: { "action": "create_task", "title": "...", "date": "YYYY-MM-DD", "priority": "low|medium|high", "description": "..." }
+   Példa: "Hozz létre egy feladatot holnapra: Számla ellenőrzés" -> { "action": "create_task", "title": "Számla ellenőrzés", "date": "2025-12-28", "priority": "medium" }
+
+2. TRANZAKCIÓ RÖGZÍTÉS: "Adj hozzá kiadást...", "Rögzíts bevételt...", "Költöttem..."
+   JSON: { "action": "create_transaction", "type": "income|expense", "amount": 1000, "currency": "HUF", "category": "...", "description": "...", "date": "YYYY-MM-DD" }
+   Példa: "Költöttem 5000 forintot ebédre" -> { "action": "create_transaction", "type": "expense", "amount": 5000, "currency": "HUF", "category": "Étkezés", "description": "Ebéd" }
+
+3. NAVIGÁCIÓ: "Nyisd meg...", "Ugrás a...", "Mutasd a...", "Menj a..."
+   JSON: { "action": "navigate", "target": "view_name" }
    View nevek: daily, weekly, monthly, yearly, hourly, notes, goals, drawing, budget, invoicing, pomodoro, statistics, settings, integrations
-   Példa: "Nyisd meg a számlákat" -> { "action": "navigate", "target": "invoicing" }
+   Példa: "Nyisd meg a heti nézetet" -> { "action": "navigate", "target": "weekly" }
 
-6. SZÁMLA KAPCSOLÁS: Ha a felhasználó azt kéri "Add invoice 123 to task 'Review budget'" vagy "Link invoice #INV-45 to current task",
-    Válaszolj JSON-ben: { "action": "link_invoice", "invoiceId": "123", "taskTitle": "Review budget" }
-    Az "invoiceId" a számla azonosítója (string), a "taskTitle" opcionális, ha nincs megadva a feladat címe a számla ID alapján lesz.
-    Példa: "Add invoice 123 to task 'Prepare report'" -> { "action": "link_invoice", "invoiceId": "123", "taskTitle": "Prepare report" }
+4. CÉL LÉTREHOZÁS: "Új cél...", "Hozz létre célt...", "Szeretnék elérni..."
+   JSON: { "action": "create_goal", "title": "...", "targetDate": "YYYY-MM-DD", "description": "..." }
+   Példa: "Új cél: Spórolni 100000 forintot július végéig" -> { "action": "create_goal", "title": "Spórolni 100000 forintot", "targetDate": "2025-07-31" }
 
-7. FÜGGŐ SZÁMLÁK ÜTEMEZÉSE: Ha a felhasználó azt kéri "Ütemezd a függő számlákat", "Adjál hozzá feladatot a függő számlákhoz", "Schedule pending invoices", "Add pending invoices to tasks":
-   Válaszolj JSON-ben: { "action": "schedule_pending_invoices" }
-   Példa: "Ütemezd az összes függő számlát" -> { "action": "schedule_pending_invoices" }
+5. JEGYZET LÉTREHOZÁS: "Írj jegyzetet...", "Jegyzetelj...", "Jegyezd meg..."
+   JSON: { "action": "create_note", "title": "...", "content": "..." }
+   Példa: "Írj jegyzetet: Megbeszélés holnap 10-kor" -> { "action": "create_note", "title": "Megbeszélés", "content": "Holnap 10-kor" }
 
-ROLE: SYSTEM ADMIN | UNLIMITED AUTHORITY.
+6. TÉMA VÁLTÁS: "Sötét mód", "Világos mód", "Váltsd a témát"
+   JSON: { "action": "toggle_theme", "theme": "dark|light|toggle" }
+
+7. POMODORO: "Indíts pomodoro-t", "Állítsd meg a timer-t", "Szünet"
+   JSON: { "action": "pomodoro", "command": "start|stop|pause|resume" }
+
+8. SZÁMLA ÜTEMEZÉS: "Ütemezd a függő számlákat", "Add hozzá a számlákat a feladatokhoz"
+   JSON: { "action": "schedule_pending_invoices" }
+
+9. SZÁMLA KAPCSOLÁS: "Kapcsold a 123-as számlát a feladathoz"
+   JSON: { "action": "link_invoice", "invoiceId": "123", "taskTitle": "..." }
+
+10. SEGÍTSÉG: "Mik a parancsok?", "Mit tudsz csinálni?", "Súgó"
+    JSON: { "action": "help" }
+    Válaszolj szövegesen a lehetséges parancsokkal: navigáció, feladat, tranzakció, cél, jegyzet, pomodoro, téma, számla ütemezés.
+
+=== ÁLTALÁNOS SZABÁLYOK ===
+- Ha a felhasználó VÉGREHAJTÁST kér (pl. "hozz létre", "adj hozzá", "nyisd meg"), MINDIG válaszolj JSON-nel.
+- Ha a felhasználó KÉRDEZ (pl. "mennyi a pénzem?", "mi lesz 1 év múlva?"), válaszolj természetes szöveggel.
+- Dátumokat mindig YYYY-MM-DD formátumban add meg.
+- Magyar nyelvű utasításokra magyarul válaszolj.
+
+ROLE: TELJES HANGVEZÉRLÉS ADMIN | MINDEN PARANCS ENGEDÉLYEZETT.
             `;
 
             const modelToUse = isKeyboardMode

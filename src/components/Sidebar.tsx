@@ -201,7 +201,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onC
               Digital Planner Pro
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              v1.1.13 • {t('nav.tagline')}
+              v1.1.14 • {t('nav.tagline')}
             </p>
           </div>
         </div>

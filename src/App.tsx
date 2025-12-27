@@ -69,6 +69,53 @@ function AppContent() {
       });
       console.log(language === 'hu' ? 'Függő számlák feladatként ütemezve!' : 'Pending invoices scheduled as tasks!');
     }
+
+    // Handle create_goal - create a new goal and navigate to goals view
+    if (command.type === 'create_goal' && command.data) {
+      addPlan({
+        title: command.data.title,
+        description: command.data.description || '',
+        date: command.data.targetDate ? new Date(command.data.targetDate) : new Date(),
+        priority: 'high',
+        completed: false,
+        linkedNotes: []
+      });
+      setActiveView('goals');
+      console.log(`Goal created: ${command.data.title}`);
+    }
+
+    // Handle create_note - create a note as a task and navigate to notes
+    if (command.type === 'create_note' && command.data) {
+      addPlan({
+        title: command.data.title,
+        description: command.data.content || '',
+        date: new Date(),
+        priority: 'low',
+        completed: false,
+        linkedNotes: []
+      });
+      setActiveView('notes');
+      console.log(`Note created: ${command.data.title}`);
+    }
+
+    // Handle toggle_theme - toggle dark/light mode
+    if (command.type === 'toggle_theme') {
+      const html = document.documentElement;
+      if (command.target === 'dark') {
+        html.classList.add('dark');
+      } else if (command.target === 'light') {
+        html.classList.remove('dark');
+      } else {
+        html.classList.toggle('dark');
+      }
+      console.log(`Theme toggled: ${command.target}`);
+    }
+
+    // Handle pomodoro - navigate to pomodoro view
+    if (command.type === 'pomodoro') {
+      setActiveView('pomodoro');
+      console.log(`Pomodoro command: ${command.target}`);
+    }
   };
 
   return (
