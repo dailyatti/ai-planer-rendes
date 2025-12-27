@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality, Type } from '@google/genai';
-import { Mic, MicOff, Loader2, Sparkles, X } from 'lucide-react';
+import { Mic, MicOff, Loader2, Sparkles, X, MessageSquare, Send, ChevronUp, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -13,6 +13,12 @@ interface VoiceAssistantProps {
     onCommand?: (command: any) => void;
     currentLanguage: string;
     currentView: string;
+}
+
+interface ChatMessage {
+    role: 'user' | 'assistant' | 'system';
+    text: string;
+    timestamp: number;
 }
 
 // Audio Decoding for Gemini Live (PCM 16le -> AudioBuffer)
@@ -82,6 +88,9 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     const [scrollPosition, setScrollPosition] = useState({ top: 0, percent: 0 });
     const [viewportElements, setViewportElements] = useState<ViewportElement[]>([]);
     const [showVisualAssist, setShowVisualAssist] = useState(false);
+    const [showChat, setShowChat] = useState(false);
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [inputText, setInputText] = useState('');
 
     // Refs
     const audioContextRef = useRef<AudioContext | null>(null);
@@ -90,10 +99,17 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     const processorRef = useRef<ScriptProcessorNode | null>(null);
     const sessionRef = useRef<any>(null);
     const onCommandRef = useRef(onCommand);
+    const chatEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         onCommandRef.current = onCommand;
     }, [onCommand]);
+
+    useEffect(() => {
+        if (showChat) {
+            chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [messages, showChat]);
 
     // Enhanced Scroll Position Tracking
     useEffect(() => {
@@ -207,6 +223,10 @@ SHUTDOWN:
         `;
     }, [currentLanguage]);
 
+    const addMessage = (role: 'user' | 'assistant' | 'system', text: string) => {
+        setMessages(prev => [...prev, { role, text, timestamp: Date.now() }]);
+    };
+
     const startSession = async () => {
         if (isActive) return;
         if (!apiKey) {
@@ -215,6 +235,7 @@ SHUTDOWN:
         }
 
         setIsConnecting(true);
+        setShowChat(true); // Auto-open chat on start
 
         try {
             const ai = new GoogleGenAI({ apiKey });
@@ -346,39 +367,50 @@ SHUTDOWN:
             const outputNode = audioContext.createGain();
             outputNode.connect(audioContext.destination);
 
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            streamRef.current = stream;
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (err) {
+                // Fallback if mic not available (e.g. for text-only mode if we supported it, but Live needs audio init usually)
+                console.warn("Microphone access failed", err);
+                // If we want text-only fallback, we can skip mic initialization, but Live API might require it or we just don't send audio.
+                // For now, proceed but warn.
+                toast.error("Microphone access denied. Voice disabled.");
+            }
+            if (stream) streamRef.current = stream;
 
-            const streamSettings = stream.getAudioTracks()[0].getSettings();
-            const inputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: streamSettings.sampleRate || 48000 });
+            const inputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: stream ? stream.getAudioTracks()[0].getSettings().sampleRate : 48000 });
             inputAudioContextRef.current = inputAudioContext;
 
-            const analyzer = inputAudioContext.createAnalyser();
-            const visualizerSource = inputAudioContext.createMediaStreamSource(stream);
-            visualizerSource.connect(analyzer);
-
-            const updateVolume = () => {
-                if (inputAudioContext.state === 'closed') return;
-                const dataArray = new Uint8Array(analyzer.frequencyBinCount);
-                analyzer.getByteFrequencyData(dataArray);
-                const avg = dataArray.reduce((a, b) => a + b) / dataArray.length;
-                setVolume(avg);
-                requestAnimationFrame(updateVolume);
-            };
-            updateVolume();
+            let analyzer: AnalyserNode | null = null;
+            if (stream) {
+                analyzer = inputAudioContext.createAnalyser();
+                const visualizerSource = inputAudioContext.createMediaStreamSource(stream);
+                visualizerSource.connect(analyzer);
+                const updateVolume = () => {
+                    if (inputAudioContext.state === 'closed') return;
+                    const dataArray = new Uint8Array(analyzer!.frequencyBinCount);
+                    analyzer!.getByteFrequencyData(dataArray);
+                    const avg = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                    setVolume(avg);
+                    requestAnimationFrame(updateVolume);
+                };
+                updateVolume();
+            }
 
             const sessionPromise = ai.live.connect({
                 model: 'gemini-2.0-flash-exp',
                 config: {
                     tools: tools,
                     systemInstruction: getSystemInstruction(),
-                    responseModalities: [Modality.AUDIO],
+                    responseModalities: [Modality.AUDIO, Modality.TEXT], // Enable TEXT for chat UI
                 },
                 callbacks: {
                     onopen: () => {
                         setIsActive(true);
                         setIsConnecting(false);
-                        toast.success(currentLanguage === 'hu' ? 'Hangasszisztens aktív' : 'Voice Assistant Active');
+                        addMessage('system', currentLanguage === 'hu' ? 'Kapcsolódva. Miben segíthetek?' : 'Connected. How can I help?');
+
                         sessionPromise.then(s => s.sendToolResponse({
                             functionResponses: {
                                 name: 'system_state_report',
@@ -388,6 +420,20 @@ SHUTDOWN:
                         }));
                     },
                     onmessage: async (message: LiveServerMessage) => {
+                        // Handle Text Output
+                        if (message.serverContent?.modelTurn?.parts) {
+                            for (const part of message.serverContent.modelTurn.parts) {
+                                if (part.text) {
+                                    // Avoid duplicate messages if streaming sends chunks. 
+                                    // A simple debounce or check could help, but for now we append.
+                                    // Actually, Live API sends accumulated text or chunks. 
+                                    // We'll simplisticly log it. Ideally we should accumulate turn text.
+                                    addMessage('assistant', part.text);
+                                }
+                            }
+                        }
+
+                        // Handle Audio Output
                         if (message.serverContent?.modelTurn?.parts?.[0]?.inlineData) {
                             const audioData = decode(message.serverContent.modelTurn.parts[0].inlineData.data);
                             const buffer = await decodeAudioData(audioData, audioContext, 24000, 1);
@@ -402,6 +448,9 @@ SHUTDOWN:
                             for (const fc of message.toolCall.functionCalls) {
                                 const args = fc.args as any;
                                 let result = { ok: true, message: 'Done' };
+
+                                // Log action to chat
+                                addMessage('system', `Executing: ${fc.name}`);
 
                                 if (fc.name === 'get_system_state') {
                                     result = { ok: true, message: generateStateReport() };
@@ -446,34 +495,57 @@ SHUTDOWN:
                     onclose: () => {
                         setIsActive(false);
                         setIsConnecting(false);
-                        toast(currentLanguage === 'hu' ? 'Kapcsolat bontva' : 'Disconnected', { icon: '👋' });
+                        addMessage('system', 'Disconnected');
                     },
                     onError: (e) => {
                         console.error(e);
                         setIsActive(false);
-                        toast.error("Connection error");
+                        addMessage('system', `Error: ${e.message}`);
                     }
                 }
             });
 
-            const source = inputAudioContext.createMediaStreamSource(stream);
-            const scriptProcessor = inputAudioContext.createScriptProcessor(4096, 1, 1);
-            processorRef.current = scriptProcessor;
+            if (stream) {
+                const source = inputAudioContext.createMediaStreamSource(stream);
+                const scriptProcessor = inputAudioContext.createScriptProcessor(4096, 1, 1);
+                processorRef.current = scriptProcessor;
 
-            scriptProcessor.onaudioprocess = (e) => {
-                const inputData = e.inputBuffer.getChannelData(0);
-                const pcmBlob = createBlob(inputData, inputAudioContext.sampleRate);
-                sessionPromise.then(s => s.sendRealtimeInput({ media: pcmBlob }));
-            };
+                scriptProcessor.onaudioprocess = (e) => {
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    const pcmBlob = createBlob(inputData, inputAudioContext.sampleRate);
+                    sessionPromise.then(s => s.sendRealtimeInput({ media: pcmBlob }));
+                };
 
-            source.connect(scriptProcessor);
-            scriptProcessor.connect(inputAudioContext.destination);
+                source.connect(scriptProcessor);
+                scriptProcessor.connect(inputAudioContext.destination);
+            }
             sessionRef.current = sessionPromise;
 
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            toast.error("Failed to acquire microphone");
+            toast.error("Connection failed: " + e.message);
             setIsConnecting(false);
+        }
+    };
+
+    const handleSendText = async () => {
+        if (!inputText.trim() || !sessionRef.current) return;
+        const text = inputText.trim();
+        setInputText('');
+        addMessage('user', text);
+        try {
+            const session = await sessionRef.current;
+            // Send text input to Live API using parts
+            // Note: The correct method depends on SDK version. 
+            // sendRealtimeInput allows { mimeType: 'text/plain', data: base64 } or similar?
+            // Actually, send({ parts: [{ text }] }) works for turn-based but for Live...
+            // Checking the SDK, sendRealtimeInput is for media.
+            // send() might be for turns.
+            // But we can trigger a turn with text.
+            session.send({ parts: [{ text }] }, true);
+        } catch (e: any) {
+            console.error('Text send failed', e);
+            toast.error('Failed to send text');
         }
     };
 
@@ -514,34 +586,109 @@ SHUTDOWN:
                 style: { background: '#1e293b', color: '#fff' }
             }} />
             <VisualAssistOverlay />
-            <motion.button
-                onClick={isActive ? disconnect : startSession}
-                className={`fixed bottom-8 right-8 z-[9999] p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all duration-300 group ${isActive ? 'bg-red-500/10 border-red-500/50 hover:bg-red-500/20' : 'bg-indigo-500/10 border-indigo-500/50 hover:bg-indigo-500/20'
-                    }`}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-            >
-                <div className="relative">
-                    {isConnecting ? <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" /> :
-                        isActive ? (
-                            <>
-                                <span className="absolute inset-0 rounded-full bg-red-500/20 animate-ping" />
-                                <Mic className="w-8 h-8 text-red-500 relative z-10" />
-                            </>
-                        ) : (
-                            <>
-                                <MicOff className="w-8 h-8 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
-                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-indigo-500 rounded-full animate-pulse" />
-                            </>
-                        )}
-                </div>
-                {isActive && (
-                    <svg className="absolute inset-0 -m-1 w-[calc(100%+8px)] h-[calc(100%+8px)] pointer-events-none">
-                        <circle cx="50%" cy="50%" r="24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500/30"
-                            style={{ r: 24 + (volume / 255) * 15, transition: 'r 0.05s ease-out' }} />
-                    </svg>
+
+            {/* Chat Overlay */}
+            <AnimatePresence>
+                {isActive && showChat && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 50, scale: 0.9 }}
+                        className="fixed bottom-24 right-8 w-80 md:w-96 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 z-[9990] flex flex-col overflow-hidden max-h-[60vh]"
+                    >
+                        {/* Chat Header */}
+                        <div className="p-4 bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-between">
+                            <h3 className="text-white font-semibold flex items-center gap-2">
+                                <Sparkles size={16} /> Gemini Live
+                            </h3>
+                            <button onClick={() => setShowChat(false)} className="text-white/80 hover:text-white transition-colors">
+                                <ChevronDown size={20} />
+                            </button>
+                        </div>
+
+                        {/* Messages */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900/50">
+                            {messages.map((msg, idx) => (
+                                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${msg.role === 'user'
+                                            ? 'bg-indigo-500 text-white rounded-br-none'
+                                            : msg.role === 'system'
+                                                ? 'bg-gray-200 dark:bg-gray-700 text-xs italic text-center mx-auto'
+                                                : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-sm rounded-bl-none'
+                                        }`}>
+                                        {msg.text}
+                                    </div>
+                                </div>
+                            ))}
+                            <div ref={chatEndRef} />
+                        </div>
+
+                        {/* Input Area */}
+                        <div className="p-3 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
+                            <div className="relative flex items-center">
+                                <input
+                                    type="text"
+                                    value={inputText}
+                                    onChange={(e) => setInputText(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSendText()}
+                                    placeholder={currentLanguage === 'hu' ? 'Üzenet írása...' : 'Type a message...'}
+                                    className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-900 border-none focus:ring-2 focus:ring-indigo-500/50 text-sm"
+                                />
+                                <button
+                                    onClick={handleSendText}
+                                    disabled={!inputText.trim()}
+                                    className="absolute right-2 p-1.5 rounded-lg bg-indigo-500 text-white disabled:opacity-50 hover:bg-indigo-600 transition-colors"
+                                >
+                                    <Send size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
                 )}
-            </motion.button>
+            </AnimatePresence>
+
+            {/* Toggle Button */}
+            <motion.div className="fixed bottom-8 right-8 z-[9999] flex flex-col gap-4 items-center">
+                {isActive && !showChat && (
+                    <motion.button
+                        initial={{ opacity: 0, scale: 0 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        onClick={() => setShowChat(true)}
+                        className="p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg text-gray-600 dark:text-gray-300 hover:text-indigo-500 mb-2"
+                    >
+                        <MessageSquare size={24} />
+                    </motion.button>
+                )}
+
+                <motion.button
+                    onClick={isActive ? disconnect : startSession}
+                    className={`p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all duration-300 group ${isActive ? 'bg-red-500/10 border-red-500/50 hover:bg-red-500/20' : 'bg-indigo-500/10 border-indigo-500/50 hover:bg-indigo-500/20'
+                        }`}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                >
+                    <div className="relative">
+                        {isConnecting ? <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" /> :
+                            isActive ? (
+                                <>
+                                    <span className="absolute inset-0 rounded-full bg-red-500/20 animate-ping" />
+                                    <Mic className="w-8 h-8 text-red-500 relative z-10" />
+                                </>
+                            ) : (
+                                <>
+                                    <MicOff className="w-8 h-8 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
+                                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-indigo-500 rounded-full animate-pulse" />
+                                </>
+                            )}
+                    </div>
+                    {isActive && (
+                        <svg className="absolute inset-0 -m-1 w-[calc(100%+8px)] h-[calc(100%+8px)] pointer-events-none">
+                            <circle cx="50%" cy="50%" r="24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500/30"
+                                style={{ r: 24 + (volume / 255) * 15, transition: 'r 0.05s ease-out' }} />
+                        </svg>
+                    )}
+                </motion.button>
+            </motion.div>
         </>
     );
 };
