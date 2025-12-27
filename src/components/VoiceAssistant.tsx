@@ -1,597 +1,547 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Mic, X, Send, MicOff, Loader2, VolumeX, Keyboard, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { GoogleGenAI, LiveServerMessage, Modality, Type } from '@google/genai';
+import { Mic, MicOff, Loader2, Sparkles, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { toast, Toaster } from 'react-hot-toast';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
-import { AIService } from '../services/AIService';
 import { FinancialEngine } from '../utils/FinancialEngine';
 import { CurrencyService } from '../services/CurrencyService';
 
 interface VoiceAssistantProps {
-    onCommand?: (command: VoiceCommand) => void;
+    apiKey: string;
+    onCommand?: (command: any) => void;
     currentLanguage: string;
     currentView: string;
 }
 
-export interface VoiceCommand {
-    type: string;
-    data: any;
-    target?: string;
-    invoiceId?: string;
-    taskTitle?: string;
-    raw: string;
+// Audio Decoding for Gemini Live (PCM 16le -> AudioBuffer)
+async function decodeAudioData(
+    data: Uint8Array,
+    ctx: AudioContext,
+    sampleRate: number,
+    numChannels: number,
+): Promise<AudioBuffer> {
+    const dataInt16 = new Int16Array(data.buffer);
+    const frameCount = dataInt16.length / numChannels;
+    const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+    for (let channel = 0; channel < numChannels; channel++) {
+        const channelData = buffer.getChannelData(channel);
+        for (let i = 0; i < frameCount; i++) {
+            channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+        }
+    }
+    return buffer;
+}
+
+// Helper to encode base64
+function encode(bytes: Uint8Array) {
+    let binary = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+}
+
+// Create PCM Blob for sending to API with DYNAMIC Sample Rate
+function createBlob(data: Float32Array, sampleRate: number): { data: string; mimeType: string } {
+    const l = data.length;
+    const int16 = new Int16Array(l);
+    for (let i = 0; i < l; i++) {
+        int16[i] = data[i] * 32768;
+    }
+    return {
+        data: encode(new Uint8Array(int16.buffer)),
+        mimeType: `audio/pcm;rate=${sampleRate}`,
+    };
+}
+
+// DOM Element detection and analysis
+interface ViewportElement {
+    type: 'button' | 'input' | 'text' | 'card' | 'section';
+    id?: string;
+    text?: string;
+    visible: boolean;
+    rect: DOMRect;
+    attributes?: Record<string, string>;
 }
 
 export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
+    apiKey,
     onCommand,
     currentLanguage,
     currentView
 }) => {
     const { t } = useLanguage();
-    const { transactions, addPlan, addTransaction } = useData();
-    const [isOpen, setIsOpen] = useState(false);
-    const [isListening, setIsListening] = useState(false);
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [isSpeaking, setIsSpeaking] = useState(false);
-    const [transcript, setTranscript] = useState('');
-    const [response, setResponse] = useState('');
-    const [error, setError] = useState<string | null>(null);
-    const [isKeyboardMode, setIsKeyboardMode] = useState(false);
-    const [inputText, setInputText] = useState('');
+    const { transactions } = useData();
+    const [isActive, setIsActive] = useState(false);
+    const [isConnecting, setIsConnecting] = useState(false);
+    const [volume, setVolume] = useState(0);
+    const [scrollPosition, setScrollPosition] = useState({ top: 0, percent: 0 });
+    const [viewportElements, setViewportElements] = useState<ViewportElement[]>([]);
+    const [showVisualAssist, setShowVisualAssist] = useState(false);
 
-    const recognitionRef = useRef<any>(null);
-    const synthRef = useRef<SpeechSynthesis>(window.speechSynthesis);
+    // Refs
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const inputAudioContextRef = useRef<AudioContext | null>(null);
+    const streamRef = useRef<MediaStream | null>(null);
+    const processorRef = useRef<ScriptProcessorNode | null>(null);
+    const sessionRef = useRef<any>(null);
+    const onCommandRef = useRef(onCommand);
 
-    // Initialize Speech Recognition
     useEffect(() => {
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-            recognitionRef.current = new SpeechRecognition();
-            recognitionRef.current.continuous = false;
-            recognitionRef.current.interimResults = true;
-            recognitionRef.current.lang = currentLanguage === 'hu' ? 'hu-HU' : 'en-US';
+        onCommandRef.current = onCommand;
+    }, [onCommand]);
 
-            recognitionRef.current.onresult = (event: any) => {
-                const currentTranscript = Array.from(event.results)
-                    .map((result: any) => result[0])
-                    .map((result) => result.transcript)
-                    .join('');
-                setTranscript(currentTranscript);
-            };
+    // Enhanced Scroll Position Tracking
+    useEffect(() => {
+        const handleScroll = () => {
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+            const percent = scrollHeight > 0 ? Math.round((scrollTop / scrollHeight) * 100) : 0;
 
-            recognitionRef.current.onend = () => {
-                if (isListening) {
-                    // Auto-restart for continuous "normal" conversation flow
-                    // Small delay to prevent CPU hogging
-                    setTimeout(() => {
-                        try {
-                            recognitionRef.current?.start();
-                        } catch (e) {
-                            console.log('Recognition restart ignored');
-                            setIsListening(false);
-                        }
-                    }, 300);
-                } else {
-                    setIsListening(false);
-                }
+            setScrollPosition({ top: scrollTop, percent });
 
-                if (transcript.trim()) {
-                    handleCommand(transcript);
-                    setTranscript(''); // Clear buffer after sending
-                }
-            };
+            if (isActive) {
+                analyzeViewport();
+            }
+        };
 
-            recognitionRef.current.onerror = (event: any) => {
-                console.error('Speech recognition error', event.error);
-                setError('Hiba történt a hangfelismerés közben.');
-                setIsListening(false);
-            };
-        }
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [isActive]);
+
+    // Analyze viewport elements
+    const analyzeViewport = useCallback(() => {
+        const elements: ViewportElement[] = [];
+        const viewportHeight = window.innerHeight;
+
+        // Detect buttons
+        document.querySelectorAll('button, [role="button"], a').forEach((el) => {
+            const rect = el.getBoundingClientRect();
+            if (rect.top < viewportHeight && rect.bottom > 0 && rect.width > 0 && rect.height > 0) {
+                elements.push({
+                    type: 'button',
+                    id: el.id || undefined,
+                    text: el.textContent?.substring(0, 50).trim() || undefined,
+                    visible: true,
+                    rect,
+                    attributes: {
+                        'aria-label': el.getAttribute('aria-label') || undefined
+                    }
+                });
+            }
+        });
+
+        // Detect inputs
+        document.querySelectorAll('input, textarea, select').forEach((el) => {
+            const rect = el.getBoundingClientRect();
+            if (rect.top < viewportHeight && rect.bottom > 0) {
+                elements.push({
+                    type: 'input',
+                    id: el.id || undefined,
+                    visible: true,
+                    rect,
+                    attributes: {
+                        'placeholder': el.getAttribute('placeholder') || undefined,
+                        'value': (el as HTMLInputElement).value?.substring(0, 50) || undefined,
+                        'type': el.getAttribute('type') || 'text'
+                    }
+                });
+            }
+        });
+
+        setViewportElements(elements.slice(0, 50)); // Limit to avoid context overflow
+    }, []);
+
+    const generateStateReport = useCallback(() => {
+        const baseCurrency = CurrencyService.getBaseCurrency();
+        const report = FinancialEngine.getFinancialReport(transactions, baseCurrency);
+
+        return `
+[SYSTEM STATE SNAPSHOT]
+Language: ${currentLanguage}
+Current View: ${currentView}
+Scroll: ${scrollPosition.percent}%
+
+FINANCIAL STATUS:
+Balance: ${Math.round(report.currentBalance)} ${baseCurrency}
+Monthly Net: ${Math.round(report.monthlyNet)}
+Runway: ${report.runway ? report.runway + ' months' : 'N/A'}
+
+VIEWPORT (${viewportElements.length} items):
+${viewportElements.slice(0, 20).map(el => `- ${el.type}: "${el.text || el.attributes?.placeholder || 'unnamed'}"`).join('\n')}
+...
+        `.trim();
+    }, [currentLanguage, currentView, scrollPosition, viewportElements, transactions]);
+
+    const getSystemInstruction = useCallback(() => {
+        const isHu = currentLanguage === 'hu';
+
+        return `
+You are the Voice Interface of 'ContentPlanner Pro', an advanced financial application.
+You have COMPLETE control over the interface and data. Speak professional ${isHu ? 'Hungarian' : 'English'}.
+
+CAPABILITIES:
+1. SCREEN AWARENESS: You see buttons, inputs, and text (system state).
+2. NAVIGATION: You can scroll and switch views immediately.
+3. DATA MANAGEMENT: Create tasks, transactions, goals, notes instantly.
+4. INVOICE MANAGEMENT: Schedule pending invoices, link invoices.
+
+IMPORTANT RULES:
+- When user asks to "Create task", "Record expense", "Open settings" -> CALL THE CORRESPONDING TOOL IMMEDIATELY.
+- When user asks "What can you see?" -> Call analyze_viewport first, then answer.
+- When user asks "Scroll down" -> Call control_scroll.
+- Be concise and professional.
+
+SPECIFIC COMMANDS (ContentPlanner):
+- "Schedule pending invoices" -> Call manage_invoices(action='SCHEDULE_PENDING')
+- "Add 5000 HUF lunch expense" -> Call create_transaction(amount=5000, currency='HUF', category='Food', type='expense')
+- "New task for tomorrow" -> Call create_task(title='...', date='YYYY-MM-DD')
+- "Pomodoro start" -> navigate_view('pomodoro')
+
+SHUTDOWN:
+- If user says "Stop" or "Exit", call disconnect_assistant().
+        `;
     }, [currentLanguage]);
 
-    // Helper to process AI JSON actions
-    const processAIAction = (jsonString: string) => {
-        try {
-            const data = JSON.parse(jsonString);
-            console.log('Processing AI Action:', data);
-
-            if (data.action === 'create_task') {
-                addPlan({
-                    title: data.title,
-                    description: data.description || '',
-                    date: new Date(data.date),
-                    priority: data.priority || 'medium',
-                    completed: false,
-                    linkedNotes: []
-                });
-                return `[Rendszer: Feladat létrehozva - ${data.title}] - ${data.date}`;
-            }
-
-            if (data.action === 'create_transaction') {
-                addTransaction({
-                    type: data.type as any,
-                    amount: Number(data.amount),
-                    currency: data.currency || 'USD',
-                    category: data.category || 'Egyéb',
-                    date: new Date(data.date),
-                    description: data.description || '',
-                    recurring: false
-                });
-                return `[Rendszer: Tranzakció rögzítve - ${data.amount} ${data.currency}]`;
-            }
-
-            if (data.action === 'navigate') {
-                if (onCommand) {
-                    onCommand({
-                        type: 'navigation',
-                        target: data.target,
-                        data: null,
-                        raw: ''
-                    });
-                }
-                return `[Rendszer: Navigálás ide: ${data.target}]`;
-            }
-
-            if (data.action === 'link_invoice') {
-                const invoiceId = data.invoiceId || data.id || '';
-                const taskTitle = data.taskTitle || `Invoice ${invoiceId}`;
-                // Create a new task linking the invoice
-                addPlan({
-                    title: taskTitle,
-                    description: `Linked invoice ${invoiceId}`,
-                    date: new Date(),
-                    priority: 'medium',
-                    completed: false,
-                    linkedNotes: []
-                });
-                return `[Rendszer: Számla ${invoiceId} hozzáadva a feladathoz ${taskTitle}]`;
-            }
-
-            if (data.action === 'schedule_pending_invoices') {
-                // Schedule all pending invoices as tasks - handled via onCommand callback
-                if (onCommand) {
-                    onCommand({
-                        type: 'schedule_pending',
-                        target: 'invoicing',
-                        data: null,
-                        raw: ''
-                    });
-                }
-                return `[Rendszer: Összes függő számla feladatként ütemezve]`;
-            }
-
-            if (data.action === 'create_goal') {
-                if (onCommand) {
-                    onCommand({
-                        type: 'create_goal',
-                        target: 'goals',
-                        data: {
-                            title: data.title,
-                            targetDate: data.targetDate,
-                            description: data.description || ''
-                        },
-                        raw: ''
-                    });
-                }
-                return `[Rendszer: Cél létrehozva - ${data.title}]`;
-            }
-
-            if (data.action === 'create_note') {
-                if (onCommand) {
-                    onCommand({
-                        type: 'create_note',
-                        target: 'notes',
-                        data: {
-                            title: data.title,
-                            content: data.content || ''
-                        },
-                        raw: ''
-                    });
-                }
-                return `[Rendszer: Jegyzet létrehozva - ${data.title}]`;
-            }
-
-            if (data.action === 'toggle_theme') {
-                if (onCommand) {
-                    onCommand({
-                        type: 'toggle_theme',
-                        target: data.theme || 'toggle',
-                        data: null,
-                        raw: ''
-                    });
-                }
-                const themeMsg = data.theme === 'dark' ? 'Sötét' : data.theme === 'light' ? 'Világos' : 'Váltott';
-                return `[Rendszer: ${themeMsg} téma aktiválva]`;
-            }
-
-            if (data.action === 'pomodoro') {
-                if (onCommand) {
-                    onCommand({
-                        type: 'pomodoro',
-                        target: data.command || 'start',
-                        data: null,
-                        raw: ''
-                    });
-                }
-                const cmdMsgMap: Record<string, string> = {
-                    start: 'Pomodoro indítva',
-                    stop: 'Pomodoro leállítva',
-                    pause: 'Pomodoro szüneteltetve',
-                    resume: 'Pomodoro folytatva'
-                };
-                const cmdMsg = cmdMsgMap[data.command as string] || 'Pomodoro parancs végrehajtva';
-                return `[Rendszer: ${cmdMsg}]`;
-            }
-
-            if (data.action === 'help') {
-                return null; // Let AI respond with natural help text
-            }
-
-        } catch (e) {
-            console.error('Failed to process AI action:', e);
-            return null;
+    const startSession = async () => {
+        if (isActive) return;
+        if (!apiKey) {
+            toast.error("API Key is required");
+            return;
         }
-    };
 
-    const handleCommand = async (text: string) => {
-        if (!text.trim()) return;
-
-        setIsProcessing(true);
-        setError(null);
+        setIsConnecting(true);
 
         try {
-            if (!AIService.isConfigured()) {
-                throw new Error(t('integrations.notConfigured') || 'Nincs AI beállítva. Kérlek állítsd be az Integrációk menüben.');
-            }
+            const ai = new GoogleGenAI({ apiKey });
 
-            // 0. Auto-detect currency intent and force refresh rates if needed
-            const currencyKeywords = [
-                'árfolyam', 'valuta', 'váltás', 'átváltás', 'mennyi', 'euró', 'dollár', 'forint',
-                'euro', 'dollar', 'huf', 'usd', 'gbp', 'chf', 'jpy', 'rate', 'exchange', 'convert',
-                '€', '$', '£', '¥'
-            ];
+            // Define ContentPlanner Tools
+            const tools = [{
+                functionDeclarations: [
+                    {
+                        name: 'get_system_state',
+                        description: 'Returns UI state and financial summary.',
+                        parameters: { type: Type.OBJECT, properties: {} }
+                    },
+                    {
+                        name: 'control_scroll',
+                        description: 'Scrolls the page.',
+                        parameters: {
+                            type: Type.OBJECT,
+                            properties: {
+                                direction: { type: Type.STRING, enum: ['UP', 'DOWN'] },
+                                intensity: { type: Type.STRING, enum: ['NORMAL', 'LARGE'] }
+                            }
+                        }
+                    },
+                    {
+                        name: 'navigate_view',
+                        description: 'Navigates to a specific app view.',
+                        parameters: {
+                            type: Type.OBJECT,
+                            properties: {
+                                target: { type: Type.STRING, enum: ['daily', 'weekly', 'monthly', 'budget', 'invoicing', 'stats', 'settings', 'goals', 'notes', 'pomodoro'] }
+                            },
+                            required: ['target']
+                        }
+                    },
+                    {
+                        name: 'create_task',
+                        description: 'Creates a new planner task.',
+                        parameters: {
+                            type: Type.OBJECT,
+                            properties: {
+                                title: { type: Type.STRING },
+                                date: { type: Type.STRING, description: 'YYYY-MM-DD' },
+                                priority: { type: Type.STRING },
+                                description: { type: Type.STRING }
+                            },
+                            required: ['title', 'date']
+                        }
+                    },
+                    {
+                        name: 'create_transaction',
+                        description: 'Records a financial transaction.',
+                        parameters: {
+                            type: Type.OBJECT,
+                            properties: {
+                                type: { type: Type.STRING, enum: ['income', 'expense'] },
+                                amount: { type: Type.NUMBER },
+                                currency: { type: Type.STRING },
+                                category: { type: Type.STRING },
+                                description: { type: Type.STRING }
+                            },
+                            required: ['amount', 'type']
+                        }
+                    },
+                    {
+                        name: 'create_goal',
+                        description: 'Creates a goal.',
+                        parameters: {
+                            type: Type.OBJECT,
+                            properties: {
+                                title: { type: Type.STRING },
+                                targetDate: { type: Type.STRING },
+                                description: { type: Type.STRING }
+                            }
+                        }
+                    },
+                    {
+                        name: 'create_note',
+                        description: 'Creates a note.',
+                        parameters: {
+                            type: Type.OBJECT,
+                            properties: {
+                                title: { type: Type.STRING },
+                                content: { type: Type.STRING }
+                            }
+                        }
+                    },
+                    {
+                        name: 'manage_invoices',
+                        description: 'Manage invoices like scheduling pending ones.',
+                        parameters: {
+                            type: Type.OBJECT,
+                            properties: {
+                                action: { type: Type.STRING, enum: ['SCHEDULE_PENDING', 'LINK'] },
+                                invoiceId: { type: Type.STRING }
+                            },
+                            required: ['action']
+                        }
+                    },
+                    {
+                        name: 'toggle_theme',
+                        description: 'Toggles dark/light mode.',
+                        parameters: {
+                            type: Type.OBJECT,
+                            properties: {
+                                theme: { type: Type.STRING, enum: ['dark', 'light', 'toggle'] }
+                            }
+                        }
+                    },
+                    {
+                        name: 'analyze_viewport',
+                        description: 'Re-analyzes screen elements.',
+                        parameters: { type: Type.OBJECT, properties: {} }
+                    },
+                    {
+                        name: 'toggle_visual_assist',
+                        description: 'Toggles the visual overlay showing what the assistant sees.',
+                        parameters: { type: Type.OBJECT, properties: {} }
+                    },
+                    {
+                        name: 'disconnect_assistant',
+                        description: 'Stops the voice session.',
+                        parameters: { type: Type.OBJECT, properties: {} }
+                    }
+                ]
+            }];
 
-            const isCurrencyRelated = currencyKeywords.some(keyword => text.toLowerCase().includes(keyword));
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+            audioContextRef.current = audioContext;
+            const outputNode = audioContext.createGain();
+            outputNode.connect(audioContext.destination);
 
-            if (isCurrencyRelated && AIService.isConfigured()) {
-                console.log('Currency intent detected. Fetching live rates...');
-                await FinancialEngine.refreshRates(true); // Force API/AI fetch via Engine
-            }
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            streamRef.current = stream;
 
-            // Generate response using Unified AI Service
-            // For prompts, we can still use CurrencyService.getAllRates() if exposed, or fallback to engine.
-            // Better to keep accessing static data via CurrencyService if it's just reading data?
-            // "CurrencyService.getBaseCurrency()" might be safe if it's just reading.
-            // But for consistency let's stick to CurrencyService for data access if FinancialEngine doesn't expose it,
-            // OR add accessors to FinancialEngine.
-            // FinancialEngine.getRateSource() exists.
+            const streamSettings = stream.getAudioTracks()[0].getSettings();
+            const inputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: streamSettings.sampleRate || 48000 });
+            inputAudioContextRef.current = inputAudioContext;
 
-            // Let's rely on CurrencyService for simple state access since VoiceAssistant is not a heavy view component and loads later.
-            // BUT to be safe, let's keep it consistent.
+            const analyzer = inputAudioContext.createAnalyser();
+            const visualizerSource = inputAudioContext.createMediaStreamSource(stream);
+            visualizerSource.connect(analyzer);
 
-            // Actually, for VoiceAssistant, keeping CurrencyService is okay if imports are fine.
-            // But let's use FinancialEngine.convert() at least.
+            const updateVolume = () => {
+                if (inputAudioContext.state === 'closed') return;
+                const dataArray = new Uint8Array(analyzer.frequencyBinCount);
+                analyzer.getByteFrequencyData(dataArray);
+                const avg = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                setVolume(avg);
+                requestAnimationFrame(updateVolume);
+            };
+            updateVolume();
 
-            const baseCurrency = CurrencyService.getBaseCurrency();
-            const rates = CurrencyService.getAllRates();
+            const sessionPromise = ai.live.connect({
+                model: 'gemini-2.0-flash-exp',
+                config: {
+                    tools: tools,
+                    systemInstruction: getSystemInstruction(),
+                    responseModalities: [Modality.AUDIO],
+                },
+                callbacks: {
+                    onopen: () => {
+                        setIsActive(true);
+                        setIsConnecting(false);
+                        toast.success(currentLanguage === 'hu' ? 'Hangasszisztens aktív' : 'Voice Assistant Active');
+                        sessionPromise.then(s => s.sendToolResponse({
+                            functionResponses: {
+                                name: 'system_state_report',
+                                id: 'init-' + Date.now(),
+                                response: { result: generateStateReport() }
+                            }
+                        }));
+                    },
+                    onmessage: async (message: LiveServerMessage) => {
+                        if (message.serverContent?.modelTurn?.parts?.[0]?.inlineData) {
+                            const audioData = decode(message.serverContent.modelTurn.parts[0].inlineData.data);
+                            const buffer = await decodeAudioData(audioData, audioContext, 24000, 1);
+                            const source = audioContext.createBufferSource();
+                            source.buffer = buffer;
+                            source.connect(outputNode);
+                            source.start();
+                        }
 
-            // PhD Calculation: Get comprehensive financial report from Engine
-            const report = FinancialEngine.getFinancialReport(transactions, baseCurrency);
+                        if (message.toolCall) {
+                            const responses = [];
+                            for (const fc of message.toolCall.functionCalls) {
+                                const args = fc.args as any;
+                                let result = { ok: true, message: 'Done' };
 
-            const {
-                currentBalance,
-                monthlyNet,
-                avgInterestRate,
-                runway,
-                projections
-            } = report;
+                                if (fc.name === 'get_system_state') {
+                                    result = { ok: true, message: generateStateReport() };
+                                } else if (fc.name === 'control_scroll') {
+                                    window.scrollBy({ top: args.direction === 'UP' ? -300 : 300, behavior: 'smooth' });
+                                } else if (fc.name === 'navigate_view') {
+                                    if (onCommandRef.current) onCommandRef.current({ type: 'navigation', target: args.target });
+                                    result = { ok: true, message: `Navigated to ${args.target}` };
+                                } else if (fc.name === 'create_task') {
+                                    if (onCommandRef.current) onCommandRef.current({ type: 'create_task', data: args });
+                                    result = { ok: true, message: 'Task created' };
+                                } else if (fc.name === 'create_transaction') {
+                                    if (onCommandRef.current) onCommandRef.current({ type: 'create_transaction', data: args });
+                                    result = { ok: true, message: 'Transaction recorded' };
+                                } else if (fc.name === 'create_goal') {
+                                    if (onCommandRef.current) onCommandRef.current({ type: 'create_goal', data: args });
+                                } else if (fc.name === 'create_note') {
+                                    if (onCommandRef.current) onCommandRef.current({ type: 'create_note', data: args });
+                                } else if (fc.name === 'toggle_theme') {
+                                    if (onCommandRef.current) onCommandRef.current({ type: 'toggle_theme', target: args.theme });
+                                } else if (fc.name === 'manage_invoices') {
+                                    if (args.action === 'SCHEDULE_PENDING') {
+                                        if (onCommandRef.current) onCommandRef.current({ type: 'schedule_pending' });
+                                    } else if (args.action === 'LINK') {
+                                        if (onCommandRef.current) onCommandRef.current({ type: 'link_invoice', invoiceId: args.invoiceId });
+                                    }
+                                } else if (fc.name === 'analyze_viewport') {
+                                    analyzeViewport();
+                                    result = { ok: true, message: `Found ${viewportElements.length} elements.` };
+                                } else if (fc.name === 'toggle_visual_assist') {
+                                    setShowVisualAssist(prev => !prev);
+                                    result = { ok: true, message: 'Toggled visual assist' };
+                                } else if (fc.name === 'disconnect_assistant') {
+                                    disconnect();
+                                }
 
-            const projected3Months = projections.threeMonths;
-            const projected1Year = projections.oneYear;
-            const projected3Years = projections.threeYears;
-
-            let viewContext = '';
-            switch (currentView) {
-                case 'budget': viewContext = 'A Budget nézetben vagyunk. Itt láthatod a bevételeket, kiadásokat és az egyenlegedet. Tudok segíteni tranzakciók hozzáadásában vagy elemzésben.'; break;
-                case 'invoicing': viewContext = 'A Számlázóban vagyunk. Itt kezelheted a kiállított és bejövő számlákat.'; break;
-                default: viewContext = `Jelenleg a ${currentView} nézetben vagyunk.`;
-            }
-
-            // Generate rate list for prompt context
-            const allRatesText = Object.entries(rates).map(([c, r]) => `${c}: ${r}`).join(', ');
-
-            const systemPrompt = `
-Te egy profi Pénzügyi Asszisztens vagy TELJES HANGVEZÉRLÉSI MÓDDAL. Nyelv: ${currentLanguage}. Nézet: ${currentView}.
-
-=== AKTUÁLIS PÉNZÜGYI HELYZET ===
-Jelenlegi Egyenleg: ${Math.round(currentBalance)} ${baseCurrency}
-Euróban kifejezve: ${FinancialEngine.convert(currentBalance, baseCurrency, 'EUR').toFixed(2)} EUR
-
-=== JÖVŐBELI ELŐREJELZÉS ADATOK (PHD SZINT) ===
-- Havi Net Cashflow: ${Math.round(monthlyNet)} ${baseCurrency}
-- Átlagos Éves Kamatláb: ${avgInterestRate.toFixed(2)}%
-- Runway (Tartalék ideje): ${runway ? runway + ' hónap' : 'Végtelen/Nincs kiadás'}
-
-ELŐREJELZETT EGYENLEGEK (KAMATTAL):
-- 3 hónap múlva: ${Math.round(projected3Months)} ${baseCurrency}
-- 1 év múlva: ${Math.round(projected1Year)} ${baseCurrency}
-- 3 év múlva: ${Math.round(projected3Years)} ${baseCurrency}
-
-=== ÁRFOLYAMOK ===
-${allRatesText}
-
-${viewContext}
-
-=== HANGVEZÉRLÉSI PARANCSOK (KÖTELEZŐ JSON VÁLASZ) ===
-
-1. FELADAT LÉTREHOZÁS: "Hozz létre feladatot...", "Új feladat...", "Emlékeztess..."
-   JSON: { "action": "create_task", "title": "...", "date": "YYYY-MM-DD", "priority": "low|medium|high", "description": "..." }
-   Példa: "Hozz létre egy feladatot holnapra: Számla ellenőrzés" -> { "action": "create_task", "title": "Számla ellenőrzés", "date": "2025-12-28", "priority": "medium" }
-
-2. TRANZAKCIÓ RÖGZÍTÉS: "Adj hozzá kiadást...", "Rögzíts bevételt...", "Költöttem..."
-   JSON: { "action": "create_transaction", "type": "income|expense", "amount": 1000, "currency": "HUF", "category": "...", "description": "...", "date": "YYYY-MM-DD" }
-   Példa: "Költöttem 5000 forintot ebédre" -> { "action": "create_transaction", "type": "expense", "amount": 5000, "currency": "HUF", "category": "Étkezés", "description": "Ebéd" }
-
-3. NAVIGÁCIÓ: "Nyisd meg...", "Ugrás a...", "Mutasd a...", "Menj a..."
-   JSON: { "action": "navigate", "target": "view_name" }
-   View nevek: daily, weekly, monthly, yearly, hourly, notes, goals, drawing, budget, invoicing, pomodoro, statistics, settings, integrations
-   Példa: "Nyisd meg a heti nézetet" -> { "action": "navigate", "target": "weekly" }
-
-4. CÉL LÉTREHOZÁS: "Új cél...", "Hozz létre célt...", "Szeretnék elérni..."
-   JSON: { "action": "create_goal", "title": "...", "targetDate": "YYYY-MM-DD", "description": "..." }
-   Példa: "Új cél: Spórolni 100000 forintot július végéig" -> { "action": "create_goal", "title": "Spórolni 100000 forintot", "targetDate": "2025-07-31" }
-
-5. JEGYZET LÉTREHOZÁS: "Írj jegyzetet...", "Jegyzetelj...", "Jegyezd meg..."
-   JSON: { "action": "create_note", "title": "...", "content": "..." }
-   Példa: "Írj jegyzetet: Megbeszélés holnap 10-kor" -> { "action": "create_note", "title": "Megbeszélés", "content": "Holnap 10-kor" }
-
-6. TÉMA VÁLTÁS: "Sötét mód", "Világos mód", "Váltsd a témát"
-   JSON: { "action": "toggle_theme", "theme": "dark|light|toggle" }
-
-7. POMODORO: "Indíts pomodoro-t", "Állítsd meg a timer-t", "Szünet"
-   JSON: { "action": "pomodoro", "command": "start|stop|pause|resume" }
-
-8. SZÁMLA ÜTEMEZÉS: "Ütemezd a függő számlákat", "Add hozzá a számlákat a feladatokhoz"
-   JSON: { "action": "schedule_pending_invoices" }
-
-9. SZÁMLA KAPCSOLÁS: "Kapcsold a 123-as számlát a feladathoz"
-   JSON: { "action": "link_invoice", "invoiceId": "123", "taskTitle": "..." }
-
-10. SEGÍTSÉG: "Mik a parancsok?", "Mit tudsz csinálni?", "Súgó"
-    JSON: { "action": "help" }
-    Válaszolj szövegesen a lehetséges parancsokkal: navigáció, feladat, tranzakció, cél, jegyzet, pomodoro, téma, számla ütemezés.
-
-=== ÁLTALÁNOS SZABÁLYOK ===
-- Ha a felhasználó VÉGREHAJTÁST kér (pl. "hozz létre", "adj hozzá", "nyisd meg"), MINDIG válaszolj JSON-nel.
-- Ha a felhasználó KÉRDEZ (pl. "mennyi a pénzem?", "mi lesz 1 év múlva?"), válaszolj természetes szöveggel.
-- Dátumokat mindig YYYY-MM-DD formátumban add meg.
-- Magyar nyelvű utasításokra magyarul válaszolj.
-
-ROLE: TELJES HANGVEZÉRLÉS ADMIN | MINDEN PARANCS ENGEDÉLYEZETT.
-            `;
-
-            const modelToUse = isKeyboardMode
-                ? 'gemini-3-flash-preview'
-                : 'gemini-2.0-flash-exp';
-
-            const result = await AIService.generateText({
-                prompt: text,
-                systemPrompt: systemPrompt + `\n\nJelenlegi dátum: ${new Date().toISOString().split('T')[0]} (Ez alapján számold ki a "kedd" stb. dátumokat!)`,
-                maxTokens: 1000,
-                model: modelToUse
+                                responses.push({ name: fc.name, id: fc.id, response: { result } });
+                            }
+                            sessionPromise.then(s => s.sendToolResponse({ functionResponses: responses }));
+                        }
+                    },
+                    onclose: () => {
+                        setIsActive(false);
+                        setIsConnecting(false);
+                        toast(currentLanguage === 'hu' ? 'Kapcsolat bontva' : 'Disconnected', { icon: '👋' });
+                    },
+                    onError: (e) => {
+                        console.error(e);
+                        setIsActive(false);
+                        toast.error("Connection error");
+                    }
+                }
             });
 
-            let aiResponse = result.text;
+            const source = inputAudioContext.createMediaStreamSource(stream);
+            const scriptProcessor = inputAudioContext.createScriptProcessor(4096, 1, 1);
+            processorRef.current = scriptProcessor;
 
-            // Extract and process JSON
-            const jsonMatch = aiResponse.match(/```json\n([\s\S]*?)\n```/) || aiResponse.match(/\{[\s\S]*"action":[\s\S]*\}/);
+            scriptProcessor.onaudioprocess = (e) => {
+                const inputData = e.inputBuffer.getChannelData(0);
+                const pcmBlob = createBlob(inputData, inputAudioContext.sampleRate);
+                sessionPromise.then(s => s.sendRealtimeInput({ media: pcmBlob }));
+            };
 
-            if (jsonMatch) {
-                const jsonContent = jsonMatch[1] || jsonMatch[0];
-                const actionResult = processAIAction(jsonContent);
+            source.connect(scriptProcessor);
+            scriptProcessor.connect(inputAudioContext.destination);
+            sessionRef.current = sessionPromise;
 
-                // Hide JSON from display/speech, append system confirmation if successful
-                aiResponse = aiResponse.replace(jsonMatch[0], '').trim();
-                if (actionResult) {
-                    aiResponse += `\n\n${actionResult}`;
-                }
-            }
-
-            setResponse(aiResponse || 'Sajnálom, nem kaptam választ a modelltől.');
-
-            // Text to Speech
-            speakResponse(aiResponse);
-
-        } catch (err) {
-            console.error('AI processing error:', err);
-            setError(err instanceof Error ? err.message : 'Ismeretlen hiba');
-            speakResponse('Sajnálom, hiba történt a feldolgozás során.');
-        } finally {
-            setIsProcessing(false);
+        } catch (e) {
+            console.error(e);
+            toast.error("Failed to acquire microphone");
+            setIsConnecting(false);
         }
     };
 
-    const speakResponse = (text: string) => {
-        if (!synthRef.current) return;
+    const disconnect = useCallback(async () => {
+        streamRef.current?.getTracks().forEach(t => t.stop());
+        inputAudioContextRef.current?.close();
+        audioContextRef.current?.close();
+        setIsActive(false);
+    }, []);
 
-        // Cancel previous speech
-        synthRef.current.cancel();
-
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = currentLanguage === 'hu' ? 'hu-HU' : 'en-US';
-
-        utterance.onstart = () => setIsSpeaking(true);
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
-
-        synthRef.current.speak(utterance);
-    };
-
-    const toggleListening = () => {
-        if (isListening) {
-            setIsListening(false); // Flag prevents auto-restart
-            recognitionRef.current?.stop();
-        } else {
-            setTranscript('');
-            setResponse('');
-            setError(null);
-            setIsListening(true); // Flag enables auto-restart
-            try {
-                recognitionRef.current?.start();
-            } catch (e) {
-                console.error('Start failed', e);
-            }
-        }
-    };
-
-    const toggleOpen = () => {
-        setIsOpen(!isOpen);
-        if (isOpen) {
-            // Close logic
-            recognitionRef.current?.stop();
-            synthRef.current.cancel();
-            setIsListening(false);
-            setIsSpeaking(false);
-        }
-    };
-
-    if (!isOpen) {
+    const VisualAssistOverlay = () => {
+        if (!showVisualAssist) return null;
         return (
-            <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4 print:hidden">
-                <button
-                    onClick={toggleOpen}
-                    className="p-4 bg-gradient-to-r from-primary-600 to-indigo-600 text-white rounded-full shadow-lg hover:scale-105 transition-all animate-bounce-subtle"
-                >
-                    <Mic size={24} />
-                </button>
+            <div className="fixed inset-0 z-[10000] pointer-events-none data-[state=visible]">
+                {viewportElements.map((el, i) => (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        key={i}
+                        style={{
+                            position: 'absolute', left: el.rect.left, top: el.rect.top, width: el.rect.width, height: el.rect.height,
+                        }}
+                        className="border-2 border-green-500/40 bg-green-500/5 rounded-md flex items-start justify-start"
+                    >
+                        <span className="bg-green-900/80 text-green-300 text-[10px] px-1 rounded-br-md font-mono">
+                            {el.type}
+                        </span>
+                    </motion.div>
+                ))}
             </div>
         );
-    }
+    };
 
     return (
-        <div className="fixed bottom-6 right-6 w-80 md:w-96 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden animate-fade-in-up">
-            {/* Header */}
-            <div className="p-4 bg-gradient-to-r from-primary-600 to-indigo-600 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-white">
-                    <Sparkles size={20} />
-                    <h3 className="font-bold">AI Asszisztens</h3>
+        <>
+            <Toaster position="top-right" toastOptions={{
+                className: 'dark:bg-gray-800 dark:text-white',
+                style: { background: '#1e293b', color: '#fff' }
+            }} />
+            <VisualAssistOverlay />
+            <motion.button
+                onClick={isActive ? disconnect : startSession}
+                className={`fixed bottom-8 right-8 z-[9999] p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all duration-300 group ${isActive ? 'bg-red-500/10 border-red-500/50 hover:bg-red-500/20' : 'bg-indigo-500/10 border-indigo-500/50 hover:bg-indigo-500/20'
+                    }`}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+            >
+                <div className="relative">
+                    {isConnecting ? <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" /> :
+                        isActive ? (
+                            <>
+                                <span className="absolute inset-0 rounded-full bg-red-500/20 animate-ping" />
+                                <Mic className="w-8 h-8 text-red-500 relative z-10" />
+                            </>
+                        ) : (
+                            <>
+                                <MicOff className="w-8 h-8 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
+                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-indigo-500 rounded-full animate-pulse" />
+                            </>
+                        )}
                 </div>
-                <button
-                    onClick={toggleOpen}
-                    className="text-white/80 hover:text-white hover:bg-white/10 p-1 rounded-lg transition-colors"
-                >
-                    <X size={20} />
-                </button>
-            </div>
-
-            {/* Chat Area */}
-            <div className="p-4 h-64 overflow-y-auto bg-gray-50 dark:bg-gray-900/50 flex flex-col gap-4">
-                {/* Status Indicator */}
-                {!AIService.isConfigured() ? (
-                    <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm border border-red-100 dark:border-red-800">
-                        ⚠️ Nincs AI beállítva. Kérlek állítsd be az Integrációk menüben.
-                    </div>
-                ) : (
-                    <div className="text-center text-xs text-gray-400">
-                        {AIService.getActiveProvider() === 'openai' ? 'Powered by OpenAI' : 'Powered by Gemini'}
-                    </div>
+                {isActive && (
+                    <svg className="absolute inset-0 -m-1 w-[calc(100%+8px)] h-[calc(100%+8px)] pointer-events-none">
+                        <circle cx="50%" cy="50%" r="24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500/30"
+                            style={{ r: 24 + (volume / 255) * 15, transition: 'r 0.05s ease-out' }} />
+                    </svg>
                 )}
-
-                {transcript && (
-                    <div className="self-end bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-200 p-3 rounded-2xl rounded-tr-none max-w-[85%] text-sm">
-                        {transcript}
-                    </div>
-                )}
-
-                {isProcessing && (
-                    <div className="self-start flex items-center gap-2 text-gray-500 text-sm p-2">
-                        <Loader2 size={16} className="animate-spin" />
-                        Gondolkodom...
-                    </div>
-                )}
-
-                {response && (
-                    <div className="self-start bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 rounded-2xl rounded-tl-none max-w-[85%] text-sm shadow-sm">
-                        {response}
-                    </div>
-                )}
-
-                {error && (
-                    <div className="self-center bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs">
-                        {error}
-                    </div>
-                )}
-            </div>
-
-            {/* Controls */}
-            <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
-                {isKeyboardMode ? (
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            if (inputText.trim()) {
-                                setTranscript(inputText);
-                                handleCommand(inputText);
-                                setInputText('');
-                            }
-                        }}
-                        className="flex items-center gap-2"
-                    >
-                        <button
-                            type="button"
-                            onClick={() => setIsKeyboardMode(false)}
-                            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                        >
-                            <Mic size={20} />
-                        </button>
-                        <input
-                            type="text"
-                            value={inputText}
-                            onChange={(e) => setInputText(e.target.value)}
-                            placeholder="Írj egy parancsot..."
-                            className="flex-1 bg-gray-100 dark:bg-gray-700 border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-                            autoFocus
-                        />
-                        <button
-                            type="submit"
-                            disabled={!inputText.trim() || isProcessing}
-                            className="p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
-                        >
-                            <Send size={18} />
-                        </button>
-                    </form>
-                ) : (
-                    <div className="flex items-center justify-center gap-4">
-                        <button
-                            onClick={() => synthRef.current.cancel()}
-                            disabled={!isSpeaking}
-                            className={`p-2 rounded-full transition-colors ${isSpeaking ? 'text-red-500 hover:bg-red-50' : 'text-gray-300'}`}
-                            title="Némítás"
-                        >
-                            <VolumeX size={20} />
-                        </button>
-
-                        <button
-                            onClick={toggleListening}
-                            disabled={!AIService.isConfigured()}
-                            className={`p-4 rounded-full transition-all shadow-lg ${isListening
-                                ? 'bg-red-500 text-white animate-pulse'
-                                : 'bg-gradient-to-r from-primary-600 to-indigo-600 text-white hover:scale-105'
-                                } disabled:opacity-50 disabled:cursor-not-allowed`}
-                            title={isListening ? 'Leállítás' : 'Figyelés indítása'}
-                        >
-                            {isListening ? <MicOff size={24} /> : <Mic size={24} />}
-                        </button>
-
-                        <button
-                            onClick={() => setIsKeyboardMode(true)}
-                            className="p-2 text-gray-400 hover:text-primary-600 transition-colors"
-                            title="Billentyűzet"
-                        >
-                            <Keyboard size={20} />
-                        </button>
-                    </div>
-                )}
-            </div>
-        </div>
+            </motion.button>
+        </>
     );
 };
