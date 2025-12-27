@@ -56,7 +56,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen, onSettingsCli
       case 'statistics': return { title: t('statistics.title'), subtitle: t('statistics.subtitle') };
       case 'integrations': return { title: t('integrations.title'), subtitle: t('integrations.subtitle') };
       case 'settings': return { title: t('settings.title'), subtitle: t('settings.subtitle') };
-      default: return { title: 'ContentPlanner Pro', subtitle: 'Manage your life' };
+      default: return { title: 'Digital Planner Pro', subtitle: 'Manage your life' };
 
     }
   };

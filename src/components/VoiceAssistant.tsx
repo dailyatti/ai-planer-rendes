@@ -257,7 +257,7 @@ ROLE: SYSTEM ADMIN | UNLIMITED AUTHORITY.
 
             const modelToUse = isKeyboardMode
                 ? 'gemini-3-flash-preview'
-                : 'gemini-2.5-flash-native-audio-preview-12-2025';
+                : 'gemini-2.0-flash-exp';
 
             const result = await AIService.generateText({
                 prompt: text,

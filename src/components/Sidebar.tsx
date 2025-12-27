@@ -198,10 +198,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onC
           {/* Version Info */}
           <div className="p-3 rounded-xl bg-gradient-to-br from-primary-500/5 to-secondary-500/5 dark:from-primary-500/10 dark:to-secondary-500/10">
             <p className="text-xs font-semibold text-gray-900 dark:text-white">
-              ContentPlanner Pro
+              Digital Planner Pro
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              v1.1.7 • {t('nav.tagline')}
+              v1.1.8 • {t('nav.tagline')}
             </p>
           </div>
         </div>

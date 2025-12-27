@@ -3,7 +3,7 @@ import {
     FileText, Users, Plus, X, Mail, Clock, Wallet, Building2, AlertCircle,
     Download, ChevronRight, PieChart, User, CheckCircle, Search,
     TrendingUp, Filter, Check, Send, MoreHorizontal,
-    Trash2, Upload, Settings, Repeat, RefreshCcw
+    Trash2, Upload, Settings, Repeat, RefreshCcw, CalendarPlus
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useData } from '../../contexts/DataContext';
@@ -93,7 +93,7 @@ const InvoicingView: React.FC = () => {
         invoices, clients, companyProfiles,
         addInvoice, updateInvoice, deleteInvoice,
         addClient, addCompanyProfile,
-        getFinancialSummary
+        getFinancialSummary, addPlan
     } = useData();
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'invoices' | 'clients' | 'analytics'>('dashboard');
@@ -461,6 +461,20 @@ const InvoicingView: React.FC = () => {
         }
     };
 
+    const handleCreateTaskFromInvoice = (invoice: Invoice) => {
+        const client = clients.find(c => c.id === invoice.clientId);
+        addPlan({
+            title: `Invoice #${invoice.invoiceNumber} Payment`,
+            description: `Follow up on payment from ${client?.name || 'Client'}. Amount: ${formatCurrency(invoice.total, invoice.currency)}`,
+            date: new Date(invoice.dueDate),
+            startTime: new Date(invoice.dueDate), // Default start time
+            completed: false,
+            priority: invoice.status === 'overdue' ? 'high' : 'medium',
+            linkedNotes: []
+        });
+        showToast(language === 'hu' ? 'Számla feladatként ütemezve!' : 'Invoice scheduled as task!');
+    };
+
     return (
         <div className="view-container max-w-7xl mx-auto space-y-8 p-6">
             {/* Header */}
@@ -800,6 +814,18 @@ const InvoicingView: React.FC = () => {
                                                         <Check size={16} />
                                                     </button>
                                                 )}
+
+                                                {/* Schedule Task Button */}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleCreateTaskFromInvoice(invoice);
+                                                    }}
+                                                    className="p-1.5 text-indigo-500 hover:text-white hover:bg-indigo-500 rounded-lg transition-all"
+                                                    title={language === 'hu' ? "Időzítés feladatként" : "Schedule as Task"}
+                                                >
+                                                    <CalendarPlus size={16} />
+                                                </button>
                                                 {invoice.status === 'draft' && (
                                                     <button
                                                         onClick={() => handleStatusChange(invoice.id, 'sent')}
