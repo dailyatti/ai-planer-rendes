@@ -98,6 +98,7 @@ const InvoicingView: React.FC = () => {
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'invoices' | 'clients' | 'analytics'>('dashboard');
     const [showCreateInvoice, setShowCreateInvoice] = useState(false);
+    const [createTaskFromInvoice, setCreateTaskFromInvoice] = useState(false);
     const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
     const [selectedStat, setSelectedStat] = useState<{ title: string; breakdown: Record<string, number>; rect: DOMRect } | null>(null);
 
@@ -370,7 +371,7 @@ const InvoicingView: React.FC = () => {
                 invoiceNumber = SequenceService.getNextInvoiceNumber(selectedCompanyId);
             }
 
-            addInvoice({
+            const finalInvoice: Invoice = {
                 ...newInvoice,
                 companyProfileId: selectedCompanyId,
                 id: Date.now().toString(),
@@ -386,7 +387,13 @@ const InvoicingView: React.FC = () => {
                 paymentMethod: newInvoice.paymentMethod || 'transfer',
                 createdAt: new Date(),
                 status: newInvoice.status || 'sent'
-            } as Invoice);
+            } as Invoice;
+
+            addInvoice(finalInvoice);
+
+            if (createTaskFromInvoice) {
+                handleCreateTaskFromInvoice(finalInvoice);
+            }
 
             setNewInvoice({
                 items: [{ id: Date.now().toString(), description: '', quantity: 1, rate: 0, amount: 0 }],
@@ -431,7 +438,7 @@ const InvoicingView: React.FC = () => {
     const handleStatusChange = (id: string, newStatus: Invoice['status']) => {
         const inv = invoices.find(i => i.id === id);
         if (inv) {
-            updateInvoice({ ...inv, status: newStatus });
+            updateInvoice(inv.id, { status: newStatus });
         }
     };
 
@@ -1175,6 +1182,18 @@ const InvoicingView: React.FC = () => {
                                     />
                                     <label htmlFor="showSignatures" className="text-sm text-gray-600 cursor-pointer">
                                         {t('invoicing.showSignatures')}
+                                    </label>
+                                </div>
+                                <div className="flex items-center gap-2 pt-6">
+                                    <input
+                                        type="checkbox"
+                                        id="createTaskFromInvoice"
+                                        checked={createTaskFromInvoice}
+                                        onChange={(e) => setCreateTaskFromInvoice(e.target.checked)}
+                                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                    />
+                                    <label htmlFor="createTaskFromInvoice" className="text-sm text-gray-600 cursor-pointer">
+                                        {t('invoicing.createTaskForDue')}
                                     </label>
                                 </div>
                             </div>
