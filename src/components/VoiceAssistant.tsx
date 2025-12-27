@@ -19,6 +19,7 @@ interface VoiceCommand {
 }
 
 export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
+    onCommand,
     currentLanguage,
     currentView
 }) => {
@@ -98,6 +99,18 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                     recurring: false
                 });
                 return `[Rendszer: Tranzakció rögzítve - ${data.amount} ${data.currency}]`;
+            }
+
+            if (data.action === 'navigate') {
+                if (onCommand) {
+                    onCommand({
+                        type: 'navigation',
+                        target: data.target,
+                        data: null,
+                        raw: ''
+                    });
+                }
+                return `[Rendszer: Navigálás ide: ${data.target}]`;
             }
 
         } catch (e) {
@@ -251,6 +264,11 @@ FONTOS: Ha a kérésben valuta is van (pl. "Mennyi lesz RON-ban?"), várd meg a 
 4. Válaszolj magyarul, tömören, professzionálisan.
 
 ${viewContext}
+
+5. NAVIGÁCIÓ: Ha a felhasználó azt kéri "Nyisd meg a...", "Ugrás a...", "Mutasd a...":
+   Válaszolj JSON-ben: { "action": "navigate", "target": "view_name" }
+   View nevek: daily, weekly, monthly, yearly, hourly, notes, goals, drawing, budget, invoicing, pomodoro, statistics, settings, integrations
+   Példa: "Nyisd meg a számlákat" -> { "action": "navigate", "target": "invoicing" }
 
 ROLE: SYSTEM ADMIN | UNLIMITED AUTHORITY.
             `;

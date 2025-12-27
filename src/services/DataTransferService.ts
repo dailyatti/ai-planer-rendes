@@ -13,10 +13,17 @@ export const DataTransferService = {
             const data: Record<string, any> = {};
             const prefixPlanner = 'planner-';
             const prefixSequence = 'invoice_sequence_';
+            const prefixDigital = 'digitalplanner-'; // New
+            const prefixContent = 'contentplanner-'; // Legacy
 
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key && (key.startsWith(prefixPlanner) || key.startsWith(prefixSequence))) {
+                if (key && (
+                    key.startsWith(prefixPlanner) ||
+                    key.startsWith(prefixSequence) ||
+                    key.startsWith(prefixDigital) ||
+                    key.startsWith(prefixContent)
+                )) {
                     try {
                         // Attempt to parse JSON values to avoid double-stringification
                         const value = localStorage.getItem(key);
@@ -39,7 +46,7 @@ export const DataTransferService = {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `contentplanner_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.download = `digitalplanner_backup_${new Date().toISOString().split('T')[0]}.json`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -64,10 +71,15 @@ export const DataTransferService = {
             }
 
             const keys = Object.keys(jsonData);
-            const validKeys = keys.filter(k => k.startsWith('planner-') || k.startsWith('invoice_sequence_'));
+            const validKeys = keys.filter(k =>
+                k.startsWith('planner-') ||
+                k.startsWith('invoice_sequence_') ||
+                k.startsWith('digitalplanner-') ||
+                k.startsWith('contentplanner-')
+            );
 
             if (validKeys.length === 0) {
-                return { success: false, message: 'No valid ContentPlanner data found in file.' };
+                return { success: false, message: 'No valid Digital Planner Pro data found in file.' };
             }
 
             // Clear existing application data
@@ -75,12 +87,19 @@ export const DataTransferService = {
             // Use a manual clear for safety based on our prefixes
             const prefixPlanner = 'planner-';
             const prefixSequence = 'invoice_sequence_';
+            const prefixDigital = 'digitalplanner-';
+            const prefixContent = 'contentplanner-';
 
             // Collect keys to remove first to avoid index shifting issues during iteration
             const keysToRemove: string[] = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key && (key.startsWith(prefixPlanner) || key.startsWith(prefixSequence))) {
+                if (key && (
+                    key.startsWith(prefixPlanner) ||
+                    key.startsWith(prefixSequence) ||
+                    key.startsWith(prefixDigital) ||
+                    key.startsWith(prefixContent)
+                )) {
                     keysToRemove.push(key);
                 }
             }

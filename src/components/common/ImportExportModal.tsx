@@ -64,7 +64,7 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
 
     const link = document.createElement('a');
     link.href = url;
-    link.download = `contentplanner-${exportType}-export-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `digitalplanner-${exportType}-export-${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -248,8 +248,8 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
           <button
             onClick={() => setActiveTab('export')}
             className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${activeTab === 'export'
-                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
           >
             <Download size={16} className="inline mr-2" />
@@ -258,8 +258,8 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
           <button
             onClick={() => setActiveTab('import')}
             className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${activeTab === 'import'
-                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
           >
             <Upload size={16} className="inline mr-2" />
@@ -286,8 +286,8 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
                   <button
                     onClick={() => setExportType('all')}
                     className={`p-3 rounded-lg border-2 transition-all duration-200 ${exportType === 'all'
-                        ? 'border-blue-500 bg-blue-100 dark:bg-blue-800/20'
-                        : 'border-blue-200 dark:border-blue-700 hover:border-blue-400'
+                      ? 'border-blue-500 bg-blue-100 dark:bg-blue-800/20'
+                      : 'border-blue-200 dark:border-blue-700 hover:border-blue-400'
                       }`}
                   >
                     <FileText size={20} className="mx-auto mb-2 text-blue-600 dark:text-blue-400" />
@@ -298,8 +298,8 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
                   <button
                     onClick={() => setExportType('tasks')}
                     className={`p-3 rounded-lg border-2 transition-all duration-200 ${exportType === 'tasks'
-                        ? 'border-blue-500 bg-blue-100 dark:bg-blue-800/20'
-                        : 'border-blue-200 dark:border-blue-700 hover:border-blue-400'
+                      ? 'border-blue-500 bg-blue-100 dark:bg-blue-800/20'
+                      : 'border-blue-200 dark:border-blue-700 hover:border-blue-400'
                       }`}
                   >
                     <CheckCircle size={20} className="mx-auto mb-2 text-blue-600 dark:text-blue-400" />
@@ -310,8 +310,8 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
                   <button
                     onClick={() => setExportType('budget')}
                     className={`p-3 rounded-lg border-2 transition-all duration-200 ${exportType === 'budget'
-                        ? 'border-blue-500 bg-blue-100 dark:bg-blue-800/20'
-                        : 'border-blue-200 dark:border-blue-700 hover:border-blue-400'
+                      ? 'border-blue-500 bg-blue-100 dark:bg-blue-800/20'
+                      : 'border-blue-200 dark:border-blue-700 hover:border-blue-400'
                       }`}
                   >
                     <DollarSign size={20} className="mx-auto mb-2 text-blue-600 dark:text-blue-400" />
@@ -388,8 +388,8 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
                   <button
                     onClick={() => setImportMode('merge')}
                     className={`p-3 rounded-lg border-2 transition-all duration-200 ${importMode === 'merge'
-                        ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                        : 'border-gray-200 dark:border-gray-600 hover:border-green-300'
+                      ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-green-300'
                       }`}
                   >
                     <Plus size={20} className="mx-auto mb-2 text-green-500" />
@@ -400,8 +400,8 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
                   <button
                     onClick={() => setImportMode('replace')}
                     className={`p-3 rounded-lg border-2 transition-all duration-200 ${importMode === 'replace'
-                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                        : 'border-gray-200 dark:border-gray-600 hover:border-orange-300'
+                      ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-orange-300'
                       }`}
                   >
                     <RefreshCw size={20} className="mx-auto mb-2 text-orange-500" />
@@ -441,8 +441,8 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
               {/* Import Status */}
               {importStatus !== 'idle' && (
                 <div className={`p-3 rounded-lg mb-4 ${importStatus === 'success'
-                    ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200'
-                    : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200'
+                  ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200'
+                  : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200'
                   }`}>
                   <div className="flex items-center gap-2">
                     {importStatus === 'success' ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}

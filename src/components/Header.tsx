@@ -117,7 +117,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen, onSettingsCli
                   {/* Mobile Title */}
                   <div className="md:hidden">
                     <h1 className="text-base font-bold text-gray-900 dark:text-white tracking-tight">
-                      ContentPlanner
+                      Digital Planner Pro
                     </h1>
                   </div>
                 </div>

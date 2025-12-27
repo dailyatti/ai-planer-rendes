@@ -81,7 +81,7 @@ class AIServiceClass {
      */
     loadConfig(): void {
         try {
-            const saved = localStorage.getItem('contentplanner_ai_config');
+            const saved = localStorage.getItem('digitalplanner_ai_config');
             if (saved) {
                 const parsed = JSON.parse(saved);
                 this.config = {
@@ -99,9 +99,9 @@ class AIServiceClass {
      */
     private saveConfig(): void {
         try {
-            localStorage.setItem('contentplanner_ai_config', JSON.stringify(this.config));
+            localStorage.setItem('digitalplanner_ai_config', JSON.stringify(this.config));
             // Régi kulcsok törlése a konzisztencia érdekében
-            localStorage.removeItem('contentplanner_api_keys');
+            localStorage.removeItem('contentplanner_ai_config');
         } catch (e) {
             console.error('AIService: Failed to save config', e);
         }

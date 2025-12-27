@@ -75,7 +75,8 @@ export const useSettings = () => {
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [settings, setSettings] = useState<AppSettings>(() => {
     try {
-      const saved = localStorage.getItem('contentplanner-settings');
+      // MigrationService should have run by now, so digitalplanner-settings should exist if there was data.
+      const saved = localStorage.getItem('digitalplanner-settings');
       return saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -84,7 +85,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   });
 
   useEffect(() => {
-    localStorage.setItem('contentplanner-settings', JSON.stringify(settings));
+    localStorage.setItem('digitalplanner-settings', JSON.stringify(settings));
   }, [settings]);
 
   const updateSettings = (updates: Partial<AppSettings>) => {
@@ -99,7 +100,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const resetSettings = () => {
     setSettings(defaultSettings);
-    localStorage.removeItem('contentplanner-settings');
+    localStorage.removeItem('digitalplanner-settings');
   };
 
   const exportSettings = (): string => {
