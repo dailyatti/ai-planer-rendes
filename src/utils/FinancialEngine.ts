@@ -251,4 +251,90 @@ export class FinancialEngine {
             return sum + CurrencyService.convert(amount, t.currency || targetCurrency, targetCurrency);
         }, 0);
     }
+    /**
+     * Generate Comprehensive Financial Report (PhD Level)
+     * Calculates recurrent cash flow, projections, runway, and interest analytics.
+     */
+    static getFinancialReport(transactions: Transaction[], baseCurrency: string): FinancialReport {
+        const currentBalance = this.calculateCurrentBalance(transactions, baseCurrency);
+
+        // 1. Calculate Recurring Monthly Income
+        const incomeTransactions = transactions.filter(t => t.type === 'income');
+        const recurringIncomeTransactions = incomeTransactions.filter(t => t.recurring === true && t.period && t.period !== 'oneTime');
+
+        const recurringIncome = recurringIncomeTransactions.reduce((sum, t) => {
+            let amount = this.convert(t.amount, t.currency || baseCurrency, baseCurrency);
+            switch (t.period) {
+                case 'daily': return sum + (amount * 30);
+                case 'weekly': return sum + (amount * 4);
+                case 'monthly': return sum + amount;
+                case 'yearly': return sum + (amount / 12);
+                default: return sum;
+            }
+        }, 0);
+
+        // 2. Calculate Recurring Monthly Expenses
+        const expenseTransactions = transactions.filter(t => t.type === 'expense');
+        const recurringExpenseTransactions = expenseTransactions.filter(t => t.recurring === true && t.period && t.period !== 'oneTime');
+
+        const recurringExpenses = recurringExpenseTransactions.reduce((sum, t) => {
+            let amount = this.convert(Math.abs(t.amount), t.currency || baseCurrency, baseCurrency);
+            switch (t.period) {
+                case 'daily': return sum + (amount * 30);
+                case 'weekly': return sum + (amount * 4);
+                case 'monthly': return sum + amount;
+                case 'yearly': return sum + (amount / 12);
+                default: return sum;
+            }
+        }, 0);
+
+        // 3. Net Monthly Cash Flow
+        const monthlyNet = recurringIncome - recurringExpenses;
+        const monthlyBurn = recurringExpenses;
+
+        // 4. Weighted Average Interest Rate
+        const incomeWithInterest = transactions.filter(t => t.type === 'income' && t.interestRate);
+        const totalIncomeWithInterest = incomeWithInterest.reduce((sum, t) => sum + this.convert(t.amount, t.currency || baseCurrency, baseCurrency), 0);
+        const weightedSumRate = incomeWithInterest.reduce((sum, t) => {
+            const amt = this.convert(t.amount, t.currency || baseCurrency, baseCurrency);
+            return sum + (amt * (t.interestRate || 0));
+        }, 0);
+        const avgInterestRate = totalIncomeWithInterest > 0 ? (weightedSumRate / totalIncomeWithInterest) : 0;
+
+        // 5. Projections
+        const projected3Months = this.calculateFutureBalance(currentBalance, monthlyNet, 3, avgInterestRate);
+        const projected1Year = this.calculateFutureBalance(currentBalance, monthlyNet, 12, avgInterestRate);
+        const projected3Years = this.calculateFutureBalance(currentBalance, monthlyNet, 36, avgInterestRate);
+        const runway = this.calculateRunway(currentBalance, monthlyBurn);
+
+        return {
+            currentBalance,
+            recurringIncome,
+            recurringExpenses,
+            monthlyNet,
+            monthlyBurn,
+            avgInterestRate,
+            runway,
+            projections: {
+                threeMonths: projected3Months,
+                oneYear: projected1Year,
+                threeYears: projected3Years
+            }
+        };
+    }
+}
+
+export interface FinancialReport {
+    currentBalance: number;
+    recurringIncome: number;
+    recurringExpenses: number;
+    monthlyNet: number;
+    monthlyBurn: number;
+    avgInterestRate: number;
+    runway: number | null;
+    projections: {
+        threeMonths: number;
+        oneYear: number;
+        threeYears: number;
+    };
 }

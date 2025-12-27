@@ -12,9 +12,10 @@ interface VoiceAssistantProps {
     currentView: string;
 }
 
-interface VoiceCommand {
+export export interface VoiceCommand {
     type: string;
     data: any;
+    target?: string;
     raw: string;
 }
 
@@ -56,9 +57,24 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             };
 
             recognitionRef.current.onend = () => {
-                setIsListening(false);
+                if (isListening) {
+                    // Auto-restart for continuous "normal" conversation flow
+                    // Small delay to prevent CPU hogging
+                    setTimeout(() => {
+                        try {
+                            recognitionRef.current?.start();
+                        } catch (e) {
+                            console.log('Recognition restart ignored');
+                            setIsListening(false);
+                        }
+                    }, 300);
+                } else {
+                    setIsListening(false);
+                }
+
                 if (transcript.trim()) {
                     handleCommand(transcript);
+                    setTranscript(''); // Clear buffer after sending
                 }
             };
 
@@ -159,71 +175,22 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             // But let's use FinancialEngine.convert() at least.
 
             const baseCurrency = CurrencyService.getBaseCurrency();
-            const rates = CurrencyService.getAllRates(); // This will now have fresh data
+            const rates = CurrencyService.getAllRates();
 
-            // Calculate Recurring Monthly Income from Budget
-            // IMPORTANT: Only count transactions explicitly marked as recurring
-            const incomeTransactions = transactions.filter(t => t.type === 'income');
-            const recurringIncomeTransactions = incomeTransactions.filter(t => t.recurring === true && t.period && t.period !== 'oneTime');
+            // PhD Calculation: Get comprehensive financial report from Engine
+            const report = FinancialEngine.getFinancialReport(transactions, baseCurrency);
 
-            // Debug: Calculate what each recurring income contributes
-            const recurringIncome = recurringIncomeTransactions
-                .reduce((sum, t) => {
-                    let amount = FinancialEngine.convert(t.amount, t.currency || baseCurrency, baseCurrency);
-                    switch (t.period) {
-                        case 'daily': return sum + (amount * 30);
-                        case 'weekly': return sum + (amount * 4);
-                        case 'monthly': return sum + amount;
-                        case 'yearly': return sum + (amount / 12);
-                        default: return sum;
-                    }
-                }, 0);
+            const {
+                currentBalance,
+                monthlyNet,
+                avgInterestRate,
+                runway,
+                projections
+            } = report;
 
-            // Debug summary for AI prompt
-            // PhD Calculation: Net Monthly Cash Flow & Projections with Compound Interest
-
-            // Calculate Recurring Monthly Expenses
-            const expenseTransactions = transactions.filter(t => t.type === 'expense');
-            const recurringExpenseTransactions = expenseTransactions.filter(t => t.recurring === true && t.period && t.period !== 'oneTime');
-
-            const recurringExpenses = recurringExpenseTransactions
-                .reduce((sum, t) => {
-                    let amount = FinancialEngine.convert(Math.abs(t.amount), t.currency || baseCurrency, baseCurrency);
-                    switch (t.period) {
-                        case 'daily': return sum + (amount * 30);
-                        case 'weekly': return sum + (amount * 4);
-                        case 'monthly': return sum + amount;
-                        case 'yearly': return sum + (amount / 12);
-                        default: return sum;
-                    }
-                }, 0);
-
-            const currentBalance = FinancialEngine.calculateCurrentBalance(transactions, baseCurrency);
-            // Use recurring expenses as the "burn rate" for runway calculation to be conservative/accurate for future
-            const monthlyBurn = recurringExpenses;
-
-            // PhD Calculation: Net Monthly Cash Flow & Projections with Compound Interest
-            // We use recurringIncome - recurringExpenses for a stable baseline forecast
-            const monthlyNet = recurringIncome - recurringExpenses;
-
-            // Calculate average annual interest rate for income (weighted by amount)
-            const incomeWithInterest = transactions.filter(t => t.type === 'income' && t.interestRate);
-            const totalIncomeWithInterest = incomeWithInterest.reduce((sum, t) => sum + FinancialEngine.convert(t.amount, t.currency || baseCurrency, baseCurrency), 0);
-            const weightedSumRate = incomeWithInterest.reduce((sum, t) => {
-                const amt = FinancialEngine.convert(t.amount, t.currency || baseCurrency, baseCurrency);
-                return sum + (amt * (t.interestRate || 0));
-            }, 0);
-            const avgInterestRate = totalIncomeWithInterest > 0 ? (weightedSumRate / totalIncomeWithInterest) : 0;
-
-            // Granular Forecasting Units (Linear)
-            // (Removed unused units)
-
-            // Compound Projections
-            const projected3Months = FinancialEngine.calculateFutureBalance(currentBalance, monthlyNet, 3, avgInterestRate);
-            const projected1Year = FinancialEngine.calculateFutureBalance(currentBalance, monthlyNet, 12, avgInterestRate);
-            const projected3Years = FinancialEngine.calculateFutureBalance(currentBalance, monthlyNet, 36, avgInterestRate);
-
-            const runway = FinancialEngine.calculateRunway(currentBalance, monthlyBurn);
+            const projected3Months = projections.threeMonths;
+            const projected1Year = projections.oneYear;
+            const projected3Years = projections.threeYears;
 
             let viewContext = '';
             switch (currentView) {
@@ -332,13 +299,18 @@ ROLE: SYSTEM ADMIN | UNLIMITED AUTHORITY.
 
     const toggleListening = () => {
         if (isListening) {
+            setIsListening(false); // Flag prevents auto-restart
             recognitionRef.current?.stop();
         } else {
             setTranscript('');
             setResponse('');
             setError(null);
-            recognitionRef.current?.start();
-            setIsListening(true);
+            setIsListening(true); // Flag enables auto-restart
+            try {
+                recognitionRef.current?.start();
+            } catch (e) {
+                console.error('Start failed', e);
+            }
         }
     };
 
