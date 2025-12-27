@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { useSettings, SettingsProvider } from './contexts/SettingsContext';
@@ -10,6 +10,7 @@ import MainContent from './components/MainContent';
 import { VoiceAssistant } from './components/VoiceAssistant';
 import { ViewType } from './types/planner';
 import { CurrencyService } from './services/CurrencyService';
+import { MigrationService } from './services/MigrationService'; // Import added
 
 function AppContent() {
   const { language } = useLanguage();
@@ -17,6 +18,11 @@ function AppContent() {
   const [activeView, setActiveView] = useState<ViewType>('daily');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { invoices, clients, addPlan } = useData();
+
+  // Run migration on mount
+  useEffect(() => {
+    MigrationService.run().catch(err => console.error('Migration failed:', err));
+  }, []);
 
   const handleSettingsClick = () => {
     setActiveView('settings');
