@@ -1,7 +1,8 @@
+
 import { useState } from 'react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
-import { SettingsProvider } from './contexts/SettingsContext';
+import { useSettings, SettingsProvider } from './contexts/SettingsContext';
 import { DataProvider, useData } from './contexts/DataContext';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -11,9 +12,10 @@ import { ViewType } from './types/planner';
 import { CurrencyService } from './services/CurrencyService';
 
 function AppContent() {
+  const { language } = useLanguage();
+  const { settings } = useSettings();
   const [activeView, setActiveView] = useState<ViewType>('daily');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { language } = useLanguage();
   const { invoices, clients, addPlan } = useData();
 
   const handleSettingsClick = () => {
@@ -59,7 +61,7 @@ function AppContent() {
         const client = clients.find(c => c.id === invoice.clientId);
         addPlan({
           title: `Invoice #${invoice.invoiceNumber} Payment`,
-          description: `Follow up on payment from ${client?.name || 'Client'}. Amount: ${CurrencyService.format(invoice.total, invoice.currency)}`,
+          description: `Follow up on payment from ${client?.name || 'Client'}.Amount: ${CurrencyService.format(invoice.total, invoice.currency)} `,
           date: new Date(invoice.dueDate),
           startTime: new Date(invoice.dueDate),
           completed: false,
@@ -81,7 +83,7 @@ function AppContent() {
         linkedNotes: []
       });
       setActiveView('goals');
-      console.log(`Goal created: ${command.data.title}`);
+      console.log(`Goal created: ${command.data.title} `);
     }
 
     // Handle create_note - create a note as a task and navigate to notes
@@ -95,7 +97,7 @@ function AppContent() {
         linkedNotes: []
       });
       setActiveView('notes');
-      console.log(`Note created: ${command.data.title}`);
+      console.log(`Note created: ${command.data.title} `);
     }
 
     // Handle toggle_theme - toggle dark/light mode
@@ -108,13 +110,13 @@ function AppContent() {
       } else {
         html.classList.toggle('dark');
       }
-      console.log(`Theme toggled: ${command.target}`);
+      console.log(`Theme toggled: ${command.target} `);
     }
 
     // Handle pomodoro - navigate to pomodoro view
     if (command.type === 'pomodoro') {
       setActiveView('pomodoro');
-      console.log(`Pomodoro command: ${command.target}`);
+      console.log(`Pomodoro command: ${command.target} `);
     }
   };
 
@@ -125,10 +127,10 @@ function AppContent() {
         className="fixed inset-0 pointer-events-none opacity-50 dark:opacity-30"
         style={{
           backgroundImage: `
-            radial-gradient(at 20% 20%, hsla(228, 89%, 60%, 0.1) 0px, transparent 50%),
-            radial-gradient(at 80% 10%, hsla(189, 100%, 56%, 0.08) 0px, transparent 50%),
-            radial-gradient(at 10% 80%, hsla(355, 85%, 50%, 0.06) 0px, transparent 50%)
-          `
+radial - gradient(at 20 % 20 %, hsla(228, 89 %, 60 %, 0.1) 0px, transparent 50 %),
+  radial - gradient(at 80 % 10 %, hsla(189, 100 %, 56 %, 0.08) 0px, transparent 50 %),
+  radial - gradient(at 10 % 80 %, hsla(355, 85 %, 50 %, 0.06) 0px, transparent 50 %)
+    `
         }}
       />
 
@@ -158,7 +160,7 @@ function AppContent() {
 
       {/* Voice Assistant - Floating button */}
       <VoiceAssistant
-        apiKey={localStorage.getItem('GEMINI_API_KEY') || import.meta.env.VITE_GEMINI_API_KEY}
+        apiKey={settings.aiConfig?.apiKey || import.meta.env.VITE_GEMINI_API_KEY || ''}
         onCommand={handleVoiceCommand}
         currentLanguage={language}
         currentView={activeView}

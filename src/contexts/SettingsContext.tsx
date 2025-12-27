@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 export type TimeZone = 'UTC' | 'Europe/Budapest' | 'America/New_York' | 'Europe/London' | 'Europe/Berlin' | 'Europe/Paris' | 'Europe/Rome' | 'America/Los_Angeles';
 export type DateFormat = 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD';
 export type Currency = 'USD' | 'EUR' | 'GBP' | 'HUF' | 'CAD' | 'AUD' | 'JPY' | 'CHF' | 'SEK' | 'NOK' | 'DKK';
+export type AIProvider = 'openai' | 'gemini' | null;
 
 interface GeneralSettings {
   timeZone: TimeZone;
@@ -26,10 +27,16 @@ interface PrivacySettings {
   crashReports: boolean;
 }
 
+interface AIConfig {
+  provider: AIProvider;
+  apiKey: string;
+}
+
 interface AppSettings {
   general: GeneralSettings;
   notifications: NotificationSettings;
   privacy: PrivacySettings;
+  aiConfig: AIConfig;
 }
 
 const defaultSettings: AppSettings = {
@@ -52,6 +59,10 @@ const defaultSettings: AppSettings = {
     analytics: false,
     crashReports: true,
   },
+  aiConfig: {
+    provider: null,
+    apiKey: ''
+  }
 };
 
 interface SettingsContextType {
@@ -77,7 +88,25 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       // MigrationService should have run by now, so digitalplanner-settings should exist if there was data.
       const saved = localStorage.getItem('digitalplanner-settings');
-      return saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
+      let initialSettings = saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
+
+      // Migrate legacy AI config if needed
+      if (!initialSettings.aiConfig?.apiKey) {
+        try {
+          const legacyAI = localStorage.getItem('digitalplanner_ai_config');
+          if (legacyAI) {
+            const parsedAI = JSON.parse(legacyAI);
+            initialSettings = {
+              ...initialSettings,
+              aiConfig: {
+                provider: parsedAI.provider || 'gemini',
+                apiKey: parsedAI.apiKey || ''
+              }
+            };
+          }
+        } catch (e) { console.error('Error migrating AI config', e); }
+      }
+      return initialSettings;
     } catch (error) {
       console.error('Error loading settings:', error);
       return defaultSettings;
@@ -95,6 +124,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       general: { ...prev.general, ...updates.general },
       notifications: { ...prev.notifications, ...updates.notifications },
       privacy: { ...prev.privacy, ...updates.privacy },
+      aiConfig: { ...prev.aiConfig, ...updates.aiConfig },
     }));
   };
 

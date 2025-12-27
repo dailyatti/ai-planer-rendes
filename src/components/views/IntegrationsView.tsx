@@ -8,28 +8,31 @@ import {
     Globe, AlertTriangle
 } from 'lucide-react';
 import { useLanguage, LANGUAGE_NAMES, Language } from '../../contexts/LanguageContext';
+import { useSettings } from '../../contexts/SettingsContext';
 import { AIService, AIProvider } from '../../services/AIService';
 
 
 
 const IntegrationsView: React.FC = () => {
     const { language, setLanguage, t } = useLanguage();
+    const { settings, updateSettings } = useSettings();
     const [activeTab, setActiveTab] = useState<'available' | 'connected' | 'settings'>('available');
     const [showApiModal, setShowApiModal] = useState(false);
     const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
 
-    // NEW: Use AIService for unified provider management
-    const [activeProvider, setActiveProvider] = useState<AIProvider>(AIService.getActiveProvider());
+    // Use SettingsContext for active provider
+    // const [activeProvider, setActiveProvider] = useState<AIProvider>(AIService.getActiveProvider()); 
+    const activeProvider = settings.aiConfig?.provider || null;
+
     const [tempKey, setTempKey] = useState('');
     const [showKey, setShowKey] = useState(false);
     const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
     const [testMessage, setTestMessage] = useState('');
 
-    // Sync with AIService on mount
-    useEffect(() => {
-        AIService.loadConfig();
-        setActiveProvider(AIService.getActiveProvider());
-    }, []);
+    // Sync with AIService was removed in favor of SettingsContext
+    // But we still want to keep AIService updated for internal usage if it reads from config
+    // Actually AIService should just be used for API calls.
+    // We can rely on SettingsContext now.
 
     // Integration definitions - only OpenAI and Gemini, mutually exclusive
     const availableIntegrations = [
@@ -71,7 +74,8 @@ const IntegrationsView: React.FC = () => {
         if (integration) {
             setSelectedIntegration(integrationId);
             // If already connected, show current key
-            setTempKey(integration.connected ? AIService.getApiKey() : '');
+            const currentKey = integration.connected ? settings.aiConfig?.apiKey : '';
+            setTempKey(currentKey || '');
             setShowApiModal(true);
             setTestStatus('idle');
             setTestMessage('');
@@ -123,9 +127,16 @@ const IntegrationsView: React.FC = () => {
         if (!selectedIntegration || !tempKey) return;
         const integration = availableIntegrations.find(i => i.id === selectedIntegration);
         if (integration?.provider) {
-            // PhD-level: Setting one provider automatically clears the other
+            // Update SettingsContext
+            updateSettings({
+                aiConfig: {
+                    provider: integration.provider,
+                    apiKey: tempKey
+                }
+            });
+
+            // Legacy/Service update (optional but good for consistency if AIService is used elsewhere)
             AIService.setProvider(integration.provider, tempKey);
-            setActiveProvider(integration.provider);
         }
         setShowApiModal(false);
         setSelectedIntegration(null);
@@ -134,8 +145,13 @@ const IntegrationsView: React.FC = () => {
 
     // Handle disconnect
     const handleDisconnect = () => {
+        updateSettings({
+            aiConfig: {
+                provider: null,
+                apiKey: ''
+            }
+        });
         AIService.clearProvider();
-        setActiveProvider(null);
         setShowApiModal(false);
         setSelectedIntegration(null);
         setTempKey('');
