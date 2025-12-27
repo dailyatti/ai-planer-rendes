@@ -5,7 +5,7 @@
  */
 
 export const MigrationService = {
-    run: () => {
+    run: async () => {
         try {
             if (typeof window === 'undefined') return;
 
