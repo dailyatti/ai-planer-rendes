@@ -12,7 +12,7 @@ interface VoiceAssistantProps {
     currentView: string;
 }
 
-export export interface VoiceCommand {
+export interface VoiceCommand {
     type: string;
     data: any;
     target?: string;
