@@ -2,17 +2,19 @@ import { useState } from 'react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { SettingsProvider } from './contexts/SettingsContext';
-import { DataProvider } from './contexts/DataContext';
+import { DataProvider, useData } from './contexts/DataContext';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
 import { VoiceAssistant } from './components/VoiceAssistant';
 import { ViewType } from './types/planner';
+import { CurrencyService } from './services/CurrencyService';
 
 function AppContent() {
   const [activeView, setActiveView] = useState<ViewType>('daily');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { language } = useLanguage();
+  const { invoices, clients, addPlan } = useData();
 
   const handleSettingsClick = () => {
     setActiveView('settings');
@@ -44,6 +46,28 @@ function AppContent() {
       if (viewMap[command.target]) {
         setActiveView(viewMap[command.target]);
       }
+    }
+
+    // Handle schedule_pending command for invoices
+    if (command.type === 'schedule_pending') {
+      const pendingInvoices = invoices.filter(inv => inv.status === 'sent');
+      if (pendingInvoices.length === 0) {
+        console.log(language === 'hu' ? 'Nincs függő számla.' : 'No pending invoices.');
+        return;
+      }
+      pendingInvoices.forEach(invoice => {
+        const client = clients.find(c => c.id === invoice.clientId);
+        addPlan({
+          title: `Invoice #${invoice.invoiceNumber} Payment`,
+          description: `Follow up on payment from ${client?.name || 'Client'}. Amount: ${CurrencyService.format(invoice.total, invoice.currency)}`,
+          date: new Date(invoice.dueDate),
+          startTime: new Date(invoice.dueDate),
+          completed: false,
+          priority: invoice.status === 'overdue' ? 'high' : 'medium',
+          linkedNotes: []
+        });
+      });
+      console.log(language === 'hu' ? 'Függő számlák feladatként ütemezve!' : 'Pending invoices scheduled as tasks!');
     }
   };
 

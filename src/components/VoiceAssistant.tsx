@@ -145,6 +145,19 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                 });
                 return `[Rendszer: Számla ${invoiceId} hozzáadva a feladathoz ${taskTitle}]`;
             }
+
+            if (data.action === 'schedule_pending_invoices') {
+                // Schedule all pending invoices as tasks - handled via onCommand callback
+                if (onCommand) {
+                    onCommand({
+                        type: 'schedule_pending',
+                        target: 'invoicing',
+                        data: null,
+                        raw: ''
+                    });
+                }
+                return `[Rendszer: Összes függő számla feladatként ütemezve]`;
+            }
         } catch (e) {
             console.error('Failed to process AI action:', e);
             return null;
@@ -257,6 +270,10 @@ ${viewContext}
     Válaszolj JSON-ben: { "action": "link_invoice", "invoiceId": "123", "taskTitle": "Review budget" }
     Az "invoiceId" a számla azonosítója (string), a "taskTitle" opcionális, ha nincs megadva a feladat címe a számla ID alapján lesz.
     Példa: "Add invoice 123 to task 'Prepare report'" -> { "action": "link_invoice", "invoiceId": "123", "taskTitle": "Prepare report" }
+
+7. FÜGGŐ SZÁMLÁK ÜTEMEZÉSE: Ha a felhasználó azt kéri "Ütemezd a függő számlákat", "Adjál hozzá feladatot a függő számlákhoz", "Schedule pending invoices", "Add pending invoices to tasks":
+   Válaszolj JSON-ben: { "action": "schedule_pending_invoices" }
+   Példa: "Ütemezd az összes függő számlát" -> { "action": "schedule_pending_invoices" }
 
 ROLE: SYSTEM ADMIN | UNLIMITED AUTHORITY.
             `;
