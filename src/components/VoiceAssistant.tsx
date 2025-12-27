@@ -16,6 +16,8 @@ export interface VoiceCommand {
     type: string;
     data: any;
     target?: string;
+    invoiceId?: string;
+    taskTitle?: string;
     raw: string;
 }
 
@@ -129,6 +131,20 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                 return `[Rendszer: Navigálás ide: ${data.target}]`;
             }
 
+            if (data.action === 'link_invoice') {
+                const invoiceId = data.invoiceId || data.id || '';
+                const taskTitle = data.taskTitle || `Invoice ${invoiceId}`;
+                // Create a new task linking the invoice
+                addPlan({
+                    title: taskTitle,
+                    description: `Linked invoice ${invoiceId}`,
+                    date: new Date(),
+                    priority: 'medium',
+                    completed: false,
+                    linkedNotes: []
+                });
+                return `[Rendszer: Számla ${invoiceId} hozzáadva a feladathoz ${taskTitle}]`;
+            }
         } catch (e) {
             console.error('Failed to process AI action:', e);
             return null;
@@ -236,6 +252,11 @@ ${viewContext}
    Válaszolj JSON-ben: { "action": "navigate", "target": "view_name" }
    View nevek: daily, weekly, monthly, yearly, hourly, notes, goals, drawing, budget, invoicing, pomodoro, statistics, settings, integrations
    Példa: "Nyisd meg a számlákat" -> { "action": "navigate", "target": "invoicing" }
+
+6. SZÁMLA KAPCSOLÁS: Ha a felhasználó azt kéri "Add invoice 123 to task 'Review budget'" vagy "Link invoice #INV-45 to current task",
+    Válaszolj JSON-ben: { "action": "link_invoice", "invoiceId": "123", "taskTitle": "Review budget" }
+    Az "invoiceId" a számla azonosítója (string), a "taskTitle" opcionális, ha nincs megadva a feladat címe a számla ID alapján lesz.
+    Példa: "Add invoice 123 to task 'Prepare report'" -> { "action": "link_invoice", "invoiceId": "123", "taskTitle": "Prepare report" }
 
 ROLE: SYSTEM ADMIN | UNLIMITED AUTHORITY.
             `;
