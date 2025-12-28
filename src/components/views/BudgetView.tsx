@@ -144,7 +144,8 @@ const BudgetView: React.FC = () => {
     try {
       return CurrencyService.convert(abs, ensureCurrency(fromCurrency), currency);
     } catch (e) {
-      return 0;
+      console.warn('Conversion error in absToView:', e);
+      return abs; // Fallback to raw amount to ensure visibility
     }
   }, [currency]);
 
