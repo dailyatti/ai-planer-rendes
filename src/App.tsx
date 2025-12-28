@@ -17,7 +17,7 @@ function AppContent() {
   const { settings } = useSettings();
   const [activeView, setActiveView] = useState<ViewType>('daily');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { invoices, clients, addPlan } = useData();
+  const { invoices, clients, addPlan, addTransaction, addGoal, addNote } = useData();
 
   // Run migration on mount
   useEffect(() => {
@@ -39,6 +39,15 @@ function AppContent() {
   const handleVoiceCommand = (command: any) => {
     console.log('Voice command received:', command);
 
+    // New: Handle control_scroll command
+    if (command.type === 'control_scroll' && command.data) {
+      const intensity = command.data.intensity === 'LARGE' ? 900 : 360;
+      window.scrollBy({
+        top: command.data.direction === 'UP' ? -intensity : intensity,
+        behavior: 'smooth',
+      });
+      console.log(`Scrolled ${command.data.direction}`);
+    }
     // Handle navigation commands
     if (command.type === 'navigation' && command.target) {
       const viewMap: Record<string, ViewType> = {
@@ -61,6 +70,35 @@ function AppContent() {
       if (viewMap[command.target]) {
         setActiveView(viewMap[command.target]);
       }
+    }
+
+    // Handle create_task
+    if (command.type === 'create_task' && command.data) {
+      addPlan({
+        title: command.data.title,
+        description: command.data.description || '',
+        date: new Date(command.data.date),
+        startTime: new Date(command.data.date), // default to start of day
+        priority: (command.data.priority?.toLowerCase() as any) || 'medium',
+        completed: false,
+        linkedNotes: []
+      });
+      console.log(`Task created: ${command.data.title}`);
+    }
+
+    // Handle create_transaction
+    if (command.type === 'create_transaction' && command.data) {
+      addTransaction({
+        type: command.data.type as 'income' | 'expense',
+        amount: Number(command.data.amount),
+        currency: command.data.currency || 'USD',
+        category: command.data.category || 'General',
+        description: command.data.description || 'Voice entry',
+        date: new Date(),
+        recurring: false,
+        period: 'oneTime'
+      });
+      console.log(`Transaction created: ${command.data.amount} ${command.data.currency}`);
     }
 
     // Handle schedule_pending command for invoices
@@ -87,30 +125,32 @@ function AppContent() {
 
     // Handle create_goal - create a new goal and navigate to goals view
     if (command.type === 'create_goal' && command.data) {
-      addPlan({
+      addGoal({
         title: command.data.title,
         description: command.data.description || '',
-        date: command.data.targetDate ? new Date(command.data.targetDate) : new Date(),
-        priority: 'high',
-        completed: false,
-        linkedNotes: []
+        targetDate: command.data.targetDate ? new Date(command.data.targetDate) : new Date(),
+        progress: 0,
+        status: 'not-started'
       });
       setActiveView('goals');
-      console.log(`Goal created: ${command.data.title} `);
+      console.log(`Goal created: ${command.data.title}`);
     }
 
-    // Handle create_note - create a note as a task and navigate to notes
+    // New: Handle manage_invoices linking
+    if (command.type === 'manage_invoices' && command.data && command.data.action === 'LINK' && command.data.invoiceId) {
+      console.log(`Link invoice ${command.data.invoiceId}`);
+      // Implement linking logic as needed.
+    }
+    // Handle create_note - create a note and navigate to notes
     if (command.type === 'create_note' && command.data) {
-      addPlan({
+      addNote({
         title: command.data.title,
-        description: command.data.content || '',
-        date: new Date(),
-        priority: 'low',
-        completed: false,
-        linkedNotes: []
+        content: command.data.content || '',
+        linkedPlans: [],
+        tags: []
       });
       setActiveView('notes');
-      console.log(`Note created: ${command.data.title} `);
+      console.log(`Note created: ${command.data.title}`);
     }
 
     // Handle toggle_theme - toggle dark/light mode
