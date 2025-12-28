@@ -473,7 +473,7 @@ Rules:
             }
 
             const session = await ai.live.connect({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-3-pro-preview',
                 config: {
                     tools,
                     systemInstruction: getSystemInstruction(),
@@ -481,27 +481,7 @@ Rules:
                 },
                 callbacks: {
                     onopen: async () => {
-                        sessionRef.current = session;
-                        setIsActive(true);
-                        setIsConnecting(false);
-
-                        addMessage('system', currentLanguage === 'hu' ? 'Kapcsolódva. Mondjad mit csináljak.' : 'Connected. Tell me what to do.');
-
-                        // prime context: analyze + send state as user content (stabilabb, mint random toolResponse)
-                        analyzeViewport();
-                        try {
-                            await session.sendClientContent({
-                                turns: [
-                                    {
-                                        role: 'user',
-                                        parts: [{ text: generateStateReport() }],
-                                    },
-                                ],
-                                turnComplete: true,
-                            });
-                        } catch {
-                            // ignore
-                        }
+                        console.log('VoiceAssistant: Connection opened');
                     },
 
                     onmessage: async (message: LiveServerMessage) => {
@@ -657,6 +637,29 @@ Rules:
                     },
                 },
             });
+
+            // Session established - initialize state and prime context
+            sessionRef.current = session;
+            setIsActive(true);
+            setIsConnecting(false);
+
+            addMessage('system', currentLanguage === 'hu' ? 'Kapcsolódva. Mondjad mit csináljak.' : 'Connected. Tell me what to do.');
+
+            // Prime context: analyze + send state as user content
+            analyzeViewport();
+            try {
+                await session.sendClientContent({
+                    turns: [
+                        {
+                            role: 'user',
+                            parts: [{ text: generateStateReport() }],
+                        },
+                    ],
+                    turnComplete: true,
+                });
+            } catch (err) {
+                console.warn('Failed to send initial context:', err);
+            }
 
             // attach mic streaming AFTER session created
             if (stream) {
