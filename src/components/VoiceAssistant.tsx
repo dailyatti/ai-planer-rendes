@@ -435,7 +435,8 @@ SHUTDOWN:
                 config: {
                     tools: tools,
                     systemInstruction: getSystemInstruction(),
-                    responseModalities: [Modality.AUDIO, Modality.TEXT], // Enabled for multimodal
+                    // responseModalities: [Modality.AUDIO, Modality.TEXT], // Disabled to fix disconnect loop
+                    responseModalities: [Modality.AUDIO],
                 },
                 callbacks: {
                     onopen: () => {
@@ -530,8 +531,8 @@ SHUTDOWN:
                             console.error('[VoiceAssistant] Error parsing/processing message:', err);
                         }
                     },
-                    onclose: () => {
-                        console.log('[VoiceAssistant] onclose callback fired');
+                    onclose: (ev: any) => {
+                        console.log('[VoiceAssistant] onclose callback fired', ev?.code, ev?.reason);
                         setIsActive(false);
                         setIsConnecting(false);
                         addMessage('system', 'Disconnected');
