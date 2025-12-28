@@ -1,10 +1,10 @@
 // VoiceAssistant.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality, Type } from '@google/genai';
-import { Mic, MicOff, Loader2, Sparkles, MessageSquare, Send, ChevronDown } from 'lucide-react';
+import { Mic, MicOff, Loader2, Sparkles, MessageSquare, Send, ChevronDown, Keyboard } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
-import { useLanguage } from '../contexts/LanguageContext';
+import { useLanguage, LANGUAGE_NAMES } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
 import { FinancialEngine } from '../utils/FinancialEngine';
 import { CurrencyService } from '../services/CurrencyService';
@@ -85,13 +85,13 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     currentLanguage,
     currentView,
 }) => {
-    const { language: _lang } = useLanguage(); // language available via currentLanguage prop
+    const { language: _lang, t } = useLanguage(); // language available via currentLanguage prop
     const { transactions } = useData();
 
     const [isActive, setIsActive] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
+    const [isTextMode, setIsTextMode] = useState(false);
     const [volume, setVolume] = useState(0);
-
     const [scrollPosition, setScrollPosition] = useState({ top: 0, percent: 0 });
     const [viewportElements, setViewportElements] = useState<ViewportElement[]>([]);
     const [showVisualAssist, setShowVisualAssist] = useState(false);
@@ -209,17 +209,19 @@ ${visible.join('\n')}
     }, [currentLanguage, currentView, scrollPosition.percent, transactions, viewportElements]);
 
     const getSystemInstruction = useCallback(() => {
+        const langName = LANGUAGE_NAMES[currentLanguage as keyof typeof LANGUAGE_NAMES] || 'English';
         const isHu = currentLanguage === 'hu';
-        const SYSTEM_INSTRUCTION_EN = `You are a professional silent admin assistant for the "Digital Planner Pro" app.
+
+        const baseInstruction = `You are a professional silent admin assistant for the "Digital Planner Pro" app.
 Your role is to execute commands (navigation, task creation, etc.) efficiently without conversational filler.
 You have access to tools that control the UI. Always use these tools to fulfill the user's request.
 IMPORTANT: You are in "Silent Mode". Do not generate spoken conversational responses if possible. The user prefers visual confirmation (which is handled by the system). 
 If you must reply with text, keep it extremely brief (e.g., "Done", "Opened", "Created").
-You can navigate to: daily, weekly, monthly, yearly, notes, goals, budget, invoicing, statistics, settings, integrations.
-`;
+You must communicate in ${langName}.
+You can navigate to: daily, weekly, monthly, yearly, notes, goals, budget, invoicing, statistics, settings, integrations.`;
 
         const todayStr = new Date().toLocaleDateString(isHu ? 'hu-HU' : 'en-US');
-        const SYSTEM_INSTRUCTION_HU = `Te egy profi néma adminisztrátor asszisztens vagy a "Digital Planner Pro" alkalmazáshoz.
+        const huInstruction = `Te egy profi néma adminisztrátor asszisztens vagy a "Digital Planner Pro" alkalmazáshoz.
 A mai dátum: ${todayStr}.
 A feladatod: MINDIG hívd meg a megfelelő eszközt (tool).
 NE VÁLASZOLJ SZÓBAN! Néma módban vagy.
@@ -237,9 +239,9 @@ Navigációs célpontok (és szinonimáik):
 - settings (beállítások, beállítás)
 
 Ha a felhasználó számlát, feladatot vagy célt akar létrehozni, használd a megfelelő 'create_*' eszközt.
-SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).
-`;
-        return isHu ? SYSTEM_INSTRUCTION_HU : SYSTEM_INSTRUCTION_EN.replace('app.', `app.\nToday's date is: ${todayStr}.`);
+SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
+
+        return isHu ? huInstruction : baseInstruction.replace('app.', `app.\nToday's date is: ${todayStr}.`);
     }, [currentLanguage]);
 
     // ===== disconnect =====
@@ -283,6 +285,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).
             }
 
             setIsActive(false);
+            setIsTextMode(false);
             setIsConnecting(false);
             setVolume(0);
             addMessage('system', currentLanguage === 'hu' ? 'Lecsatlakozva.' : 'Disconnected.');
@@ -297,7 +300,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).
     }, [disconnect]);
 
     // ===== start session =====
-    const startSession = useCallback(async () => {
+    const startSession = useCallback(async (skipAudio = false) => {
         if (isActive || isConnecting || sessionRef.current) return;
 
         if (!apiKey) {
@@ -305,6 +308,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).
             return;
         }
 
+        if (skipAudio) setIsTextMode(true);
         setIsConnecting(true);
         setShowChat(true);
 
@@ -450,12 +454,14 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).
 
             // mic
             let stream: MediaStream | null = null;
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                streamRef.current = stream;
-            } catch (err) {
-                stream = null;
-                toast.error(currentLanguage === 'hu' ? 'Mikrofon engedély megtagadva (csak chat mód).' : 'Microphone denied (chat only).');
+            if (!skipAudio) {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    streamRef.current = stream;
+                } catch (err) {
+                    stream = null;
+                    toast.error(currentLanguage === 'hu' ? 'Mikrofon engedély megtagadva (csak chat mód).' : 'Microphone denied (chat only).');
+                }
             }
 
             // input audio ctx
@@ -664,13 +670,16 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).
 
             // Fix 1007 error: Send a silent audio frame immediately to establish audio context
             // Some models reject connections that don't immediately send audio data
-            try {
-                const silentFrame = new Float32Array(512).fill(0);
-                const pcm = createPcmBlob(silentFrame, inputCtx.sampleRate);
-                await session.sendRealtimeInput({ media: pcm });
-            } catch (err) {
-                console.warn('Failed to send initial silent audio:', err);
+            if (!skipAudio) {
+                try {
+                    const silentFrame = new Float32Array(512).fill(0);
+                    const pcm = createPcmBlob(silentFrame, inputCtx.sampleRate);
+                    await session.sendRealtimeInput({ media: pcm });
+                } catch (err) {
+                    console.warn('Failed to send initial silent audio:', err);
+                }
             }
+
 
             // Note: We skip sending initial text context (sendClientContent) to avoid "non-audio request" error
             // The systemInstruction in config should be enough for initial context.
@@ -718,11 +727,30 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).
 
     // ===== send text to model =====
     const handleSendText = useCallback(async () => {
-        const s = sessionRef.current;
-        if (!s) return;
-
+        let s = sessionRef.current;
         const text = inputText.trim();
         if (!text) return;
+
+        // If no session, try to start one
+        if (!s) {
+            try {
+                // We'll await startSession but we need to verify if it returns the session or we need to access ref again
+                // Since startSession is async and setsRef, we can await it.
+                // However, startSession in existing code doesn't return the session object directly, it sets state.
+                // We should modify startSession to return the session or just await it effectively.
+                // Looking at startSession signature: const startSession = async () => { ... }
+                // It sets sessionRef.current.
+                await startSession(true);
+                s = sessionRef.current;
+                if (!s) {
+                    throw new Error('Could not establish connection for text message.');
+                }
+            } catch (err) {
+                console.error('Failed to auto-connect for text:', err);
+                toast.error('Could not connect to send message.');
+                return;
+            }
+        }
 
         setInputText('');
         addMessage('user', text);
@@ -733,10 +761,14 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).
                 turnComplete: true,
             });
         } catch (e: any) {
-            console.error('[VoiceAssistant] sendClientContent failed:', e);
-            toast.error('Failed to send text: ' + (e?.message || 'Unknown error'));
+            if (e.message?.includes('socket not ready')) {
+                toast.error('Connection not ready. Please try again in a moment.');
+            } else {
+                console.error('[VoiceAssistant] sendClientContent failed:', e);
+                toast.error('Failed to send text: ' + (e?.message || 'Unknown error'));
+            }
         }
-    }, [addMessage, inputText]);
+    }, [addMessage, inputText, startSession]);
 
     const VisualAssistOverlay = () => {
         if (!showVisualAssist) return null;
@@ -823,7 +855,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).
                                     value={inputText}
                                     onChange={(e) => setInputText(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && void handleSendText()}
-                                    placeholder={currentLanguage === 'hu' ? 'Üzenet írása...' : 'Type a message...'}
+                                    placeholder={t('voice.typeMessage')}
                                     className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-900 border-none focus:ring-2 focus:ring-indigo-500/50 text-sm"
                                 />
                                 <button
@@ -852,9 +884,22 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).
                     </motion.button>
                 )}
 
+                {/* Text Mode Button */}
+                {!isActive && (
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => void startSession(true)}
+                        className="p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg text-gray-600 dark:text-gray-300 hover:text-indigo-500 border border-gray-100 dark:border-gray-700 tooltip tooltip-left"
+                        data-tip={t('voice.textMode')}
+                    >
+                        <Keyboard size={24} />
+                    </motion.button>
+                )}
+
                 <motion.button
-                    onClick={() => (isActive ? void disconnect() : void startSession())}
-                    className={`p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all duration-300 group ${isActive
+                    onClick={() => (isActive ? void disconnect() : void startSession(false))}
+                    className={`p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all duration-300 group ${isActive && !isTextMode
                         ? 'bg-red-500/10 border-red-500/50 hover:bg-red-500/20'
                         : 'bg-indigo-500/10 border-indigo-500/50 hover:bg-indigo-500/20'
                         }`}
@@ -865,10 +910,16 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).
                         {isConnecting ? (
                             <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
                         ) : isActive ? (
-                            <>
-                                <span className="absolute inset-0 rounded-full bg-red-500/20 animate-ping" />
-                                <Mic className="w-8 h-8 text-red-500 relative z-10" />
-                            </>
+                            isTextMode ? (
+                                // Text Mode UI
+                                <MessageSquare className="w-8 h-8 text-indigo-500 relative z-10" />
+                            ) : (
+                                // Voice Mode UI
+                                <>
+                                    <span className="absolute inset-0 rounded-full bg-red-500/20 animate-ping" />
+                                    <Mic className="w-8 h-8 text-red-500 relative z-10" />
+                                </>
+                            )
                         ) : (
                             <>
                                 <MicOff className="w-8 h-8 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
@@ -876,21 +927,6 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).
                             </>
                         )}
                     </div>
-
-                    {isActive && (
-                        <svg className="absolute inset-0 -m-1 w-[calc(100%+8px)] h-[calc(100%+8px)] pointer-events-none">
-                            <circle
-                                cx="50%"
-                                cy="50%"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                className="text-red-500/30"
-                                r={24 + (volume / 255) * 15}
-                                style={{ transition: 'r 0.05s ease-out' }}
-                            />
-                        </svg>
-                    )}
                 </motion.button>
             </motion.div>
         </>
