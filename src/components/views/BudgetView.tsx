@@ -209,7 +209,7 @@ const BudgetView: React.FC = () => {
     const converted = safeConvertOrZero(amount, newTransaction.currency, currency);
     if (!converted) return null;
 
-    return `\u2248 ${ formatMoney(converted) } (${ t('budget.estimated') })`;
+    return `~${ formatMoney(converted) } (${ t('budget.estimated') })`;
   }, [
     newTransaction.amount,
     newTransaction.currency,
