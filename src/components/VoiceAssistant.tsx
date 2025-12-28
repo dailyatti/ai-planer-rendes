@@ -210,25 +210,36 @@ ${visible.join('\n')}
 
     const getSystemInstruction = useCallback(() => {
         const isHu = currentLanguage === 'hu';
-        return `
-You are the Voice Interface of 'ContentPlanner Pro', an advanced planner + finance application.
-Speak professional ${isHu ? 'Hungarian' : 'English'}.
+        const SYSTEM_INSTRUCTION_EN = `You are a professional silent admin assistant for the "Digital Planner Pro" app.
+Your role is to execute commands (navigation, task creation, etc.) efficiently without conversational filler.
+You have access to tools that control the UI. Always use these tools to fulfill the user's request.
+IMPORTANT: You are in "Silent Mode". Do not generate spoken conversational responses if possible. The user prefers visual confirmation (which is handled by the system). 
+If you must reply with text, keep it extremely brief (e.g., "Done", "Opened", "Created").
+You can navigate to: daily, weekly, monthly, yearly, notes, goals, budget, invoicing, statistics, settings, integrations.
+`;
 
-You can:
-- Navigate to any menu/view (navigate_view)
-- Scroll page (control_scroll)
-- Create tasks, transactions, goals, notes (create_task, create_transaction, create_goal, create_note)
-- Ask for system state (get_system_state)
-- Analyze screen elements (analyze_viewport)
-- Toggle visual overlay (toggle_visual_assist)
-- Stop session (disconnect_assistant)
+        const todayStr = new Date().toLocaleDateString(isHu ? 'hu-HU' : 'en-US');
+        const SYSTEM_INSTRUCTION_HU = `Te egy profi néma adminisztrátor asszisztens vagy a "Digital Planner Pro" alkalmazáshoz.
+A mai dátum: ${todayStr}.
+A feladatod: MINDIG hívd meg a megfelelő eszközt (tool).
+NE VÁLASZOLJ SZÓBAN! Néma módban vagy.
+Ha a felhasználó kér valamit (pl. "nyisd meg az okos jegyzeteket"), azonnal hívd a 'navigate_view' eszközt 'notes' paraméterrel.
+Navigációs célpontok (és szinonimáik):
+- daily (napi, mai nap)
+- weekly (heti)
+- monthly (havi)
+- yearly (éves)
+- notes (jegyzetek, okos jegyzetek)
+- goals (célok)
+- budget (költségvetés, pénzügyek)
+- invoicing (számlázás)
+- statistics (statisztika)
+- settings (beállítások, beállítás)
 
-Rules:
-- If the user wants to open a menu: call navigate_view immediately with the target view name.
-- If user wants to add a task: call create_task immediately.
-- Keep outputs short and actionable.
-- If you need context, call get_system_state.
-`.trim();
+Ha a felhasználó számlát, feladatot vagy célt akar létrehozni, használd a megfelelő 'create_*' eszközt.
+SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).
+`;
+        return isHu ? SYSTEM_INSTRUCTION_HU : SYSTEM_INSTRUCTION_EN.replace('app.', `app.\nToday's date is: ${todayStr}.`);
     }, [currentLanguage]);
 
     // ===== disconnect =====
@@ -473,11 +484,11 @@ Rules:
             }
 
             const session = await ai.live.connect({
-                model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+                model: 'gemini-2.0-flash-exp',
                 config: {
                     tools,
                     systemInstruction: getSystemInstruction(),
-                    responseModalities: [Modality.AUDIO, Modality.TEXT],
+                    responseModalities: [Modality.AUDIO],
                 },
                 callbacks: {
                     onopen: async () => {
@@ -503,7 +514,8 @@ Rules:
                                 const src = outputCtx.createBufferSource();
                                 src.buffer = buffer;
                                 src.connect(outputGain);
-                                src.start();
+                                // User requested silent mode ("ne pofázon vissza"), so we do not start the audio source.
+                                // src.start();
                             }
 
                             // tool calls
@@ -654,7 +666,7 @@ Rules:
             // Some models reject connections that don't immediately send audio data
             try {
                 const silentFrame = new Float32Array(512).fill(0);
-                const pcm = createPcmBlob(silentFrame, 16000);
+                const pcm = createPcmBlob(silentFrame, inputCtx.sampleRate);
                 await session.sendRealtimeInput({ media: pcm });
             } catch (err) {
                 console.warn('Failed to send initial silent audio:', err);
