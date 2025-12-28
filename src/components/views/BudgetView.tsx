@@ -209,7 +209,7 @@ const BudgetView: React.FC = () => {
     const converted = safeConvertOrZero(amount, newTransaction.currency, currency);
     if (!converted) return null;
 
-    return `≈ ${formatMoney(converted)} (${t('budget.estimated')})`;
+    return `\u2248 ${ formatMoney(converted) } (${ t('budget.estimated') })`;
   }, [
     newTransaction.amount,
     newTransaction.currency,
@@ -300,7 +300,7 @@ const BudgetView: React.FC = () => {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthIdx = date.getMonth();
       const year = date.getFullYear();
-      const monthName = monthNames[monthIdx] ? monthNames[monthIdx].slice(0, 3) : `M${monthIdx + 1}`;
+      const monthName = monthNames[monthIdx] ? monthNames[monthIdx].slice(0, 3) : `M${ monthIdx + 1 } `;
 
       let income = 0;
       let expense = 0;
@@ -559,13 +559,13 @@ const BudgetView: React.FC = () => {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-6 py-3 font-medium transition-all relative ${
-              activeTab === tab
-                ? 'text-primary-600 dark:text-primary-400'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
+            className={`px - 6 py - 3 font - medium transition - all relative ${
+  activeTab === tab
+    ? 'text-primary-600 dark:text-primary-400'
+    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+} `}
           >
-            {t(`budget.${tab}`)}
+            {t(`budget.${ tab } `)}
             {activeTab === tab && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-500 rounded-full" />
             )}
@@ -683,7 +683,7 @@ const BudgetView: React.FC = () => {
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: '#6b7280', fontSize: 12, fontWeight: 500 }}
-                  tickFormatter={(value) => (value >= 1000 ? `${value / 1000} k` : String(value))}
+                  tickFormatter={(value) => (value >= 1000 ? `${ value / 1000 } k` : String(value))}
                 />
 
                 <Tooltip
@@ -746,7 +746,7 @@ const BudgetView: React.FC = () => {
                   dataKey="value"
                 >
                   {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell key={`cell - ${ index } `} fill={entry.color} />
                   ))}
                 </Pie>
 
@@ -760,7 +760,7 @@ const BudgetView: React.FC = () => {
                     return (
                       <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-4 text-xs">
                         {payload?.map((entry: any, index: number) => (
-                          <div key={`item-${index}`} className="flex items-center gap-1.5">
+                          <div key={`item - ${ index } `} className="flex items-center gap-1.5">
                             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
                             <span className="truncate text-gray-600 dark:text-gray-300">{entry.value}</span>
                           </div>
@@ -903,11 +903,11 @@ const BudgetView: React.FC = () => {
                   setAddToBalanceImmediately(true);
                   setShowAddModal(true);
                 }}
-                className={`p-4 flex items-center justify-between hover:bg-gray-50/80 dark:hover:bg-gray-700/30 transition-all duration-200 group cursor-pointer border-l-4 ${
-                  selectedTransactions.has(tr.id)
-                    ? 'bg-blue-50/50 dark:bg-blue-900/10 border-l-blue-500'
-                    : 'border-l-transparent hover:border-l-indigo-300 dark:hover:border-l-indigo-700'
-                }`}
+                className={`p - 4 flex items - center justify - between hover: bg - gray - 50 / 80 dark: hover: bg - gray - 700 / 30 transition - all duration - 200 group cursor - pointer border - l - 4 ${
+  selectedTransactions.has(tr.id)
+    ? 'bg-blue-50/50 dark:bg-blue-900/10 border-l-blue-500'
+    : 'border-l-transparent hover:border-l-indigo-300 dark:hover:border-l-indigo-700'
+} `}
               >
                 <div className="flex items-center gap-4">
                   {/* Selection Checkbox */}
@@ -916,21 +916,21 @@ const BudgetView: React.FC = () => {
                       e.stopPropagation();
                       toggleTransactionSelection(tr.id);
                     }}
-                    className={`p-2 rounded-lg transition-all ${
-                      selectedTransactions.has(tr.id)
-                        ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30 scale-110'
-                        : 'text-gray-300 hover:text-blue-500 scale-100 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                    }`}
+                    className={`p - 2 rounded - lg transition - all ${
+  selectedTransactions.has(tr.id)
+    ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30 scale-110'
+    : 'text-gray-300 hover:text-blue-500 scale-100 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+} `}
                   >
                     {selectedTransactions.has(tr.id) ? <CheckSquare size={18} /> : <Square size={18} />}
                   </button>
 
                   <div
-                    className={`p-3 rounded-2xl shadow-sm ${
-                      tr.type === 'income'
-                        ? 'bg-green-100/50 text-green-600 dark:bg-green-900/20'
-                        : 'bg-red-100/50 text-red-600 dark:bg-red-900/20'
-                    }`}
+                    className={`p - 3 rounded - 2xl shadow - sm ${
+  tr.type === 'income'
+    ? 'bg-green-100/50 text-green-600 dark:bg-green-900/20'
+    : 'bg-red-100/50 text-red-600 dark:bg-red-900/20'
+} `}
                   >
                     {tr.type === 'income' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
                   </div>
@@ -964,11 +964,11 @@ const BudgetView: React.FC = () => {
 
                 <div className="text-right flex items-center gap-4">
                   <span
-                    className={`text-xl font-bold block ${
-                      tr.type === 'income'
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-gray-700 dark:text-gray-300'
-                    }`}
+                    className={`text - xl font - bold block ${
+  tr.type === 'income'
+    ? 'text-emerald-600 dark:text-emerald-400'
+    : 'text-gray-700 dark:text-gray-300'
+} `}
                   >
                     {tr.type === 'income' ? '+' : '−'}
                     {formatMoney(Math.abs(tr.amount), (tr as any).currency)}
@@ -1080,11 +1080,11 @@ const BudgetView: React.FC = () => {
               {/* Rate Source Warning */}
               {ensureCurrency(newTransaction.currency) !== ensureCurrency(currency) && (
                 <div
-                  className={`mt-2 p-3 rounded-lg text-sm flex items-center gap-3 ${
-                    rateSource === 'system'
-                      ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-100 dark:border-red-800'
-                      : 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 border border-green-100 dark:border-green-800'
-                  }`}
+                  className={`mt - 2 p - 3 rounded - lg text - sm flex items - center gap - 3 ${
+  rateSource === 'system'
+    ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-100 dark:border-red-800'
+    : 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 border border-green-100 dark:border-green-800'
+} `}
                 >
                   {rateSource === 'system' ? (
                     <>
@@ -1158,11 +1158,11 @@ const BudgetView: React.FC = () => {
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
                   <button
                     onClick={() => setAddToBalanceImmediately(!addToBalanceImmediately)}
-                    className={`p-2 rounded-lg transition-all ${
-                      addToBalanceImmediately
-                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                        : 'bg-white dark:bg-gray-800 text-gray-400 hover:text-blue-500 border border-gray-200 dark:border-gray-700'
-                    }`}
+                    className={`p - 2 rounded - lg transition - all ${
+  addToBalanceImmediately
+    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+    : 'bg-white dark:bg-gray-800 text-gray-400 hover:text-blue-500 border border-gray-200 dark:border-gray-700'
+} `}
                   >
                     {addToBalanceImmediately ? <CheckSquare size={18} /> : <Square size={18} />}
                   </button>
@@ -1174,7 +1174,7 @@ const BudgetView: React.FC = () => {
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {addToBalanceImmediately
                         ? 'Az első részletet azonnal levonja/hozzáadja.'
-                        : `Az első részlet csak egy ${getPeriodLabel(newTransaction.period).toLowerCase()} múlva lesz esedékes.`}
+                        : `Az első részlet csak egy ${ getPeriodLabel(newTransaction.period).toLowerCase() } múlva lesz esedékes.`}
                     </p>
                   </div>
                 </div>
@@ -1222,9 +1222,9 @@ const BudgetView: React.FC = () => {
                 </button>
                 <button
                   onClick={handleAddTransaction}
-                  className={`flex-1 flex items-center justify-center gap-2 ${
-                    transactionType === 'income' ? 'btn-primary bg-green-600 hover:bg-green-700' : 'btn-primary'
-                  }`}
+                  className={`flex - 1 flex items - center justify - center gap - 2 ${
+  transactionType === 'income' ? 'btn-primary bg-green-600 hover:bg-green-700' : 'btn-primary'
+} `}
                 >
                   <Check size={18} />
                   {t('budget.saveTransaction')}
@@ -1418,14 +1418,14 @@ const BudgetView: React.FC = () => {
               <div>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">Törlés megerősítése</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {showDeleteConfirm === 'selected' && `${selectedTransactions.size} kijelölt tranzakció törlése`}
+                  {showDeleteConfirm === 'selected' && `${ selectedTransactions.size } kijelölt tranzakció törlése`}
                   {showDeleteConfirm === 'period' &&
                     deletePeriodFilter !== 'all' &&
-                    `Összes "${getPeriodLabel(deletePeriodFilter as TransactionPeriod)}" típusú tranzakció törlése (${
-                      periodCounts[deletePeriodFilter as keyof typeof periodCounts]
+                    `Összes "${getPeriodLabel(deletePeriodFilter as TransactionPeriod)}" típusú tranzakció törlése(${
+  periodCounts[deletePeriodFilter as keyof typeof periodCounts]
                     } db)`}
                   {(showDeleteConfirm === 'all' || (showDeleteConfirm === 'period' && deletePeriodFilter === 'all')) &&
-                    `ÖSSZES tranzakció törlése (${periodCounts.all} db)`}
+                    `ÖSSZES tranzakció törlése(${ periodCounts.all } db)`}
                 </p>
               </div>
             </div>
