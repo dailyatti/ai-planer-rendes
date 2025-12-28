@@ -24,7 +24,11 @@ function AppContent() {
     // We don't await this because it might be the old synchronous version (returning undefined)
     // or the new async version (returning a Promise).
     // In either case, the service handles its own errors internally, so we don't need to .catch here.
-    MigrationService.run();
+    try {
+      MigrationService.run();
+    } catch (e) {
+      console.error('Migration run failed:', e);
+    }
   }, []);
 
   const handleSettingsClick = () => {

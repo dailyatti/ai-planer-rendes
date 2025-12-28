@@ -617,6 +617,14 @@ SHUTDOWN:
             const session = await sessionRef.current;
             console.log('Session resolved for text send:', session);
 
+            // Inspect prototype to find methods
+            try {
+                const proto = Object.getPrototypeOf(session);
+                console.log('Session Prototype Methods:', Object.getOwnPropertyNames(proto));
+            } catch (err) {
+                console.log('Could not inspect prototype:', err);
+            }
+
             if (!session) {
                 console.error('Session is null/undefined');
                 toast.error('Session not active');
@@ -626,9 +634,14 @@ SHUTDOWN:
             // Try sending text as a turn
             if (typeof session.send === 'function') {
                 await session.send({ parts: [{ text }] }, true);
+            } else if (typeof session.sendTurn === 'function') {
+                // Hypothetical method
+                await session.sendTurn({ parts: [{ text }] });
             } else {
                 console.warn('session.send is not a function. Checking available methods:', Object.keys(session));
-                // Fallback or exploration
+
+                // Fallback: If we can't send text, we can't.
+                // But we shouldn't crash.
                 toast.error('Text sending not supported by this session version.');
             }
 
