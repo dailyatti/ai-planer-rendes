@@ -155,7 +155,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                     visible: true,
                     rect,
                     attributes: {
-                        'aria-label': el.getAttribute('aria-label') || undefined
+                        'aria-label': el.getAttribute('aria-label') || ''
                     }
                 });
             }
@@ -171,8 +171,8 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
                     visible: true,
                     rect,
                     attributes: {
-                        'placeholder': el.getAttribute('placeholder') || undefined,
-                        'value': (el as HTMLInputElement).value?.substring(0, 50) || undefined,
+                        'placeholder': el.getAttribute('placeholder') || '',
+                        'value': (el as HTMLInputElement).value?.substring(0, 50) || '',
                         'type': el.getAttribute('type') || 'text'
                     }
                 });
@@ -180,6 +180,15 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
         });
 
         setViewportElements(elements.slice(0, 50)); // Limit to avoid context overflow
+    }, []);
+
+    const generateStateReport = useCallback(() => {
+        // ... (this part is fine, skipping context for brevity in tool call)
+        // actually tool call requires contiguous block. I will just target the specific blocks.
+        // Wait, replace_file_content requires a single contiguous block. 
+        // These changes are in `analyzeViewport` (lines 157-177) and `onmessage` (line 449).
+        // I should use multi_replace_file_content or call replace twice. 
+        // I will use multi_replace to be efficient.
     }, []);
 
     const generateStateReport = useCallback(() => {
@@ -446,7 +455,7 @@ SHUTDOWN:
 
                         // Handle Audio Output
                         if (message.serverContent?.modelTurn?.parts?.[0]?.inlineData) {
-                            const audioData = decode(message.serverContent.modelTurn.parts[0].inlineData.data);
+                            const audioData = decode(message.serverContent.modelTurn.parts[0].inlineData.data || '');
                             const buffer = await decodeAudioData(audioData, audioContext, 24000, 1);
                             const source = audioContext.createBufferSource();
                             source.buffer = buffer;
