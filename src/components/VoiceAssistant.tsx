@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality, Type } from '@google/genai';
-import { Mic, MicOff, Loader2, Sparkles, X, MessageSquare, Send, ChevronUp, ChevronDown } from 'lucide-react';
+import { Mic, MicOff, Loader2, Sparkles, MessageSquare, Send, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -66,7 +66,9 @@ function createBlob(data: Float32Array, sampleRate: number): { data: string; mim
     const l = data.length;
     const int16 = new Int16Array(l);
     for (let i = 0; i < l; i++) {
-        int16[i] = data[i] * 32768;
+        // Clamp values to [-1, 1] to prevent distortion
+        const s = Math.max(-1, Math.min(1, data[i]));
+        int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
     }
     return {
         data: encode(new Uint8Array(int16.buffer)),
@@ -107,7 +109,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     const inputAudioContextRef = useRef<AudioContext | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const processorRef = useRef<ScriptProcessorNode | null>(null);
-    const sessionRef = useRef<any>(null);
+    const sessionRef = useRef<any>(null); // Stores the active session object
     const onCommandRef = useRef(onCommand);
     const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -131,6 +133,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             setScrollPosition({ top: scrollTop, percent });
 
             if (isActive) {
+                // Optional: Debounce this in production
                 analyzeViewport();
             }
         };
@@ -138,6 +141,13 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
         window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
     }, [isActive]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            disconnect();
+        };
+    }, []);
 
     // Analyze viewport elements
     const analyzeViewport = useCallback(() => {
@@ -181,8 +191,6 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
 
         setViewportElements(elements.slice(0, 50)); // Limit to avoid context overflow
     }, []);
-
-
 
     const generateStateReport = useCallback(() => {
         const baseCurrency = CurrencyService.getBaseCurrency();
@@ -241,14 +249,13 @@ SHUTDOWN:
 
     const startSession = async () => {
         console.log('[VoiceAssistant] startSession called');
-        if (isActive) {
+        if (isActive || sessionRef.current) {
             console.log('[VoiceAssistant] Session already active, ignoring');
             return;
         }
         if (!apiKey) {
             console.error('[VoiceAssistant] No API Key provided');
             toast.error("API Key is required");
-            // Optional: Redirect to settings or API key page
             return;
         }
 
@@ -267,7 +274,6 @@ SHUTDOWN:
             }
 
             console.log('[VoiceAssistant] Preparing tools and system info');
-            // Define ContentPlanner Tools (kept as is)
             const tools: any = [{
                 functionDeclarations: [
                     {
@@ -395,7 +401,7 @@ SHUTDOWN:
             const outputNode = audioContext.createGain();
             outputNode.connect(audioContext.destination);
 
-            let stream;
+            let stream: MediaStream | undefined;
             try {
                 console.log('[VoiceAssistant] Requesting microphone access...');
                 stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -429,14 +435,14 @@ SHUTDOWN:
             }
 
             console.log('[VoiceAssistant] Calling ai.live.connect...');
-            // Await connection
+
+            // Connect to Gemini Live
             const session = await ai.live.connect({
                 model: 'gemini-2.0-flash-exp',
                 config: {
                     tools: tools,
                     systemInstruction: getSystemInstruction(),
-                    // responseModalities: [Modality.AUDIO, Modality.TEXT], // Disabled to fix disconnect loop
-                    responseModalities: [Modality.AUDIO],
+                    responseModalities: [Modality.AUDIO, Modality.TEXT],
                 },
                 callbacks: {
                     onopen: () => {
@@ -444,18 +450,12 @@ SHUTDOWN:
                         setIsActive(true);
                         setIsConnecting(false);
                         addMessage('system', currentLanguage === 'hu' ? 'Kapcsolódva. Miben segíthetek?' : 'Connected. How can I help?');
-
-                        // We can't use 'session' here yet as it's being awaited.
-                        // But onopen usually fires after connection? 
-                        // Actually, if we await connect(), onopen might fire *during* the await or after?
-                        // If it fires after, we are good.
-                        // But we need to send the initial state.
-                        // We can do that after the await in the main flow.
                     },
                     onmessage: async (message: LiveServerMessage) => {
                         try {
-                            console.log('[VoiceAssistant] Message received:', message);
-                            // Handle Text Output
+                            // console.log('[VoiceAssistant] Message received:', message);
+
+                            // Handle Text Output (Transcripts or Responses)
                             if (message.serverContent?.modelTurn?.parts) {
                                 for (const part of message.serverContent.modelTurn.parts) {
                                     if (part.text) {
@@ -474,6 +474,7 @@ SHUTDOWN:
                                 source.start();
                             }
 
+                            // Handle Tool Calls
                             if (message.toolCall?.functionCalls) {
                                 const responses = [];
                                 for (const fc of message.toolCall.functionCalls) {
@@ -516,15 +517,19 @@ SHUTDOWN:
                                         result = { ok: true, message: 'Toggled visual assist' };
                                     } else if (fc.name === 'disconnect_assistant') {
                                         disconnect();
+                                        return; // Stop processing
                                     }
 
-                                    responses.push({ name: fc.name, id: fc.id, response: { result } });
+                                    responses.push({
+                                        name: fc.name,
+                                        id: fc.id,
+                                        response: { result }
+                                    });
                                 }
 
-                                // Check if sessionRef is ready
-                                const currentSession = await sessionRef.current;
-                                if (currentSession) {
-                                    currentSession.sendToolResponse({ functionResponses: responses });
+                                // Send tool responses back
+                                if (sessionRef.current && responses.length > 0) {
+                                    sessionRef.current.sendToolResponse({ functionResponses: responses });
                                 }
                             }
                         } catch (err) {
@@ -532,44 +537,32 @@ SHUTDOWN:
                         }
                     },
                     onclose: (ev: any) => {
-                        console.log('[VoiceAssistant] onclose callback fired', ev?.code, ev?.reason);
+                        console.log('[VoiceAssistant] onclose callback fired', ev);
                         setIsActive(false);
                         setIsConnecting(false);
                         addMessage('system', 'Disconnected');
+                        sessionRef.current = null;
                     },
                     onerror: (e: any) => {
                         console.error('[VoiceAssistant] ONERROR callback:', e);
                         setIsActive(false);
                         setIsConnecting(false);
                         addMessage('system', `Error: ${e.message}`);
+                        sessionRef.current = null;
                     }
                 }
             });
 
             console.log('[VoiceAssistant] Session established:', session);
+            sessionRef.current = session;
 
-            // Store session
-            // Note: In the original code 'sessionPromise' was a Promise<Session>. 
-            // Here 'session' is the resolved Session object.
-            // We need to store it in a way that allows us to send messages later.
-            // Current refs expect a Promise? line 100: sessionRef = useRef<any>(null).
-            // Line 537: const session = await sessionRef.current;
-            // So we should verify if we store the promise or the object.
-            // To be consistent with line 537, we should store a Promise that resolves to this session.
-            sessionRef.current = Promise.resolve(session);
-
-            // Start processing input
-            setIsActive(true);
-            setIsConnecting(false);
-            addMessage('system', currentLanguage === 'hu' ? 'Kapcsolódva. Miben segíthetek?' : 'Connected. How can I help?');
-
-            // Send initial state
+            // Send initial state immediately
             await session.sendToolResponse({
-                functionResponses: {
+                functionResponses: [{
                     name: 'system_state_report',
                     id: 'init-' + Date.now(),
                     response: { result: generateStateReport() }
-                }
+                }]
             });
 
             // Setup audio input processing
@@ -579,10 +572,10 @@ SHUTDOWN:
                 processorRef.current = scriptProcessor;
 
                 scriptProcessor.onaudioprocess = (e) => {
-                    if (!isActive) return; // Guard
+                    if (!isActive || !sessionRef.current) return;
                     const inputData = e.inputBuffer.getChannelData(0);
                     const pcmBlob = createBlob(inputData, inputAudioContext.sampleRate);
-                    // Session is already resolved here
+                    // session.sendRealtimeInput - use the resolved session object directly
                     session.sendRealtimeInput({ media: pcmBlob });
                 };
 
@@ -590,24 +583,12 @@ SHUTDOWN:
                 scriptProcessor.connect(inputAudioContext.destination);
             }
 
-            // Handle incoming messages - Need to attach listener?
-            // The SDK logic in original code passed `callbacks` to `connect`. 
-            // My refactor removed callbacks? 
-            // Wait, the SDK `connect` method signature: connect(options: { ..., callbacks: ... })
-            // I REMOVED CALLBACKS in the await conversion! This interprets the stream differently.
-            // I MUST restore the callbacks structure for the SDK to work as designed.
-
-            // LET'S REVERT TO USING CALLBACKS BUT INSIDE A TRY-CATCH BLOCK
-            // The issue was error handling, not the structure.
-
-            // (Self-Correction during code generation: I will not commit this partial chunk.
-            // I will use a different strategy: keep the structure but wrap strictly in try-catch and validate).
-
         } catch (e: any) {
             console.error("Connection error:", e);
             toast.error("Connection failed: " + (e.message || "Unknown error"));
             setIsConnecting(false);
             setIsActive(false);
+            sessionRef.current = null;
         }
     };
 
@@ -618,16 +599,10 @@ SHUTDOWN:
         addMessage('user', text);
 
         try {
-            // sessionRef.current stores a Promise<Session>
-            const session = await sessionRef.current;
-            console.log('Session resolved for text send:', session);
-
-            // Correct API method for text turns
-            session.sendClientContent({
+            await sessionRef.current.sendClientContent({
                 turns: [{ role: 'user', parts: [{ text }] }],
                 turnComplete: true
             });
-
         } catch (e: any) {
             console.error('Text send failed details:', e);
             toast.error('Failed to send text: ' + (e.message || 'Unknown error'));
@@ -635,9 +610,24 @@ SHUTDOWN:
     };
 
     const disconnect = useCallback(async () => {
-        streamRef.current?.getTracks().forEach(t => t.stop());
-        inputAudioContextRef.current?.close();
-        audioContextRef.current?.close();
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(t => t.stop());
+            streamRef.current = null;
+        }
+        if (processorRef.current) {
+            processorRef.current.disconnect();
+            processorRef.current = null;
+        }
+        if (inputAudioContextRef.current) {
+            inputAudioContextRef.current.close();
+            inputAudioContextRef.current = null;
+        }
+        if (audioContextRef.current) {
+            audioContextRef.current.close();
+            audioContextRef.current = null;
+        }
+
+        sessionRef.current = null;
         setIsActive(false);
     }, []);
 
