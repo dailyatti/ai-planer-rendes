@@ -589,19 +589,30 @@ SHUTDOWN:
         const text = inputText.trim();
         setInputText('');
         addMessage('user', text);
+
         try {
+            // sessionRef.current stores a Promise<Session>
             const session = await sessionRef.current;
-            // Send text input to Live API using parts
-            // Note: The correct method depends on SDK version. 
-            // sendRealtimeInput allows { mimeType: 'text/plain', data: base64 } or similar?
-            // Actually, send({ parts: [{ text }] }) works for turn-based but for Live...
-            // Checking the SDK, sendRealtimeInput is for media.
-            // send() might be for turns.
-            // But we can trigger a turn with text.
-            session.send({ parts: [{ text }] }, true);
+            console.log('Session resolved for text send:', session);
+
+            if (!session) {
+                console.error('Session is null/undefined');
+                toast.error('Session not active');
+                return;
+            }
+
+            // Try sending text as a turn
+            if (typeof session.send === 'function') {
+                await session.send({ parts: [{ text }] }, true);
+            } else {
+                console.warn('session.send is not a function. Checking available methods:', Object.keys(session));
+                // Fallback or exploration
+                toast.error('Text sending not supported by this session version.');
+            }
+
         } catch (e: any) {
-            console.error('Text send failed', e);
-            toast.error('Failed to send text');
+            console.error('Text send failed details:', e);
+            toast.error('Failed to send text: ' + (e.message || 'Unknown error'));
         }
     };
 
