@@ -476,6 +476,7 @@ Rules:
                 model: 'gemini-2.5-flash-native-audio-preview-12-2025',
                 config: {
                     tools,
+                    systemInstruction: getSystemInstruction(),
                     responseModalities: [Modality.AUDIO, Modality.TEXT],
                 },
                 callbacks: {
@@ -649,21 +650,20 @@ Rules:
 
             addMessage('system', currentLanguage === 'hu' ? 'Kapcsolódva. Mondjad mit csináljak.' : 'Connected. Tell me what to do.');
 
-            // Prime context: analyze + send state as user content
-            analyzeViewport();
+            // Fix 1007 error: Send a silent audio frame immediately to establish audio context
+            // Some models reject connections that don't immediately send audio data
             try {
-                await session.sendClientContent({
-                    turns: [
-                        {
-                            role: 'user',
-                            parts: [{ text: getSystemInstruction() + '\n\n' + generateStateReport() }],
-                        },
-                    ],
-                    turnComplete: true,
-                });
+                const silentFrame = new Float32Array(512).fill(0);
+                const pcm = createPcmBlob(silentFrame, 16000);
+                await session.sendRealtimeInput({ media: pcm });
             } catch (err) {
-                console.warn('Failed to send initial context:', err);
+                console.warn('Failed to send initial silent audio:', err);
             }
+
+            // Note: We skip sending initial text context (sendClientContent) to avoid "non-audio request" error
+            // The systemInstruction in config should be enough for initial context.
+            // analyzeViewport() is still called to update local state.
+            analyzeViewport();
 
             // attach mic streaming AFTER session created
             if (stream) {
