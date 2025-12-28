@@ -72,16 +72,17 @@ const BudgetView: React.FC = () => {
     return new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
       style: 'currency',
       currency: currencyOverride || currency,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 2
     }).format(amount);
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: Date | string) => {
+    const d = new Date(date);
     return new Intl.DateTimeFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
-    }).format(date);
+    }).format(d);
   };
 
 
@@ -118,39 +119,63 @@ const BudgetView: React.FC = () => {
 
   // Calculate totals
   // Calculate totals
-  const { totalIncome, totalExpense, balance } = useMemo(() => {
-    // Current date set to end of day to include all transactions from today
+  // ---------- Budget core helpers ----------
+  const toDateSafe = (d: Date | string | number) => {
+    const dt = d instanceof Date ? d : new Date(d);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  };
+
+  const endOfToday = () => {
     const now = new Date();
     now.setHours(23, 59, 59, 999);
+    return now;
+  };
 
-    // Helper to calculate sum of a specific transaction set
-    const calculateSum = (txs: Transaction[], type: 'income' | 'expense') => {
-      return txs
-        .filter(tr => tr.type === type)
-        .reduce((acc, tr) => {
-          const amount = Math.abs(tr.amount);
-          const trCurrency = tr.currency || 'USD';
-          return acc + CurrencyService.convert(amount, trCurrency, currency);
-        }, 0);
+  const ensureCurrency = (c?: string) => (c && c.trim() ? c : 'USD');
+
+  const absToView = (amount: number, fromCurrency: string) => {
+    const abs = Math.abs(amount);
+    return CurrencyService.convert(abs, ensureCurrency(fromCurrency), currency);
+  };
+
+  const isMaster = (tr: Transaction) => (tr as any).kind === 'master';
+
+  const isFuture = (tr: Transaction, now: Date) => {
+    const dt = toDateSafe(tr.date as any);
+    if (!dt) return false; // ha invalid, ne dobjon el mindent; később lehet strictre állítani
+    return dt.getTime() > now.getTime();
+  };
+
+  const sumByType = (txs: Transaction[], type: 'income' | 'expense') => {
+    return txs
+      .filter(tr => tr.type === type)
+      .reduce((acc, tr) => {
+        const from = ensureCurrency((tr as any).currency);
+        return acc + absToView(tr.amount, from);
+      }, 0);
+  };
+
+  const { totalIncome, totalExpense, balance } = useMemo(() => {
+    const now = endOfToday();
+
+    // 1) VOLUME cards: összes tranzakció, de a master sablonokat célszerű kizárni
+    // Ha te a master sablonokat is bele akarod számolni a volumenbe, vedd ki a !isMaster filtert.
+    const volumeTx = transactions.filter(tr => !isMaster(tr));
+
+    const income = sumByType(volumeTx, 'income');
+    const expense = sumByType(volumeTx, 'expense');
+
+    // 2) CASH-IN-HAND balance: kizárjuk a master sablont és a jövőbeli tételeket
+    const cashTx = transactions.filter(tr => !isMaster(tr) && !isFuture(tr, now));
+
+    const cashIncome = sumByType(cashTx, 'income');
+    const cashExpense = sumByType(cashTx, 'expense');
+
+    return {
+      totalIncome: income,
+      totalExpense: expense,
+      balance: cashIncome - cashExpense
     };
-
-    // 1. Total Income & Expense: Include ALL transactions (Master + History + Future)
-    // User Request: "hozzá kell adni [osszeget]... csak akkor amikor ideje van... csak az egyenleghez nem kell adni"
-    // Interpretation: Show global volume in Income/Expense cards, but strict balance.
-    const income = calculateSum(transactions, 'income');
-    const expense = calculateSum(transactions, 'expense');
-
-    // 2. Balance: Strict "Cash in Hand" logic
-    // Exclude Master templates and Future transactions
-    const balanceTransactions = transactions
-      .filter(tr => new Date(tr.date).getTime() <= now.getTime())
-      .filter(tr => tr.kind === 'history' || (!tr.recurring && tr.kind !== 'master'));
-
-    const strictIncome = calculateSum(balanceTransactions, 'income');
-    const strictExpense = calculateSum(balanceTransactions, 'expense');
-    const strictBalance = strictIncome - strictExpense;
-
-    return { totalIncome: income, totalExpense: expense, balance: strictBalance };
   }, [transactions, currency]);
 
 
@@ -269,7 +294,7 @@ const BudgetView: React.FC = () => {
       category: newTransaction.category,
       type: transactionType,
       currency: newTransaction.currency,
-      date: transactionDate,
+      date: transactionDate.toISOString().split('T')[0],
       period: newTransaction.period,
       recurring: isRecurring,
       kind: isRecurring ? 'master' as const : undefined,
@@ -466,21 +491,22 @@ const BudgetView: React.FC = () => {
       {/* Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
         {/* Balance Card */}
-        <div className="card p-6 bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-xl shadow-emerald-500/20 hover:shadow-2xl hover:shadow-emerald-500/30 transition-all duration-300 hover:scale-[1.02]">
+        <div className="card p-6 bg-gradient-to-br from-emerald-500 via-teal-500 to-teal-600 text-white shadow-xl shadow-emerald-500/20 hover:shadow-2xl hover:shadow-emerald-500/30 transition-all duration-300 hover:scale-[1.02] border border-emerald-400/20">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-sm font-medium opacity-80">{t('budget.balance')}</p>
-              <h3 className="text-3xl font-bold mt-1">{formatMoney(balance)}</h3>
+              <p className="text-sm font-medium opacity-90">{t('budget.balance')}</p>
+              <h3 className="text-4xl font-bold mt-2 tracking-tight">{formatMoney(balance)}</h3>
             </div>
-            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><Wallet size={20} /></div>
+            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm shadow-inner border border-white/10"><Wallet size={24} /></div>
           </div>
-          <div className="text-sm opacity-80 flex items-center gap-1">
+          <div className="text-sm opacity-90 flex items-center gap-1.5 font-medium bg-black/10 w-fit px-2 py-1 rounded-lg">
             {balance >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
             {balance >= 0 ? t('budget.profit') : t('budget.loss')}
+            <span className="opacity-60 ml-1 text-xs font-normal">(Cash-in-hand)</span>
           </div>
         </div>
 
-        {/* Income Card - Button for Breakdown */}
+        {/* Income Card */}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -488,21 +514,21 @@ const BudgetView: React.FC = () => {
             const breakdown = getTransactionAmountsByCurrency('income');
             setSelectedStat({ title: t('budget.income'), breakdown, rect });
           }}
-          className="card p-6 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-xl shadow-blue-500/20 hover:shadow-2xl hover:shadow-blue-500/30 transition-all duration-300 hover:scale-[1.02] text-left w-full group"
+          className="card p-6 bg-gradient-to-br from-blue-500 via-indigo-500 to-indigo-600 text-white shadow-xl shadow-blue-500/20 hover:shadow-2xl hover:shadow-blue-500/30 transition-all duration-300 hover:scale-[1.02] text-left w-full group border border-blue-400/20"
         >
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-sm font-medium opacity-80 flex items-center gap-2">
+              <p className="text-sm font-medium opacity-90 flex items-center gap-2">
                 {t('budget.income')}
                 <Search size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
               </p>
-              <h3 className="text-3xl font-bold mt-1">{formatMoney(totalIncome)}</h3>
+              <h3 className="text-3xl font-bold mt-2 tracking-tight">{formatMoney(totalIncome)}</h3>
             </div>
-            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><TrendingUp size={20} /></div>
+            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm shadow-inner border border-white/10"><TrendingUp size={24} /></div>
           </div>
         </button>
 
-        {/* Expense Card - Button for Breakdown */}
+        {/* Expense Card */}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -510,30 +536,30 @@ const BudgetView: React.FC = () => {
             const breakdown = getTransactionAmountsByCurrency('expense');
             setSelectedStat({ title: t('budget.expense'), breakdown, rect });
           }}
-          className="card p-6 bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-xl shadow-orange-500/20 hover:shadow-2xl hover:shadow-orange-500/30 transition-all duration-300 hover:scale-[1.02] text-left w-full group"
+          className="card p-6 bg-gradient-to-br from-orange-500 via-red-500 to-rose-600 text-white shadow-xl shadow-orange-500/20 hover:shadow-2xl hover:shadow-orange-500/30 transition-all duration-300 hover:scale-[1.02] text-left w-full group border border-orange-400/20"
         >
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-sm font-medium opacity-80 flex items-center gap-2">
+              <p className="text-sm font-medium opacity-90 flex items-center gap-2">
                 {t('budget.expense')}
                 <Search size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
               </p>
-              <h3 className="text-3xl font-bold mt-1">{formatMoney(totalExpense)}</h3>
+              <h3 className="text-3xl font-bold mt-2 tracking-tight">{formatMoney(totalExpense)}</h3>
             </div>
-            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><TrendingDown size={20} /></div>
+            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm shadow-inner border border-white/10"><TrendingDown size={24} /></div>
           </div>
         </button>
-
-
       </div>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Cash Flow Chart */}
-        <div className="card lg:col-span-2 p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-all duration-300">
+        <div className="card lg:col-span-2 p-6 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-3xl">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <BarChart3 size={20} className="text-primary-500" />
+              <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg text-white shadow-lg shadow-indigo-500/20">
+                <BarChart3 size={18} />
+              </div>
               {t('budget.cashFlow')}
             </h3>
           </div>
@@ -550,10 +576,14 @@ const BudgetView: React.FC = () => {
                     <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} tickFormatter={(value) => value >= 1000 ? `${value / 1000} k` : String(value)} />
-                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 40px -10px rgba(0,0,0,0.2)', backdropFilter: 'blur(8px)' }} formatter={(value: number) => formatMoney(value)} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} opacity={0.5} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12, fontWeight: 500 }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12, fontWeight: 500 }} tickFormatter={(value) => value >= 1000 ? `${value / 1000} k` : String(value)} />
+                <Tooltip
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 40px -10px rgba(0,0,0,0.2)', backdropFilter: 'blur(12px)', backgroundColor: 'rgba(255,255,255,0.9)' }}
+                  itemStyle={{ color: '#374151', fontWeight: 600 }}
+                  formatter={(value: number) => formatMoney(value)}
+                />
                 <Area type="monotone" dataKey="income" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorIncome)" name={t('budget.income')} />
                 <Area type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorExpense)" name={t('budget.expense')} />
               </AreaChart>
@@ -562,14 +592,17 @@ const BudgetView: React.FC = () => {
         </div>
 
         {/* Expense Breakdown */}
-        <div className="card p-6 flex flex-col bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-all duration-300">
+        <div className="card p-6 flex flex-col bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-3xl">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <PieChart size={20} className="text-purple-500" />
+              <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg text-white shadow-lg shadow-purple-500/20">
+                <PieChart size={18} />
+              </div>
               {t('budget.expenseCategories')}
             </h3>
           </div>
           <div className="h-[300px] relative flex-1 min-h-[300px]">
+            {/* ... chart content ... */}
             <ResponsiveContainer width="100%" height="100%">
               <RechartsPieChart>
                 <Pie
@@ -614,16 +647,19 @@ const BudgetView: React.FC = () => {
       </div>
 
       {/* Transactions List */}
-      <div className="card p-0 overflow-hidden border border-gray-100 dark:border-gray-800 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+      <div className="card p-0 overflow-hidden border border-white/20 dark:border-gray-700/50 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl shadow-xl hover:shadow-2xl transition-all duration-300 rounded-3xl">
         {/* Header with title and filters */}
-        <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex flex-col gap-4 bg-gray-50/50 dark:bg-gray-800/50">
+        <div className="p-6 border-b border-gray-100/50 dark:border-gray-700/50 flex flex-col gap-4 bg-white/40 dark:bg-gray-800/40">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('budget.transactions')}</h3>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <Wallet size={20} className="text-emerald-500" />
+              {t('budget.transactions')}
+            </h3>
             <div className="flex gap-2 flex-wrap">
               <select
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
-                className="input-field text-sm py-1.5 pr-8"
+                className="input-field text-sm py-2 px-4 pr-10 rounded-xl bg-white/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 focus:ring-emerald-500/50"
               >
                 <option value="all">{t('budget.filter')}: {t('budget.other')}</option>
                 {Object.entries(CATEGORIES).map(([key, val]) => (
@@ -635,23 +671,23 @@ const BudgetView: React.FC = () => {
 
           {/* PhD Level: Selection Toolbar */}
           {transactions.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 animate-in slide-in-from-top-2 duration-300">
               {/* Select All / Clear */}
               {selectedTransactions.size > 0 ? (
                 <button
                   onClick={clearSelection}
-                  className="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
+                  className="px-3 py-1.5 text-sm font-medium rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
                 >
                   <X size={14} />
-                  Kijelölés törlése ({selectedTransactions.size})
+                  Mégse ({selectedTransactions.size})
                 </button>
               ) : (
                 <button
                   onClick={selectAllTransactions}
-                  className="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
+                  className="px-3 py-1.5 text-sm font-medium rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
                 >
                   <CheckSquare size={14} />
-                  Összes kijelölése
+                  Összes
                 </button>
               )}
 
@@ -659,18 +695,18 @@ const BudgetView: React.FC = () => {
               {selectedTransactions.size > 0 && (
                 <button
                   onClick={() => setShowDeleteConfirm('selected')}
-                  className="px-3 py-1.5 text-sm font-bold rounded-lg bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 transition-all flex items-center gap-2"
+                  className="px-3 py-1.5 text-sm font-bold rounded-xl bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 transition-all flex items-center gap-2"
                 >
                   <Trash2 size={14} />
-                  Kijelöltek törlése ({selectedTransactions.size})
+                  Törlés ({selectedTransactions.size})
                 </button>
               )}
 
               {/* Divider */}
-              <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
+              <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-2" />
 
               {/* Period-based delete buttons */}
-              <span className="text-xs text-gray-500 font-medium">Törlés típus szerint:</span>
+              <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Gyors törlés:</span>
               {(['daily', 'weekly', 'monthly', 'yearly', 'oneTime'] as TransactionPeriod[]).map(period => (
                 periodCounts[period] > 0 && (
                   <button
@@ -679,32 +715,24 @@ const BudgetView: React.FC = () => {
                       setDeletePeriodFilter(period);
                       setShowDeleteConfirm('period');
                     }}
-                    className="px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors"
+                    className="px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors"
                   >
                     {getPeriodLabel(period)} ({periodCounts[period]})
                   </button>
                 )
               ))}
-
-              {/* Delete ALL button */}
-              <button
-                onClick={() => {
-                  setDeletePeriodFilter('all');
-                  setShowDeleteConfirm('all');
-                }}
-                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-red-600 to-rose-700 text-white shadow-lg shadow-red-500/25 hover:shadow-xl transition-all flex items-center gap-1.5"
-              >
-                <AlertTriangle size={12} />
-                ÖSSZES TÖRLÉSE ({periodCounts.all})
-              </button>
             </div>
           )}
         </div>
-        <div className="divide-y divide-gray-100 dark:divide-gray-800">
+
+        <div className="divide-y divide-gray-100/50 dark:divide-gray-800/50 max-h-[600px] overflow-y-auto custom-scrollbar">
           {filteredTransactions.length === 0 ? (
-            <div className="p-12 text-center text-gray-400">
-              <Wallet size={48} className="mx-auto mb-4 opacity-50" />
-              <p>{t('budget.noTransactions')}</p>
+            <div className="p-16 text-center text-gray-400">
+              <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Wallet size={32} className="opacity-50" />
+              </div>
+              <p className="text-lg font-medium">{t('budget.noTransactions')}</p>
+              <p className="text-sm opacity-60">Adj hozzá bevételeket vagy kiadásokat a fenti gombokkal.</p>
             </div>
           ) : (
             filteredTransactions.map((tr) => (
@@ -727,7 +755,10 @@ const BudgetView: React.FC = () => {
                   setAddToBalanceImmediately(true);
                   setShowAddModal(true);
                 }}
-                className={`p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group cursor-pointer ${selectedTransactions.has(tr.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                className={`p-4 flex items-center justify-between hover:bg-gray-50/80 dark:hover:bg-gray-700/30 transition-all duration-200 group cursor-pointer border-l-4 ${selectedTransactions.has(tr.id)
+                  ? 'bg-blue-50/50 dark:bg-blue-900/10 border-l-blue-500'
+                  : 'border-l-transparent hover:border-l-indigo-300 dark:hover:border-l-indigo-700'
+                  }`}
               >
                 <div className="flex items-center gap-4">
                   {/* PhD Level: Selection Checkbox */}
@@ -737,45 +768,48 @@ const BudgetView: React.FC = () => {
                       toggleTransactionSelection(tr.id);
                     }}
                     className={`p-2 rounded-lg transition-all ${selectedTransactions.has(tr.id)
-                      ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-blue-100 hover:text-blue-500 dark:hover:bg-blue-900/30'
+                      ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30 scale-110'
+                      : 'text-gray-300 hover:text-blue-500 scale-100 hover:bg-blue-50 dark:hover:bg-blue-900/20'
                       }`}
                   >
-                    {selectedTransactions.has(tr.id) ? <CheckSquare size={16} /> : <Square size={16} />}
+                    {selectedTransactions.has(tr.id) ? <CheckSquare size={18} /> : <Square size={18} />}
                   </button>
 
-                  <div className={`p-3 rounded-xl ${tr.type === 'income'
-                    ? 'bg-green-100 text-green-600 dark:bg-green-900/20'
-                    : 'bg-red-100 text-red-600 dark:bg-red-900/20'
+                  <div className={`p-3 rounded-2xl shadow-sm ${tr.type === 'income'
+                    ? 'bg-green-100/50 text-green-600 dark:bg-green-900/20'
+                    : 'bg-red-100/50 text-red-600 dark:bg-red-900/20'
                     }`}>
                     {tr.type === 'income' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-900 dark:text-white">{tr.description}</h4>
+                    <h4 className="font-bold text-gray-900 dark:text-white text-base mb-1">{tr.description}</h4>
                     <div className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
-                      <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider" style={{ backgroundColor: (CATEGORIES as any)[tr.category]?.color + '20', color: (CATEGORIES as any)[tr.category]?.color }}>
+                      <span className="px-2.5 py-0.5 rounded-md text-[10px] uppercase font-bold tracking-wider shadow-sm" style={{ backgroundColor: (CATEGORIES as any)[tr.category]?.color + '15', color: (CATEGORIES as any)[tr.category]?.color }}>
                         {(CATEGORIES as any)[tr.category]?.label || tr.category}
                       </span>
-                      <span>• {formatDate(tr.date)}</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                      <span className="text-gray-300">•</span>
+                      <span>{formatDate(tr.date)}</span>
+                      <span className="text-gray-300">•</span>
+                      <span className="px-2 py-0.5 rounded-md text-[10px] uppercase font-bold tracking-wider bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
                         {getPeriodLabel(tr.period)}
                       </span>
-                      {tr.recurring && <span className="flex items-center gap-1 text-purple-600 bg-purple-50 dark:bg-purple-900/20 px-1.5 rounded"><Repeat size={10} /></span>}
+                      {tr.recurring && <span className="flex items-center gap-1 text-purple-600 bg-purple-50 dark:bg-purple-900/20 px-1.5 rounded ml-1"><Repeat size={12} /></span>}
                     </div>
                   </div>
                 </div>
                 <div className="text-right flex items-center gap-4">
-                  <span className={`text-lg font-bold block ${tr.type === 'income' ? 'text-green-600' : 'text-gray-900 dark:text-white'}`}>
-                    {tr.type === 'income' ? '+' : ''}{formatMoney(tr.amount, tr.currency)}
+                  <span className={`text-xl font-bold block ${tr.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {tr.type === 'income' ? '+' : '−'}{formatMoney(Math.abs(tr.amount), tr.currency)}
                   </span>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       deleteTransaction(tr.id);
                     }}
-                    className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                    className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl"
+                    title="Törlés"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={18} />
                   </button>
                 </div>
               </div>

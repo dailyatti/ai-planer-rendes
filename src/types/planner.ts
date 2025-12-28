@@ -65,7 +65,7 @@ export interface Transaction {
   subscriptionId?: string;
   amount: number;
   description: string; // Used as name
-  date: Date;
+  date: Date | string;
   type: 'income' | 'expense' | 'subscription';
   category: string;
   period?: TransactionPeriod;
