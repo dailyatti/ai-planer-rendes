@@ -476,7 +476,6 @@ Rules:
                 model: 'gemini-2.5-flash-native-audio-preview-12-2025',
                 config: {
                     tools,
-                    systemInstruction: getSystemInstruction(),
                     responseModalities: [Modality.AUDIO, Modality.TEXT],
                 },
                 callbacks: {
@@ -657,7 +656,7 @@ Rules:
                     turns: [
                         {
                             role: 'user',
-                            parts: [{ text: generateStateReport() }],
+                            parts: [{ text: getSystemInstruction() + '\n\n' + generateStateReport() }],
                         },
                     ],
                     turnComplete: true,
