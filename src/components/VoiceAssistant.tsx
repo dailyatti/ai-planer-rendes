@@ -240,8 +240,13 @@ SHUTDOWN:
     };
 
     const startSession = async () => {
-        if (isActive) return;
+        console.log('[VoiceAssistant] startSession called');
+        if (isActive) {
+            console.log('[VoiceAssistant] Session already active, ignoring');
+            return;
+        }
         if (!apiKey) {
+            console.error('[VoiceAssistant] No API Key provided');
             toast.error("API Key is required");
             // Optional: Redirect to settings or API key page
             return;
@@ -249,15 +254,19 @@ SHUTDOWN:
 
         setIsConnecting(true);
         setShowChat(true);
+        console.log('[VoiceAssistant] Set state to connecting...');
 
         try {
+            console.log('[VoiceAssistant] initializing GoogleGenAI');
             const ai = new GoogleGenAI({ apiKey });
 
             // Safety check for Live API availability
             if (!ai.live || typeof ai.live.connect !== 'function') {
+                console.error('[VoiceAssistant] ai.live not available or not a function', ai);
                 throw new Error("Gemini Live API not supported in this SDK version.");
             }
 
+            console.log('[VoiceAssistant] Preparing tools and system info');
             // Define ContentPlanner Tools (kept as is)
             const tools: any = [{
                 functionDeclarations: [
@@ -380,6 +389,7 @@ SHUTDOWN:
                 ]
             }];
 
+            console.log('[VoiceAssistant] Tools prepared. Initializing Audio Context...');
             const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
             audioContextRef.current = audioContext;
             const outputNode = audioContext.createGain();
@@ -387,13 +397,16 @@ SHUTDOWN:
 
             let stream;
             try {
+                console.log('[VoiceAssistant] Requesting microphone access...');
                 stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                console.log('[VoiceAssistant] Microphone access granted');
             } catch (err) {
-                console.warn("Microphone access failed", err);
+                console.warn("[VoiceAssistant] Microphone access failed", err);
                 toast.error("Microphone access denied. Voice disabled.");
             }
             if (stream) streamRef.current = stream;
 
+            console.log('[VoiceAssistant] Creating Input Audio Context');
             const inputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
                 sampleRate: stream ? stream.getAudioTracks()[0].getSettings().sampleRate : 48000
             });
@@ -415,16 +428,18 @@ SHUTDOWN:
                 updateVolume();
             }
 
+            console.log('[VoiceAssistant] Calling ai.live.connect...');
             // Await connection
             const session = await ai.live.connect({
                 model: 'gemini-2.0-flash-exp',
                 config: {
                     tools: tools,
                     systemInstruction: getSystemInstruction(),
-                    responseModalities: [Modality.AUDIO, Modality.TEXT],
+                    // responseModalities: [Modality.AUDIO, Modality.TEXT], // Temporarily removed to test if causing crash
                 },
                 callbacks: {
                     onopen: () => {
+                        console.log('[VoiceAssistant] onopen callback fired');
                         setIsActive(true);
                         setIsConnecting(false);
                         addMessage('system', currentLanguage === 'hu' ? 'Kapcsolódva. Miben segíthetek?' : 'Connected. How can I help?');
@@ -437,6 +452,7 @@ SHUTDOWN:
                         // We can do that after the await in the main flow.
                     },
                     onmessage: async (message: LiveServerMessage) => {
+                        console.log('[VoiceAssistant] Message received:', message);
                         // Handle Text Output
                         if (message.serverContent?.modelTurn?.parts) {
                             for (const part of message.serverContent.modelTurn.parts) {
@@ -511,17 +527,21 @@ SHUTDOWN:
                         }
                     },
                     onclose: () => {
+                        console.log('[VoiceAssistant] onclose callback fired');
                         setIsActive(false);
                         setIsConnecting(false);
                         addMessage('system', 'Disconnected');
                     },
                     onerror: (e: any) => {
-                        console.error(e);
+                        console.error('[VoiceAssistant] ONERROR callback:', e);
                         setIsActive(false);
+                        setIsConnecting(false);
                         addMessage('system', `Error: ${e.message}`);
                     }
                 }
             });
+
+            console.log('[VoiceAssistant] Session established:', session);
 
             // Store session
             // Note: In the original code 'sessionPromise' was a Promise<Session>. 
