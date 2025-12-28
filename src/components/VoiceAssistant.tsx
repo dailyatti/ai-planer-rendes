@@ -473,7 +473,7 @@ Rules:
             }
 
             const session = await ai.live.connect({
-                model: 'gemini-2.0-flash-exp',
+                model: 'gemini-2.5-flash-preview-native-audio-dialog',
                 config: {
                     tools,
                     systemInstruction: getSystemInstruction(),
@@ -621,11 +621,16 @@ Rules:
                         }
                     },
 
-                    onclose: () => {
+                    onclose: (event: any) => {
+                        console.error('[VoiceAssistant] onclose:', event);
+                        const code = event?.code || 'unknown';
+                        const reason = event?.reason || 'No reason provided';
                         setIsActive(false);
                         setIsConnecting(false);
                         sessionRef.current = null;
-                        addMessage('system', currentLanguage === 'hu' ? 'Kapcsolat bontva.' : 'Connection closed.');
+                        addMessage('system', currentLanguage === 'hu'
+                            ? `Kapcsolat bontva. Kód: ${code}, Ok: ${reason}`
+                            : `Connection closed. Code: ${code}, Reason: ${reason}`);
                     },
 
                     onerror: (e: any) => {
