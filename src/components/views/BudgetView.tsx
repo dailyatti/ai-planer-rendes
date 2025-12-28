@@ -1,13 +1,13 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+
 import {
-  Plus, TrendingUp, TrendingDown, Trash2, X, Repeat, Wallet, BarChart3, Check, RefreshCcw, PieChart, ArrowUpRight, ArrowDownRight, CheckSquare, Square, AlertTriangle
+  Plus, TrendingUp, TrendingDown, Trash2, X, Repeat, Wallet, BarChart3, Check, RefreshCcw, PieChart, ArrowUpRight, ArrowDownRight, CheckSquare, Square, AlertTriangle, Search
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart as RechartsPieChart, Pie, Cell, Legend
 } from 'recharts';
-import { Search } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useData } from '../../contexts/DataContext';
 import { Transaction, TransactionPeriod } from '../../types/planner';
@@ -29,6 +29,7 @@ const BudgetView: React.FC = () => {
   const [convAmount, setConvAmount] = useState('100');
   const [convFrom, setConvFrom] = useState('EUR');
   const [convTo, setConvTo] = useState('USD');
+  const parsedConvAmount = useMemo(() => parseFloat((convAmount || '0').replace(/,/g, '.')) || 0, [convAmount]);
 
   // PhD Level: Multi-select deletion state
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
@@ -54,17 +55,20 @@ const BudgetView: React.FC = () => {
   const [rateSource, setRateSource] = useState<'system' | 'ai' | 'api'>('system');
 
   // Fetch rates on mount
-  React.useEffect(() => {
+  useEffect(() => {
     CurrencyService.fetchRealTimeRates().then(() => {
       setRateSource(CurrencyService.getUpdateSource());
     });
   }, []);
 
-  // Update form currency when view currency changes (if form is pristine)
-  React.useEffect(() => {
-    if (!newTransaction.currency) {
-      setNewTransaction(prev => ({ ...prev, currency: currency }));
-    }
+  // Update form currency when view currency changes
+  useEffect(() => {
+    setNewTransaction(prev => {
+      if (!prev.currency) {
+        return { ...prev, currency: currency };
+      }
+      return prev;
+    });
   }, [currency]);
 
   // Formatters (Moved up to avoid ReferenceError in useMemo)
@@ -78,6 +82,7 @@ const BudgetView: React.FC = () => {
 
   const formatDate = (date: Date | string) => {
     const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return '—';
     return new Intl.DateTimeFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
       year: 'numeric',
       month: 'short',
@@ -99,7 +104,8 @@ const BudgetView: React.FC = () => {
   // Calculate conversion preview
   const conversionPreview = useMemo(() => {
     if (!newTransaction.amount || newTransaction.currency === currency) return null;
-    const amount = parseFloat(newTransaction.amount);
+    const sanitized = newTransaction.amount.replace(/,/g, '.');
+    const amount = parseFloat(sanitized);
     if (isNaN(amount)) return null;
 
     // Convert TO the view currency (which is usually base)
@@ -133,12 +139,16 @@ const BudgetView: React.FC = () => {
 
   const ensureCurrency = (c?: string) => (c && c.trim() ? c : 'USD');
 
-  const absToView = (amount: number, fromCurrency: string) => {
+  const absToView = React.useCallback((amount: number, fromCurrency: string) => {
     const abs = Math.abs(amount);
-    return CurrencyService.convert(abs, ensureCurrency(fromCurrency), currency);
-  };
+    try {
+      return CurrencyService.convert(abs, ensureCurrency(fromCurrency), currency);
+    } catch (e) {
+      return 0;
+    }
+  }, [currency]);
 
-  const isMaster = (tr: Transaction) => (tr as any).kind === 'master';
+  const isMaster = (tr: Transaction) => (tr).kind === 'master';
 
   const isFuture = (tr: Transaction, now: Date) => {
     const dt = toDateSafe(tr.date as any);
@@ -146,14 +156,14 @@ const BudgetView: React.FC = () => {
     return dt.getTime() > now.getTime();
   };
 
-  const sumByType = (txs: Transaction[], type: 'income' | 'expense') => {
+  const sumByType = React.useCallback((txs: Transaction[], type: 'income' | 'expense') => {
     return txs
       .filter(tr => tr.type === type)
       .reduce((acc, tr) => {
-        const from = ensureCurrency((tr as any).currency);
+        const from = ensureCurrency((tr).currency);
         return acc + absToView(tr.amount, from);
       }, 0);
-  };
+  }, [absToView]);
 
   const { totalIncome, totalExpense, balance } = useMemo(() => {
     const now = endOfToday();
@@ -176,31 +186,35 @@ const BudgetView: React.FC = () => {
       totalExpense: expense,
       balance: cashIncome - cashExpense
     };
-  }, [transactions, currency]);
+  }, [transactions, sumByType, currency]);
 
 
 
   // Helper for stat breakdown
   const getTransactionAmountsByCurrency = (type: 'income' | 'expense') => {
     const result: Record<string, number> = {};
-    transactions.filter(t => t.type === type).forEach(t => {
-      const trCurrency = t.currency || 'USD';
-      const amount = Math.abs(t.amount);
-      if (!result[trCurrency]) result[trCurrency] = 0;
-      result[trCurrency] += amount;
-    });
+    transactions
+      .filter(tr => tr.type === type)
+      .filter(tr => (tr).kind !== 'master')
+      .forEach(tr => {
+        const trCurrency = tr.currency || 'USD';
+        const amount = Math.abs(tr.amount);
+        result[trCurrency] = (result[trCurrency] || 0) + amount;
+      });
     return result;
   };
 
   // Chart Data preparation
   const categoryData = useMemo(() => {
     const expensesByCategory: Record<string, number> = {};
-    transactions.filter(tr => tr.type === 'expense').forEach(tr => {
-      const amount = Math.abs(tr.amount);
-      const trCurrency = tr.currency || 'USD';
-      const converted = CurrencyService.convert(amount, trCurrency, currency);
-      expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + converted;
-    });
+    transactions
+      .filter(tr => tr.type === 'expense' && (tr).kind !== 'master')
+      .forEach(tr => {
+        const amount = Math.abs(tr.amount);
+        const trCurrency = tr.currency || 'USD';
+        const converted = CurrencyService.convert(amount, trCurrency, currency);
+        expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + converted;
+      });
 
     return Object.entries(expensesByCategory).map(([cat, val]) => ({
       name: (CATEGORIES as any)[cat]?.label || cat,
@@ -220,6 +234,7 @@ const BudgetView: React.FC = () => {
 
     // Get last 6 months
     const now = new Date();
+    const eod = endOfToday();
     const monthsData: { name: string; income: number; expense: number }[] = [];
 
     for (let i = 5; i >= 0; i--) {
@@ -233,7 +248,12 @@ const BudgetView: React.FC = () => {
       let expense = 0;
 
       transactions.forEach(tr => {
+        if ((tr).kind === 'master') return; // Skip master templates
         const trDate = new Date(tr.date);
+
+        // Strict CashFlow: Exclude future transactions from the chart too
+        if (trDate.getTime() > eod.getTime()) return;
+
         if (trDate.getMonth() === monthIdx && trDate.getFullYear() === year) {
           const amount = Math.abs(tr.amount);
           const trCurrency = tr.currency || 'USD';
@@ -327,9 +347,10 @@ const BudgetView: React.FC = () => {
     }
   };
 
-  const filteredTransactions = filterCategory === 'all'
+  const filteredTransactions = (filterCategory === 'all'
     ? transactions
-    : transactions.filter(tr => tr.category === filterCategory);
+    : transactions.filter(tr => tr.category === filterCategory))
+    .filter(tr => (tr).kind !== 'master');
 
   const getPeriodLabel = (period: TransactionPeriod = 'oneTime') => {
     const labels: Record<TransactionPeriod, string> = {
@@ -364,14 +385,18 @@ const BudgetView: React.FC = () => {
   };
 
   // Period counts for filter buttons
-  const periodCounts = useMemo(() => ({
-    daily: transactions.filter(t => t.period === 'daily').length,
-    weekly: transactions.filter(t => t.period === 'weekly').length,
-    monthly: transactions.filter(t => t.period === 'monthly').length,
-    yearly: transactions.filter(t => t.period === 'yearly').length,
-    oneTime: transactions.filter(t => t.period === 'oneTime').length,
-    all: transactions.length
-  }), [transactions]);
+  const periodCounts = useMemo(() => {
+    const visibleTx = transactions.filter(tr => (tr).kind !== 'master');
+
+    return {
+      daily: visibleTx.filter(t => t.period === 'daily').length,
+      weekly: visibleTx.filter(t => t.period === 'weekly').length,
+      monthly: visibleTx.filter(t => t.period === 'monthly').length,
+      yearly: visibleTx.filter(t => t.period === 'yearly').length,
+      oneTime: visibleTx.filter(t => t.period === 'oneTime').length,
+      all: visibleTx.length
+    };
+  }, [transactions]);
 
   // Bulk delete handlers
   const handleDeleteSelected = () => {
@@ -381,10 +406,12 @@ const BudgetView: React.FC = () => {
   };
 
   const handleDeleteByPeriod = (period: TransactionPeriod | 'all') => {
+    const visibleTx = transactions.filter(tr => (tr).kind !== 'master');
+
     if (period === 'all') {
-      transactions.forEach(t => deleteTransaction(t.id));
+      visibleTx.forEach(t => deleteTransaction(t.id));
     } else {
-      transactions.filter(t => t.period === period).forEach(t => deleteTransaction(t.id));
+      visibleTx.filter(t => t.period === period).forEach(t => deleteTransaction(t.id));
     }
     setSelectedTransactions(new Set());
     setShowDeleteConfirm(null);
@@ -475,12 +502,12 @@ const BudgetView: React.FC = () => {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px - 6 py - 3 font - medium transition - all relative ${activeTab === tab
+            className={`px-6 py-3 font-medium transition-all relative ${activeTab === tab
               ? 'text-primary-600 dark:text-primary-400'
               : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              } `}
+              }`}
           >
-            {t(`budget.${tab} `)}
+            {t(`budget.${tab}`)}
             {activeTab === tab && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-500 rounded-full" />
             )}
@@ -721,6 +748,17 @@ const BudgetView: React.FC = () => {
                   </button>
                 )
               ))}
+              {(periodCounts.all > 0) && (
+                <button
+                  onClick={() => {
+                    setDeletePeriodFilter('all');
+                    setShowDeleteConfirm('all');
+                  }}
+                  className="px-2.5 py-1 text-xs font-bold rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors ml-2"
+                >
+                  ÖSSZES ({periodCounts.all})
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -745,7 +783,7 @@ const BudgetView: React.FC = () => {
                     description: tr.description,
                     amount: Math.abs(tr.amount).toString(),
                     category: tr.category,
-                    currency: (tr as any).currency || currency,
+                    currency: (tr).currency || currency,
                     period: tr.period as TransactionPeriod,
                     date: new Date(tr.date).toISOString().split('T')[0],
                     recurring: tr.recurring || false,
@@ -1025,7 +1063,13 @@ const BudgetView: React.FC = () => {
                 <button onClick={() => setShowAddModal(false)} className="btn-secondary flex-1">
                   {t('common.cancel')}
                 </button>
-                <button onClick={handleAddTransaction} className={`flex - 1 flex items - center justify - center gap - 2 ${transactionType === 'income' ? 'btn-primary bg-green-600 hover:bg-green-700' : 'btn-primary'} `}>
+                <button
+                  onClick={handleAddTransaction}
+                  className={`flex-1 flex items-center justify-center gap-2 ${transactionType === 'income'
+                    ? 'btn-primary bg-green-600 hover:bg-green-700'
+                    : 'btn-primary'
+                    }`}
+                >
                   <Check size={18} />
                   {t('budget.saveTransaction')}
                 </button>
@@ -1110,9 +1154,14 @@ const BudgetView: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Összeg</label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={convAmount}
-                  onChange={(e) => setConvAmount(e.target.value)}
+                  onChange={(e) => {
+                    if (/^[0-9.,]*$/.test(e.target.value)) {
+                      setConvAmount(e.target.value);
+                    }
+                  }}
                   className="input-field w-full text-lg font-bold"
                   placeholder="0.00"
                 />
@@ -1168,7 +1217,7 @@ const BudgetView: React.FC = () => {
                     style: 'currency',
                     currency: convTo,
                     maximumFractionDigits: 2
-                  }).format(CurrencyService.convert(parseFloat(convAmount) || 0, convFrom, convTo))}
+                  }).format(CurrencyService.convert(parsedConvAmount, convFrom, convTo))}
                 </div>
                 <div className="mt-3 flex items-center justify-between text-xs opacity-70">
                   <span>1 {convFrom} ≈ {CurrencyService.convert(1, convFrom, convTo).toFixed(4)} {convTo}</span>
@@ -1231,8 +1280,8 @@ const BudgetView: React.FC = () => {
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {showDeleteConfirm === 'selected' && `${selectedTransactions.size} kijelölt tranzakció törlése`}
-                  {showDeleteConfirm === 'period' && `Összes "${getPeriodLabel(deletePeriodFilter as TransactionPeriod)}" típusú tranzakció törlése (${periodCounts[deletePeriodFilter as keyof typeof periodCounts]} db)`}
-                  {showDeleteConfirm === 'all' && `ÖSSZES tranzakció törlése (${periodCounts.all} db)`}
+                  {showDeleteConfirm === 'period' && deletePeriodFilter !== 'all' && `Összes "${getPeriodLabel(deletePeriodFilter as TransactionPeriod)}" típusú tranzakció törlése (${periodCounts[deletePeriodFilter as keyof typeof periodCounts]} db)`}
+                  {(showDeleteConfirm === 'all' || (showDeleteConfirm === 'period' && deletePeriodFilter === 'all')) && `ÖSSZES tranzakció törlése (${periodCounts.all} db)`}
                 </p>
               </div>
             </div>
@@ -1254,8 +1303,10 @@ const BudgetView: React.FC = () => {
                 onClick={() => {
                   if (showDeleteConfirm === 'selected') {
                     handleDeleteSelected();
-                  } else if (showDeleteConfirm === 'period' || showDeleteConfirm === 'all') {
+                  } else if (showDeleteConfirm === 'period') {
                     handleDeleteByPeriod(deletePeriodFilter);
+                  } else if (showDeleteConfirm === 'all') {
+                    handleDeleteByPeriod('all');
                   }
                 }}
                 className="flex-1 px-4 py-3 rounded-xl font-bold bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 transition-all flex items-center justify-center gap-2"
