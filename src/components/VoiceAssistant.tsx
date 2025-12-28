@@ -85,7 +85,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     currentLanguage,
     currentView,
 }) => {
-    const { t } = useLanguage();
+    const { language: _lang } = useLanguage(); // language available via currentLanguage prop
     const { transactions } = useData();
 
     const [isActive, setIsActive] = useState(false);
@@ -473,7 +473,7 @@ Rules:
             }
 
             const session = await ai.live.connect({
-                model: 'gemini-3-pro-preview',
+                model: 'gemini-2.0-flash-exp',
                 config: {
                     tools,
                     systemInstruction: getSystemInstruction(),
@@ -668,7 +668,7 @@ Rules:
                 processorRef.current = sp;
 
                 sp.onaudioprocess = (e) => {
-                    if (!sessionRef.current || !isActive) return;
+                    if (!sessionRef.current) return;
                     const inputData = e.inputBuffer.getChannelData(0);
                     const pcm = createPcmBlob(inputData, inputCtx.sampleRate);
                     try {
