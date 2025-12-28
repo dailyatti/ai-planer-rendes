@@ -435,7 +435,7 @@ SHUTDOWN:
                 config: {
                     tools: tools,
                     systemInstruction: getSystemInstruction(),
-                    // responseModalities: [Modality.AUDIO, Modality.TEXT], // Temporarily removed to test if causing crash
+                    responseModalities: [Modality.AUDIO, Modality.TEXT], // Enabled for multimodal
                 },
                 callbacks: {
                     onopen: () => {
@@ -452,78 +452,82 @@ SHUTDOWN:
                         // We can do that after the await in the main flow.
                     },
                     onmessage: async (message: LiveServerMessage) => {
-                        console.log('[VoiceAssistant] Message received:', message);
-                        // Handle Text Output
-                        if (message.serverContent?.modelTurn?.parts) {
-                            for (const part of message.serverContent.modelTurn.parts) {
-                                if (part.text) {
-                                    addMessage('assistant', part.text);
-                                }
-                            }
-                        }
-
-                        // Handle Audio Output
-                        if (message.serverContent?.modelTurn?.parts?.[0]?.inlineData) {
-                            const audioData = decode(message.serverContent.modelTurn.parts[0].inlineData.data || '');
-                            const buffer = await decodeAudioData(audioData, audioContext, 24000, 1);
-                            const source = audioContext.createBufferSource();
-                            source.buffer = buffer;
-                            source.connect(outputNode);
-                            source.start();
-                        }
-
-                        if (message.toolCall?.functionCalls) {
-                            const responses = [];
-                            for (const fc of message.toolCall.functionCalls) {
-                                const args = fc.args as any;
-                                let result = { ok: true, message: 'Done' };
-
-                                // Log action to chat
-                                addMessage('system', `Executing: ${fc.name}`);
-
-                                if (fc.name === 'get_system_state') {
-                                    result = { ok: true, message: generateStateReport() };
-                                } else if (fc.name === 'control_scroll') {
-                                    window.scrollBy({ top: args.direction === 'UP' ? -300 : 300, behavior: 'smooth' });
-                                } else if (fc.name === 'navigate_view') {
-                                    if (onCommandRef.current) onCommandRef.current({ type: 'navigation', target: args.target });
-                                    result = { ok: true, message: `Navigated to ${args.target}` };
-                                } else if (fc.name === 'create_task') {
-                                    if (onCommandRef.current) onCommandRef.current({ type: 'create_task', data: args });
-                                    result = { ok: true, message: 'Task created' };
-                                } else if (fc.name === 'create_transaction') {
-                                    if (onCommandRef.current) onCommandRef.current({ type: 'create_transaction', data: args });
-                                    result = { ok: true, message: 'Transaction recorded' };
-                                } else if (fc.name === 'create_goal') {
-                                    if (onCommandRef.current) onCommandRef.current({ type: 'create_goal', data: args });
-                                } else if (fc.name === 'create_note') {
-                                    if (onCommandRef.current) onCommandRef.current({ type: 'create_note', data: args });
-                                } else if (fc.name === 'toggle_theme') {
-                                    if (onCommandRef.current) onCommandRef.current({ type: 'toggle_theme', target: args.theme });
-                                } else if (fc.name === 'manage_invoices') {
-                                    if (args.action === 'SCHEDULE_PENDING') {
-                                        if (onCommandRef.current) onCommandRef.current({ type: 'schedule_pending' });
-                                    } else if (args.action === 'LINK') {
-                                        if (onCommandRef.current) onCommandRef.current({ type: 'link_invoice', invoiceId: args.invoiceId });
+                        try {
+                            console.log('[VoiceAssistant] Message received:', message);
+                            // Handle Text Output
+                            if (message.serverContent?.modelTurn?.parts) {
+                                for (const part of message.serverContent.modelTurn.parts) {
+                                    if (part.text) {
+                                        addMessage('assistant', part.text);
                                     }
-                                } else if (fc.name === 'analyze_viewport') {
-                                    analyzeViewport();
-                                    result = { ok: true, message: `Found ${viewportElements.length} elements.` };
-                                } else if (fc.name === 'toggle_visual_assist') {
-                                    setShowVisualAssist(prev => !prev);
-                                    result = { ok: true, message: 'Toggled visual assist' };
-                                } else if (fc.name === 'disconnect_assistant') {
-                                    disconnect();
+                                }
+                            }
+
+                            // Handle Audio Output
+                            if (message.serverContent?.modelTurn?.parts?.[0]?.inlineData) {
+                                const audioData = decode(message.serverContent.modelTurn.parts[0].inlineData.data || '');
+                                const buffer = await decodeAudioData(audioData, audioContext, 24000, 1);
+                                const source = audioContext.createBufferSource();
+                                source.buffer = buffer;
+                                source.connect(outputNode);
+                                source.start();
+                            }
+
+                            if (message.toolCall?.functionCalls) {
+                                const responses = [];
+                                for (const fc of message.toolCall.functionCalls) {
+                                    const args = fc.args as any;
+                                    let result = { ok: true, message: 'Done' };
+
+                                    // Log action to chat
+                                    addMessage('system', `Executing: ${fc.name}`);
+
+                                    if (fc.name === 'get_system_state') {
+                                        result = { ok: true, message: generateStateReport() };
+                                    } else if (fc.name === 'control_scroll') {
+                                        window.scrollBy({ top: args.direction === 'UP' ? -300 : 300, behavior: 'smooth' });
+                                    } else if (fc.name === 'navigate_view') {
+                                        if (onCommandRef.current) onCommandRef.current({ type: 'navigation', target: args.target });
+                                        result = { ok: true, message: `Navigated to ${args.target}` };
+                                    } else if (fc.name === 'create_task') {
+                                        if (onCommandRef.current) onCommandRef.current({ type: 'create_task', data: args });
+                                        result = { ok: true, message: 'Task created' };
+                                    } else if (fc.name === 'create_transaction') {
+                                        if (onCommandRef.current) onCommandRef.current({ type: 'create_transaction', data: args });
+                                        result = { ok: true, message: 'Transaction recorded' };
+                                    } else if (fc.name === 'create_goal') {
+                                        if (onCommandRef.current) onCommandRef.current({ type: 'create_goal', data: args });
+                                    } else if (fc.name === 'create_note') {
+                                        if (onCommandRef.current) onCommandRef.current({ type: 'create_note', data: args });
+                                    } else if (fc.name === 'toggle_theme') {
+                                        if (onCommandRef.current) onCommandRef.current({ type: 'toggle_theme', target: args.theme });
+                                    } else if (fc.name === 'manage_invoices') {
+                                        if (args.action === 'SCHEDULE_PENDING') {
+                                            if (onCommandRef.current) onCommandRef.current({ type: 'schedule_pending' });
+                                        } else if (args.action === 'LINK') {
+                                            if (onCommandRef.current) onCommandRef.current({ type: 'link_invoice', invoiceId: args.invoiceId });
+                                        }
+                                    } else if (fc.name === 'analyze_viewport') {
+                                        analyzeViewport();
+                                        result = { ok: true, message: `Found ${viewportElements.length} elements.` };
+                                    } else if (fc.name === 'toggle_visual_assist') {
+                                        setShowVisualAssist(prev => !prev);
+                                        result = { ok: true, message: 'Toggled visual assist' };
+                                    } else if (fc.name === 'disconnect_assistant') {
+                                        disconnect();
+                                    }
+
+                                    responses.push({ name: fc.name, id: fc.id, response: { result } });
                                 }
 
-                                responses.push({ name: fc.name, id: fc.id, response: { result } });
+                                // Check if sessionRef is ready
+                                const currentSession = await sessionRef.current;
+                                if (currentSession) {
+                                    currentSession.sendToolResponse({ functionResponses: responses });
+                                }
                             }
-
-                            // Check if sessionRef is ready
-                            const currentSession = await sessionRef.current;
-                            if (currentSession) {
-                                currentSession.sendToolResponse({ functionResponses: responses });
-                            }
+                        } catch (err) {
+                            console.error('[VoiceAssistant] Error parsing/processing message:', err);
                         }
                     },
                     onclose: () => {
@@ -617,33 +621,11 @@ SHUTDOWN:
             const session = await sessionRef.current;
             console.log('Session resolved for text send:', session);
 
-            // Inspect prototype to find methods
-            try {
-                const proto = Object.getPrototypeOf(session);
-                console.log('Session Prototype Methods:', Object.getOwnPropertyNames(proto));
-            } catch (err) {
-                console.log('Could not inspect prototype:', err);
-            }
-
-            if (!session) {
-                console.error('Session is null/undefined');
-                toast.error('Session not active');
-                return;
-            }
-
-            // Try sending text as a turn
-            if (typeof session.send === 'function') {
-                await session.send({ parts: [{ text }] }, true);
-            } else if (typeof session.sendTurn === 'function') {
-                // Hypothetical method
-                await session.sendTurn({ parts: [{ text }] });
-            } else {
-                console.warn('session.send is not a function. Checking available methods:', Object.keys(session));
-
-                // Fallback: If we can't send text, we can't.
-                // But we shouldn't crash.
-                toast.error('Text sending not supported by this session version.');
-            }
+            // Correct API method for text turns
+            session.sendClientContent({
+                turns: [{ role: 'user', parts: [{ text }] }],
+                turnComplete: true
+            });
 
         } catch (e: any) {
             console.error('Text send failed details:', e);
