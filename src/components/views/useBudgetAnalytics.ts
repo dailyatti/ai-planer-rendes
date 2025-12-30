@@ -51,18 +51,28 @@ export const useBudgetAnalytics = (
     );
 
     // Aggregations
-    const { totalIncome, totalExpense, balance } = useMemo(() => {
+    const { totalIncome, totalExpense, balance, volumeTransactions, cashTransactions } = useMemo(() => {
         if (!transactions || transactions.length === 0) {
-            return { totalIncome: 0, totalExpense: 0, balance: 0 };
+            return { totalIncome: 0, totalExpense: 0, balance: 0, volumeTransactions: [], cashTransactions: [] };
         }
         const now = endOfToday();
-        const volumeTx = transactions.filter(tr => !isMaster(tr));
-        const income = sumByType(volumeTx, 'income');
-        const expense = sumByType(volumeTx, 'expense');
-        const cashTx = transactions.filter(tr => !isMaster(tr) && !isFuture(tr, now));
-        const cashIncome = sumByType(cashTx, 'income');
-        const cashExpense = sumByType(cashTx, 'expense');
-        return { totalIncome: income, totalExpense: expense, balance: cashIncome - cashExpense };
+
+        // 1) All valid transactions (excluding templates) -> Shown in list
+        const volumeTransactions = transactions.filter(tr => !isMaster(tr));
+
+        // 2) Cash-in-hand transactions (excluding future) -> Used for balance calculation
+        const cashTransactions = transactions.filter(tr => !isMaster(tr) && !isFuture(tr, now));
+
+        const cashIncome = sumByType(cashTransactions, 'income');
+        const cashExpense = sumByType(cashTransactions, 'expense');
+
+        return {
+            totalIncome: cashIncome, // Show CASH income in cards
+            totalExpense: cashExpense, // Show CASH expense in cards
+            balance: cashIncome - cashExpense, // Show CASH balance
+            volumeTransactions,
+            cashTransactions
+        };
     }, [transactions, sumByType]);
 
     const getTransactionAmountsByCurrency = (type: 'income' | 'expense') => {
@@ -145,6 +155,8 @@ export const useBudgetAnalytics = (
         totalIncome,
         totalExpense,
         balance,
+        volumeTransactions,
+        cashTransactions,
         getTransactionAmountsByCurrency,
         categoryData,
         cashFlowData,

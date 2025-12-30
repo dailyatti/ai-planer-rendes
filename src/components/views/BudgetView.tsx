@@ -157,7 +157,8 @@ const BudgetView: React.FC = () => {
     getTransactionAmountsByCurrency,
     categoryData,
     cashFlowData,
-    isMaster
+    isMaster,
+    volumeTransactions
   } = useBudgetAnalytics(transactions, currency, safeConvert, t, CATEGORIES);
 
   // --- Kezelők (Handlers) ---
@@ -226,10 +227,28 @@ const BudgetView: React.FC = () => {
   };
 
   // Tranzakció lista szűrése
-  const filteredTransactions = (filterCategory === 'all'
-    ? (transactions || [])
-    : (transactions || []).filter(tr => tr.category === filterCategory))
-    .filter(tr => !isMaster(tr));
+  // Tranzakció lista szűrése
+  const filteredTransactions = useMemo(() => {
+    // 1) Alap szűrés: volumeTransactions (már exclude master)
+    let filtered = volumeTransactions || [];
+
+    // 2) Keresés
+    if (searchTerm) {
+      const lower = searchTerm.toLowerCase();
+      filtered = filtered.filter(tr =>
+        tr.description.toLowerCase().includes(lower) ||
+        tr.amount.toString().includes(lower)
+      );
+    }
+
+    // 3) Kategória szűrés
+    if (filterCategory !== 'all') {
+      filtered = filtered.filter(tr => tr.category === filterCategory);
+    }
+
+    // Sortálás: Dátum csökkenő (legújabb elöl)
+    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [volumeTransactions, searchTerm, filterCategory]);
 
   const getPeriodLabel = (period: TransactionPeriod = 'oneTime') => {
     const labels: Record<TransactionPeriod, string> = {
