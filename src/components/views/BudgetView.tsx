@@ -28,6 +28,7 @@ const BudgetView: React.FC = () => {
   const [selectedStat, setSelectedStat] = useState<{ title: string; breakdown: Record<string, number>; rect: DOMRect } | null>(null);
   const [transactionType, setTransactionType] = useState<'income' | 'expense'>('expense');
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   // Konverter állapotok
@@ -569,12 +570,22 @@ const BudgetView: React.FC = () => {
                 {t('budget.transactions')}
               </h3>
               <div className="flex gap-2 flex-wrap">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder={t('budget.search') || 'Keresés...'}
+                    className="input-field text-sm py-2 pl-10 pr-4 rounded-xl bg-white/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 focus:ring-emerald-500/50 w-full sm:w-64"
+                  />
+                </div>
                 <select
                   value={filterCategory}
                   onChange={(e) => setFilterCategory(e.target.value)}
                   className="input-field text-sm py-2 px-4 pr-10 rounded-xl bg-white/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 focus:ring-emerald-500/50"
                 >
-                  <option value="all">{t('budget.filter')}: {t('budget.other')}</option>
+                  <option value="all">{t('budget.filter')}: {t('budget.allCategories') || 'Összes'}</option>
                   {Object.entries(CATEGORIES).map(([key, val]) => (
                     <option key={key} value={key}>{val.label}</option>
                   ))}
