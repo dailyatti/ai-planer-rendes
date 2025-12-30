@@ -32,20 +32,72 @@ export const useBudgetAnalytics = (
         return dt.getTime() > now.getTime();
     };
 
+    /**
+     * Projiciálja a tranzakció előfordulásait egy adott időtartamra.
+     * @param tr A tranzakció sablon (master)
+     * @param start Kezdő dátum (számítás kezdete)
+     * @param end Záró dátum (számítás vége)
+     * @returns Az előfordulások száma az intervallumban
+     */
+    const calculateOccurrences = (tr: Transaction, start: Date, end: Date) => {
+        if (!tr.recurring || tr.period === 'oneTime') return 1;
+
+        const trDate = toDateSafe(tr.date);
+        if (!trDate) return 0;
+
+        // Ha a tranzakció kezdete a vizsgált időszak után van, 0 előfordulás
+        if (trDate.getTime() > end.getTime()) return 0;
+
+        let count = 0;
+        const current = new Date(trDate);
+
+        // Léptetés a periódus alapján
+        while (current.getTime() <= end.getTime()) {
+            if (current.getTime() >= start.getTime()) {
+                count++;
+            }
+
+            // Következő dátum számítása
+            switch (tr.period) {
+                case 'daily': current.setDate(current.getDate() + 1); break;
+                case 'weekly': current.setDate(current.getDate() + 7); break;
+                case 'monthly': current.setMonth(current.getMonth() + 1); break;
+                case 'yearly': current.setFullYear(current.getFullYear() + 1); break;
+                default: return count; // oneTime vagy ismeretlen
+            }
+
+            // Végtelen ciklus elleni védelem (max 1000 előfordulás / év)
+            if (count > 1000) break;
+        }
+
+        return count;
+    };
+
     const absToView = useCallback((amount: number, fromCurrency: string) => {
         const abs = Math.abs(amount);
         return safeConvert(abs, ensureCurrency(fromCurrency), currency);
     }, [currency, safeConvert]);
 
     const sumByType = useCallback(
-        (txs: Transaction[], type: 'income' | 'expense') => {
+        (txs: Transaction[], type: 'income' | 'expense', now?: Date) => {
             if (!txs || txs.length === 0) return 0;
-            return txs
-                .filter(tr => tr.type === type)
-                .reduce((acc, tr) => {
-                    const from = ensureCurrency((tr as any).currency);
-                    return acc + absToView(tr.amount, from);
-                }, 0);
+            let total = 0;
+
+            txs.filter(tr => tr.type === type).forEach(tr => {
+                const from = ensureCurrency((tr as any).currency);
+                const baseAmount = absToView(tr.amount, from);
+
+                if (isMaster(tr) && now) {
+                    const trDate = toDateSafe(tr.date);
+                    if (trDate) {
+                        const occurrences = calculateOccurrences(tr, trDate, now);
+                        total += baseAmount * occurrences;
+                    }
+                } else {
+                    total += baseAmount;
+                }
+            });
+            return total;
         },
         [absToView]
     );
@@ -57,19 +109,19 @@ export const useBudgetAnalytics = (
         }
         const now = endOfToday();
 
-        // 1) All valid transactions (excluding templates) -> Shown in list
-        const volumeTransactions = transactions.filter(tr => !isMaster(tr));
+        // 1) All valid transactions -> Shown in list (Now INCLUDING master/recurring)
+        const volumeTransactions = transactions.filter(tr => true);
 
-        // 2) Cash-in-hand transactions (excluding future) -> Used for balance calculation
-        const cashTransactions = transactions.filter(tr => !isMaster(tr) && !isFuture(tr, now));
+        // 2) Cash-in-hand transactions
+        const cashTransactions = transactions.filter(tr => !isFuture(tr, now));
 
-        const cashIncome = sumByType(cashTransactions, 'income');
-        const cashExpense = sumByType(cashTransactions, 'expense');
+        const cashIncome = sumByType(cashTransactions, 'income', now);
+        const cashExpense = sumByType(cashTransactions, 'expense', now);
 
         return {
-            totalIncome: cashIncome, // Show CASH income in cards
-            totalExpense: cashExpense, // Show CASH expense in cards
-            balance: cashIncome - cashExpense, // Show CASH balance
+            totalIncome: cashIncome,
+            totalExpense: cashExpense,
+            balance: cashIncome - cashExpense,
             volumeTransactions,
             cashTransactions
         };
@@ -78,13 +130,23 @@ export const useBudgetAnalytics = (
     const getTransactionAmountsByCurrency = (type: 'income' | 'expense') => {
         const result: Record<string, number> = {};
         if (!transactions) return result;
+        const now = endOfToday();
+
         transactions
             .filter(tr => tr.type === type)
-            .filter(tr => !isMaster(tr))
             .forEach(tr => {
                 const trCurrency = (tr as any).currency || 'USD';
                 const amount = Math.abs(tr.amount);
-                result[trCurrency] = (result[trCurrency] || 0) + amount;
+
+                if (isMaster(tr)) {
+                    const trDate = toDateSafe(tr.date);
+                    if (trDate) {
+                        const occurrences = calculateOccurrences(tr, trDate, now);
+                        result[trCurrency] = (result[trCurrency] || 0) + (amount * occurrences);
+                    }
+                } else {
+                    result[trCurrency] = (result[trCurrency] || 0) + amount;
+                }
             });
         return result;
     };
@@ -93,13 +155,24 @@ export const useBudgetAnalytics = (
     const categoryData = useMemo(() => {
         if (!transactions) return [];
         const expensesByCategory: Record<string, number> = {};
+        const now = endOfToday();
+
         transactions
-            .filter(tr => tr.type === 'expense' && !isMaster(tr))
+            .filter(tr => tr.type === 'expense')
             .forEach(tr => {
                 const amount = Math.abs(tr.amount);
                 const trCurrency = (tr as any).currency || 'USD';
                 const converted = safeConvert(amount, trCurrency, currency);
-                expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + converted;
+
+                if (isMaster(tr)) {
+                    const trDate = toDateSafe(tr.date);
+                    if (trDate) {
+                        const occurrences = calculateOccurrences(tr, trDate, now);
+                        expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + (converted * occurrences);
+                    }
+                } else {
+                    expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + converted;
+                }
             });
         return Object.entries(expensesByCategory).map(([cat, val]) => ({
             name: (CATEGORIES as any)[cat]?.label || cat,
@@ -125,25 +198,34 @@ export const useBudgetAnalytics = (
             t('months.december') || 'Dec',
         ];
         const now = new Date();
-        const eod = endOfToday();
         const monthsData: { name: string; income: number; expense: number }[] = [];
         if (!transactions || transactions.length === 0) return [];
+
         for (let i = 5; i >= 0; i--) {
-            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const monthIdx = date.getMonth();
-            const year = date.getFullYear();
-            const monthName = monthNames[monthIdx] ? monthNames[monthIdx].slice(0, 3) : `M${monthIdx + 1} `;
+            const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const mEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+            const monthIdx = mDate.getMonth();
+            const year = mDate.getFullYear();
+            const monthName = monthNames[monthIdx] ? monthNames[monthIdx].slice(0, 3) : `M${monthIdx + 1}`;
+
             let income = 0;
             let expense = 0;
+
             transactions.forEach(tr => {
-                if (isMaster(tr)) return;
-                const trDate = new Date(tr.date);
-                if (trDate.getTime() > eod.getTime()) return;
-                if (trDate.getMonth() === monthIdx && trDate.getFullYear() === year) {
-                    const amount = Math.abs(tr.amount);
-                    const trCurrency = (tr as any).currency || 'USD';
-                    const converted = safeConvert(amount, trCurrency, currency);
-                    if (tr.type === 'income') income += converted; else expense += converted;
+                const amount = Math.abs(tr.amount);
+                const trCurrency = (tr as any).currency || 'USD';
+                const converted = safeConvert(amount, trCurrency, currency);
+
+                if (isMaster(tr)) {
+                    // Recurring: count occurrences in THIS specific month
+                    const occurrences = calculateOccurrences(tr, mDate, mEnd);
+                    if (tr.type === 'income') income += (converted * occurrences); else expense += (converted * occurrences);
+                } else {
+                    // Single: check if it falls in THIS month
+                    const trDate = new Date(tr.date);
+                    if (trDate.getMonth() === monthIdx && trDate.getFullYear() === year) {
+                        if (tr.type === 'income') income += converted; else expense += converted;
+                    }
                 }
             });
             monthsData.push({ name: monthName, income, expense });

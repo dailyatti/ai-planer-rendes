@@ -285,7 +285,7 @@ const BudgetView: React.FC = () => {
 
   // Időszak alapú statisztika törléshez
   const periodCounts = useMemo(() => {
-    const visibleTx = (transactions || []).filter(tr => !isMaster(tr));
+    const visibleTx = (transactions || []); // Most már minden látható (template is)
     return {
       daily: visibleTx.filter(t => t.period === 'daily').length,
       weekly: visibleTx.filter(t => t.period === 'weekly').length,
