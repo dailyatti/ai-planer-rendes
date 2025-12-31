@@ -500,7 +500,7 @@ const BudgetView: React.FC = () => {
                 Csak lezárt múltbeli adatok
               </span>
             </div>
-            <div className="h-[220px] relative flex-1 min-h-[220px] w-full">
+            <div className="h-[220px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={cashFlowData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>

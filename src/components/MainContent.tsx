@@ -64,11 +64,9 @@ const MainContent: React.FC<MainContentProps> = ({ activeView, sidebarOpen }) =>
       }}
     >
       <div
-        className={`scroll-smooth-container ${activeView === 'drawing' ? 'overflow-hidden h-full' : 'overflow-y-auto overflow-x-hidden'}`}
+        className={`scroll-smooth-container ${activeView === 'drawing' ? 'overflow-hidden h-full' : ''}`}
         style={{
-          height: 'calc(100vh - 64px)',
-          scrollBehavior: 'smooth',
-          WebkitOverflowScrolling: 'touch',
+          minHeight: '100%',
         }}
       >
         {/* Content wrapper with animated transitions */}
