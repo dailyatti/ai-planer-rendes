@@ -79,7 +79,7 @@ export const useBudgetAnalytics = (
     }, [currency, safeConvert]);
 
     const sumByType = useCallback(
-        (txs: Transaction[], type: 'income' | 'expense', now?: Date) => {
+        (txs: Transaction[], type: 'income' | 'expense', now?: Date, includeFutureMaster?: boolean) => {
             if (!txs || txs.length === 0) return 0;
             let total = 0;
 
@@ -90,7 +90,11 @@ export const useBudgetAnalytics = (
                 if (isMaster(tr) && now) {
                     const trDate = toDateSafe(tr.date);
                     if (trDate) {
-                        const occurrences = calculateOccurrences(tr, trDate, now);
+                        let occurrences = calculateOccurrences(tr, trDate, now);
+                        // PhD: Ha jövőbeli az első alkalom is, de tervezett adatot számolunk, vegyünk bele legalább egyet
+                        if (includeFutureMaster && occurrences === 0 && isFuture(tr, now)) {
+                            occurrences = 1;
+                        }
                         total += baseAmount * occurrences;
                     }
                 } else {
@@ -99,7 +103,7 @@ export const useBudgetAnalytics = (
             });
             return total;
         },
-        [absToView]
+        [absToView, calculateOccurrences, ensureCurrency, isFuture, isMaster, toDateSafe]
     );
 
     // Aggregations
@@ -109,23 +113,28 @@ export const useBudgetAnalytics = (
         }
         const now = endOfToday();
 
-        // 1) All valid transactions -> Shown in list (Now INCLUDING master/recurring)
-        const volumeTransactions = transactions.filter(tr => true);
+        // 1) All valid transactions -> Shown in list 
+        const volumeTransactions = transactions;
 
-        // 2) Cash-in-hand transactions
+        // 2) Cash-in-hand transactions (Strictly realized)
         const cashTransactions = transactions.filter(tr => !isFuture(tr, now));
 
+        // Cash flow totals (for Balance)
         const cashIncome = sumByType(cashTransactions, 'income', now);
         const cashExpense = sumByType(cashTransactions, 'expense', now);
 
+        // Volume/Planned totals (for Cards) - EVERYTHING included
+        const volumeIncome = sumByType(transactions, 'income', now, true);
+        const volumeExpense = sumByType(transactions, 'expense', now, true);
+
         return {
-            totalIncome: cashIncome,
-            totalExpense: cashExpense,
+            totalIncome: volumeIncome,
+            totalExpense: volumeExpense,
             balance: cashIncome - cashExpense,
             volumeTransactions,
             cashTransactions
         };
-    }, [transactions, sumByType]);
+    }, [transactions, sumByType, isFuture]);
 
     const getTransactionAmountsByCurrency = (type: 'income' | 'expense') => {
         const result: Record<string, number> = {};
@@ -141,7 +150,10 @@ export const useBudgetAnalytics = (
                 if (isMaster(tr)) {
                     const trDate = toDateSafe(tr.date);
                     if (trDate) {
-                        const occurrences = calculateOccurrences(tr, trDate, now);
+                        let occurrences = calculateOccurrences(tr, trDate, now);
+                        // PhD consistency: Match the "Volume" logic in cards
+                        if (occurrences === 0 && isFuture(tr, now)) occurrences = 1;
+
                         result[trCurrency] = (result[trCurrency] || 0) + (amount * occurrences);
                     }
                 } else {
@@ -167,7 +179,10 @@ export const useBudgetAnalytics = (
                 if (isMaster(tr)) {
                     const trDate = toDateSafe(tr.date);
                     if (trDate) {
-                        const occurrences = calculateOccurrences(tr, trDate, now);
+                        let occurrences = calculateOccurrences(tr, trDate, now);
+                        // PhD consistency: Ha jövőbeli terv, vegyünk bele 1 alkalmat az összesítésbe
+                        if (occurrences === 0 && isFuture(tr, now)) occurrences = 1;
+
                         expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + (converted * occurrences);
                     }
                 } else {
@@ -179,7 +194,7 @@ export const useBudgetAnalytics = (
             value: val,
             color: (CATEGORIES as any)[cat]?.color || '#9ca3af',
         }));
-    }, [transactions, CATEGORIES, currency, safeConvert]);
+    }, [transactions, CATEGORIES, currency, safeConvert, isFuture]);
 
     // Cash‑flow chart data (last 6 months)
     const cashFlowData = useMemo(() => {
