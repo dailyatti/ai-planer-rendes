@@ -8,7 +8,8 @@ export const useBudgetAnalytics = (
     currency: string,
     safeConvert: (amount: number, fromCurrency: string, toCurrency: string) => number,
     t: (key: string) => string,
-    CATEGORIES: Record<string, { label: string; color: string }>
+    CATEGORIES: any,
+    projectionYears: number = 1
 ) => {
     // Helper to safely parse dates
     const toDateSafe = (d: Date | string | number) => {
@@ -248,35 +249,41 @@ export const useBudgetAnalytics = (
         return monthsData;
     }, [transactions, t, currency, safeConvert]);
 
-    // PhD Level: 12-Month Future Projection Chart Data
+    // PhD Level: Multi-Year Future Projection
     const projectionData = useMemo(() => {
         const monthNames = [
-            t('months.january') || 'Jan',
-            t('months.february') || 'Feb',
-            t('months.march') || 'Mar',
-            t('months.april') || 'Apr',
-            t('months.may') || 'May',
-            t('months.june') || 'Jun',
-            t('months.july') || 'Jul',
-            t('months.august') || 'Aug',
-            t('months.september') || 'Sep',
-            t('months.october') || 'Oct',
-            t('months.november') || 'Nov',
-            t('months.december') || 'Dec',
+            t('months.january') || 'Jan', t('months.february') || 'Feb', t('months.march') || 'Mar', t('months.april') || 'Apr',
+            t('months.may') || 'May', t('months.june') || 'Jun', t('months.july') || 'Jul', t('months.august') || 'Aug',
+            t('months.september') || 'Sep', t('months.october') || 'Oct', t('months.november') || 'Nov', t('months.december') || 'Dec',
         ];
+
         const now = new Date();
         const projData: { name: string; balance: number; income: number; expense: number }[] = [];
         if (!transactions || transactions.length === 0) return [];
 
-        // Start with current cash balance
         let cumulativeBalance = balance;
 
-        for (let i = 1; i <= 12; i++) {
-            const mDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
-            const mEnd = new Date(now.getFullYear(), now.getMonth() + i + 1, 0, 23, 59, 59);
-            const monthIdx = mDate.getMonth();
-            const year = mDate.getFullYear();
-            const monthName = `${monthNames[monthIdx]?.slice(0, 3) || 'M'} '${String(year).slice(2)}`;
+        const isYearlyMode = projectionYears > 3;
+        const totalPoints = isYearlyMode ? projectionYears : (projectionYears * 12);
+
+        for (let i = 1; i <= totalPoints; i++) {
+            let start: Date, end: Date, label: string;
+
+            if (isYearlyMode) {
+                // YEARLY calculation
+                const y = now.getFullYear() + i;
+                start = new Date(y, 0, 1);
+                end = new Date(y, 11, 31, 23, 59, 59);
+                label = `${y}`;
+            } else {
+                // MONTHLY calculation
+                const targetDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
+                start = targetDate;
+                end = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59);
+                const idx = targetDate.getMonth();
+                const yShort = String(targetDate.getFullYear()).slice(2);
+                label = `${monthNames[idx]?.slice(0, 3)} '${yShort}`;
+            }
 
             let income = 0;
             let expense = 0;
@@ -287,23 +294,21 @@ export const useBudgetAnalytics = (
                 const converted = safeConvert(amount, trCurrency, currency);
 
                 if (isMaster(tr)) {
-                    // Recurring: count occurrences in THIS specific future month
-                    const occurrences = calculateOccurrences(tr, mDate, mEnd);
+                    const occurrences = calculateOccurrences(tr, start, end);
                     if (tr.type === 'income') income += (converted * occurrences); else expense += (converted * occurrences);
                 } else {
-                    // Single: check if it falls in THIS future month
                     const trDate = new Date(tr.date);
-                    if (trDate.getMonth() === monthIdx && trDate.getFullYear() === year) {
+                    if (trDate >= start && trDate <= end) {
                         if (tr.type === 'income') income += converted; else expense += converted;
                     }
                 }
             });
 
             cumulativeBalance += income - expense;
-            projData.push({ name: monthName, balance: cumulativeBalance, income, expense });
+            projData.push({ name: label, balance: cumulativeBalance, income, expense });
         }
         return projData;
-    }, [transactions, t, currency, safeConvert, balance]);
+    }, [transactions, t, currency, safeConvert, balance, projectionYears]);
 
     return {
         totalIncome,
