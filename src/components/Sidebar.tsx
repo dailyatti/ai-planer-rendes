@@ -65,7 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onC
       {/* Sidebar */}
       <aside
         className={`
-          fixed md:static top-0 md:top-0 bottom-0 left-0 z-50 
+          fixed md:static top-0 md:top-0 bottom-0 left-0 z-[10005] 
           w-72 md:w-64 lg:w-72
           bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl 
           border-r border-gray-200/50 dark:border-gray-700/50 

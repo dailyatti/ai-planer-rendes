@@ -72,7 +72,7 @@ const MainContent: React.FC<MainContentProps> = ({ activeView, sidebarOpen }) =>
         }}
       >
         {/* Content wrapper with animated transitions */}
-        <div className={`min-h-full animate-fade-in ${activeView === 'drawing' ? 'h-full pt-0' : 'pt-16 md:pt-0'}`}>
+        <div className={`min-h-full animate-fade-in ${activeView === 'drawing' ? 'h-full pt-0' : 'pt-16 md:pt-0 pb-32'}`}>
           {renderView()}
         </div>
       </div>
