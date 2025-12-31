@@ -321,22 +321,25 @@ const BudgetView: React.FC = () => {
   // --- Renderelés (JSX) ---
 
   return (
-    <div className="view-container max-w-7xl mx-auto space-y-5 p-4">
+    <div className="view-container max-w-7xl mx-auto space-y-4 p-3">
       {/* Fejléc */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl shadow-emerald-500/20">
-              <Wallet size={28} className="text-white" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20">
+              <Wallet size={20} className="text-white" />
             </div>
             {t('budget.title')}
+            <span className="text-xs font-medium px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full border border-blue-200 dark:border-blue-800">
+              PRO
+            </span>
           </h1>
-          <p className="mt-2 text-gray-500 dark:text-gray-400 text-lg">{t('budget.subtitle')}</p>
+          <p className="mt-1 text-gray-500 dark:text-gray-400 text-sm">{t('budget.subtitle')}</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <select
-            className="input-field w-auto font-bold text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-200 dark:border-gray-700"
+            className="input-field py-1.5 px-2 text-sm w-auto font-bold text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-200 dark:border-gray-700"
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
           >
@@ -346,10 +349,10 @@ const BudgetView: React.FC = () => {
           </select>
           <button
             onClick={() => setShowConverter(true)}
-            className="btn-secondary flex items-center gap-2 px-4 py-2.5 bg-blue-500/10 text-blue-600 border-blue-200 hover:bg-blue-500/20"
+            className="btn-secondary flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-500/10 text-blue-600 border-blue-200 hover:bg-blue-500/20"
             title={t('budget.converter') || 'Currency Converter'}
           >
-            <RefreshCcw size={18} />
+            <RefreshCcw size={14} />
             <span className="hidden sm:inline">{t('budget.converter') || 'Currency Converter'}</span>
           </button>
           <button
@@ -362,9 +365,9 @@ const BudgetView: React.FC = () => {
               });
               setShowAddModal(true);
             }}
-            className="btn-secondary flex items-center gap-2 px-4 py-2.5 bg-green-500/10 text-green-600 border-green-200 hover:bg-green-500/20"
+            className="btn-secondary flex items-center gap-2 px-3 py-1.5 text-sm bg-green-500/10 text-green-600 border-green-200 hover:bg-green-500/20"
           >
-            <TrendingUp size={18} />
+            <TrendingUp size={14} />
             <span>{t('budget.addIncome')}</span>
           </button>
           <button
@@ -377,9 +380,9 @@ const BudgetView: React.FC = () => {
               });
               setShowAddModal(true);
             }}
-            className="btn-primary flex items-center gap-2 px-4 py-2.5 shadow-lg shadow-primary-500/25"
+            className="btn-primary flex items-center gap-2 px-3 py-1.5 text-sm shadow-lg shadow-primary-500/25"
           >
-            <Plus size={18} />
+            <Plus size={14} />
             <span>{t('budget.addExpense')}</span>
           </button>
         </div>
@@ -406,98 +409,98 @@ const BudgetView: React.FC = () => {
 
       {/* Overview Cards */}
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-slide-up">
-          {/* Balance Card - Compact */}
-          <div className="card p-5 flex flex-col justify-between bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/30 transition-all duration-300 rounded-3xl group relative overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-slide-up">
+          {/* Balance Card - Ultra Compact */}
+          <div className="card p-4 flex flex-col justify-between bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/30 transition-all duration-300 rounded-2xl group relative overflow-hidden">
             <div className="flex justify-between items-start z-10">
-              <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
-                <Wallet size={20} className="text-white" />
+              <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
+                <Wallet size={16} className="text-white" />
               </div>
-              <div className="text-emerald-100 text-xs font-medium px-2 py-1 bg-white/10 rounded-lg backdrop-blur-sm">
+              <div className="text-emerald-100 text-[10px] font-medium px-1.5 py-0.5 bg-white/10 rounded-md backdrop-blur-sm uppercase tracking-wide">
                 Egyenleg
               </div>
             </div>
-            <div className="mt-4 z-10">
-              <h3 className="text-3xl font-bold tracking-tight">
+            <div className="mt-2 z-10">
+              <h3 className="text-2xl font-bold tracking-tight">
                 {formatMoney(balance)}
               </h3>
-              <div className="flex items-center gap-1 mt-1 text-emerald-100 text-sm font-medium">
-                <TrendingUp size={14} />
+              <div className="flex items-center gap-1 mt-0.5 text-emerald-100 text-xs font-medium">
+                <TrendingUp size={12} />
                 <span>Nyereség</span>
-                <span className="opacity-60 font-normal ml-1 text-xs">(Cash-in-hand)</span>
+                <span className="opacity-60 font-normal ml-1 text-[10px]">(Cash-in-hand)</span>
               </div>
             </div>
             {/* Background Decorations */}
-            <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-4 translate-y-4 group-hover:scale-110 transition-transform duration-500">
-              <Wallet size={100} />
+            <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-3 translate-y-3 group-hover:scale-110 transition-transform duration-500">
+              <Wallet size={80} />
             </div>
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none" />
           </div>
 
-          {/* Income Card - Compact */}
-          <div className="card p-5 flex flex-col justify-between bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 rounded-3xl group relative overflow-hidden">
+          {/* Income Card - Ultra Compact */}
+          <div className="card p-4 flex flex-col justify-between bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 rounded-2xl group relative overflow-hidden">
             <div className="flex justify-between items-start z-10">
-              <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
-                <ArrowUpRight size={20} className="text-white" />
+              <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
+                <ArrowUpRight size={16} className="text-white" />
               </div>
-              <div className="text-blue-100 text-xs font-medium px-2 py-1 bg-white/10 rounded-lg backdrop-blur-sm">
+              <div className="text-blue-100 text-[10px] font-medium px-1.5 py-0.5 bg-white/10 rounded-md backdrop-blur-sm uppercase tracking-wide">
                 Bevételek
               </div>
             </div>
-            <div className="mt-4 z-10">
-              <h3 className="text-3xl font-bold tracking-tight">
+            <div className="mt-2 z-10">
+              <h3 className="text-2xl font-bold tracking-tight">
                 {formatMoney(totalIncome)}
               </h3>
-              <div className="flex items-center gap-1 mt-1 text-blue-100 text-sm font-medium">
-                <TrendingUp size={14} />
+              <div className="flex items-center gap-1 mt-0.5 text-blue-100 text-xs font-medium">
+                <TrendingUp size={12} />
                 <span>Összes bevétel</span>
               </div>
             </div>
-            <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-4 translate-y-4 group-hover:scale-110 transition-transform duration-500">
-              <ArrowUpRight size={100} />
+            <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-3 translate-y-3 group-hover:scale-110 transition-transform duration-500">
+              <ArrowUpRight size={80} />
             </div>
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none" />
           </div>
 
-          {/* Expense Card - Compact */}
-          <div className="card p-5 flex flex-col justify-between bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 transition-all duration-300 rounded-3xl group relative overflow-hidden">
+          {/* Expense Card - Ultra Compact */}
+          <div className="card p-4 flex flex-col justify-between bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 transition-all duration-300 rounded-2xl group relative overflow-hidden">
             <div className="flex justify-between items-start z-10">
-              <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
-                <ArrowDownRight size={20} className="text-white" />
+              <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
+                <ArrowDownRight size={16} className="text-white" />
               </div>
-              <div className="text-red-100 text-xs font-medium px-2 py-1 bg-white/10 rounded-lg backdrop-blur-sm">
+              <div className="text-red-100 text-[10px] font-medium px-1.5 py-0.5 bg-white/10 rounded-md backdrop-blur-sm uppercase tracking-wide">
                 Kiadások
               </div>
             </div>
-            <div className="mt-4 z-10">
-              <h3 className="text-3xl font-bold tracking-tight">
+            <div className="mt-2 z-10">
+              <h3 className="text-2xl font-bold tracking-tight">
                 {formatMoney(totalExpense)}
               </h3>
-              <div className="flex items-center gap-1 mt-1 text-red-100 text-sm font-medium">
-                <TrendingDown size={14} />
+              <div className="flex items-center gap-1 mt-0.5 text-red-100 text-xs font-medium">
+                <TrendingDown size={12} />
                 <span>Összes kiadás</span>
               </div>
             </div>
-            <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-4 translate-y-4 group-hover:scale-110 transition-transform duration-500">
-              <ArrowDownRight size={100} />
+            <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-3 translate-y-3 group-hover:scale-110 transition-transform duration-500">
+              <ArrowDownRight size={80} />
             </div>
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none" />
           </div>
 
-          {/* Charts Row - Compact */}
-          <div className="lg:col-span-2 card p-5 flex flex-col bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-3xl">
+          {/* Charts Row - Ultra Compact */}
+          <div className="lg:col-span-2 card p-4 flex flex-col bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg text-white shadow-lg shadow-blue-500/20">
-                  <BarChart3 size={18} />
+              <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-md text-white shadow-lg shadow-blue-500/20">
+                  <BarChart3 size={14} />
                 </div>
                 {t('budget.cashFlow')}
               </h3>
-              <span className="text-xs font-medium px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg">
+              <span className="text-[10px] font-medium px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-md">
                 Csak lezárt múltbeli adatok
               </span>
             </div>
-            <div className="h-[250px] relative flex-1 min-h-[250px] w-full">
+            <div className="h-[220px] relative flex-1 min-h-[220px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={cashFlowData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
@@ -525,17 +528,17 @@ const BudgetView: React.FC = () => {
             </div>
           </div>
 
-          {/* Expense Breakdown - Compact */}
-          <div className="card p-5 flex flex-col bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-3xl">
+          {/* Expense Breakdown - Ultra Compact */}
+          <div className="card p-4 flex flex-col bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg text-white shadow-lg shadow-purple-500/20">
-                  <PieChart size={18} />
+              <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <div className="p-1.5 bg-gradient-to-br from-purple-500 to-pink-600 rounded-md text-white shadow-lg shadow-purple-500/20">
+                  <PieChart size={14} />
                 </div>
                 {t('budget.expenseCategories')}
               </h3>
             </div>
-            <div className="h-[250px] relative flex-1 min-h-[250px]">
+            <div className="h-[220px] relative flex-1 min-h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
                 <RechartsPieChart>
                   <Pie
@@ -579,7 +582,7 @@ const BudgetView: React.FC = () => {
           </div>
 
           {/* PhD Level: Projection Chart with Year Selector */}
-          <div className="card lg:col-span-3 p-6 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white backdrop-blur-xl border border-indigo-500/20 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 rounded-3xl relative overflow-hidden">
+          <div className="card lg:col-span-3 p-4 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white backdrop-blur-xl border border-indigo-500/20 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 rounded-2xl relative overflow-hidden">
             {/* Background glow effects */}
             <div className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl" />
             <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl" />
@@ -622,7 +625,7 @@ const BudgetView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="h-[280px] w-full">
+              <div className="h-[200px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={projectionData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     <defs>
@@ -651,7 +654,7 @@ const BudgetView: React.FC = () => {
               </div>
 
               {/* PhD Level: Insight Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
                 <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
                   <div className="text-xs text-indigo-300/60 uppercase tracking-wider">Mai egyenleg</div>
                   <div className={`text-lg font-bold ${balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{formatMoney(balance)}</div>
