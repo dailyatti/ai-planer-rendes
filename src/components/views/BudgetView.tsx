@@ -158,6 +158,7 @@ const BudgetView: React.FC = () => {
     getTransactionAmountsByCurrency,
     categoryData,
     cashFlowData,
+    projectionData,
     isMaster,
     volumeTransactions
   } = useBudgetAnalytics(transactions, currency, safeConvert, t, CATEGORIES);
@@ -304,11 +305,12 @@ const BudgetView: React.FC = () => {
   };
 
   const handleDeleteByPeriod = (period: TransactionPeriod | 'all') => {
-    const visibleTx = (transactions || []).filter(tr => !isMaster(tr));
+    // PhD Fix: Delete ALL transactions including master templates
+    const allTx = transactions || [];
     if (period === 'all') {
-      visibleTx.forEach(t => deleteTransaction(t.id));
+      allTx.forEach(t => deleteTransaction(t.id));
     } else {
-      visibleTx.filter(t => t.period === period).forEach(t => deleteTransaction(t.id));
+      allTx.filter(t => t.period === period).forEach(t => deleteTransaction(t.id));
     }
     setSelectedTransactions(new Set());
     setShowDeleteConfirm(null);
@@ -553,6 +555,90 @@ const BudgetView: React.FC = () => {
               <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
                 <div className="text-xs text-gray-400 uppercase tracking-wider">{t('common.total')}</div>
                 <div className="font-bold text-gray-900 dark:text-white text-lg">{formatMoney(totalExpense)}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* PhD Level: 12-Month Projection Chart */}
+          <div className="card lg:col-span-3 p-6 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white backdrop-blur-xl border border-indigo-500/20 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 rounded-3xl relative overflow-hidden">
+            {/* Background glow effects */}
+            <div className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl" />
+
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-bold flex items-center gap-3">
+                    <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg shadow-indigo-500/30">
+                      <TrendingUp size={22} />
+                    </div>
+                    {t('budget.projection') || '12 Hónapos Előrejelzés'}
+                  </h3>
+                  <p className="text-sm text-indigo-200/70 mt-1">
+                    {t('budget.projectionSubtitle') || 'Pénzügyi helyzeted alakulása'}
+                  </p>
+                </div>
+                <div className="text-right hidden sm:block">
+                  <div className="text-xs text-indigo-300/60 uppercase tracking-wider">Végső egyenleg</div>
+                  <div className={`text-2xl font-bold ${(projectionData[11]?.balance || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {formatMoney(projectionData[11]?.balance || balance)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="h-[280px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={projectionData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="projectionGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#818cf8" stopOpacity={0.4} />
+                        <stop offset="50%" stopColor="#6366f1" stopOpacity={0.15} />
+                        <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="projectionStroke" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#a5b4fc" />
+                        <stop offset="50%" stopColor="#818cf8" />
+                        <stop offset="100%" stopColor="#c084fc" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} vertical={false} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#a5b4fc', fontSize: 11, fontWeight: 500 }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#a5b4fc', fontSize: 11, fontWeight: 500 }} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
+                    <Tooltip
+                      contentStyle={{ borderRadius: '16px', border: '1px solid rgba(99, 102, 241, 0.3)', boxShadow: '0 20px 40px -10px rgba(0,0,0,0.5)', backdropFilter: 'blur(12px)', backgroundColor: 'rgba(30, 27, 75, 0.95)', color: '#fff' }}
+                      labelStyle={{ color: '#a5b4fc', fontWeight: 600 }}
+                      formatter={(value: number, name: string) => [formatMoney(value), name === 'balance' ? 'Egyenleg' : name === 'income' ? 'Bevétel' : 'Kiadás']}
+                    />
+                    <Area type="monotone" dataKey="balance" stroke="url(#projectionStroke)" strokeWidth={3} fillOpacity={1} fill="url(#projectionGradient)" name="balance" dot={{ fill: '#818cf8', strokeWidth: 0, r: 4 }} activeDot={{ fill: '#c084fc', strokeWidth: 0, r: 6 }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* PhD Level: Insight Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                  <div className="text-xs text-indigo-300/60 uppercase tracking-wider">Mai egyenleg</div>
+                  <div className={`text-lg font-bold ${balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{formatMoney(balance)}</div>
+                </div>
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                  <div className="text-xs text-indigo-300/60 uppercase tracking-wider">12 hónap múlva</div>
+                  <div className={`text-lg font-bold ${(projectionData[11]?.balance || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {formatMoney(projectionData[11]?.balance || balance)}
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                  <div className="text-xs text-indigo-300/60 uppercase tracking-wider">Éves változás</div>
+                  <div className={`text-lg font-bold ${((projectionData[11]?.balance || balance) - balance) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {((projectionData[11]?.balance || balance) - balance) >= 0 ? '+' : ''}{formatMoney((projectionData[11]?.balance || balance) - balance)}
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                  <div className="text-xs text-indigo-300/60 uppercase tracking-wider">Trend</div>
+                  <div className={`text-lg font-bold flex items-center gap-1 ${((projectionData[11]?.balance || balance) - balance) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {((projectionData[11]?.balance || balance) - balance) >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+                    {((projectionData[11]?.balance || balance) - balance) >= 0 ? 'Növekvő' : 'Csökkenő'}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

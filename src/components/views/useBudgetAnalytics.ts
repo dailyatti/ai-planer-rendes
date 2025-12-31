@@ -248,6 +248,63 @@ export const useBudgetAnalytics = (
         return monthsData;
     }, [transactions, t, currency, safeConvert]);
 
+    // PhD Level: 12-Month Future Projection Chart Data
+    const projectionData = useMemo(() => {
+        const monthNames = [
+            t('months.january') || 'Jan',
+            t('months.february') || 'Feb',
+            t('months.march') || 'Mar',
+            t('months.april') || 'Apr',
+            t('months.may') || 'May',
+            t('months.june') || 'Jun',
+            t('months.july') || 'Jul',
+            t('months.august') || 'Aug',
+            t('months.september') || 'Sep',
+            t('months.october') || 'Oct',
+            t('months.november') || 'Nov',
+            t('months.december') || 'Dec',
+        ];
+        const now = new Date();
+        const projData: { name: string; balance: number; income: number; expense: number }[] = [];
+        if (!transactions || transactions.length === 0) return [];
+
+        // Start with current cash balance
+        let cumulativeBalance = balance;
+
+        for (let i = 1; i <= 12; i++) {
+            const mDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
+            const mEnd = new Date(now.getFullYear(), now.getMonth() + i + 1, 0, 23, 59, 59);
+            const monthIdx = mDate.getMonth();
+            const year = mDate.getFullYear();
+            const monthName = `${monthNames[monthIdx]?.slice(0, 3) || 'M'} '${String(year).slice(2)}`;
+
+            let income = 0;
+            let expense = 0;
+
+            transactions.forEach(tr => {
+                const amount = Math.abs(tr.amount);
+                const trCurrency = (tr as any).currency || 'USD';
+                const converted = safeConvert(amount, trCurrency, currency);
+
+                if (isMaster(tr)) {
+                    // Recurring: count occurrences in THIS specific future month
+                    const occurrences = calculateOccurrences(tr, mDate, mEnd);
+                    if (tr.type === 'income') income += (converted * occurrences); else expense += (converted * occurrences);
+                } else {
+                    // Single: check if it falls in THIS future month
+                    const trDate = new Date(tr.date);
+                    if (trDate.getMonth() === monthIdx && trDate.getFullYear() === year) {
+                        if (tr.type === 'income') income += converted; else expense += converted;
+                    }
+                }
+            });
+
+            cumulativeBalance += income - expense;
+            projData.push({ name: monthName, balance: cumulativeBalance, income, expense });
+        }
+        return projData;
+    }, [transactions, t, currency, safeConvert, balance]);
+
     return {
         totalIncome,
         totalExpense,
@@ -257,6 +314,7 @@ export const useBudgetAnalytics = (
         getTransactionAmountsByCurrency,
         categoryData,
         cashFlowData,
+        projectionData,
         isMaster,
         isFuture,
         absToView,
