@@ -32,7 +32,7 @@ import {
 
 /* ----------------------------- Types (local) ----------------------------- */
 
-type TimeRange = 'week' | 'month' | 'year';
+type TimeRange = 'week' | 'month' | 'year' | 'all';
 
 type HabitFrequency = 'daily' | 'weekly';
 
@@ -286,14 +286,14 @@ const StatisticsView: React.FC = () => {
   /* ----------------------------- Tasks & Goals ----------------------------- */
 
   const taskEngine = useMemo(() => {
-    const start = startOfPeriod(timeRange, new Date());
+    const start = timeRange === 'all' ? new Date(0) : startOfPeriod(timeRange, new Date());
     const end = new Date();
     end.setHours(23, 59, 59, 999);
 
     const filtered = (plans ?? []).filter((p: any) => {
       const dt = new Date(p?.date);
       if (Number.isNaN(dt.getTime())) return false;
-      // “this period so far”
+      // "this period so far" or all time
       return dt >= start && dt <= end;
     });
 
@@ -462,7 +462,7 @@ const StatisticsView: React.FC = () => {
 
   const handleTimeRange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const v = e.target.value as TimeRange;
-    if (v === 'week' || v === 'month' || v === 'year') setTimeRange(v);
+    if (v === 'week' || v === 'month' || v === 'year' || v === 'all') setTimeRange(v);
   };
 
   /* ----------------------------- Render ----------------------------- */
@@ -508,6 +508,7 @@ const StatisticsView: React.FC = () => {
               <option value="week">{t('statistics.thisWeek') || 'Ez a hét'}</option>
               <option value="month">{t('statistics.thisMonth') || 'Ez a hónap'}</option>
               <option value="year">{t('statistics.thisYear') || 'Ez az év'}</option>
+              <option value="all">{t('statistics.allTime') || 'Összes'}</option>
             </select>
           </div>
         </div>
@@ -567,7 +568,7 @@ const StatisticsView: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-5 h-[320px]">
+            <div className="mt-4 h-[200px]">
               {taskEngine.series.some(x => x.planned > 0 || x.completed > 0) ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={taskEngine.series} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -600,7 +601,7 @@ const StatisticsView: React.FC = () => {
             </div>
 
             {/* Priority mini */}
-            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
               <MiniStat label="Függő" value={String(taskEngine.pending)} tone="rose" />
               <MiniStat label="Magas" value={String(taskEngine.pri.high)} tone="rose" />
               <MiniStat label="Közepes" value={String(taskEngine.pri.medium)} tone="amber" />
@@ -623,7 +624,7 @@ const StatisticsView: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
               <div className="lg:col-span-2 space-y-3">
                 {goalEngine.active.length > 0 ? (
                   goalEngine.active.slice(0, 6).map((g: any) => {
@@ -829,12 +830,12 @@ const MiniStat: React.FC<{ label: string; value: string; tone: 'indigo' | 'emera
 };
 
 const EmptyState: React.FC<{ icon: React.ReactNode; title: string; desc: string }> = ({ icon, title, desc }) => (
-  <div className="rounded-3xl border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 p-8 text-center">
-    <div className="mx-auto inline-flex items-center justify-center rounded-2xl bg-white dark:bg-gray-900 p-3 text-gray-700 dark:text-gray-200 shadow-sm">
+  <div className="h-full flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 p-4 text-center">
+    <div className="inline-flex items-center justify-center rounded-xl bg-white dark:bg-gray-900 p-2 text-gray-500 dark:text-gray-400 shadow-sm">
       {icon}
     </div>
-    <div className="mt-3 text-base font-black text-gray-900 dark:text-white">{title}</div>
-    <div className="mt-1 text-sm text-gray-600 dark:text-gray-300">{desc}</div>
+    <div className="mt-2 text-sm font-bold text-gray-700 dark:text-gray-300">{title}</div>
+    <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{desc}</div>
   </div>
 );
 
@@ -859,7 +860,7 @@ const HabitCard: React.FC<{
             </div>
             <div className="min-w-0">
               <div className="truncate text-sm font-black text-gray-900 dark:text-white">{habit.name}</div>
-              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                 <span>{habit.frequency === 'daily' ? 'Napi' : 'Heti'}</span>
                 <span className="opacity-50">•</span>
                 <span>Cél: {habit.targetPerWeek}/7</span>
@@ -885,7 +886,7 @@ const HabitCard: React.FC<{
 
       {/* Mastery */}
       <div className="mt-4">
-        <div className="flex items-center justify-between text-xs font-semibold text-gray-600 dark:text-gray-300">
+        <div className="flex items-center justify-between text-xs font-semibold text-gray-600 dark:text-gray-200">
           <span>Elsajátítás (mastery)</span>
           <span className="font-black text-gray-900 dark:text-white">{habit.mastery}%</span>
         </div>
@@ -897,7 +898,7 @@ const HabitCard: React.FC<{
           onChange={(e) => onMastery(parseInt(e.target.value, 10))}
           className="mt-2 w-full accent-indigo-600"
         />
-        <div className="mt-1 flex justify-between text-[11px] text-gray-400">
+        <div className="mt-1 flex justify-between text-[11px] text-gray-400 dark:text-gray-500">
           <span>kezdet</span>
           <span>stabil</span>
           <span>automatizált</span>
@@ -905,7 +906,7 @@ const HabitCard: React.FC<{
       </div>
 
       {/* Check-in + metrics */}
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
           onClick={onToggleToday}
           className={`rounded-2xl px-4 py-3 text-sm font-black transition border ${habit.doneToday
@@ -920,10 +921,10 @@ const HabitCard: React.FC<{
         </button>
 
         <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3">
-          <div className="text-xs font-bold uppercase tracking-wider text-gray-500">Strength</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Strength</div>
           <div className="mt-1 flex items-end justify-between">
             <div className="text-2xl font-black text-gray-900 dark:text-white">{habit.strength}</div>
-            <div className="text-xs text-gray-500">{habit.last7Done}/7 • {habit.last7Rate}%</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">{habit.last7Done}/7 • {habit.last7Rate}%</div>
           </div>
         </div>
       </div>
