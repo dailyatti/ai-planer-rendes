@@ -1079,7 +1079,7 @@ const BudgetView: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-purple-600 dark:text-purple-400 mb-1 flex items-center gap-2">
                   <TrendingUp size={14} />
-                  Éves kamatláb (%) — PhD Szint
+                  Éves kamatláb (%)
                 </label>
                 <input
                   type="text"
