@@ -1074,30 +1074,30 @@ const BudgetView: React.FC = () => {
 
               {/* PhD Level: Add to Balance Checkbox for Recurring Items */}
               {newTransaction.period !== 'oneTime' && (
-                <div className="group relative overflow-hidden flex items-center gap-4 p-5 rounded-[1.5rem] bg-indigo-500/10 dark:bg-indigo-500/20 border border-indigo-500/20 hover:border-indigo-500/40 transition-all">
+                <div className="group relative overflow-hidden flex items-center gap-3 p-3 rounded-2xl bg-indigo-500/10 dark:bg-indigo-500/20 border border-indigo-500/20 hover:border-indigo-500/40 transition-all">
                   <button
                     onClick={() => setAddToBalanceImmediately(!addToBalanceImmediately)}
-                    className={`shrink-0 p-3 rounded-xl transition-all ${addToBalanceImmediately
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 ring-4 ring-indigo-500/10'
+                    className={`shrink-0 p-2 rounded-xl transition-all ${addToBalanceImmediately
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
                       : 'bg-white dark:bg-gray-800 text-gray-400 border border-gray-200 dark:border-gray-700 hover:text-indigo-500'
                       }`}
                   >
-                    {addToBalanceImmediately ? <CheckSquare size={20} /> : <Square size={20} />}
+                    {addToBalanceImmediately ? <CheckSquare size={18} /> : <Square size={18} />}
                   </button>
                   <div className="flex-1">
-                    <p className="text-sm font-black text-indigo-900 dark:text-indigo-100">
+                    <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100">
                       Hozzáadás az egyenleghez most
                     </p>
                     <p className="text-[11px] text-indigo-600/70 dark:text-indigo-400/70 mt-0.5 leading-relaxed font-medium">
                       {addToBalanceImmediately
                         ? "Az első részletet azonnal levonja/hozzáadja az aktuális tőkédhez."
-                        : `A tőke csak 1 ${getPeriodLabel(newTransaction.period).toLowerCase()} múlva változik.`
+                        : "A tőke akkor változik, amikor a dátumnál aktiválódik."
                       }
                     </p>
                   </div>
                   {/* Subtle background decoration */}
                   <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none transform translate-x-1/2 translate-y-1/2">
-                    <Zap size={100} className="text-indigo-500" />
+                    <Zap size={60} className="text-indigo-500" />
                   </div>
                 </div>
               )}
