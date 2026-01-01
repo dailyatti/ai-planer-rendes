@@ -1024,7 +1024,12 @@ const BudgetView: React.FC = () => {
                         period: period,
                         recurring: period !== 'oneTime'
                       });
-                      setAddToBalanceImmediately(period === 'oneTime');
+                      // FIX: Don't auto-set to false! Keep checkbox at TRUE by default.
+                      // User can manually uncheck if they want deferred start.
+                      if (period === 'oneTime') {
+                        setAddToBalanceImmediately(true); // One-time is always immediate
+                      }
+                      // For recurring: keep current state (default is already true)
                     }}
                     className="input-field w-full"
                   >
