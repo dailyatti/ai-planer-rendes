@@ -4,11 +4,10 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import {
   BarChart3,
   Target,
-  AlertCircle,
-  CalendarDays,
   SlidersHorizontal,
   ClipboardList,
   BadgeCheck,
+  CalendarDays,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -24,7 +23,7 @@ import {
   Cell,
 } from 'recharts';
 
-/* ----------------------------- Types (local) ----------------------------- */
+/* ----------------------------- Types ----------------------------- */
 
 type TimeRange = 'week' | 'month' | 'year' | 'all';
 
@@ -61,7 +60,6 @@ const startOfPeriod = (range: TimeRange, now = new Date()) => {
     d.setDate(1);
     return d;
   }
-  // year
   d.setMonth(0, 1);
   return d;
 };
@@ -71,7 +69,7 @@ const daysBetween = (a: Date, b: Date) => {
   return Math.floor(ms / (1000 * 60 * 60 * 24));
 };
 
-/* ----------------------------- UI Helpers ----------------------------- */
+/* ----------------------------- Tooltip ----------------------------- */
 
 const FancyTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
@@ -95,13 +93,14 @@ const FancyTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-/* ----------------------------- Main Component ----------------------------- */
+/* ----------------------------- Main ----------------------------- */
 
 const StatisticsView: React.FC = () => {
   const { t } = useLanguage();
   const { plans, goals } = useData();
 
-  const [timeRange, setTimeRange] = useState<TimeRange>('month');
+  // Default to 'all' to show ALL tasks
+  const [timeRange, setTimeRange] = useState<TimeRange>('all');
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
@@ -119,6 +118,7 @@ const StatisticsView: React.FC = () => {
     const end = new Date();
     end.setHours(23, 59, 59, 999);
 
+    // Filter tasks - include ALL tasks when 'all' is selected
     const filtered = (plans ?? []).filter((p: any) => {
       const dt = new Date(p?.date);
       if (Number.isNaN(dt.getTime())) return false;
@@ -139,6 +139,7 @@ const StatisticsView: React.FC = () => {
       else pri.other++;
     }
 
+    // Group by day for chart
     const grouped: Record<string, { iso: string; label: string; planned: number; completed: number }> = {};
     for (const p of filtered) {
       const dt = new Date(p?.date);
@@ -156,29 +157,13 @@ const StatisticsView: React.FC = () => {
       if (p?.completed) grouped[iso].completed++;
     }
 
-    const startISO = toISODateLocal(start);
-    const endISO = toISODateLocal(new Date());
-    const s = parseISOToDate(startISO);
-    const e = parseISOToDate(endISO);
-    const days = clamp(daysBetween(s, e) + 1, 1, 370);
-
-    const series: { iso: string; label: string; planned: number; completed: number }[] = [];
-    for (let i = 0; i < days; i++) {
-      const d = new Date(s);
-      d.setDate(s.getDate() + i);
-      const iso = toISODateLocal(d);
-      const base = grouped[iso] ?? {
-        iso,
-        label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-        planned: 0,
-        completed: 0,
-      };
-      series.push(base);
-    }
+    // Build series - limit to last 30 entries for readability
+    const sortedKeys = Object.keys(grouped).sort();
+    const limitedKeys = sortedKeys.slice(-30);
+    const series = limitedKeys.map(k => grouped[k]);
 
     const daysElapsed = Math.max(1, daysBetween(start, new Date()) + 1);
     const velocity = completed / daysElapsed;
-    const etaDays = velocity > 0 ? Math.round(pending / velocity) : null;
 
     return {
       start,
@@ -189,7 +174,6 @@ const StatisticsView: React.FC = () => {
       pri,
       series,
       velocity: Number.isFinite(velocity) ? velocity : 0,
-      etaDays,
     };
   }, [plans, timeRange]);
 
@@ -257,22 +241,22 @@ const StatisticsView: React.FC = () => {
         </div>
 
         <div className="inline-flex items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 shadow-sm">
-          <SlidersHorizontal size={18} className="text-gray-500" />
+          <SlidersHorizontal size={18} className="text-gray-500 dark:text-gray-400" />
           <select
             value={timeRange}
             onChange={handleTimeRange}
             className="bg-transparent text-sm font-semibold text-gray-800 dark:text-gray-200 focus:outline-none"
           >
+            <option value="all">{t('statistics.allTime') || 'Összes'}</option>
             <option value="week">{t('statistics.thisWeek') || 'Ez a hét'}</option>
             <option value="month">{t('statistics.thisMonth') || 'Ez a hónap'}</option>
             <option value="year">{t('statistics.thisYear') || 'Ez az év'}</option>
-            <option value="all">{t('statistics.allTime') || 'Összes'}</option>
           </select>
         </div>
       </div>
 
-      {/* KPI Grid */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {/* KPI Grid - Only 2 cards now */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <KpiCard
           icon={<ClipboardList size={18} />}
           title="Feladat teljesítés"
@@ -288,14 +272,6 @@ const StatisticsView: React.FC = () => {
           sub={`${goalEngine.active.length} aktív • ${goalEngine.done.length} lezárt`}
           tone="emerald"
         />
-
-        <KpiCard
-          icon={taskEngine.etaDays !== null ? <CalendarDays size={18} /> : <AlertCircle size={18} />}
-          title="Befejezési tempó"
-          value={taskEngine.etaDays !== null ? `${taskEngine.etaDays} nap` : '—'}
-          sub={taskEngine.etaDays !== null ? `ETA a függő feladatokra` : `Nincs még stabil tempó`}
-          tone="amber"
-        />
       </div>
 
       {/* Main layout */}
@@ -305,36 +281,36 @@ const StatisticsView: React.FC = () => {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-black text-gray-900 dark:text-white">Feladat trend</h2>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                 Tervezett vs. elkészült a kiválasztott időszakban.
               </p>
             </div>
-            <div className="inline-flex items-center gap-2 rounded-2xl bg-gray-50 dark:bg-gray-800 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200">
+            <div className="inline-flex items-center gap-2 rounded-2xl bg-gray-50 dark:bg-gray-800 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
               <BadgeCheck size={16} className="text-emerald-500" />
               <span>{taskEngine.velocity.toFixed(2)} kész/nap</span>
             </div>
           </div>
 
           <div className="mt-6 h-[300px]">
-            {taskEngine.series.some(x => x.planned > 0 || x.completed > 0) ? (
+            {taskEngine.series.length > 0 && taskEngine.series.some(x => x.planned > 0 || x.completed > 0) ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={taskEngine.series} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#374151' : '#e5e7eb'} vertical={false} />
                   <XAxis
                     dataKey="label"
-                    tick={{ fill: isDark ? '#9ca3af' : '#6b7280', fontSize: 12 }}
+                    tick={{ fill: isDark ? '#d1d5db' : '#6b7280', fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
-                    tick={{ fill: isDark ? '#9ca3af' : '#6b7280', fontSize: 12 }}
+                    tick={{ fill: isDark ? '#d1d5db' : '#6b7280', fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
                     allowDecimals={false}
                   />
                   <Tooltip content={<FancyTooltip />} cursor={{ fill: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }} />
-                  <Legend iconType="circle" />
-                  <Bar dataKey="planned" name="Tervezett" fill={isDark ? '#334155' : '#e2e8f0'} radius={[6, 6, 0, 0]} />
+                  <Legend iconType="circle" wrapperStyle={{ color: isDark ? '#d1d5db' : '#374151' }} />
+                  <Bar dataKey="planned" name="Tervezett" fill={isDark ? '#475569' : '#e2e8f0'} radius={[6, 6, 0, 0]} />
                   <Bar dataKey="completed" name="Elkészült" fill="#10b981" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -361,13 +337,13 @@ const StatisticsView: React.FC = () => {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-black text-gray-900 dark:text-white">Célok fókusz</h2>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                 Aktív célok állapota és a haladás eloszlása.
               </p>
             </div>
             <div className="text-right">
               <div className="text-2xl font-black text-gray-900 dark:text-white">{goalEngine.avgActiveProgress}%</div>
-              <div className="text-xs font-semibold text-gray-500">átlag aktív cél</div>
+              <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">átlag aktív cél</div>
             </div>
           </div>
 
@@ -386,7 +362,7 @@ const StatisticsView: React.FC = () => {
                         <div className="flex items-center justify-between gap-4">
                           <div className="min-w-0">
                             <div className="truncate font-semibold text-gray-900 dark:text-white">{title}</div>
-                            <div className="mt-0.5 text-xs text-gray-500">Aktív</div>
+                            <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Aktív</div>
                           </div>
                           <div className="text-sm font-black text-gray-900 dark:text-white">{prog}%</div>
                         </div>
@@ -421,11 +397,11 @@ const StatisticsView: React.FC = () => {
                         ))}
                       </Pie>
                       <Tooltip content={<FancyTooltip />} />
-                      <Legend verticalAlign="bottom" height={36} />
+                      <Legend verticalAlign="bottom" height={36} wrapperStyle={{ color: isDark ? '#d1d5db' : '#374151' }} />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-sm text-gray-500">
+                  <div className="h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
                     Nincs elég adat
                   </div>
                 )}
@@ -458,9 +434,9 @@ const KpiCard: React.FC<{
     <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="text-xs font-bold uppercase tracking-wider text-gray-500">{title}</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{title}</div>
           <div className="mt-2 text-3xl font-black text-gray-900 dark:text-white">{value}</div>
-          <div className="mt-1 text-sm text-gray-600 dark:text-gray-300">{sub}</div>
+          <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">{sub}</div>
         </div>
         <div className={`rounded-2xl bg-gradient-to-br ${tones[tone]} p-3 text-white shadow-lg`}>
           {icon}
@@ -481,7 +457,7 @@ const MiniStat: React.FC<{ label: string; value: string; tone: 'indigo' | 'emera
 
   return (
     <div className={`rounded-2xl border ${bg[tone]} px-4 py-3`}>
-      <div className="text-xs font-bold uppercase tracking-wider text-gray-500">{label}</div>
+      <div className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{label}</div>
       <div className="mt-1 text-xl font-black text-gray-900 dark:text-white">{value}</div>
     </div>
   );
