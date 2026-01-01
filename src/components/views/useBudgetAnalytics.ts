@@ -33,6 +33,17 @@ export const useBudgetAnalytics = (
         return dt.getTime() > now.getTime();
     };
 
+    // Helper to safely add months preventing date drift (e.g. Jan 31 -> Feb 28/29, not Mar 2)
+    const addMonthsClamped = (d: Date, months: number) => {
+        const date = new Date(d);
+        const day = date.getDate();
+        date.setMonth(date.getMonth() + months);
+        if (date.getDate() !== day) {
+            date.setDate(0);
+        }
+        return date;
+    };
+
     /**
      * Projiciálja a tranzakció előfordulásait egy adott időtartamra.
      * @param tr A tranzakció sablon (master)
@@ -52,8 +63,16 @@ export const useBudgetAnalytics = (
         let count = 0;
         const current = new Date(trDate);
 
+        // Safety brake: calculate approx max steps to avoid infinite loops if logic fails
+        // Daily: ~366/year. 50 years = ~18k steps. 1000 was too low.
+        // Let's use a dynamic safety break based on time diff.
+        const dayDiff = Math.ceil((end.getTime() - current.getTime()) / (24 * 3600 * 1000));
+        const maxSteps = Math.max(1000, dayDiff + 100);
+        let steps = 0;
+
         // Léptetés a periódus alapján
-        while (current.getTime() <= end.getTime()) {
+        while (current.getTime() <= end.getTime() && steps < maxSteps) {
+            steps++;
             if (current.getTime() >= start.getTime()) {
                 count++;
             }
@@ -62,13 +81,14 @@ export const useBudgetAnalytics = (
             switch (tr.period) {
                 case 'daily': current.setDate(current.getDate() + 1); break;
                 case 'weekly': current.setDate(current.getDate() + 7); break;
-                case 'monthly': current.setMonth(current.getMonth() + 1); break;
+                case 'monthly': {
+                    const next = addMonthsClamped(current, 1);
+                    current.setTime(next.getTime());
+                    break;
+                }
                 case 'yearly': current.setFullYear(current.getFullYear() + 1); break;
                 default: return count; // oneTime vagy ismeretlen
             }
-
-            // Végtelen ciklus elleni védelem (max 1000 előfordulás / év)
-            if (count > 1000) break;
         }
 
         return count;
@@ -91,8 +111,24 @@ export const useBudgetAnalytics = (
                 if (isMaster(tr) && now) {
                     const trDate = toDateSafe(tr.date);
                     if (trDate) {
+                        // For totals, we usually want "what is the impact". 
+                        // If "Volume" means "Periodic Monthly Equivalent", this logic is tricky.
+                        // But current logic seems to be "All occurrences from start to NOW" for Cash?
+                        // And for Volume (Planned), we rely on `includeFutureMaster`.
+
+                        // User feedback: "Master esetén start paraméter gyanús".
+                        // Logic decision:
+                        // Cash (Realized): sum occurrences strictly <= NOW.
+                        // Volume (Planned): sum occurrences <= NOW (to include past) + maybe future?
+                        // Actually, Volume usually means "Total booked + Planned".
+                        // The original code passed `now` as end date for sumByType.
+                        // That implies sumByType calculates "Historical Total".
+
                         let occurrences = calculateOccurrences(tr, trDate, now);
-                        // PhD: Ha jövőbeli az első alkalom is, de tervezett adatot számolunk, vegyünk bele legalább egyet
+
+                        // PhD fix: If it's a future plan, count it as 1 for "Projected Volume" visualization?
+                        // Or if it's strictly a historical sum, leave it.
+                        // The original code had:
                         if (includeFutureMaster && occurrences === 0 && isFuture(tr, now)) {
                             occurrences = 1;
                         }
@@ -114,15 +150,28 @@ export const useBudgetAnalytics = (
         }
         const now = endOfToday();
 
-        // 1) All valid transactions -> Shown in list 
-        const volumeTransactions = transactions;
+        // 1) Cash-in-hand transactions: Realized (non-future) non-master transactions
+        // Master templates themselves are NOT realized cash. Only their generated instances would be.
+        // If we only have Master templates and NO generated instances, then Cash Balance should effectively ignore Master
+        // UNLESS we are simulating that "Master implies auto-generated".
+        // Current app logic seems to reuse Master as "Active Subscription". 
+        // Ideally, we sum their "occurrences up to now". 
+
+        // Filter out master templates from "raw list view" to avoid duplicates if specific instances exist.
+        // But if instances do NOT exist, we show Master? 
+        // User said: "volumeTransactions NEM exclude-olja a mastereket".
+        // Fix: Exclude master from the list returned to UI for "Recent Transactions", 
+        // but keep them for calculation if they represent valid recurring rules.
+
+        const volumeTransactions = transactions.filter(tr => !isMaster(tr));
 
         // 2) Cash-in-hand transactions (Strictly realized)
-        const cashTransactions = transactions.filter(tr => !isFuture(tr, now));
+        const cashTransactions = transactions.filter(tr => !isFuture(tr, now) && !isMaster(tr));
 
         // Cash flow totals (for Balance)
-        const cashIncome = sumByType(cashTransactions, 'income', now);
-        const cashExpense = sumByType(cashTransactions, 'expense', now);
+        // We iterate ALL transactions to sum up master occurrences + single transactions
+        const cashIncome = sumByType(transactions, 'income', now);
+        const cashExpense = sumByType(transactions, 'expense', now);
 
         // Volume/Planned totals (for Cards) - EVERYTHING included
         const volumeIncome = sumByType(transactions, 'income', now, true);

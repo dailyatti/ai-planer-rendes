@@ -16,6 +16,7 @@ import { useData } from '../../contexts/DataContext';
 import { Transaction, TransactionPeriod } from '../../types/planner';
 import { AVAILABLE_CURRENCIES } from '../../constants/currencyData';
 import { CurrencyService } from '../../services/CurrencyService';
+import { parseMoneyInput } from '../../utils/numberUtils';
 
 const BudgetView: React.FC = () => {
   const { t, language } = useLanguage();
@@ -170,10 +171,22 @@ const BudgetView: React.FC = () => {
   const handleAddTransaction = () => {
     if (!newTransaction.description || !newTransaction.amount) return;
 
-    const sanitizedAmount = newTransaction.amount.replace(/,/g, '.');
-    const amount = parseFloat(sanitizedAmount);
+    const amount = parseMoneyInput(newTransaction.amount);
 
-    if (isNaN(amount)) {
+    if (amount === 0 && newTransaction.amount !== '0') {
+      // Only alert if it's truly invalid, but allow 0 if explicitly typed? 
+      // Actually user logic said "valid number". 
+      // Let's keep a basic check but rely on parser.
+      // The parser returns 0 for invalid.
+      // We might want to block empty/invalid inputs if that was the intent.
+    }
+
+    // Checks handled by parser mainly.
+    // Ensure we don't proceed with 0 if that's not allowed? 
+    // Original code checked isNaN(amount). parseMoneyInput returns 0 on failure.
+    // If user enters "abc", it returns 0.
+
+    if (amount === 0 && newTransaction.amount?.trim() !== '' && newTransaction.amount !== '0' && newTransaction.amount !== '0,00' && newTransaction.amount !== '0.00') {
       alert("Kérlek adj meg egy érvényes számot!");
       return;
     }
@@ -191,6 +204,13 @@ const BudgetView: React.FC = () => {
       }
     }
 
+    // Handle Interest Rate
+    let finalInterestRate: number | undefined = undefined;
+    if (newTransaction.interestRate !== undefined && newTransaction.interestRate !== '') {
+      finalInterestRate = parseMoneyInput(newTransaction.interestRate);
+    }
+
+    // Create transaction payload
     const transactionPayload = {
       description: newTransaction.description,
       amount: transactionType === 'expense' ? -Math.abs(amount) : Math.abs(amount),
@@ -201,7 +221,7 @@ const BudgetView: React.FC = () => {
       period: newTransaction.period,
       recurring: isRecurring,
       kind: isRecurring ? 'master' as const : undefined,
-      interestRate: parseFloat(newTransaction.interestRate.replace(/,/g, '.')) || undefined
+      interestRate: finalInterestRate
     };
 
     if (editingTransaction) {
