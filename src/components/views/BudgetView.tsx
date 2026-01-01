@@ -20,7 +20,7 @@ import { parseMoneyInput } from '../../utils/numberUtils';
 
 const BudgetView: React.FC = () => {
   const { t, language } = useLanguage();
-  const { transactions = [], addTransaction, updateTransaction, deleteTransaction } = useData();
+  const { transactions = [], addTransaction, updateTransaction, deleteTransaction, deleteTransactions } = useData();
 
   // --- Állapotkezelés (State) ---
   const [currency, setCurrency] = useState<string>('USD');
@@ -173,26 +173,18 @@ const BudgetView: React.FC = () => {
 
     const amount = parseMoneyInput(newTransaction.amount);
 
-    if (amount === 0 && newTransaction.amount !== '0') {
-      // Only alert if it's truly invalid, but allow 0 if explicitly typed? 
-      // Actually user logic said "valid number". 
-      // Let's keep a basic check but rely on parser.
-      // The parser returns 0 for invalid.
-      // We might want to block empty/invalid inputs if that was the intent.
-    }
-
-    // Checks handled by parser mainly.
-    // Ensure we don't proceed with 0 if that's not allowed? 
-    // Original code checked isNaN(amount). parseMoneyInput returns 0 on failure.
-    // If user enters "abc", it returns 0.
-
     if (amount === 0 && newTransaction.amount?.trim() !== '' && newTransaction.amount !== '0' && newTransaction.amount !== '0,00' && newTransaction.amount !== '0.00') {
       alert("Kérlek adj meg egy érvényes számot!");
       return;
     }
 
     const isRecurring = newTransaction.period !== 'oneTime';
-    let transactionDate = new Date(newTransaction.date);
+
+    // PhD Fix: Local date handling to prevent UTC offset issues
+    // newTransaction.date is "YYYY-MM-DD"
+    const [y, m, d] = newTransaction.date.split('-').map(Number);
+    // Explicitly create date in local timezone: year, monthIndex (0-11), day
+    let transactionDate = new Date(y, m - 1, d);
 
     // Ha nem adjuk hozzá azonnal az egyenleghez (csak ismétlődőnél), eltoljuk a kezdő dátumot
     if (isRecurring && !addToBalanceImmediately && !editingTransaction) {
@@ -217,13 +209,14 @@ const BudgetView: React.FC = () => {
       category: newTransaction.category,
       type: transactionType,
       currency: newTransaction.currency,
-      date: transactionDate.toISOString().split('T')[0],
+      date: transactionDate.toISOString().split('T')[0], // Back to ISO for storage
       period: newTransaction.period,
       recurring: isRecurring,
       kind: isRecurring ? 'master' as const : undefined,
       interestRate: finalInterestRate
     };
 
+    // Note: addTransaction/updateTransaction updates are optimistic/sync in DataContext normally
     if (editingTransaction) {
       updateTransaction(editingTransaction.id, transactionPayload);
     } else {
@@ -251,7 +244,6 @@ const BudgetView: React.FC = () => {
   };
 
   // Tranzakció lista szűrése
-  // Tranzakció lista szűrése
   const filteredTransactions = useMemo(() => {
     // 1) Alap szűrés: Mutassunk MINDEN tranzakciót (Master-t is), hogy a felhasználó lássa amit felvett
     let filtered = transactions || [];
@@ -272,7 +264,7 @@ const BudgetView: React.FC = () => {
 
     // Sortálás: Dátum csökkenő (legújabb elöl)
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [volumeTransactions, searchTerm, filterCategory]);
+  }, [transactions, searchTerm, filterCategory]); // Depend on transactions not volumeTransactions
 
   const getPeriodLabel = (period: TransactionPeriod = 'oneTime') => {
     const labels: Record<TransactionPeriod, string> = {
@@ -306,38 +298,60 @@ const BudgetView: React.FC = () => {
     setSelectedTransactions(new Set());
   };
 
-  // Időszak alapú statisztika törléshez
+  // PhD Fix: Optimized single-pass reduce for period counts
   const periodCounts = useMemo(() => {
-    const visibleTx = (transactions || []); // Most már minden látható (template is)
-    return {
-      daily: visibleTx.filter(t => t.period === 'daily').length,
-      weekly: visibleTx.filter(t => t.period === 'weekly').length,
-      monthly: visibleTx.filter(t => t.period === 'monthly').length,
-      yearly: visibleTx.filter(t => t.period === 'yearly').length,
-      oneTime: visibleTx.filter(t => t.period === 'oneTime').length,
+    const visibleTx = (transactions || []);
+
+    // Default counts
+    const counts = {
+      daily: 0,
+      weekly: 0,
+      monthly: 0,
+      yearly: 0,
+      oneTime: 0,
       all: visibleTx.length
     };
+
+    return visibleTx.reduce((acc, t) => {
+      const p = t.period || 'oneTime'; // Safeguard
+      if (acc[p] !== undefined) {
+        acc[p]++;
+      }
+      return acc;
+    }, counts);
   }, [transactions]);
 
-  // Tömeges törlés kezelők
+  // Tömeges törlés kezelők (PhD Fix: Use Bulk Delete)
   const handleDeleteSelected = () => {
-    selectedTransactions.forEach(id => deleteTransaction(id));
-    setSelectedTransactions(new Set());
-    setShowDeleteConfirm(null);
-  };
-
-  const handleDeleteByPeriod = (period: TransactionPeriod | 'all') => {
-    // PhD Fix: Delete ALL transactions including master templates
-    const allTx = transactions || [];
-    if (period === 'all') {
-      allTx.forEach(t => deleteTransaction(t.id));
+    if (deleteTransactions) {
+      deleteTransactions(Array.from(selectedTransactions));
     } else {
-      allTx.filter(t => t.period === period).forEach(t => deleteTransaction(t.id));
+      // Fallback if provider not ready
+      selectedTransactions.forEach(id => deleteTransaction(id));
     }
     setSelectedTransactions(new Set());
     setShowDeleteConfirm(null);
   };
 
+  const handleDeleteByPeriod = (period: TransactionPeriod | 'all') => {
+    const allTx = transactions || [];
+    let idsToDelete: string[] = [];
+
+    if (period === 'all') {
+      idsToDelete = allTx.map(t => t.id);
+    } else {
+      idsToDelete = allTx.filter(t => t.period === period).map(t => t.id);
+    }
+
+    if (deleteTransactions) {
+      deleteTransactions(idsToDelete);
+    } else {
+      idsToDelete.forEach(id => deleteTransaction(id));
+    }
+
+    setSelectedTransactions(new Set());
+    setShowDeleteConfirm(null);
+  };
   // --- Renderelés (JSX) ---
 
   return (

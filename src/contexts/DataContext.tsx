@@ -39,6 +39,7 @@ interface DataContextType {
   addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
   updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
+  deleteTransactions: (ids: string[]) => void;
   addInvoice: (invoice: Invoice) => void;
   updateInvoice: (id: string, updates: Partial<Invoice>) => void;
   deleteInvoice: (id: string) => void;
@@ -393,6 +394,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  const deleteTransactions = (ids: string[]) => {
+    setTransactions(prev => {
+      const idsSet = new Set(ids);
+      // Identify masters to delete children efficiently
+      const mastersToDelete = new Set(
+        prev.filter(t => idsSet.has(t.id) && isMasterTx(t)).map(t => t.id)
+      );
+
+      return prev.filter(t => {
+        // Drop if ID is in list
+        if (idsSet.has(t.id)) return false;
+        // Drop if it's a child of a deleted master
+        if ((t as any).originId && mastersToDelete.has((t as any).originId)) return false;
+        return true;
+      });
+    });
+  };
+
   const addInvoice = (inv: Invoice) => setInvoices(prev => [...prev, inv]);
   const updateInvoice = (id: string, updates: Partial<Invoice>) => setInvoices(prev => prev.map(i => (i.id === id ? { ...i, ...updates } : i)));
   const deleteInvoice = (id: string) => setInvoices(prev => prev.filter(i => i.id !== id));
@@ -432,6 +451,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addTransaction,
         updateTransaction,
         deleteTransaction,
+        deleteTransactions,
         invoices,
         clients,
         companyProfiles,
