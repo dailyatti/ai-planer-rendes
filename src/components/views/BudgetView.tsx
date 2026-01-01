@@ -464,7 +464,7 @@ const BudgetView: React.FC = () => {
                 <ArrowUpRight size={16} className="text-white" />
               </div>
               <div className="text-blue-100 text-[10px] font-medium px-1.5 py-0.5 bg-white/10 rounded-md backdrop-blur-sm uppercase tracking-wide">
-                Bevételek
+                Bevételek (1 Év)
               </div>
             </div>
             <div className="mt-2 z-10">
@@ -473,7 +473,7 @@ const BudgetView: React.FC = () => {
               </h3>
               <div className="flex items-center gap-1 mt-0.5 text-blue-100 text-xs font-medium">
                 <TrendingUp size={12} />
-                <span>Összes bevétel</span>
+                <span>Tervezett bevétel</span>
               </div>
             </div>
             <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-3 translate-y-3 group-hover:scale-110 transition-transform duration-500">
@@ -489,7 +489,7 @@ const BudgetView: React.FC = () => {
                 <ArrowDownRight size={16} className="text-white" />
               </div>
               <div className="text-red-100 text-[10px] font-medium px-1.5 py-0.5 bg-white/10 rounded-md backdrop-blur-sm uppercase tracking-wide">
-                Kiadások
+                Kiadások (1 Év)
               </div>
             </div>
             <div className="mt-2 z-10">
@@ -498,7 +498,7 @@ const BudgetView: React.FC = () => {
               </h3>
               <div className="flex items-center gap-1 mt-0.5 text-red-100 text-xs font-medium">
                 <TrendingDown size={12} />
-                <span>Összes kiadás</span>
+                <span>Tervezett kiadás</span>
               </div>
             </div>
             <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-3 translate-y-3 group-hover:scale-110 transition-transform duration-500">
