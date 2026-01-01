@@ -84,11 +84,46 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // FIX #4: Guard ref to prevent infinite loops when transactions is in dependency
   const processingRecurringRef = React.useRef(false);
 
+  // Helper functions within DataProvider context
+  const endOfToday = () => {
+    const d = new Date();
+    d.setHours(23, 59, 59, 999);
+    return d;
+  };
+
+  // Prevent date drift for monthly (Jan 31 -> Feb 28/29)
+  const addMonthsClamped = (d: Date, months: number) => {
+    const date = new Date(d);
+    const day = date.getDate();
+    date.setMonth(date.getMonth() + months);
+    if (date.getDate() !== day) {
+      date.setDate(0);
+    }
+    return date;
+  };
+
+  const advanceByPeriod = (d: Date, period: Transaction['period']) => {
+    const next = new Date(d);
+    switch (period) {
+      case 'daily': next.setDate(next.getDate() + 1); break;
+      case 'weekly': next.setDate(next.getDate() + 7); break;
+      case 'monthly': {
+        const m = addMonthsClamped(next, 1);
+        next.setTime(m.getTime());
+        break;
+      }
+      case 'yearly': next.setFullYear(next.getFullYear() + 1); break;
+      default: next.setDate(next.getDate() + 1); break;
+    }
+    return next;
+  };
+
+  const isMasterTx = (t: Transaction) => (t as any).kind === 'master';
+
   // Load persisted data
   useEffect(() => {
     const loadData = () => {
       try {
-        // ... (loading logic) ...
         const savedNotes = StorageService.get<Note[]>('notes', []);
         if (savedNotes) setNotes(savedNotes.map(n => ({ ...n, createdAt: new Date(n.createdAt) })));
 
@@ -110,7 +145,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (savedSubscriptions) setSubscriptions(savedSubscriptions.map(s => ({ ...s, nextPayment: new Date(s.nextPayment), createdAt: new Date(s.createdAt) })));
 
         const savedTransactions = StorageService.get<Transaction[]>('transactions', []);
-        if (savedTransactions) setTransactions(savedTransactions.map(t => ({ ...t, date: new Date(t.date) })));
+        if (savedTransactions) {
+          setTransactions(savedTransactions.map(t => ({
+            ...t,
+            date: new Date(t.date),
+            // Consistency Fix: Ensure all recurring transactions have kind='master'
+            kind: (t.recurring && t.period !== 'oneTime' && !t.kind) ? 'master' : t.kind
+          })));
+        }
 
         const savedInvoices = StorageService.get<Invoice[]>('invoices', []);
         if (savedInvoices) setInvoices(savedInvoices.map(i => ({
@@ -134,15 +176,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (!hasMigrated) {
           console.log('Performing one-time migration to USD default...');
-          // Force settings to USD even if saved as HUF
           savedSettings = {
             ...(savedSettings || { monthlyBudget: 0, notifications: true, warningThreshold: 80 }),
             currency: 'USD'
           };
-          // Also force language to EN? Language is handled in LanguageContext but we can try to hint it here? 
-          // LanguageContext loads independently. We focus on Budget Settings here.
           localStorage.setItem(MIGRATION_KEY, 'true');
-          // Force save immediately to overwrite old value
           StorageService.set('budget-settings', savedSettings);
         }
 
@@ -164,93 +202,88 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const runway = computeRunway();
     setFinancialStats({ projection, runway });
   }, [transactions, invoices, isInitialized]);
+
+  // Recurring Processing Effect
   useEffect(() => {
     if (!isInitialized) return;
-    // FIX #4: Prevent re-entry while processing
     if (processingRecurringRef.current) return;
 
-    const processRecurring = () => {
-      const now = new Date();
-      now.setHours(23, 59, 59, 999);
-
-      let hasChanges = false;
-      const newHistoryTransactions: Transaction[] = [];
-
-      const updatedTransactions = transactions.map(tr => {
-        if (!tr.recurring || tr.period === 'oneTime') return tr;
-
-        const trDate = new Date(tr.date);
-        if (trDate.getTime() > now.getTime()) return tr;
-
-        let currentDate = new Date(trDate);
-        let nextDate = new Date(trDate);
-        // Mark master with kind: 'master'
-        let modifiedMaster = { ...tr, kind: 'master' as const };
-        let iterations = 0;
-        const MAX_CATCHUP = 120;
-
-        hasChanges = true;
-
-        while (currentDate.getTime() <= now.getTime() && iterations < MAX_CATCHUP) {
-          // Deterministic history ID based on master ID + date
-          const dayKey = new Date(currentDate).toISOString().slice(0, 10);
-          const historyId = `${tr.id}_${dayKey}`;
-
-          // Check if this history already exists (duplicate prevention)
-          const alreadyExists = transactions.some(x => x.id === historyId);
-
-          if (!alreadyExists) {
-            const historyItem: Transaction = {
-              ...tr,
-              id: historyId,
-              originId: tr.id, // Link back to master
-              kind: 'history', // Mark as history (actual payment)
-              date: new Date(currentDate),
-              recurring: false,
-            };
-            newHistoryTransactions.push(historyItem);
-          }
-
-          switch (tr.period) {
-            case 'daily':
-              nextDate.setDate(nextDate.getDate() + 1);
-              break;
-            case 'weekly':
-              nextDate.setDate(nextDate.getDate() + 7);
-              break;
-            case 'monthly':
-              nextDate.setMonth(nextDate.getMonth() + 1);
-              break;
-            case 'yearly':
-              nextDate.setFullYear(nextDate.getFullYear() + 1);
-              break;
-            default:
-              nextDate.setDate(nextDate.getDate() + 1);
-              break;
-          }
-
-          currentDate = new Date(nextDate);
-          iterations++;
-        }
-
-        modifiedMaster.date = new Date(nextDate);
-        return modifiedMaster;
-      });
-
-      // Only update if there are actual new history items to add
-      if (hasChanges && newHistoryTransactions.length > 0) {
-        setTransactions([...updatedTransactions, ...newHistoryTransactions]);
-      }
-    };
-
     processingRecurringRef.current = true;
+
     try {
-      processRecurring();
+      setTransactions(prev => {
+        if (!prev || prev.length === 0) return prev;
+
+        const now = endOfToday();
+        // quick lookup existing ids to avoid O(n^2)
+        const existingIds = new Set(prev.map(t => t.id));
+
+        let changed = false;
+        const newHistory: Transaction[] = [];
+
+        const updated = prev.map(tr => {
+          // only recurring masters should be processed
+          if (!tr.recurring || tr.period === 'oneTime') return tr;
+
+          // ensure master kind
+          const master: Transaction = { ...tr, kind: 'master' as const };
+
+          const trDate = new Date(master.date);
+          if (Number.isNaN(trDate.getTime())) return master;
+
+          // If master next date is in the future -> nothing to catch up
+          if (trDate.getTime() > now.getTime()) return master;
+
+          // Safety brake depending on period (daily can be many)
+          const MAX_CATCHUP =
+            master.period === 'daily' ? 3660 : // ~10 years daily
+              master.period === 'weekly' ? 1040 : // ~20 years weekly
+                master.period === 'monthly' ? 600 : // 50 years
+                  200; // yearly etc
+
+          let currentDate = new Date(trDate);
+          let nextDate = new Date(trDate);
+          let iterations = 0;
+
+          // Catch-up: create history for each occurrence up to today
+          while (currentDate.getTime() <= now.getTime() && iterations < MAX_CATCHUP) {
+            const dayKey = new Date(currentDate).toISOString().slice(0, 10);
+            const historyId = `${master.id}_${dayKey}`;
+
+            if (!existingIds.has(historyId)) {
+              existingIds.add(historyId);
+              newHistory.push({
+                ...master,
+                id: historyId,
+                originId: master.id,
+                kind: 'history',
+                date: new Date(currentDate),
+                recurring: false,
+              });
+              changed = true;
+            }
+
+            const next = advanceByPeriod(nextDate, master.period);
+            nextDate = new Date(next);
+            currentDate = new Date(nextDate);
+            iterations++;
+          }
+
+          // IMPORTANT FIX: master.date must advance even if no new history was created
+          if (new Date(master.date).getTime() !== new Date(nextDate).getTime()) {
+            changed = true;
+          }
+
+          return { ...master, date: new Date(nextDate) };
+        });
+
+        if (!changed) return prev;
+        return [...updated, ...newHistory];
+      });
     } finally {
       processingRecurringRef.current = false;
     }
-
-  }, [isInitialized, transactions]); // FIX #4: transactions back in dependency with guard
+  }, [isInitialized]); // Run once after init (and internally manages its own updates via callback)
 
   // Financial helper functions
   const computeProjection = (months: number) => {
@@ -323,9 +356,42 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateBudgetSettings = (settings: Partial<BudgetSettings>) => setBudgetSettings(prev => ({ ...prev, ...settings }));
 
-  const addTransaction = (tx: Omit<Transaction, 'id'>) => setTransactions(prev => [...prev, { ...tx, id: Math.random().toString(36).substr(2, 9) }]);
-  const updateTransaction = (id: string, updates: Partial<Transaction>) => setTransactions(prev => prev.map(t => (t.id === id ? { ...t, ...updates } : t)));
-  const deleteTransaction = (id: string) => setTransactions(prev => prev.filter(t => t.id !== id));
+  const addTransaction = (tx: Omit<Transaction, 'id'>) => {
+    setTransactions(prev => {
+      const id = Math.random().toString(36).substr(2, 9);
+      const isRecurring = (tx as any).recurring && (tx as any).period !== 'oneTime';
+      // Auto-set kind='master' if recurring
+      const kind = isRecurring ? ('master' as const) : (tx as any).kind;
+      return [...prev, { ...tx, id, kind }];
+    });
+  };
+
+  const updateTransaction = (id: string, updates: Partial<Transaction>) => {
+    setTransactions(prev =>
+      prev.map(t => {
+        if (t.id !== id) return t;
+        const merged = { ...t, ...updates };
+        // keep master kind if it was master
+        if (isMasterTx(t)) (merged as any).kind = 'master';
+        return merged;
+      })
+    );
+  };
+
+  const deleteTransaction = (id: string) => {
+    setTransactions(prev => {
+      const target = prev.find(t => t.id === id);
+      if (!target) return prev;
+
+      if (isMasterTx(target)) {
+        // delete master + all history generated from it
+        return prev.filter(t => t.id !== id && (t as any).originId !== id);
+      }
+
+      // delete single/history
+      return prev.filter(t => t.id !== id);
+    });
+  };
 
   const addInvoice = (inv: Invoice) => setInvoices(prev => [...prev, inv]);
   const updateInvoice = (id: string, updates: Partial<Invoice>) => setInvoices(prev => prev.map(i => (i.id === id ? { ...i, ...updates } : i)));

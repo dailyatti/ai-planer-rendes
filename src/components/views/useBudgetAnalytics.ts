@@ -100,7 +100,7 @@ export const useBudgetAnalytics = (
     }, [currency, safeConvert]);
 
     const sumByType = useCallback(
-        (txs: Transaction[], type: 'income' | 'expense', now?: Date, includeFutureMaster?: boolean) => {
+        (txs: Transaction[], type: 'income' | 'expense') => {
             if (!txs || txs.length === 0) return 0;
             let total = 0;
 
@@ -108,39 +108,16 @@ export const useBudgetAnalytics = (
                 const from = ensureCurrency((tr as any).currency);
                 const baseAmount = absToView(tr.amount, from);
 
-                if (isMaster(tr) && now) {
-                    const trDate = toDateSafe(tr.date);
-                    if (trDate) {
-                        // For totals, we usually want "what is the impact". 
-                        // If "Volume" means "Periodic Monthly Equivalent", this logic is tricky.
-                        // But current logic seems to be "All occurrences from start to NOW" for Cash?
-                        // And for Volume (Planned), we rely on `includeFutureMaster`.
-
-                        // User feedback: "Master esetén start paraméter gyanús".
-                        // Logic decision:
-                        // Cash (Realized): sum occurrences strictly <= NOW.
-                        // Volume (Planned): sum occurrences <= NOW (to include past) + maybe future?
-                        // Actually, Volume usually means "Total booked + Planned".
-                        // The original code passed `now` as end date for sumByType.
-                        // That implies sumByType calculates "Historical Total".
-
-                        let occurrences = calculateOccurrences(tr, trDate, now);
-
-                        // PhD fix: If it's a future plan, count it as 1 for "Projected Volume" visualization?
-                        // Or if it's strictly a historical sum, leave it.
-                        // The original code had:
-                        if (includeFutureMaster && occurrences === 0 && isFuture(tr, now)) {
-                            occurrences = 1;
-                        }
-                        total += baseAmount * occurrences;
-                    }
+                if (isMaster(tr)) {
+                    // Logic Fix: DataContext creates "history" items for past occurrences.
+                    // So Master contributes 0 to "Realized/Current" totals to avoid double counting.
                 } else {
                     total += baseAmount;
                 }
             });
             return total;
         },
-        [absToView, calculateOccurrences, ensureCurrency, isFuture, isMaster, toDateSafe]
+        [absToView, ensureCurrency, isMaster]
     );
 
     // Aggregations
@@ -169,13 +146,14 @@ export const useBudgetAnalytics = (
         const cashTransactions = transactions.filter(tr => !isFuture(tr, now) && !isMaster(tr));
 
         // Cash flow totals (for Balance)
-        // We iterate ALL transactions to sum up master occurrences + single transactions
-        const cashIncome = sumByType(transactions, 'income', now);
-        const cashExpense = sumByType(transactions, 'expense', now);
+        // We iterate cashTransactions which already excludes masters and future items
+        const cashIncome = sumByType(cashTransactions, 'income');
+        const cashExpense = sumByType(cashTransactions, 'expense');
 
-        // Volume/Planned totals (for Cards) - EVERYTHING included
-        const volumeIncome = sumByType(transactions, 'income', now, true);
-        const volumeExpense = sumByType(transactions, 'expense', now, true);
+        // Volume/Planned totals (for Cards) - EVERYTHING included (except Master templates, to avoid double counting past)
+        // This will include Future One-Time items, but NOT Future Master occurrences (as per current strict fix).
+        const volumeIncome = sumByType(transactions, 'income');
+        const volumeExpense = sumByType(transactions, 'expense');
 
         return {
             totalIncome: volumeIncome,
@@ -189,26 +167,14 @@ export const useBudgetAnalytics = (
     const getTransactionAmountsByCurrency = (type: 'income' | 'expense') => {
         const result: Record<string, number> = {};
         if (!transactions) return result;
-        const now = endOfToday();
 
+        // Fix: Exclude masters to avoid double counting (DataContext generates history)
         transactions
-            .filter(tr => tr.type === type)
+            .filter(tr => tr.type === type && !isMaster(tr))
             .forEach(tr => {
                 const trCurrency = (tr as any).currency || 'USD';
                 const amount = Math.abs(tr.amount);
-
-                if (isMaster(tr)) {
-                    const trDate = toDateSafe(tr.date);
-                    if (trDate) {
-                        let occurrences = calculateOccurrences(tr, trDate, now);
-                        // PhD consistency: Match the "Volume" logic in cards
-                        if (occurrences === 0 && isFuture(tr, now)) occurrences = 1;
-
-                        result[trCurrency] = (result[trCurrency] || 0) + (amount * occurrences);
-                    }
-                } else {
-                    result[trCurrency] = (result[trCurrency] || 0) + amount;
-                }
+                result[trCurrency] = (result[trCurrency] || 0) + amount;
             });
         return result;
     };
@@ -217,34 +183,22 @@ export const useBudgetAnalytics = (
     const categoryData = useMemo(() => {
         if (!transactions) return [];
         const expensesByCategory: Record<string, number> = {};
-        const now = endOfToday();
 
+        // Fix: Exclude masters to avoid double counting (DataContext generates history)
         transactions
-            .filter(tr => tr.type === 'expense')
+            .filter(tr => tr.type === 'expense' && !isMaster(tr))
             .forEach(tr => {
                 const amount = Math.abs(tr.amount);
                 const trCurrency = (tr as any).currency || 'USD';
                 const converted = safeConvert(amount, trCurrency, currency);
-
-                if (isMaster(tr)) {
-                    const trDate = toDateSafe(tr.date);
-                    if (trDate) {
-                        let occurrences = calculateOccurrences(tr, trDate, now);
-                        // PhD consistency: Ha jövőbeli terv, vegyünk bele 1 alkalmat az összesítésbe
-                        if (occurrences === 0 && isFuture(tr, now)) occurrences = 1;
-
-                        expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + (converted * occurrences);
-                    }
-                } else {
-                    expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + converted;
-                }
+                expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + converted;
             });
         return Object.entries(expensesByCategory).map(([cat, val]) => ({
             name: (CATEGORIES as any)[cat]?.label || cat,
             value: val,
             color: (CATEGORIES as any)[cat]?.color || '#9ca3af',
         }));
-    }, [transactions, CATEGORIES, currency, safeConvert, isFuture]);
+    }, [transactions, CATEGORIES, currency, safeConvert]);
 
     // Cash‑flow chart data (last 6 months)
     const cashFlowData = useMemo(() => {
@@ -268,7 +222,6 @@ export const useBudgetAnalytics = (
 
         for (let i = 5; i >= 0; i--) {
             const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const mEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
             const monthIdx = mDate.getMonth();
             const year = mDate.getFullYear();
             const monthName = monthNames[monthIdx] ? monthNames[monthIdx].slice(0, 3) : `M${monthIdx + 1}`;
@@ -276,23 +229,20 @@ export const useBudgetAnalytics = (
             let income = 0;
             let expense = 0;
 
-            transactions.forEach(tr => {
-                const amount = Math.abs(tr.amount);
-                const trCurrency = (tr as any).currency || 'USD';
-                const converted = safeConvert(amount, trCurrency, currency);
+            // Fix: Exclude masters for historical cash flow (DataContext generates history)
+            transactions
+                .filter(tr => !isMaster(tr))
+                .forEach(tr => {
+                    const amount = Math.abs(tr.amount);
+                    const trCurrency = (tr as any).currency || 'USD';
+                    const converted = safeConvert(amount, trCurrency, currency);
 
-                if (isMaster(tr)) {
-                    // Recurring: count occurrences in THIS specific month
-                    const occurrences = calculateOccurrences(tr, mDate, mEnd);
-                    if (tr.type === 'income') income += (converted * occurrences); else expense += (converted * occurrences);
-                } else {
-                    // Single: check if it falls in THIS month
+                    // Check if transaction falls in THIS month
                     const trDate = new Date(tr.date);
                     if (trDate.getMonth() === monthIdx && trDate.getFullYear() === year) {
                         if (tr.type === 'income') income += converted; else expense += converted;
                     }
-                }
-            });
+                });
             monthsData.push({ name: monthName, income, expense });
         }
         return monthsData;
