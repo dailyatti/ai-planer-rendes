@@ -288,12 +288,27 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Financial helper functions
   const computeProjection = (months: number) => {
-    // Legacy support placeholder
-    return Array(months).fill(0);
+    // Return array of projected balances for next N months
+    const baseCurrency = budgetSettings.currency || 'USD';
+    const report = FinancialEngine.getFinancialReport(transactions, baseCurrency);
+
+    // We can reuse the logic from FinancialEngine to generate month-by-month array
+    // Since getFinancialReport gives snapshots, we'll manually generate the array for the chart
+    const currentBalance = report.currentBalance;
+    const monthlyNet = report.monthlyNet;
+    const rate = report.avgInterestRate;
+
+    const projectionArr = [];
+    for (let i = 1; i <= months; i++) {
+      projectionArr.push(FinancialEngine.calculateFutureBalance(currentBalance, monthlyNet, i, rate));
+    }
+    return projectionArr;
   };
 
   const computeRunway = (): number | null => {
-    return 12; // Mock value for now, superseded by FinancialEngine
+    const baseCurrency = budgetSettings.currency || 'USD';
+    const report = FinancialEngine.getFinancialReport(transactions, baseCurrency);
+    return report.runway;
   };
 
   // PhD Level Financial Summary
