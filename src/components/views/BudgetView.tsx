@@ -162,8 +162,7 @@ const BudgetView: React.FC = () => {
     categoryData,
     cashFlowData,
     projectionData,
-    isMaster,
-    volumeTransactions
+    isMaster
   } = useBudgetAnalytics(transactions, currency, safeConvert, t, CATEGORIES, projectionYears);
 
   // --- Kezelők (Handlers) ---
