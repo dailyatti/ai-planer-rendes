@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useCallback, useRef, useState } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { Plus, Trash2, X, Sparkles, CheckCircle2, TrendingUp, Heart } from 'lucide-react';
+import { Plus, Trash2, X, Sparkles, Check, Heart, Trophy, Flame } from 'lucide-react';
 
 /* ----------------------------- Types ----------------------------- */
 
@@ -75,31 +75,28 @@ const loadHabits = (): Habit[] => {
 const saveHabits = (habits: Habit[]) => localStorage.setItem(STORAGE_KEY, JSON.stringify(habits));
 
 const computeHabitStrength = (habit: Habit, now = new Date()) => {
-    const last28 = lastNDaysISO(28, now);
     const checkins = new Set(habit.checkinsISO);
-    const series = last28.map(d => (checkins.has(d) ? 1 : 0));
-
-    const alpha = 0.22;
-    let ema = 0;
-    for (const x of series) ema = alpha * x + (1 - alpha) * ema;
-
     const today = toISODateLocal(now);
+
+    // Streak calculation
     let streak = 0;
     let cursor = parseISOToDate(today);
+    // Check if today is done, if not start check from yesterday
+    if (!checkins.has(today)) {
+        cursor.setDate(cursor.getDate() - 1);
+    }
+
     while (checkins.has(toISODateLocal(cursor)) && streak < 365) {
         streak++;
         cursor.setDate(cursor.getDate() - 1);
     }
 
-    const last7 = lastNDaysISO(7, now);
-    const last7Done = last7.reduce((acc, d) => acc + (checkins.has(d) ? 1 : 0), 0);
-    const last7Rate = last7Done / 7;
+    // Simple simple consistency score based on last 28 days
+    const last28 = lastNDaysISO(28, now);
+    const doneCount = last28.reduce((acc, d) => acc + (checkins.has(d) ? 1 : 0), 0);
+    const strength = Math.round((doneCount / 28) * 100);
 
-    const streakBonus = 1 - Math.exp(-streak / 6);
-    const mastery = habit.mastery / 100;
-    const strength = 100 * clamp(0.45 * ema + 0.35 * mastery + 0.20 * (0.6 * last7Rate + 0.4 * streakBonus), 0, 1);
-
-    return { strength: Math.round(strength), streak, last7Done, last7Rate: Math.round(last7Rate * 100) };
+    return { strength, streak };
 };
 
 /* ----------------------------- Hooks ----------------------------- */
@@ -135,19 +132,19 @@ const HabitView: React.FC = () => {
 
     const habitEngine = useMemo(() => {
         const todayISO = toISODateLocal(new Date());
-        const last7 = lastNDaysISO(7, new Date());
 
+        // Sort logic
         const computed = habits.map(h => {
-            const s = computeHabitStrength(h, new Date());
+            const { strength, streak } = computeHabitStrength(h);
             const doneToday = new Set(h.checkinsISO).has(todayISO);
-            const weekDone = last7.reduce((acc, d) => acc + (h.checkinsISO.includes(d) ? 1 : 0), 0);
-            return { ...h, ...s, doneToday, weekDone };
+            return { ...h, strength, streak, doneToday };
         });
 
-        const overallStrength = computed.length ? Math.round(computed.reduce((acc, h) => acc + h.strength, 0) / computed.length) : 0;
-        const masteredCount = computed.filter(h => h.mastery >= 80).length;
+        const activeCount = computed.length;
+        const perfectDay = computed.length > 0 && computed.every(h => h.doneToday);
+        const totalCheckins = computed.reduce((acc, h) => acc + h.checkinsISO.length, 0);
 
-        return { computed, overallStrength, masteredCount };
+        return { computed, activeCount, perfectDay, totalCheckins };
     }, [habits]);
 
     const toggleHabitToday = useCallback((habitId: string) => {
@@ -160,91 +157,74 @@ const HabitView: React.FC = () => {
         }));
     }, []);
 
-    const setHabitMastery = useCallback((habitId: string, mastery: number) => {
-        setHabits(prev => prev.map(h => (h.id === habitId ? { ...h, mastery: clamp(mastery, 0, 100) } : h)));
-    }, []);
-
     const removeHabit = useCallback((habitId: string) => {
         setHabits(prev => prev.filter(h => h.id !== habitId));
     }, []);
 
     return (
-        <div className="view-container pb-24">
+        <div className="view-container pb-32">
+            {/* Soft Gradient Background Mesh */}
+            <div className="fixed inset-0 pointer-events-none opacity-20 dark:opacity-5">
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-rose-200 rounded-full blur-[100px]" />
+                <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-pink-200 rounded-full blur-[100px]" />
+            </div>
+
             {/* Header */}
-            <div className="mb-8">
-                <div className="inline-flex items-center gap-2 rounded-full border border-pink-200 dark:border-pink-800 bg-pink-50 dark:bg-pink-950/30 px-4 py-1.5 text-xs font-bold text-pink-600 dark:text-pink-400 mb-4">
-                    <Sparkles size={14} />
-                    <span>Atomic Habits</span>
-                </div>
-
-                <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-                    <div>
-                        <h1 className="flex items-center gap-3 text-3xl font-black tracking-tight text-gray-900 dark:text-white">
-                            <span className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-br from-pink-400 to-rose-500 p-3 shadow-lg shadow-pink-500/20">
-                                <Heart size={24} className="text-white" />
-                            </span>
-                            {t('habits.title') || 'Szokás Labor'}
-                        </h1>
-                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                            Építs atomi szokásokat és válj a legjobb önmagaddá 💖
-                        </p>
-                    </div>
-
-                    <button
-                        className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-br from-pink-400 to-rose-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-pink-500/20 hover:brightness-110 transition"
-                        onClick={() => setShowHabitModal(true)}
-                    >
-                        <Plus size={18} />
-                        Új szokás
-                    </button>
-                </div>
+            <div className="relative mb-8 text-center lg:text-left">
+                <h1 className="text-4xl font-serif font-black tracking-tight text-gray-900 dark:text-white drop-shadow-sm">
+                    {t('habits.title') || 'Szokás Labor'} <span className="text-pink-500">🌸</span>
+                </h1>
+                <p className="mt-2 text-lg text-gray-600 dark:text-gray-300 font-medium max-w-2xl">
+                    Kis lépések, ragyogó eredmények. Építsd fel álmaid életét.
+                </p>
             </div>
 
-            {/* Stats Row */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <StatCard emoji="💪" label="Momentum" value={habitEngine.overallStrength} color="pink" />
-                <StatCard emoji="✨" label="Szokások" value={habits.length} color="violet" />
-                <StatCard emoji="🌟" label="Stabil" value={habitEngine.masteredCount} color="emerald" />
-                <StatCard emoji="🔥" label="Max Streak" value={Math.max(0, ...habitEngine.computed.map(h => h.streak))} color="amber" />
+            {/* Top Cards - Glassmorphism */}
+            <div className="relative grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <GlassCard
+                    icon={<Sparkles size={24} className="text-pink-500" />}
+                    label="Aktív Szokások"
+                    value={String(habitEngine.activeCount)}
+                    bg="bg-gradient-to-br from-white/60 to-white/30 dark:from-gray-800/60 dark:to-gray-800/30"
+                />
+                <GlassCard
+                    icon={<Check size={24} className="text-emerald-500" />}
+                    label="Mai Cél"
+                    value={habitEngine.perfectDay ? "Teljesítve! 🎉" : "Folyamatban..."}
+                    bg="bg-gradient-to-br from-white/60 to-white/30 dark:from-gray-800/60 dark:to-gray-800/30"
+                />
+                <GlassCard
+                    icon={<Heart size={24} className="text-rose-500" />}
+                    label="Összes Check-in"
+                    value={String(habitEngine.totalCheckins)}
+                    bg="bg-gradient-to-br from-white/60 to-white/30 dark:from-gray-800/60 dark:to-gray-800/30"
+                />
             </div>
 
-            {/* Habit Cards */}
-            <div className="space-y-4">
+            {/* Habits List */}
+            <div className="relative space-y-5">
                 {habitEngine.computed.length > 0 ? (
-                    habitEngine.computed.sort((a, b) => b.strength - a.strength).map(h => (
-                        <HabitCard
+                    habitEngine.computed.sort((a, b) => (Number(a.doneToday) - Number(b.doneToday))).map(h => (
+                        <HabitRow
                             key={h.id}
                             habit={h}
-                            onToggleToday={() => toggleHabitToday(h.id)}
-                            onMastery={(v) => setHabitMastery(h.id, v)}
+                            onToggle={() => toggleHabitToday(h.id)}
                             onRemove={() => removeHabit(h.id)}
                         />
                     ))
                 ) : (
-                    <EmptyState />
+                    <EmptyState onClick={() => setShowHabitModal(true)} />
                 )}
-            </div>
 
-            {/* Coach Insight */}
-            {habits.length > 0 && (
-                <div className="mt-8 rounded-3xl bg-gradient-to-br from-pink-500 to-rose-600 p-6 text-white shadow-xl">
-                    <div className="flex items-start gap-4">
-                        <div className="rounded-2xl bg-white/20 p-3 backdrop-blur-sm">
-                            <Sparkles size={24} className="text-yellow-200" />
-                        </div>
-                        <div>
-                            <div className="text-lg font-black">Coach Insight 💡</div>
-                            <p className="mt-2 text-sm text-white/90 leading-relaxed">
-                                {habitEngine.overallStrength >= 75
-                                    ? 'Csodálatos vagy! 🌟 A rendszered már önjáró. Tartsd meg ezt a lendületet!'
-                                    : habitEngine.overallStrength >= 45
-                                        ? 'Jó úton haladsz! ✨ Napi kis lépések vezetnek a nagy eredményekhez.'
-                                        : 'Kezdd kicsiben! 🌸 Válassz 1 szokást és koncentrálj 7 napig rá.'}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
+                {/* Floating Action Button for Mobile / Desktop */}
+                <button
+                    onClick={() => setShowHabitModal(true)}
+                    className="fixed bottom-8 right-8 lg:relative lg:bottom-auto lg:right-auto lg:w-full mt-4 group flex items-center justify-center gap-3 rounded-full lg:rounded-3xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-4 lg:py-4 shadow-xl hover:scale-105 transition-all duration-300 z-30"
+                >
+                    <Plus size={24} />
+                    <span className="hidden lg:inline font-bold text-lg">Új szokás hozzáadása</span>
+                </button>
+            </div>
 
             {showHabitModal && (
                 <HabitModal
@@ -271,239 +251,163 @@ const HabitView: React.FC = () => {
 
 /* ----------------------------- Components ----------------------------- */
 
-const StatCard: React.FC<{ emoji: string; label: string; value: number; color: string }> = ({ emoji, label, value, color }) => {
-    const colors: Record<string, string> = {
-        pink: 'bg-pink-50 dark:bg-pink-950/30 border-pink-200 dark:border-pink-800',
-        violet: 'bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-800',
-        emerald: 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800',
-        amber: 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800',
-    };
-
-    return (
-        <div className={`rounded-2xl border p-5 ${colors[color]} transition-all hover:shadow-md`}>
-            <div className="text-2xl mb-2">{emoji}</div>
-            <div className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{label}</div>
-            <div className="text-3xl font-black text-gray-900 dark:text-white mt-1">{value}</div>
-        </div>
-    );
-};
-
-const EmptyState: React.FC = () => (
-    <div className="rounded-3xl border-2 border-dashed border-pink-200 dark:border-pink-800 bg-pink-50/50 dark:bg-pink-950/20 p-12 text-center">
-        <div className="text-5xl mb-4">🌸</div>
-        <div className="text-xl font-bold text-gray-900 dark:text-white">Még nincsenek szokásaid</div>
-        <div className="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto">
-            Kattints az "Új szokás" gombra és kezdd el építeni a legjobb verziód!
+const GlassCard: React.FC<{ icon: React.ReactNode; label: string; value: string; bg: string }> = ({ icon, label, value, bg }) => (
+    <div className={`backdrop-blur-md border border-white/40 dark:border-white/10 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all ${bg}`}>
+        <div className="flex items-center gap-4">
+            <div className="p-3 bg-white/50 dark:bg-black/20 rounded-2xl shadow-sm">
+                {icon}
+            </div>
+            <div>
+                <div className="text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-1">{label}</div>
+                <div className="text-xl font-bold text-gray-900 dark:text-white">{value}</div>
+            </div>
         </div>
     </div>
 );
 
-const HabitCard: React.FC<{ habit: any; onToggleToday: () => void; onMastery: (v: number) => void; onRemove: () => void }> =
-    ({ habit, onToggleToday, onMastery, onRemove }) => {
-        const last7 = lastNDaysISO(7, new Date());
-        const checkSet = new Set(habit.checkinsISO);
-        const dayLabels = ['V', 'H', 'K', 'Sz', 'Cs', 'P', 'Szo'];
+const HabitRow: React.FC<{ habit: any; onToggle: () => void; onRemove: () => void }> = ({ habit, onToggle, onRemove }) => {
+    const last7 = lastNDaysISO(7, new Date());
+    const checkSet = new Set(habit.checkinsISO);
+    const days = ['V', 'H', 'K', 'Sze', 'Cs', 'P', 'Szo'];
 
-        const strengthColor = habit.strength >= 75 ? 'from-emerald-400 to-emerald-600'
-            : habit.strength >= 45 ? 'from-amber-400 to-amber-600' : 'from-rose-400 to-rose-600';
+    return (
+        <div className={`group relative overflow-hidden rounded-3xl border transition-all duration-300 ${habit.doneToday
+                ? 'bg-rose-50/50 dark:bg-rose-950/10 border-rose-200 dark:border-rose-900/30'
+                : 'bg-white/80 dark:bg-gray-800/80 border-gray-100 dark:border-gray-700 backdrop-blur-sm hover:border-pink-200 dark:hover:border-pink-800'
+            }`}>
+            <div className="flex flex-col md:flex-row md:items-center p-6 gap-6">
 
-        return (
-            <div className="group rounded-3xl border border-pink-100 dark:border-pink-900/50 bg-white dark:bg-gray-900 p-6 shadow-sm hover:shadow-lg transition-all">
-                <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-                    {/* Left: Info */}
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-4">
-                            <div className={`shrink-0 rounded-2xl bg-gradient-to-br ${strengthColor} p-3 text-white shadow-md`}>
-                                <Heart size={22} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <div className="text-lg font-black text-gray-900 dark:text-white truncate">{habit.name}</div>
-                                <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-                                    <span className="px-2 py-0.5 rounded-lg bg-pink-50 dark:bg-pink-950/30 border border-pink-200 dark:border-pink-800 text-pink-600 dark:text-pink-400 text-xs font-bold">
-                                        {habit.frequency === 'daily' ? 'Napi' : 'Heti'}
-                                    </span>
-                                    <span className="flex items-center gap-1">
-                                        <TrendingUp size={14} />
-                                        Streak: <span className="font-bold text-gray-700 dark:text-gray-200">{habit.streak}</span>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                {/* Toggle Button (Left) */}
+                <button
+                    onClick={onToggle}
+                    className={`shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm ${habit.doneToday
+                            ? 'bg-gradient-to-br from-rose-400 to-pink-500 text-white scale-105 shadow-pink-500/30'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-pink-100 dark:hover:bg-pink-900/30 hover:text-pink-500'
+                        }`}
+                >
+                    {habit.doneToday ? <Check size={32} strokeWidth={3} /> : <div className="w-4 h-4 rounded-full border-2 border-current" />}
+                </button>
 
-                    {/* 7-day grid */}
-                    <div className="flex items-center gap-1.5">
-                        {last7.map((d) => {
-                            const done = checkSet.has(d);
-                            const dayIdx = new Date(d).getDay();
-                            return (
-                                <div key={d} className="flex flex-col items-center gap-1">
-                                    <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500">{dayLabels[dayIdx]}</span>
-                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold transition-all ${done
-                                            ? 'bg-gradient-to-br from-pink-400 to-rose-500 text-white shadow-sm'
-                                            : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'
-                                        }`}>
-                                        {done ? '✓' : ''}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Right: Actions */}
-                    <div className="flex items-center gap-4">
-                        {/* Mastery */}
-                        <div className="w-28">
-                            <div className="flex items-center justify-between text-[10px] font-bold uppercase text-gray-400 dark:text-gray-500 mb-1">
-                                <span>Mastery</span>
-                                <span className="text-pink-600 dark:text-pink-400">{habit.mastery}%</span>
-                            </div>
-                            <div className="relative h-2.5 w-full rounded-full bg-pink-100 dark:bg-pink-950/50 overflow-hidden">
-                                <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-pink-400 to-rose-500 rounded-full transition-all" style={{ width: `${habit.mastery}%` }} />
-                                <input
-                                    type="range"
-                                    min={0}
-                                    max={100}
-                                    value={habit.mastery}
-                                    onChange={(e) => onMastery(parseInt(e.target.value, 10))}
-                                    className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Strength */}
-                        <div className="text-center px-3">
-                            <div className="text-[10px] font-bold uppercase text-gray-400 dark:text-gray-500">Erő</div>
-                            <div className="text-2xl font-black text-gray-900 dark:text-white">{habit.strength}</div>
-                        </div>
-
-                        {/* Check button */}
-                        <button
-                            onClick={onToggleToday}
-                            className={`rounded-2xl px-5 py-3 text-sm font-bold transition-all border flex items-center gap-2 ${habit.doneToday
-                                    ? 'bg-gradient-to-br from-pink-400 to-rose-500 border-pink-500 text-white shadow-lg'
-                                    : 'bg-white dark:bg-gray-900 border-pink-200 dark:border-pink-800 text-gray-700 dark:text-gray-200 hover:bg-pink-50 dark:hover:bg-pink-950/30'
-                                }`}
-                        >
-                            <CheckCircle2 size={18} />
-                            {habit.doneToday ? 'Kész!' : 'Check'}
-                        </button>
-
-                        {/* Delete */}
-                        <button
-                            onClick={onRemove}
-                            className="p-2 text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl opacity-0 group-hover:opacity-100 transition-all"
-                            title="Törlés"
-                        >
-                            <Trash2 size={18} />
-                        </button>
-                    </div>
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                    <h3 className={`text-xl font-bold truncate transition-all ${habit.doneToday ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-200'
+                        }`}>
+                        {habit.name}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 font-medium flex items-center gap-2">
+                        <Flame size={14} className={habit.streak > 0 ? "text-orange-500" : "text-gray-300"} />
+                        {habit.streak} napos széria
+                    </p>
                 </div>
+
+                {/* 7 Day Micro-Chart */}
+                <div className="flex items-center gap-2">
+                    {last7.map((d) => {
+                        const isDone = checkSet.has(d);
+                        const dayIdx = new Date(d).getDay();
+                        const isToday = d === toISODateLocal(new Date());
+
+                        return (
+                            <div key={d} className="flex flex-col items-center gap-1">
+                                <div className={`w-8 h-10 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${isDone
+                                        ? 'bg-pink-100 dark:bg-pink-900/40 text-pink-600 dark:text-pink-300'
+                                        : isToday
+                                            ? 'bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600'
+                                            : 'bg-transparent text-gray-300 dark:text-gray-600'
+                                    }`}>
+                                    {days[dayIdx][0]}
+                                </div>
+                                {isDone && <div className="w-1.5 h-1.5 rounded-full bg-pink-500" />}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Delete Action (Hover Only) */}
+                <button
+                    onClick={(e) => { e.stopPropagation(); onRemove(); }}
+                    className="absolute top-4 right-4 p-2 text-gray-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
+                >
+                    <Trash2 size={16} />
+                </button>
             </div>
-        );
-    };
+
+            {/* Progress Bar Bottom */}
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-100 dark:bg-gray-800">
+                <div
+                    className="h-full bg-gradient-to-r from-pink-400 to-rose-500 transition-all duration-500"
+                    style={{ width: `${habit.strength}%` }}
+                />
+            </div>
+        </div>
+    );
+};
+
+const EmptyState: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+    <div
+        onClick={onClick}
+        className="cursor-pointer group rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-12 text-center hover:border-pink-300 dark:hover:border-pink-700 hover:bg-pink-50/50 dark:hover:bg-pink-950/10 transition-all"
+    >
+        <div className="w-16 h-16 mx-auto bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
+            🌱
+        </div>
+        <h3 className="mt-4 text-lg font-bold text-gray-900 dark:text-white">Még üres a laborod</h3>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Kattints ide és indítsd el az első szokásodat!</p>
+    </div>
+);
 
 const HabitModal: React.FC<{ onClose: () => void; onCreate: (draft: NewHabitDraft) => void }> = ({ onClose, onCreate }) => {
-    const [draft, setDraft] = useState<NewHabitDraft>({
-        name: '',
-        description: '',
-        frequency: 'daily',
-        targetPerWeek: 7,
-        mastery: 40,
-    });
-
-    const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+    const [draft, setDraft] = useState<NewHabitDraft>({ name: '', description: '', frequency: 'daily', targetPerWeek: 7, mastery: 0 });
     useEscape(true, onClose);
-    useEffect(() => { closeBtnRef.current?.focus(); }, []);
 
     return (
         <>
             <ScrollLock enabled={true} />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-                <div
-                    className="w-full max-w-lg overflow-hidden rounded-3xl border border-pink-200 dark:border-pink-800 bg-white dark:bg-gray-900 shadow-2xl"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {/* Header */}
-                    <div className="flex items-center justify-between gap-4 border-b border-pink-100 dark:border-pink-900 bg-pink-50/50 dark:bg-pink-950/20 px-6 py-5">
-                        <div className="flex items-center gap-3">
-                            <div className="rounded-2xl bg-gradient-to-br from-pink-400 to-rose-500 p-3 text-white shadow-lg">
-                                <Sparkles size={18} />
-                            </div>
-                            <div>
-                                <div className="text-lg font-black text-gray-900 dark:text-white">Új szokás 🌸</div>
-                                <div className="text-sm text-gray-600 dark:text-gray-400">Kicsi lépések, nagy változások</div>
-                            </div>
-                        </div>
-                        <button ref={closeBtnRef} onClick={onClose} className="rounded-xl p-2 text-gray-500 dark:text-gray-400 hover:bg-pink-100 dark:hover:bg-pink-950/30 transition">
-                            <X size={20} />
-                        </button>
-                    </div>
-
-                    {/* Body */}
-                    <div className="px-6 py-6 space-y-5">
-                        <div>
-                            <label className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 block">Szokás neve</label>
-                            <input
-                                value={draft.name}
-                                onChange={(e) => setDraft(s => ({ ...s, name: e.target.value }))}
-                                className="w-full rounded-2xl border border-pink-200 dark:border-pink-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500/30"
-                                placeholder="pl. 10 perc nyújtás"
-                                autoFocus
-                            />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-white/80 dark:bg-black/80 backdrop-blur-sm transition-all" onClick={onClose}>
+                <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-[2rem] shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-800" onClick={e => e.stopPropagation()}>
+                    <div className="p-8">
+                        <div className="flex items-center justify-between mb-8">
+                            <h2 className="text-2xl font-serif font-black text-gray-900 dark:text-white">Új Szokás 🎀</h2>
+                            <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition"><X size={20} /></button>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-6">
                             <div>
-                                <label className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 block">Gyakoriság</label>
-                                <select
-                                    value={draft.frequency}
-                                    onChange={(e) => {
-                                        const freq = e.target.value === 'weekly' ? 'weekly' : 'daily';
-                                        setDraft(s => ({ ...s, frequency: freq, targetPerWeek: freq === 'daily' ? 7 : clamp(s.targetPerWeek, 1, 7) }));
-                                    }}
-                                    className="w-full rounded-2xl border border-pink-200 dark:border-pink-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-pink-500/30"
-                                >
-                                    <option value="daily">Napi</option>
-                                    <option value="weekly">Heti</option>
-                                </select>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Szokás Neve</label>
+                                <input
+                                    autoFocus
+                                    value={draft.name}
+                                    onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                                    className="w-full text-xl font-bold border-b-2 border-gray-200 dark:border-gray-700 bg-transparent py-2 focus:border-pink-500 focus:outline-none transition-colors placeholder-gray-300"
+                                    placeholder="pl. Reggeli jóga"
+                                />
                             </div>
+
                             <div>
-                                <label className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 block">Cél / hét</label>
-                                <div className="flex items-center gap-3">
-                                    <input type="range" min={1} max={7} value={draft.targetPerWeek} onChange={(e) => setDraft(s => ({ ...s, targetPerWeek: parseInt(e.target.value, 10) }))} className="flex-1 accent-pink-500" />
-                                    <span className="w-8 text-center font-bold text-gray-900 dark:text-white">{draft.targetPerWeek}</span>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Gyakoriság</label>
+                                <div className="flex gap-2">
+                                    {(['daily', 'weekly'] as const).map(f => (
+                                        <button
+                                            key={f}
+                                            onClick={() => setDraft(d => ({ ...d, frequency: f }))}
+                                            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${draft.frequency === f
+                                                    ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/20'
+                                                    : 'bg-gray-50 dark:bg-gray-800 text-gray-500 hover:bg-gray-100'
+                                                }`}
+                                        >
+                                            {f === 'daily' ? 'Naponta' : 'Hetente'}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
-                        </div>
 
-                        <div>
-                            <label className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 block">Leírás (opcionális)</label>
-                            <textarea
-                                value={draft.description}
-                                onChange={(e) => setDraft(s => ({ ...s, description: e.target.value }))}
-                                className="w-full min-h-[80px] rounded-2xl border border-pink-200 dark:border-pink-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500/30 resize-none"
-                                placeholder="Miért fontos neked?"
-                            />
+                            <button
+                                onClick={() => onCreate(draft)}
+                                className="w-full py-4 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold text-lg hover:scale-[1.02] active:scale-95 transition-all"
+                            >
+                                Létrehozás ✨
+                            </button>
                         </div>
-
-                        <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <label className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Kezdő mastery</label>
-                                <span className="text-sm font-bold text-pink-600 dark:text-pink-400">{draft.mastery}%</span>
-                            </div>
-                            <input type="range" min={0} max={100} value={draft.mastery} onChange={(e) => setDraft(s => ({ ...s, mastery: parseInt(e.target.value, 10) }))} className="w-full accent-pink-500" />
-                        </div>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="flex gap-3 border-t border-pink-100 dark:border-pink-900 bg-pink-50/50 dark:bg-pink-950/20 px-6 py-5 justify-end">
-                        <button onClick={onClose} className="rounded-2xl border border-pink-200 dark:border-pink-800 bg-white dark:bg-gray-900 px-5 py-2.5 text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-pink-50 dark:hover:bg-pink-950/30 transition">
-                            Mégse
-                        </button>
-                        <button onClick={() => onCreate(draft)} className="rounded-2xl bg-gradient-to-br from-pink-400 to-rose-500 px-6 py-2.5 text-sm font-bold text-white shadow-lg hover:brightness-110 transition">
-                            Létrehozás 💖
-                        </button>
                     </div>
                 </div>
             </div>
