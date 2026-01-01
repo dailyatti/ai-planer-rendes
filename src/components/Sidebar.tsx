@@ -3,7 +3,7 @@ import {
   Clock, Calendar, CalendarDays, CalendarRange,
   CalendarCheck, StickyNote, Target, Brush,
   DollarSign, Timer, BarChart3, FileText, Link2,
-  X, Globe
+  X, Globe, Zap
 } from 'lucide-react';
 import { ViewType } from '../types/planner';
 import { useLanguage, Language, LANGUAGE_NAMES } from '../contexts/LanguageContext';
@@ -40,6 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onC
     { id: 'invoicing' as ViewType, label: t('nav.invoicing'), icon: FileText, color: 'from-indigo-500 to-purple-500' },
     { id: 'pomodoro' as ViewType, label: t('nav.pomodoroTimer'), icon: Timer, color: 'from-rose-500 to-pink-500' },
     { id: 'statistics' as ViewType, label: t('nav.statistics'), icon: BarChart3, color: 'from-indigo-500 to-blue-500' },
+    { id: 'habits' as ViewType, label: t('nav.habits'), icon: Zap, color: 'from-violet-500 to-purple-500' },
     { id: 'integrations' as ViewType, label: t('nav.integrations'), icon: Link2, color: 'from-cyan-500 to-blue-500' },
   ];
 

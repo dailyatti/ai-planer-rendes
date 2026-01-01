@@ -63,6 +63,7 @@ function AppContent() {
         'invoicing': 'invoicing',
         'pomodoro': 'pomodoro',
         'statistics': 'statistics',
+        'habits': 'habits',
         'integrations': 'integrations',
         'settings': 'settings',
       };

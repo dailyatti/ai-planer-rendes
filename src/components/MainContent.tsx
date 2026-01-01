@@ -11,6 +11,7 @@ import DrawingView from './views/DrawingView';
 import BudgetView from './views/BudgetView';
 import PomodoroView from './views/PomodoroView';
 import StatisticsView from './views/StatisticsView';
+import HabitView from './views/HabitView';
 import SettingsView from './views/SettingsView';
 import InvoicingView from './views/InvoicingView';
 import IntegrationsView from './views/IntegrationsView';
@@ -20,7 +21,7 @@ interface MainContentProps {
   sidebarOpen: boolean;
 }
 
-const MainContent: React.FC<MainContentProps> = ({ activeView, sidebarOpen }) => {
+const MainContent: React.FC<MainContentProps> = ({ activeView }) => {
   const renderView = () => {
     switch (activeView) {
       case 'hourly':
@@ -47,6 +48,8 @@ const MainContent: React.FC<MainContentProps> = ({ activeView, sidebarOpen }) =>
         return <PomodoroView />;
       case 'statistics':
         return <StatisticsView />;
+      case 'habits':
+        return <HabitView />;
       case 'integrations':
         return <IntegrationsView />;
       case 'settings':
