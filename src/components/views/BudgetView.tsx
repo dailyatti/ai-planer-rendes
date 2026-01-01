@@ -253,8 +253,8 @@ const BudgetView: React.FC = () => {
   // Tranzakció lista szűrése
   // Tranzakció lista szűrése
   const filteredTransactions = useMemo(() => {
-    // 1) Alap szűrés: volumeTransactions (már exclude master)
-    let filtered = volumeTransactions || [];
+    // 1) Alap szűrés: Mutassunk MINDEN tranzakciót (Master-t is), hogy a felhasználó lássa amit felvett
+    let filtered = transactions || [];
 
     // 2) Keresés
     if (searchTerm) {
@@ -1024,12 +1024,7 @@ const BudgetView: React.FC = () => {
                         period: period,
                         recurring: period !== 'oneTime'
                       });
-                      // FIX: Don't auto-set to false! Keep checkbox at TRUE by default.
-                      // User can manually uncheck if they want deferred start.
-                      if (period === 'oneTime') {
-                        setAddToBalanceImmediately(true); // One-time is always immediate
-                      }
-                      // For recurring: keep current state (default is already true)
+                      setAddToBalanceImmediately(period === 'oneTime');
                     }}
                     className="input-field w-full"
                   >
