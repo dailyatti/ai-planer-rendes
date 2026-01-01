@@ -100,24 +100,32 @@ export const useBudgetAnalytics = (
     }, [currency, safeConvert]);
 
     const sumByType = useCallback(
-        (txs: Transaction[], type: 'income' | 'expense') => {
+        (txs: Transaction[], type: 'income' | 'expense', includeFutureMaster: boolean = false) => {
             if (!txs || txs.length === 0) return 0;
             let total = 0;
+            const now = endOfToday();
 
             txs.filter(tr => tr.type === type).forEach(tr => {
                 const from = ensureCurrency((tr as any).currency);
                 const baseAmount = absToView(tr.amount, from);
 
                 if (isMaster(tr)) {
-                    // Logic Fix: DataContext creates "history" items for past occurrences.
-                    // So Master contributes 0 to "Realized/Current" totals to avoid double counting.
+                    if (includeFutureMaster) {
+                        // PhD Logic: For "Total Volume" cards, user wants to see projected value?
+                        // "csak az egyenleg résznél nem kell látszodjon" implies Cards show "Future Potential".
+                        // Calculating occurrences for the next year (default view) or all time?
+                        // Let's assume 1 year projection for "Total" cards to make them meaningful.
+                        const occurrences = calculateOccurrences(tr, now, new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()));
+                        total += baseAmount * occurrences;
+                    }
+                    // Else: Balance calculation (Cash) -> Master counts as 0 (History handled separately)
                 } else {
                     total += baseAmount;
                 }
             });
             return total;
         },
-        [absToView, ensureCurrency, isMaster]
+        [absToView, ensureCurrency, isMaster, calculateOccurrences]
     );
 
     // Aggregations
@@ -127,42 +135,27 @@ export const useBudgetAnalytics = (
         }
         const now = endOfToday();
 
-        // 1) Cash-in-hand transactions: Realized (non-future) non-master transactions
-        // Master templates themselves are NOT realized cash. Only their generated instances would be.
-        // If we only have Master templates and NO generated instances, then Cash Balance should effectively ignore Master
-        // UNLESS we are simulating that "Master implies auto-generated".
-        // Current app logic seems to reuse Master as "Active Subscription". 
-        // Ideally, we sum their "occurrences up to now". 
-
-        // Filter out master templates from "raw list view" to avoid duplicates if specific instances exist.
-        // But if instances do NOT exist, we show Master? 
-        // User said: "volumeTransactions NEM exclude-olja a mastereket".
-        // Fix: Exclude master from the list returned to UI for "Recent Transactions", 
-        // but keep them for calculation if they represent valid recurring rules.
-
         const volumeTransactions = transactions.filter(tr => !isMaster(tr));
-
-        // 2) Cash-in-hand transactions (Strictly realized)
         const cashTransactions = transactions.filter(tr => !isFuture(tr, now) && !isMaster(tr));
 
-        // Cash flow totals (for Balance)
-        // We iterate cashTransactions which already excludes masters and future items
-        const cashIncome = sumByType(cashTransactions, 'income');
-        const cashExpense = sumByType(cashTransactions, 'expense');
+        // Cash flow totals (for Balance: Realized Only)
+        const cashIncome = sumByType(cashTransactions, 'income', false);
+        const cashExpense = sumByType(cashTransactions, 'expense', false);
 
-        // Volume/Planned totals (for Cards) - EVERYTHING included (except Master templates, to avoid double counting past)
-        // This will include Future One-Time items, but NOT Future Master occurrences (as per current strict fix).
-        const volumeIncome = sumByType(transactions, 'income');
-        const volumeExpense = sumByType(transactions, 'expense');
+        // Volume/Planned totals (for Cards: Show everything including future potential)
+        // We pass 'transactions' (includes Master) and enable future master calculation
+        const volumeIncome = sumByType(transactions, 'income', true);
+        const volumeExpense = sumByType(transactions, 'expense', true);
 
         return {
             totalIncome: volumeIncome,
             totalExpense: volumeExpense,
-            balance: cashIncome - cashExpense,
+            balance: cashIncome - cashExpense, // Balance strictly Realized
             volumeTransactions,
             cashTransactions
         };
-    }, [transactions, sumByType, isFuture]);
+    }, [transactions, sumByType]);
+
 
     const getTransactionAmountsByCurrency = (type: 'income' | 'expense') => {
         const result: Record<string, number> = {};
