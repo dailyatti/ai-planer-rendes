@@ -257,9 +257,9 @@ const HabitView: React.FC = () => {
                     <EmptyState
                         icon={<Sparkles size={32} />}
                         title="Még nincsenek szokásaid"
-                        desc="Kattints az " Új szokás" gombra és kezd el építeni a rendszert."
-          />
-        )}
+                        desc='Kattints az "Új szokás" gombra és kezd el építeni a rendszert.'
+                    />
+                )}
             </div>
 
             {/* Coach Insight */}
@@ -397,8 +397,8 @@ const HabitCard: React.FC<{
                             <div key={d} className="flex flex-col items-center gap-1">
                                 <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">{dayLabel}</span>
                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${done
-                                        ? 'bg-emerald-500 text-white'
-                                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'
+                                    ? 'bg-emerald-500 text-white'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'
                                     }`}>
                                     {done ? '✓' : ''}
                                 </div>
@@ -438,8 +438,8 @@ const HabitCard: React.FC<{
                     <button
                         onClick={onToggleToday}
                         className={`rounded-2xl px-5 py-3 text-sm font-bold transition-all border flex items-center gap-2 ${habit.doneToday
-                                ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                                : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                            : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
                             }`}
                     >
                         <CheckCircle2 size={18} />
