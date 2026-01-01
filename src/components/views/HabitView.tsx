@@ -3,7 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
     Plus, Trash2, Check, Clock,
     Edit2, X, Zap,
-    Sun, Moon, Sunrise, Coffee
+    Sun, Moon, Sunrise, Coffee,
+    CheckCircle
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,10 +37,12 @@ type Habit = {
     description?: string;
     frequency: HabitFrequency;
     timeOfDay: TimeOfDay;
+    exactTime?: string; // HH:mm
     createdAtISO: string;
     checkins: Record<string, HabitCheckin>; // keyed by YYYY-MM-DD
     color?: string; // Hex color for accent
     archived?: boolean;
+    isMastered?: boolean;
 };
 
 // --- Storage Keys ---
@@ -88,7 +91,8 @@ const HabitView: React.FC = () => {
     const [formData, setFormData] = useState<Partial<Habit>>({
         name: '',
         timeOfDay: 'anytime',
-        frequency: 'daily'
+        frequency: 'daily',
+        exactTime: ''
     });
 
     // Checkin Form State
@@ -124,10 +128,12 @@ const HabitView: React.FC = () => {
                             const migrated = parsedV1.map((h: any) => ({
                                 id: h.id || Math.random().toString(36).substr(2, 9),
                                 name: h.name,
-                                frequency: 'daily',
-                                timeOfDay: 'anytime',
+                                frequency: 'daily' as HabitFrequency,
+                                timeOfDay: 'anytime' as TimeOfDay,
+                                exactTime: '',
                                 createdAtISO: toISODate(new Date()),
-                                checkins: (h.checkinsISO || []).reduce((acc: any, iso: string) => ({ ...acc, [iso]: { dateISO: iso, completed: true, timestamp: Date.now() } }), {} as Record<string, HabitCheckin>)
+                                checkins: (h.checkinsISO || []).reduce((acc: any, iso: string) => ({ ...acc, [iso]: { dateISO: iso, completed: true, timestamp: Date.now() } }), {} as Record<string, HabitCheckin>),
+                                isMastered: false
                             }));
                             setHabits(migrated);
                             localStorage.setItem(STORAGE_V2, JSON.stringify(migrated));
@@ -220,7 +226,7 @@ const HabitView: React.FC = () => {
     const todayISO = toISODate(new Date());
 
     const filteredHabits = useMemo(() => {
-        let list = habits;
+        let list = habits.filter(h => !h.isMastered);
         if (filterTime !== 'all') {
             list = list.filter(h => h.timeOfDay === filterTime);
         }
@@ -232,6 +238,15 @@ const HabitView: React.FC = () => {
             return aDone ? 1 : -1;
         });
     }, [habits, filterTime, todayISO]);
+
+    const nextHabit = useMemo(() => {
+        const now = new Date();
+        const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+        return habits
+            .filter(h => !h.isMastered && h.exactTime && !h.checkins[todayISO]?.completed && h.exactTime >= currentTime)
+            .sort((a, b) => (a.exactTime || '').localeCompare(b.exactTime || ''))[0];
+    }, [habits, todayISO]);
 
     const getTimeIcon = (t: TimeOfDay) => {
         switch (t) {
@@ -297,6 +312,30 @@ const HabitView: React.FC = () => {
                 ))}
             </div>
 
+            {/* Next Session Highlight */}
+            {nextHabit && (
+                <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-8 p-1 rounded-2xl bg-gradient-to-r from-teal-500/10 to-blue-500/10 backdrop-blur-sm border border-teal-100/50 dark:border-teal-900/30 shadow-sm"
+                >
+                    <div className="bg-white/60 dark:bg-gray-800/60 rounded-[14px] p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-teal-500 flex items-center justify-center text-white shadow-lg shadow-teal-500/20">
+                                <Clock size={24} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] mb-0.5">{t('habits.nextSession')}</p>
+                                <h2 className="text-base md:text-lg font-bold text-gray-800 dark:text-white leading-tight">{nextHabit.name}</h2>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-xl md:text-2xl font-black bg-clip-text text-transparent bg-gradient-to-br from-teal-600 to-blue-600 dark:from-teal-400 dark:to-blue-400">{nextHabit.exactTime}</span>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+
             {/* Habit Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <AnimatePresence>
@@ -326,6 +365,11 @@ const HabitView: React.FC = () => {
                                             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                                                 {getTimeLabel(habit.timeOfDay)}
                                             </span>
+                                            {habit.exactTime && (
+                                                <span className="text-xs font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded-md border border-blue-100 dark:border-blue-800">
+                                                    {habit.exactTime}
+                                                </span>
+                                            )}
                                             {streak > 0 && (
                                                 <span className="flex items-center gap-1 text-xs font-bold text-orange-500 bg-orange-50 dark:bg-orange-900/20 px-1.5 py-0.5 rounded-md">
                                                     <Zap size={12} className="fill-orange-500" />
@@ -370,6 +414,21 @@ const HabitView: React.FC = () => {
                                     </div>
 
                                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {!habit.isMastered && (
+                                            <button
+                                                onClick={() => {
+                                                    if (window.confirm(t('habits.noMoreDays'))) {
+                                                        const updated = habits.map(h => h.id === habit.id ? { ...h, isMastered: true } : h);
+                                                        setHabits(updated);
+                                                        localStorage.setItem(STORAGE_V2, JSON.stringify(updated));
+                                                    }
+                                                }}
+                                                className="hover:text-green-500 p-1"
+                                                title={t('habits.markMastered')}
+                                            >
+                                                <CheckCircle size={14} />
+                                            </button>
+                                        )}
                                         <button onClick={() => { setEditingHabit(habit); setFormData(habit); setIsCreateOpen(true); }} className="hover:text-blue-500 p-1">
                                             <Edit2 size={14} />
                                         </button>
@@ -391,6 +450,58 @@ const HabitView: React.FC = () => {
                         <Coffee size={32} className="text-gray-400" />
                     </div>
                     <p className="text-lg font-medium text-gray-500">{t('habits.emptyState')}</p>
+                </div>
+            )}
+
+            {/* --- Mastered Habits Section --- */}
+            {habits.some(h => h.isMastered) && (
+                <div className="mt-12 mb-20">
+                    <div className="flex items-center gap-3 mb-6 opacity-60">
+                        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                        <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                            <Zap size={14} />
+                            {t('habits.masteredHabits')}
+                        </h2>
+                        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {habits.filter(h => h.isMastered).map(habit => (
+                            <motion.div
+                                key={habit.id}
+                                layout
+                                className="bg-white/40 dark:bg-gray-800/20 backdrop-blur-md rounded-2xl p-4 border border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-between group shadow-sm"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center text-green-500">
+                                        <CheckCircle size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-gray-600 dark:text-gray-300">{habit.name}</h3>
+                                        <p className="text-xs text-gray-400 capitalize">{habit.timeOfDay}</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                    <button
+                                        onClick={() => {
+                                            const updated = habits.map(h => h.id === habit.id ? { ...h, isMastered: false } : h);
+                                            saveHabits(updated);
+                                        }}
+                                        className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
+                                        title={t('common.restore')}
+                                    >
+                                        <Clock size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => deleteHabit(habit.id)}
+                                        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
                 </div>
             )}
 
@@ -523,6 +634,23 @@ const HabitView: React.FC = () => {
                                                 <option value="evening">{t('habits.time.evening')}</option>
                                             </select>
                                         </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">{t('habits.exactTime')}</label>
+                                        <input
+                                            type="time"
+                                            value={formData.exactTime || ''}
+                                            onChange={(e) => setFormData({ ...formData, exactTime: e.target.value })}
+                                            className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                                        />
+                                    </div>
+
+                                    <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl flex items-start gap-3 border border-blue-100 dark:border-blue-800">
+                                        <Zap size={18} className="text-blue-500 shrink-0 mt-0.5" />
+                                        <p className="text-xs text-blue-700 dark:text-blue-400 font-medium">
+                                            {t('habits.masteryGuidance')}
+                                        </p>
                                     </div>
                                 </div>
 

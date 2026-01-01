@@ -29,7 +29,8 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
       exportDate: new Date().toISOString(),
       exportType,
       data: {},
-      stats: {}
+      stats: {},
+      habits: JSON.parse(localStorage.getItem('planner.habits.v2') || '[]')
     };
 
     if (exportType === 'all') {
@@ -215,6 +216,15 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
           notifications: Boolean(importBudgetSettings.notifications),
           warningThreshold: importBudgetSettings.warningThreshold || 80
         });
+        importedCount++;
+      }
+
+      if (parsedData.habits && Array.isArray(parsedData.habits)) {
+        const existingHabits = importMode === 'replace' ? [] : JSON.parse(localStorage.getItem('planner.habits.v2') || '[]');
+        const habitMap = new Map();
+        existingHabits.forEach((h: any) => habitMap.set(h.id, h));
+        parsedData.habits.forEach((h: any) => habitMap.set(h.id, h));
+        localStorage.setItem('planner.habits.v2', JSON.stringify(Array.from(habitMap.values())));
         importedCount++;
       }
 

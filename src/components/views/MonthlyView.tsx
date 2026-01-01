@@ -1,8 +1,17 @@
-import React, { useState } from 'react';
-import { CalendarRange, ChevronLeft, ChevronRight, Pencil, Trash2, CheckCircle, Circle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { CalendarRange, ChevronLeft, ChevronRight, Trash2, CheckCircle, Circle } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import { PlanItem } from '../../types/planner';
 import { useLanguage } from '../../contexts/LanguageContext';
+
+// --- Habit Types (Matching HabitView) ---
+type Habit = {
+  id: string;
+  name: string;
+  createdAtISO: string;
+  checkins: Record<string, { completed: boolean }>;
+  isMastered?: boolean;
+};
 
 const MonthlyView: React.FC = () => {
   const { t } = useLanguage();
@@ -11,11 +20,18 @@ const MonthlyView: React.FC = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [editingPlan, setEditingPlan] = useState<PlanItem | null>(null);
+  const [habits, setHabits] = useState<Habit[]>([]);
+
   const [newPlan, setNewPlan] = useState({
     title: '',
     description: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
   });
+
+  useEffect(() => {
+    const saved = localStorage.getItem('planner.habits.v2');
+    if (saved) setHabits(JSON.parse(saved));
+  }, []);
 
   const monthNames = [
     t('months.january'), t('months.february'), t('months.march'), t('months.april'), t('months.may'), t('months.june'),
@@ -52,13 +68,14 @@ const MonthlyView: React.FC = () => {
     setCurrentMonth(newDate);
   };
 
-  // Helper to compare dates ignoring time/timezone shifts
   const formatDate = (date: Date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
+
+  const toISODate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
   const getPlansForDay = (date: Date) => {
     const dateStr = formatDate(date);
@@ -305,6 +322,26 @@ const MonthlyView: React.FC = () => {
                     {completedTasks}/{dayPlans.length}
                   </div>
                 )}
+
+                {/* Habit Indicators */}
+                <div className="flex flex-wrap gap-1 mt-auto pt-2">
+                  {habits.map(h => {
+                    const iso = toISODate(day);
+                    const isDone = h.checkins?.[iso]?.completed;
+                    const wasCreated = h.createdAtISO <= iso;
+                    const isTodayOrPast = day <= new Date();
+
+                    if (!wasCreated || !isTodayOrPast) return null;
+
+                    return (
+                      <div
+                        key={h.id}
+                        title={`${h.name}: ${isDone ? t('habits.success') : t('habits.missed')}`}
+                        className={`w-1.5 h-1.5 rounded-full ${isDone ? 'bg-green-500 shadow-sm shadow-green-500/30' : 'bg-red-400 opacity-50'}`}
+                      />
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
