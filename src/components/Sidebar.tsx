@@ -3,7 +3,7 @@ import {
   Clock, Calendar, CalendarDays, CalendarRange,
   CalendarCheck, StickyNote, Target, Brush,
   DollarSign, Timer, BarChart3, FileText, Link2,
-  X, Globe, Zap
+  X, Globe, Zap, ExternalLink, Heart
 } from 'lucide-react';
 import { ViewType } from '../types/planner';
 import { useLanguage, Language, LANGUAGE_NAMES } from '../contexts/LanguageContext';
@@ -176,6 +176,22 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onC
             );
           })}
         </nav>
+
+        {/* Cherry Coded Link */}
+        <div className="px-3 py-2">
+          <a
+            href="https://cherry-coded-digital-j7gg.bolt.host/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-gradient-to-br from-pink-400 to-rose-500 text-white font-semibold text-sm shadow-lg shadow-pink-500/20 hover:brightness-110 transition-all group"
+          >
+            <div className="rounded-lg bg-white/20 p-2">
+              <Heart size={16} />
+            </div>
+            <span className="flex-1">Cherry Coded Planner</span>
+            <ExternalLink size={16} className="opacity-70 group-hover:opacity-100" />
+          </a>
+        </div>
 
         {/* Footer */}
         <div className="px-4 py-4 border-t border-gray-200/50 dark:border-gray-700/50 space-y-3">
