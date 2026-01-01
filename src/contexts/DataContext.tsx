@@ -283,7 +283,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       processingRecurringRef.current = false;
     }
-  }, [isInitialized]); // Run once after init (and internally manages its own updates via callback)
+  }, [isInitialized, transactions]); // Reactive: runs when transactions change, relies on logic convergence to stop loops
 
   // Financial helper functions
   const computeProjection = (months: number) => {
