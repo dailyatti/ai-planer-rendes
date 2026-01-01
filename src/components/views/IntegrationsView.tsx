@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     Link2, Check, X, RefreshCw, ExternalLink,
     Calendar, FileText, CheckSquare, Mail,
     Cloud, Settings,
-    Zap, Key, Eye, EyeOff,
+    Key, Eye, EyeOff,
     Mic, TestTube, CheckCircle2, XCircle,
-    Globe, AlertTriangle
+    Globe, Zap
 } from 'lucide-react';
 import { useLanguage, LANGUAGE_NAMES, Language } from '../../contexts/LanguageContext';
 import { useSettings } from '../../contexts/SettingsContext';
@@ -34,23 +34,8 @@ const IntegrationsView: React.FC = () => {
     // Actually AIService should just be used for API calls.
     // We can rely on SettingsContext now.
 
-    // Integration definitions - only OpenAI and Gemini, mutually exclusive
+    // Integration definitions - only Gemini now
     const availableIntegrations = [
-        {
-            id: 'openai',
-            name: 'OpenAI (GPT-4o)',
-            description: t('integrations.openai.descUnified') || 'Teljeskörű AI: szöveg generálás + hang asszisztens',
-            icon: Zap,
-            color: 'from-green-500 to-emerald-600',
-            connected: activeProvider === 'openai',
-            provider: 'openai' as AIProvider,
-            features: [
-                t('integrations.unified.feat1') || 'Szöveg generálás (GPT-4o)',
-                t('integrations.unified.feat2') || 'Hang asszisztens (Whisper + TTS)',
-                t('integrations.unified.feat3') || 'Tartalom ötletek'
-            ],
-            helpLink: 'https://platform.openai.com/api-keys'
-        },
         {
             id: 'gemini',
             name: 'Google Gemini',
@@ -89,17 +74,7 @@ const IntegrationsView: React.FC = () => {
         setTestMessage('');
 
         try {
-            if (selectedIntegration === 'openai') {
-                const response = await fetch('https://api.openai.com/v1/models', {
-                    headers: { 'Authorization': `Bearer ${tempKey}` }
-                });
-                if (response.ok) {
-                    setTestStatus('success');
-                    setTestMessage(t('integrations.connectionSuccess') || 'Connection Successful');
-                } else {
-                    throw new Error('Invalid API Key');
-                }
-            } else if (selectedIntegration === 'gemini') {
+            if (selectedIntegration === 'gemini') {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${tempKey}`);
                 if (response.ok) {
                     setTestStatus('success');
@@ -143,19 +118,6 @@ const IntegrationsView: React.FC = () => {
         setTempKey('');
     };
 
-    // Handle disconnect
-    const handleDisconnect = () => {
-        updateSettings({
-            aiConfig: {
-                provider: null,
-                apiKey: ''
-            }
-        });
-        AIService.clearProvider();
-        setShowApiModal(false);
-        setSelectedIntegration(null);
-        setTempKey('');
-    };
 
     const connectedIntegrations = availableIntegrations.filter(i => i.connected);
     const selectedIntegrationObj = availableIntegrations.find(i => i.id === selectedIntegration);
@@ -368,30 +330,7 @@ const IntegrationsView: React.FC = () => {
                         </h3>
 
                         <div className="space-y-6">
-                            {/* OpenAI Instructions */}
-                            <div className="p-5 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-100 dark:border-green-800/30">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="p-2 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 shadow-md">
-                                        <Zap size={20} className="text-white" />
-                                    </div>
-                                    <h4 className="font-bold text-gray-900 dark:text-white text-lg">OpenAI (ChatGPT)</h4>
-                                    {activeProvider === 'openai' && <span className="badge badge-success text-xs"><Check size={12} /> {t('integrations.configured')}</span>}
-                                </div>
-                                <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
-                                    <p className="font-medium">{t('integrations.howToSetup') || 'How to setup:'}</p>
-                                    <ol className="list-decimal list-inside space-y-2 ml-2">
-                                        <li>{t('integrations.openai.step1') || 'Go to platform.openai.com and sign in or create an account'}</li>
-                                        <li>{t('integrations.openai.step2') || 'Navigate to API Keys section in your account settings'}</li>
-                                        <li>{t('integrations.openai.step3') || 'Click "Create new secret key" and copy the key'}</li>
-                                        <li>{t('integrations.openai.step4') || 'Paste the key in the integration settings above'}</li>
-                                    </ol>
-                                    <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800/30">
-                                        <p className="text-amber-800 dark:text-amber-300 text-xs font-medium">
-                                            ⚠️ {t('integrations.openai.warning') || 'Note: OpenAI API requires a paid account with credits. Free tier has limited usage.'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+                            {/* Gemini Instructions */}
 
                             {/* Gemini Instructions */}
                             <div className="p-5 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800/30">
