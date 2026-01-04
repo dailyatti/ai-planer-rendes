@@ -4,7 +4,7 @@ import {
     Plus, Trash2, Check, Clock,
     Edit2, X, Zap,
     Sun, Moon, Sunrise, Coffee,
-    CheckCircle
+    CheckCircle, Timer, Activity, Flag
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -43,6 +43,7 @@ type Habit = {
     color?: string; // Hex color for accent
     archived?: boolean;
     isMastered?: boolean;
+    targetDays?: number; // Default 66
 };
 
 // --- Storage Keys ---
@@ -73,6 +74,75 @@ const getStreak = (habit: Habit, todayISO: string): number => {
         }
     }
     return streak;
+};
+
+const formatDuration = (ms: number) => {
+    if (ms < 0) return '0p';
+    const seconds = Math.floor((ms / 1000) % 60);
+    const minutes = Math.floor((ms / (1000 * 60)) % 60);
+    const hours = Math.floor((ms / (1000 * 60 * 60)) % 24);
+    const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+
+    if (days > 0) return `${days}n ${hours}ó`;
+    if (hours > 0) return `${hours}ó ${minutes}p`;
+    return `${minutes}p ${seconds}mp`;
+};
+
+const HabitTimerStats: React.FC<{ habit: Habit; lastCheckin?: number }> = ({ habit, lastCheckin }) => {
+    const [now, setNow] = useState(Date.now());
+
+    useEffect(() => {
+        const interval = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const created = new Date(habit.createdAtISO).getTime();
+    const elapsed = now - created;
+
+    const targetDays = habit.targetDays || 66;
+    const targetMs = targetDays * 24 * 60 * 60 * 1000;
+    const remaining = targetMs - elapsed;
+    const progress = Math.min(100, Math.max(0, (elapsed / targetMs) * 100));
+
+    const sinceLast = lastCheckin ? now - lastCheckin : null;
+
+    return (
+        <div className="mt-3 grid grid-cols-3 gap-2">
+            {/* Total Elapsed */}
+            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-2 border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center text-center">
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                    <Timer size={10} />
+                    Eltelt
+                </div>
+                <div className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                    {formatDuration(elapsed)}
+                </div>
+            </div>
+
+            {/* Time to Mastery */}
+            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-2 border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                <div className="absolute bottom-0 left-0 h-0.5 bg-green-500 transition-all duration-1000" style={{ width: `${progress}%` }} />
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                    <Flag size={10} />
+                    Célig
+                </div>
+                <div className="text-xs font-bold text-green-600 dark:text-green-400">
+                    {remaining > 0 ? formatDuration(remaining) : 'Kész!'}
+                </div>
+            </div>
+
+            {/* Since Last Rep */}
+            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-2 border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center text-center">
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                    <Activity size={10} />
+                    Legutóbb
+                </div>
+                <div className="text-xs font-bold text-purple-600 dark:text-purple-400">
+                    {sinceLast ? formatDuration(sinceLast) : '-'}
+                </div>
+            </div>
+        </div>
+    );
 };
 
 /* -------------------------------- Components -------------------------------- */
@@ -405,6 +475,18 @@ const HabitView: React.FC = () => {
                                     </button>
                                 </div>
 
+                                {/* Timer Stats */}
+                                <div className="px-5 pb-3">
+                                    <HabitTimerStats
+                                        habit={habit}
+                                        lastCheckin={
+                                            // Find the latest checkin timestamp
+                                            Object.values(habit.checkins)
+                                                .sort((a, b) => b.timestamp - a.timestamp)[0]?.timestamp
+                                        }
+                                    />
+                                </div>
+
                                 {/* Footer / Meta Actions */}
                                 <div className="px-5 py-3 bg-gray-50/50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center text-xs text-gray-400">
                                     <div className="flex gap-3">
@@ -444,66 +526,70 @@ const HabitView: React.FC = () => {
                 </AnimatePresence>
             </div>
 
-            {filteredHabits.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-20 text-center opacity-60">
-                    <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
-                        <Coffee size={32} className="text-gray-400" />
+            {
+                filteredHabits.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-20 text-center opacity-60">
+                        <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+                            <Coffee size={32} className="text-gray-400" />
+                        </div>
+                        <p className="text-lg font-medium text-gray-500">{t('habits.emptyState')}</p>
                     </div>
-                    <p className="text-lg font-medium text-gray-500">{t('habits.emptyState')}</p>
-                </div>
-            )}
+                )
+            }
 
             {/* --- Mastered Habits Section --- */}
-            {habits.some(h => h.isMastered) && (
-                <div className="mt-12 mb-20">
-                    <div className="flex items-center gap-3 mb-6 opacity-60">
-                        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-                        <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                            <Zap size={14} />
-                            {t('habits.masteredHabits')}
-                        </h2>
-                        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-                    </div>
+            {
+                habits.some(h => h.isMastered) && (
+                    <div className="mt-12 mb-20">
+                        <div className="flex items-center gap-3 mb-6 opacity-60">
+                            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                <Zap size={14} />
+                                {t('habits.masteredHabits')}
+                            </h2>
+                            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                        </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {habits.filter(h => h.isMastered).map(habit => (
-                            <motion.div
-                                key={habit.id}
-                                layout
-                                className="bg-white/40 dark:bg-gray-800/20 backdrop-blur-md rounded-2xl p-4 border border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-between group shadow-sm"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center text-green-500">
-                                        <CheckCircle size={20} />
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {habits.filter(h => h.isMastered).map(habit => (
+                                <motion.div
+                                    key={habit.id}
+                                    layout
+                                    className="bg-white/40 dark:bg-gray-800/20 backdrop-blur-md rounded-2xl p-4 border border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-between group shadow-sm"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center text-green-500">
+                                            <CheckCircle size={20} />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-gray-600 dark:text-gray-300">{habit.name}</h3>
+                                            <p className="text-xs text-gray-400 capitalize">{habit.timeOfDay}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="font-semibold text-gray-600 dark:text-gray-300">{habit.name}</h3>
-                                        <p className="text-xs text-gray-400 capitalize">{habit.timeOfDay}</p>
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                        <button
+                                            onClick={() => {
+                                                const updated = habits.map(h => h.id === habit.id ? { ...h, isMastered: false } : h);
+                                                saveHabits(updated);
+                                            }}
+                                            className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
+                                            title={t('common.restore')}
+                                        >
+                                            <Clock size={16} />
+                                        </button>
+                                        <button
+                                            onClick={() => deleteHabit(habit.id)}
+                                            className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </div>
-                                </div>
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                    <button
-                                        onClick={() => {
-                                            const updated = habits.map(h => h.id === habit.id ? { ...h, isMastered: false } : h);
-                                            saveHabits(updated);
-                                        }}
-                                        className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
-                                        title={t('common.restore')}
-                                    >
-                                        <Clock size={16} />
-                                    </button>
-                                    <button
-                                        onClick={() => deleteHabit(habit.id)}
-                                        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
-                            </motion.div>
-                        ))}
+                                </motion.div>
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* --- Check-in Modal --- */}
             <AnimatePresence>
@@ -669,7 +755,7 @@ const HabitView: React.FC = () => {
                 )}
             </AnimatePresence>
 
-        </div>
+        </div >
     );
 };
 
