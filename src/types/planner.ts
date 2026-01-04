@@ -66,6 +66,7 @@ export interface Transaction {
   amount: number;
   description: string; // Used as name
   date: Date | string;
+  exactTime?: string; // HH:mm - Optional specific time for the transaction
   type: 'income' | 'expense' | 'subscription';
   category: string;
   period?: TransactionPeriod;
