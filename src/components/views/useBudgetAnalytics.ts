@@ -12,7 +12,7 @@ export const useBudgetAnalytics = (
     currency: string,
     safeConvert: (amount: number, fromCurrency: string, toCurrency: string) => number,
     t: (key: string) => string,
-    CATEGORIES: any,
+    CATEGORIES: Record<string, { color: string; label: string }>,
     projectionYears: number = 1
 ) => {
     // --- BASIC HELPERS ---
@@ -30,10 +30,10 @@ export const useBudgetAnalytics = (
 
     const ensureCurrency = (c?: string) => (c && c.trim() ? c : 'USD');
 
-    const isMaster = (tr: Transaction) => (tr as any).kind === 'master';
+    const isMaster = (tr: Transaction) => tr.kind === 'master';
 
     const isFuture = (tr: Transaction, now: Date) => {
-        const dt = toDateSafe(tr.date as any);
+        const dt = toDateSafe(tr.date);
         if (!dt) return false;
         return dt.getTime() > now.getTime();
     };
@@ -149,7 +149,7 @@ export const useBudgetAnalytics = (
             const projEnd = new Date(now.getFullYear() + projectionYears, now.getMonth(), now.getDate());
 
             txs.filter(tr => tr.type === type).forEach(tr => {
-                const from = ensureCurrency((tr as any).currency);
+                const from = ensureCurrency(tr.currency);
                 const baseAmount = absToView(tr.amount, from);
 
                 if (isMaster(tr)) {
@@ -214,7 +214,7 @@ export const useBudgetAnalytics = (
         transactions
             .filter(tr => tr.type === type && !isMaster(tr))
             .forEach(tr => {
-                const trCurrency = ensureCurrency((tr as any).currency);
+                const trCurrency = ensureCurrency(tr.currency);
                 const amount = Math.abs(tr.amount);
                 result[trCurrency] = (result[trCurrency] || 0) + amount;
             });
@@ -234,9 +234,9 @@ export const useBudgetAnalytics = (
                 expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + converted;
             });
         return Object.entries(expensesByCategory).map(([cat, val]) => ({
-            name: (CATEGORIES as any)[cat]?.label || cat,
+            name: CATEGORIES[cat]?.label || cat,
             value: val,
-            color: (CATEGORIES as any)[cat]?.color || '#9ca3af',
+            color: CATEGORIES[cat]?.color || '#9ca3af',
         }));
     }, [transactions, CATEGORIES, currency, safeConvert]);
 
@@ -262,7 +262,7 @@ export const useBudgetAnalytics = (
                 .forEach(tr => {
                     const dt = toDateSafe(tr.date);
                     if (dt && dt.getMonth() === m && dt.getFullYear() === y) {
-                        const amt = absToView(tr.amount, ensureCurrency((tr as any).currency));
+                        const amt = absToView(tr.amount, ensureCurrency(tr.currency));
                         if (tr.type === 'income') inc += amt; else exp += amt;
                     }
                 });
@@ -303,7 +303,7 @@ export const useBudgetAnalytics = (
 
             let inc = 0, exp = 0;
             transactions.forEach(tr => {
-                const amt = absToView(tr.amount, ensureCurrency((tr as any).currency));
+                const amt = absToView(tr.amount, ensureCurrency(tr.currency));
                 if (isMaster(tr)) {
                     const hits = calculateOccurrences(tr, start, end);
                     if (tr.type === 'income') inc += (amt * hits); else exp += (amt * hits);
