@@ -478,7 +478,7 @@ const BudgetView: React.FC = () => {
                 <ArrowUpRight size={16} className="text-white" />
               </div>
               <div className="text-blue-100 text-[10px] font-medium px-1.5 py-0.5 bg-white/10 rounded-md backdrop-blur-sm uppercase tracking-wide">
-                Bevételek (1 Év)
+                {t('budget.income')} ({projectionYears === 1 ? '1 Év' : `${projectionYears} Év`})
               </div>
             </div>
             <div className="mt-2 z-10">
@@ -503,7 +503,7 @@ const BudgetView: React.FC = () => {
                 <ArrowDownRight size={16} className="text-white" />
               </div>
               <div className="text-red-100 text-[10px] font-medium px-1.5 py-0.5 bg-white/10 rounded-md backdrop-blur-sm uppercase tracking-wide">
-                Kiadások (1 Év)
+                {t('budget.expense')} ({projectionYears === 1 ? '1 Év' : `${projectionYears} Év`})
               </div>
             </div>
             <div className="mt-2 z-10">

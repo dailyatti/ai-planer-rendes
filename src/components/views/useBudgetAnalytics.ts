@@ -1,8 +1,12 @@
 // src/components/views/useBudgetAnalytics.ts
 import { useCallback, useMemo } from 'react';
 import { Transaction } from '../../types/planner';
-// CATEGORIES will be passed as a parameter to the hook (no import needed)
 
+/**
+ * useBudgetAnalytics Hook - PhD Level Financial Engine
+ * Refactored for O(1) performance on Daily/Weekly frequencies and 
+ * Date-Drift prevention using Anchor Date logic.
+ */
 export const useBudgetAnalytics = (
     transactions: Transaction[],
     currency: string,
@@ -11,13 +15,14 @@ export const useBudgetAnalytics = (
     CATEGORIES: any,
     projectionYears: number = 1
 ) => {
-    // Helper to safely parse dates
-    const toDateSafe = (d: Date | string | number) => {
+    // --- BASIC HELPERS ---
+
+    const toDateSafe = (d: Date | string | number): Date | null => {
         const dt = d instanceof Date ? d : new Date(d);
         return Number.isNaN(dt.getTime()) ? null : dt;
     };
 
-    const endOfToday = () => {
+    const endOfToday = (): Date => {
         const now = new Date();
         now.setHours(23, 59, 59, 999);
         return now;
@@ -33,65 +38,98 @@ export const useBudgetAnalytics = (
         return dt.getTime() > now.getTime();
     };
 
-    // Helper to safely add months preventing date drift (e.g. Jan 31 -> Feb 28/29, not Mar 2)
-    const addMonthsClamped = (d: Date, months: number) => {
-        const date = new Date(d);
-        const day = date.getDate();
-        date.setMonth(date.getMonth() + months);
-        if (date.getDate() !== day) {
-            date.setDate(0);
+    /**
+     * PH-D LEVEL DATE MATH: Prevents "Feb 28 drift".
+     * If user creates on the 31st, it stays on the 31st (or end of month) forever.
+     */
+    const addMonthsWithAnchor = (anchorDate: Date, monthsToAdd: number): Date => {
+        const result = new Date(anchorDate);
+        const originalDay = anchorDate.getDate();
+        result.setMonth(result.getMonth() + monthsToAdd);
+
+        // If the month ended before the original day (e.g. Jan 31 + 1 month -> Mar 3 drift)
+        // we snap it back to the last day of the intended month.
+        if (result.getDate() !== originalDay) {
+            result.setDate(0);
         }
-        return date;
+        return result;
     };
 
     /**
-     * Projiciálja a tranzakció előfordulásait egy adott időtartamra.
-     * @param tr A tranzakció sablon (master)
-     * @param start Kezdő dátum (számítás kezdete)
-     * @param end Záró dátum (számítás vége)
-     * @returns Az előfordulások száma az intervallumban
+     * PH-D LEVEL HIGH PERFORMANCE RECURRENCE ENGINE
+     * Goal: O(1) performance for Daily/Weekly to prevent UI freezes on long projections.
      */
-    const calculateOccurrences = (tr: Transaction, start: Date, end: Date) => {
+    const calculateOccurrences = (tr: Transaction, start: Date, end: Date): number => {
+        // Standalone transactions always count as 1 if they fall in the window
         if (!tr.recurring || tr.period === 'oneTime') return 1;
 
         const trDate = toDateSafe(tr.date);
         if (!trDate) return 0;
 
-        // Ha a tranzakció kezdete a vizsgált időszak után van, 0 előfordulás
+        // Boundary Check: If the recurring series starts after our window ends, 0 hits.
         if (trDate.getTime() > end.getTime()) return 0;
 
-        let count = 0;
-        const current = new Date(trDate);
+        // Effective start is the junction of (transaction start) and (window start).
+        const junctionStart = new Date(Math.max(trDate.getTime(), start.getTime()));
 
-        // Safety brake: calculate approx max steps to avoid infinite loops if logic fails
-        // Daily: ~366/year. 50 years = ~18k steps. 1000 was too low.
-        // Let's use a dynamic safety break based on time diff.
-        const dayDiff = Math.ceil((end.getTime() - current.getTime()) / (24 * 3600 * 1000));
-        const maxSteps = Math.max(1000, dayDiff + 100);
-        let steps = 0;
+        // If junction is past the window end, 0 hits.
+        if (junctionStart.getTime() > end.getTime()) return 0;
 
-        // Léptetés a periódus alapján
-        while (current.getTime() <= end.getTime() && steps < maxSteps) {
-            steps++;
-            if (current.getTime() >= start.getTime()) {
-                count++;
+        switch (tr.period) {
+            // O(1) Mathematical Logic for Linear Recurrences
+            case 'daily': {
+                const diffTime = end.getTime() - junctionStart.getTime();
+                return Math.floor(diffTime / (24 * 3600 * 1000)) + 1;
+            }
+            case 'weekly': {
+                const diffTime = end.getTime() - junctionStart.getTime();
+                return Math.floor(diffTime / (7 * 24 * 3600 * 1000)) + 1;
             }
 
-            // Következő dátum számítása
-            switch (tr.period) {
-                case 'daily': current.setDate(current.getDate() + 1); break;
-                case 'weekly': current.setDate(current.getDate() + 7); break;
-                case 'monthly': {
-                    const next = addMonthsClamped(current, 1);
-                    current.setTime(next.getTime());
-                    break;
+            // Optimized Traversal for Non-Linear Calendar Recurrences
+            case 'monthly': {
+                let count = 0;
+                // Fast-Forward Logic: Calculate initial month skip to avoid looping from transaction creation date
+                let monthsToSkip = 0;
+                if (junctionStart.getTime() > trDate.getTime()) {
+                    const yearDiff = junctionStart.getFullYear() - trDate.getFullYear();
+                    const monthDiff = junctionStart.getMonth() - trDate.getMonth();
+                    // We step back 1 month to ensure we don't skip the landing month's occurrence
+                    monthsToSkip = Math.max(0, yearDiff * 12 + monthDiff - 1);
                 }
-                case 'yearly': current.setFullYear(current.getFullYear() + 1); break;
-                default: return count; // oneTime vagy ismeretlen
-            }
-        }
 
-        return count;
+                let current = addMonthsWithAnchor(trDate, monthsToSkip);
+                let iterations = 0;
+                while (current.getTime() <= end.getTime() && iterations < 1200) { // 100 year hard cap
+                    if (current.getTime() >= start.getTime()) {
+                        count++;
+                    }
+                    iterations++;
+                    current = addMonthsWithAnchor(trDate, monthsToSkip + iterations);
+                }
+                return count;
+            }
+
+            case 'yearly': {
+                let count = 0;
+                let yearsToSkip = Math.max(0, junctionStart.getFullYear() - trDate.getFullYear() - 1);
+
+                let current = new Date(trDate);
+                current.setFullYear(trDate.getFullYear() + yearsToSkip);
+
+                let iterations = 0;
+                while (current.getTime() <= end.getTime() && iterations < 100) {
+                    if (current.getTime() >= start.getTime()) {
+                        count++;
+                    }
+                    iterations++;
+                    current = new Date(trDate);
+                    current.setFullYear(trDate.getFullYear() + yearsToSkip + iterations);
+                }
+                return count;
+            }
+            default: return 1;
+        }
     };
 
     const absToView = useCallback((amount: number, fromCurrency: string) => {
@@ -99,90 +137,99 @@ export const useBudgetAnalytics = (
         return safeConvert(abs, ensureCurrency(fromCurrency), currency);
     }, [currency, safeConvert]);
 
+    /**
+     * sumByType - Unified volume calculator
+     * @param isProjectionMode If true, calculates FUTURE FLOW. If false, calculates REALIZED STOCK (Balance).
+     */
     const sumByType = useCallback(
-        (txs: Transaction[], type: 'income' | 'expense', includeFutureMaster: boolean = false) => {
+        (txs: Transaction[], type: 'income' | 'expense', isProjectionMode: boolean = false) => {
             if (!txs || txs.length === 0) return 0;
             let total = 0;
             const now = endOfToday();
+            const projEnd = new Date(now.getFullYear() + projectionYears, now.getMonth(), now.getDate());
 
             txs.filter(tr => tr.type === type).forEach(tr => {
                 const from = ensureCurrency((tr as any).currency);
                 const baseAmount = absToView(tr.amount, from);
 
                 if (isMaster(tr)) {
-                    if (includeFutureMaster) {
-                        // PhD Logic: For "Total Volume" cards, user wants to see projected value?
-                        // "csak az egyenleg résznél nem kell látszodjon" implies Cards show "Future Potential".
-                        // Calculating occurrences for the next year (default view) or all time?
-                        // Let's assume 1 year projection for "Total" cards to make them meaningful.
-                        const occurrences = calculateOccurrences(tr, now, new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()));
+                    if (isProjectionMode) {
+                        // Volume cards: Project flow from TODAY until window end
+                        const occurrences = calculateOccurrences(tr, now, projEnd);
                         total += baseAmount * occurrences;
                     }
-                    // Else: Balance calculation (Cash) -> Master counts as 0 (History handled separately)
+                    // Masters never contribute to current cash balance (only history items do)
                 } else {
-                    total += baseAmount;
+                    const trDate = toDateSafe(tr.date);
+                    if (!trDate) return;
+
+                    if (isProjectionMode) {
+                        // Volume cards: Include standalone planned items in [now, projEnd]
+                        if (trDate.getTime() >= now.getTime() && trDate.getTime() <= projEnd.getTime()) {
+                            total += baseAmount;
+                        }
+                    } else {
+                        // Cash balance: Include all history items in the past
+                        if (trDate.getTime() <= now.getTime()) {
+                            total += baseAmount;
+                        }
+                    }
                 }
             });
             return total;
         },
-        [absToView, ensureCurrency, isMaster, calculateOccurrences]
+        [absToView, ensureCurrency, isMaster, calculateOccurrences, projectionYears]
     );
 
-    // Aggregations
+    // --- MEMOIZED DATA SETS ---
+
     const { totalIncome, totalExpense, balance, volumeTransactions, cashTransactions } = useMemo(() => {
         if (!transactions || transactions.length === 0) {
             return { totalIncome: 0, totalExpense: 0, balance: 0, volumeTransactions: [], cashTransactions: [] };
         }
         const now = endOfToday();
 
+        // UI FIX: Strictly exclude Master templates from the lists (they are just definitions)
         const volumeTransactions = transactions.filter(tr => !isMaster(tr));
         const cashTransactions = transactions.filter(tr => !isFuture(tr, now) && !isMaster(tr));
 
-        // Cash flow totals (for Balance: Realized Only)
-        const cashIncome = sumByType(cashTransactions, 'income', false);
-        const cashExpense = sumByType(cashTransactions, 'expense', false);
-
-        // Volume/Planned totals (for Cards: Show everything including future potential)
-        // We pass 'transactions' (includes Master) and enable future master calculation
-        const volumeIncome = sumByType(transactions, 'income', true);
-        const volumeExpense = sumByType(transactions, 'expense', true);
+        const projectedIncome = sumByType(transactions, 'income', true);
+        const projectedExpense = sumByType(transactions, 'expense', true);
+        const realizedIncome = sumByType(transactions, 'income', false);
+        const realizedExpense = sumByType(transactions, 'expense', false);
 
         return {
-            totalIncome: volumeIncome,
-            totalExpense: volumeExpense,
-            balance: cashIncome - cashExpense, // Balance strictly Realized
+            totalIncome: projectedIncome,
+            totalExpense: projectedExpense,
+            balance: realizedIncome - realizedExpense,
             volumeTransactions,
             cashTransactions
         };
     }, [transactions, sumByType]);
 
-
     const getTransactionAmountsByCurrency = (type: 'income' | 'expense') => {
         const result: Record<string, number> = {};
         if (!transactions) return result;
 
-        // Fix: Exclude masters to avoid double counting (DataContext generates history)
         transactions
             .filter(tr => tr.type === type && !isMaster(tr))
             .forEach(tr => {
-                const trCurrency = (tr as any).currency || 'USD';
+                const trCurrency = ensureCurrency((tr as any).currency);
                 const amount = Math.abs(tr.amount);
                 result[trCurrency] = (result[trCurrency] || 0) + amount;
             });
         return result;
     };
 
-    // Category chart data
     const categoryData = useMemo(() => {
         if (!transactions) return [];
         const expensesByCategory: Record<string, number> = {};
 
-        // Fix: Exclude masters to avoid double counting (DataContext generates history)
         transactions
             .filter(tr => tr.type === 'expense' && !isMaster(tr))
             .forEach(tr => {
                 const amount = Math.abs(tr.amount);
-                const trCurrency = (tr as any).currency || 'USD';
+                const trCurrency = ensureCurrency((tr as any).currency);
                 const converted = safeConvert(amount, trCurrency, currency);
                 expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + converted;
             });
@@ -193,55 +240,37 @@ export const useBudgetAnalytics = (
         }));
     }, [transactions, CATEGORIES, currency, safeConvert]);
 
-    // Cash‑flow chart data (last 6 months)
     const cashFlowData = useMemo(() => {
         const monthNames = [
-            t('months.january') || 'Jan',
-            t('months.february') || 'Feb',
-            t('months.march') || 'Mar',
-            t('months.april') || 'Apr',
-            t('months.may') || 'May',
-            t('months.june') || 'Jun',
-            t('months.july') || 'Jul',
-            t('months.august') || 'Aug',
-            t('months.september') || 'Sep',
-            t('months.october') || 'Oct',
-            t('months.november') || 'Nov',
-            t('months.december') || 'Dec',
+            t('months.january') || 'Jan', t('months.february') || 'Feb', t('months.march') || 'Mar', t('months.april') || 'Apr',
+            t('months.may') || 'May', t('months.june') || 'Jun', t('months.july') || 'Jul', t('months.august') || 'Aug',
+            t('months.september') || 'Sep', t('months.october') || 'Oct', t('months.november') || 'Nov', t('months.december') || 'Dec',
         ];
         const now = new Date();
         const monthsData: { name: string; income: number; expense: number }[] = [];
-        if (!transactions || transactions.length === 0) return [];
+        if (!transactions) return [];
 
         for (let i = 5; i >= 0; i--) {
             const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const monthIdx = mDate.getMonth();
-            const year = mDate.getFullYear();
-            const monthName = monthNames[monthIdx] ? monthNames[monthIdx].slice(0, 3) : `M${monthIdx + 1}`;
+            const m = mDate.getMonth();
+            const y = mDate.getFullYear();
+            const label = monthNames[m]?.slice(0, 3) || `M${m + 1}`;
 
-            let income = 0;
-            let expense = 0;
-
-            // Fix: Exclude masters for historical cash flow (DataContext generates history)
+            let inc = 0, exp = 0;
             transactions
                 .filter(tr => !isMaster(tr))
                 .forEach(tr => {
-                    const amount = Math.abs(tr.amount);
-                    const trCurrency = (tr as any).currency || 'USD';
-                    const converted = safeConvert(amount, trCurrency, currency);
-
-                    // Check if transaction falls in THIS month
-                    const trDate = new Date(tr.date);
-                    if (trDate.getMonth() === monthIdx && trDate.getFullYear() === year) {
-                        if (tr.type === 'income') income += converted; else expense += converted;
+                    const dt = toDateSafe(tr.date);
+                    if (dt && dt.getMonth() === m && dt.getFullYear() === y) {
+                        const amt = absToView(tr.amount, ensureCurrency((tr as any).currency));
+                        if (tr.type === 'income') inc += amt; else exp += amt;
                     }
                 });
-            monthsData.push({ name: monthName, income, expense });
+            monthsData.push({ name: label, income: inc, expense: exp });
         }
         return monthsData;
-    }, [transactions, t, currency, safeConvert]);
+    }, [transactions, t, absToView]);
 
-    // PhD Level: Multi-Year Future Projection
     const projectionData = useMemo(() => {
         const monthNames = [
             t('months.january') || 'Jan', t('months.february') || 'Feb', t('months.march') || 'Mar', t('months.april') || 'Apr',
@@ -251,56 +280,46 @@ export const useBudgetAnalytics = (
 
         const now = new Date();
         const projData: { name: string; balance: number; income: number; expense: number }[] = [];
-        if (!transactions || transactions.length === 0) return [];
+        if (!transactions) return [];
 
         let cumulativeBalance = balance;
-
-        const isYearlyMode = projectionYears > 3;
-        const totalPoints = isYearlyMode ? projectionYears : (projectionYears * 12);
+        const isYearly = projectionYears > 3;
+        const totalPoints = isYearly ? projectionYears : (projectionYears * 12);
 
         for (let i = 1; i <= totalPoints; i++) {
             let start: Date, end: Date, label: string;
 
-            if (isYearlyMode) {
-                // YEARLY calculation
-                const y = now.getFullYear() + i;
-                start = new Date(y, 0, 1);
-                end = new Date(y, 11, 31, 23, 59, 59);
-                label = `${y}`;
+            if (isYearly) {
+                const year = now.getFullYear() + i;
+                start = new Date(year, 0, 1);
+                end = new Date(year, 11, 31, 23, 59, 59);
+                label = `${year}`;
             } else {
-                // MONTHLY calculation
-                const targetDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
-                start = targetDate;
-                end = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59);
-                const idx = targetDate.getMonth();
-                const yShort = String(targetDate.getFullYear()).slice(2);
-                label = `${monthNames[idx]?.slice(0, 3)} '${yShort}`;
+                const target = new Date(now.getFullYear(), now.getMonth() + i, 1);
+                start = target;
+                end = new Date(target.getFullYear(), target.getMonth() + 1, 0, 23, 59, 59);
+                label = `${monthNames[target.getMonth()]?.slice(0, 3)} '${String(target.getFullYear()).slice(2)}`;
             }
 
-            let income = 0;
-            let expense = 0;
-
+            let inc = 0, exp = 0;
             transactions.forEach(tr => {
-                const amount = Math.abs(tr.amount);
-                const trCurrency = (tr as any).currency || 'USD';
-                const converted = safeConvert(amount, trCurrency, currency);
-
+                const amt = absToView(tr.amount, ensureCurrency((tr as any).currency));
                 if (isMaster(tr)) {
-                    const occurrences = calculateOccurrences(tr, start, end);
-                    if (tr.type === 'income') income += (converted * occurrences); else expense += (converted * occurrences);
+                    const hits = calculateOccurrences(tr, start, end);
+                    if (tr.type === 'income') inc += (amt * hits); else exp += (amt * hits);
                 } else {
-                    const trDate = new Date(tr.date);
-                    if (trDate >= start && trDate <= end) {
-                        if (tr.type === 'income') income += converted; else expense += converted;
+                    const dt = toDateSafe(tr.date);
+                    if (dt && dt >= start && dt <= end) {
+                        if (tr.type === 'income') inc += amt; else exp += amt;
                     }
                 }
             });
 
-            cumulativeBalance += income - expense;
-            projData.push({ name: label, balance: cumulativeBalance, income, expense });
+            cumulativeBalance += inc - exp;
+            projData.push({ name: label, balance: cumulativeBalance, income: inc, expense: exp });
         }
         return projData;
-    }, [transactions, t, currency, safeConvert, balance, projectionYears]);
+    }, [transactions, t, absToView, balance, projectionYears, calculateOccurrences]);
 
     return {
         totalIncome,
