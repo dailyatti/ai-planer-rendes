@@ -4,7 +4,7 @@ import {
     Plus, Trash2, Check, Clock,
     Edit2, X, Zap,
     Sun, Moon, Sunrise, Coffee,
-    CheckCircle, Timer, Activity, Flag
+    CheckCircle, Timer, Activity, Flag, Calendar, ChevronLeft, ChevronRight, FileText
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -143,6 +143,158 @@ const HabitTimerStats: React.FC<{ habit: Habit; lastCheckin?: number }> = ({ hab
             </div>
         </div>
     );
+
+};
+
+const HabitHistoryModal: React.FC<{ habit: Habit; onClose: () => void }> = ({ habit, onClose }) => {
+    const { t } = useLanguage();
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0 = Sun
+    const startOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1; // Mon start
+
+    const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
+    const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+
+    const checkinsInMonth = useMemo(() => {
+        let count = 0;
+        for (let i = 1; i <= daysInMonth; i++) {
+            const iso = `${year}-${pad2(month + 1)}-${pad2(i)}`;
+            if (habit.checkins[iso]?.completed) count++;
+        }
+        return count;
+    }, [habit, year, month, daysInMonth]);
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh]"
+            >
+                {/* Header */}
+                <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">{habit.name} - {t('common.history')}</h2>
+                        <p className="text-sm text-gray-500">{checkinsInMonth} / {daysInMonth} {t('common.days')}</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6">
+                    {/* Calendar Nav */}
+                    <div className="flex items-center justify-between mb-6">
+                        <button onClick={handlePrevMonth} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
+                            <ChevronLeft size={20} />
+                        </button>
+                        <h3 className="text-lg font-bold capitalize">
+                            {currentDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                        </h3>
+                        <button onClick={handleNextMonth} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
+                            <ChevronRight size={20} />
+                        </button>
+                    </div>
+
+                    {/* Calendar Grid */}
+                    <div className="grid grid-cols-7 gap-1 mb-6">
+                        {['H', 'K', 'S', 'C', 'P', 'S', 'V'].map((d, i) => (
+                            <div key={i} className="text-center text-xs font-bold text-gray-400 py-2">{d}</div>
+                        ))}
+                        {Array.from({ length: startOffset }).map((_, i) => (
+                            <div key={`empty-${i}`} />
+                        ))}
+                        {Array.from({ length: daysInMonth }).map((_, i) => {
+                            const d = i + 1;
+                            const iso = `${year}-${pad2(month + 1)}-${pad2(d)}`;
+                            const checkin = habit.checkins[iso];
+                            const isSelected = selectedDate === iso;
+
+                            let bgClass = 'bg-gray-50 dark:bg-gray-900 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800';
+                            if (checkin?.completed) {
+                                if (checkin.effort === 'hard') bgClass = 'bg-green-600 text-white shadow-md shadow-green-500/20';
+                                else if (checkin.effort === 'medium') bgClass = 'bg-green-500 text-white';
+                                else bgClass = 'bg-green-400 text-white';
+                            }
+                            if (isSelected) bgClass = 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900 z-10';
+
+                            return (
+                                <button
+                                    key={d}
+                                    onClick={() => setSelectedDate(iso)}
+                                    className={`
+                                        aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-medium transition-all relative
+                                        ${bgClass}
+                                    `}
+                                >
+                                    {d}
+                                    {checkin?.note && (
+                                        <div className={`w-1 h-1 rounded-full mt-0.5 ${checkin.completed ? 'bg-white' : 'bg-blue-500'}`} />
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Start Date Indicator */}
+                    <div className="text-center mb-6">
+                        <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">
+                            Kezdés: {habit.createdAtISO}
+                        </span>
+                    </div>
+
+                    {/* Detail View */}
+                    <AnimatePresence mode="wait">
+                        {selectedDate && (
+                            <motion.div
+                                key={selectedDate}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 border border-gray-100 dark:border-gray-800"
+                            >
+                                <div className="flex items-center justify-between mb-3">
+                                    <h4 className="font-bold text-gray-900 dark:text-white">
+                                        {selectedDate}
+                                    </h4>
+                                    {habit.checkins[selectedDate]?.completed ? (
+                                        <span className={`px-2 py-1 rounded-lg text-xs font-bold uppercase ${habit.checkins[selectedDate].effort === 'hard' ? 'bg-red-100 text-red-600' :
+                                            habit.checkins[selectedDate].effort === 'medium' ? 'bg-yellow-100 text-yellow-600' :
+                                                'bg-green-100 text-green-600'
+                                            }`}>
+                                            {t(`habits.effort.${habit.checkins[selectedDate].effort || 'easy'}`)}
+                                        </span>
+                                    ) : (
+                                        <span className="text-xs text-gray-400 font-medium">Nincs adat</span>
+                                    )}
+                                </div>
+
+                                {habit.checkins[selectedDate]?.note ? (
+                                    <div className="flex gap-3">
+                                        <FileText size={18} className="text-gray-400 shrink-0 mt-0.5" />
+                                        <p className="text-sm text-gray-600 dark:text-gray-300 italic">
+                                            "{habit.checkins[selectedDate].note}"
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-gray-400 text-center italic py-2">
+                                        {t('habits.noNote')}
+                                    </p>
+                                )}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            </motion.div>
+        </div>
+    );
 };
 
 /* -------------------------------- Components -------------------------------- */
@@ -156,6 +308,7 @@ const HabitView: React.FC = () => {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
     const [checkinHabit, setCheckinHabit] = useState<Habit | null>(null); // For effort/note modal
+    const [historyHabit, setHistoryHabit] = useState<Habit | null>(null);
 
     // Form State
     const [formData, setFormData] = useState<Partial<Habit>>({
@@ -495,7 +648,16 @@ const HabitView: React.FC = () => {
                                         </span>
                                     </div>
 
+
+
                                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={() => setHistoryHabit(habit)}
+                                            className="hover:text-blue-500 p-1"
+                                            title={t('common.history')}
+                                        >
+                                            <Calendar size={14} />
+                                        </button>
                                         {!habit.isMastered && (
                                             <button
                                                 onClick={() => {
@@ -752,6 +914,16 @@ const HabitView: React.FC = () => {
                             </div>
                         </motion.div>
                     </div>
+                )}
+            </AnimatePresence>
+
+            {/* History Modal */}
+            <AnimatePresence>
+                {historyHabit && (
+                    <HabitHistoryModal
+                        habit={historyHabit}
+                        onClose={() => setHistoryHabit(null)}
+                    />
                 )}
             </AnimatePresence>
 
