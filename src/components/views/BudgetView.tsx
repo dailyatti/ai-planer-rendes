@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Plus, TrendingUp, TrendingDown, Trash2, X, Repeat, Wallet, BarChart3,
   Check, RefreshCcw, PieChart, ArrowUpRight, ArrowDownRight, CheckSquare,
-  Square, AlertTriangle, Search, Zap, CalendarRange, Clock
+  Square, AlertTriangle, Search, Zap, CalendarRange
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
@@ -52,7 +52,6 @@ const BudgetView: React.FC = () => {
     currency: currency,
     period: 'oneTime' as TransactionPeriod,
     date: new Date().toISOString().split('T')[0],
-    exactTime: '',
     recurring: false,
     interestRate: ''
   });
@@ -214,8 +213,7 @@ const BudgetView: React.FC = () => {
       period: newTransaction.period,
       recurring: isRecurring,
       kind: isRecurring ? 'master' as const : undefined,
-      interestRate: finalInterestRate,
-      exactTime: newTransaction.exactTime || undefined
+      interestRate: finalInterestRate
     };
 
     // Note: addTransaction/updateTransaction updates are optimistic/sync in DataContext normally
@@ -233,7 +231,6 @@ const BudgetView: React.FC = () => {
         currency: currency,
         period: 'oneTime',
         date: new Date().toISOString().split('T')[0],
-        exactTime: '',
         recurring: false,
         interestRate: ''
       });
@@ -398,7 +395,7 @@ const BudgetView: React.FC = () => {
               setEditingTransaction(null);
               setNewTransaction({
                 description: '', amount: '', category: 'other', currency: currency,
-                period: 'oneTime', date: new Date().toISOString().split('T')[0], exactTime: '', recurring: false, interestRate: ''
+                period: 'oneTime', date: new Date().toISOString().split('T')[0], recurring: false, interestRate: ''
               });
               setShowAddModal(true);
             }}
@@ -413,7 +410,7 @@ const BudgetView: React.FC = () => {
               setEditingTransaction(null);
               setNewTransaction({
                 description: '', amount: '', category: 'other', currency: currency,
-                period: 'oneTime', date: new Date().toISOString().split('T')[0], exactTime: '', recurring: false, interestRate: ''
+                period: 'oneTime', date: new Date().toISOString().split('T')[0], recurring: false, interestRate: ''
               });
               setShowAddModal(true);
             }}
@@ -845,7 +842,6 @@ const BudgetView: React.FC = () => {
                       currency: (tr as any).currency || currency,
                       period: tr.period as TransactionPeriod,
                       date: new Date(tr.date).toISOString().split('T')[0],
-                      exactTime: tr.exactTime || '',
                       recurring: tr.recurring || false,
                       interestRate: tr.interestRate?.toString() || ''
                     });
@@ -885,7 +881,7 @@ const BudgetView: React.FC = () => {
                           {(CATEGORIES as any)[tr.category]?.label || tr.category}
                         </span>
                         <span className="text-gray-300">•</span>
-                        <span>{formatDate(tr.date)}{tr.exactTime ? ` ${tr.exactTime}` : ''}</span>
+                        <span>{formatDate(tr.date)}</span>
                         <span className="text-gray-300">•</span>
                         <span className="px-2 py-0.5 rounded-md text-[10px] uppercase font-bold tracking-wider bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
                           {getPeriodLabel(tr.period)}
@@ -1119,20 +1115,6 @@ const BudgetView: React.FC = () => {
                   />
                 </div>
 
-                {/* PhD Level: Exact Time */}
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-500 dark:text-gray-400 px-1 flex items-center gap-2">
-                    <Clock size={14} /> {t('budget.exactTime') || 'Pontos idő'}
-                  </label>
-                  <input
-                    type="time"
-                    value={newTransaction.exactTime || ''}
-                    onChange={(e) => setNewTransaction({ ...newTransaction, exactTime: e.target.value })}
-                    className="input-field w-full py-4 px-6 rounded-2xl border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 cursor-pointer"
-                  />
-                  <p className="text-xs text-gray-400 px-1">{t('budget.exactTimeHint') || 'Opcionális: Mikor aktiválódjon?'}</p>
-                </div>
-
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-purple-600 dark:text-purple-400 flex items-center gap-2 px-1 uppercase tracking-wider">
                     <TrendingUp size={14} className="animate-bounce-slow" /> Éves kamatláb
@@ -1178,253 +1160,247 @@ const BudgetView: React.FC = () => {
               </button>
             </div>
           </motion.div>
-        </div >
+        </div>
       )}
 
       {/* Breakdown Popover */}
-      {
-        selectedStat && (
-          <>
-            <div
-              className="fixed inset-0 z-[100]"
-              onClick={() => setSelectedStat(null)}
-            />
-            <div
-              className="fixed z-[101] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 p-4 min-w-[280px] animate-in fade-in zoom-in-95 duration-200"
-              style={{
-                top: selectedStat.rect.bottom + 10,
-                left: Math.min(selectedStat.rect.left, window.innerWidth - 300)
-              }}
-            >
-              <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100 dark:border-gray-700">
-                <h4 className="font-bold text-gray-900 dark:text-white">{selectedStat.title} Részletezése</h4>
-                <button onClick={() => setSelectedStat(null)} className="text-gray-400 hover:text-gray-600">
-                  <X size={16} />
-                </button>
-              </div>
-              <div className="space-y-3">
-                {Object.entries(selectedStat.breakdown).map(([curr, amount]) => (
-                  <div key={curr} className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">{curr}</span>
-                    <span className="font-bold text-gray-900 dark:text-white">
-                      {new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
-                        style: 'currency',
-                        currency: curr,
-                        maximumFractionDigits: 0
-                      }).format(amount)}
-                    </span>
-                  </div>
-                ))}
-                {Object.keys(selectedStat.breakdown).length === 0 && (
-                  <div className="text-center text-sm text-gray-400 py-2">
-                    Nincs adat.
-                  </div>
-                )}
-              </div>
-              <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
-                <p className="text-xs text-gray-400">
-                  Az átváltási árfolyamokat a Beállítások menüben módosíthatod.
-                </p>
-              </div>
+      {selectedStat && (
+        <>
+          <div
+            className="fixed inset-0 z-[100]"
+            onClick={() => setSelectedStat(null)}
+          />
+          <div
+            className="fixed z-[101] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 p-4 min-w-[280px] animate-in fade-in zoom-in-95 duration-200"
+            style={{
+              top: selectedStat.rect.bottom + 10,
+              left: Math.min(selectedStat.rect.left, window.innerWidth - 300)
+            }}
+          >
+            <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100 dark:border-gray-700">
+              <h4 className="font-bold text-gray-900 dark:text-white">{selectedStat.title} Részletezése</h4>
+              <button onClick={() => setSelectedStat(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={16} />
+              </button>
             </div>
-          </>
-        )
-      }
-
-      {/* Currency Converter Modal */}
-      {
-        showConverter && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden transform animate-in zoom-in-95 duration-200">
-              <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-blue-500/5 to-indigo-500/5">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <RefreshCcw size={20} className="text-blue-500" />
-                    Valutaváltó (Any-to-Any)
-                  </h3>
-                  <button
-                    onClick={() => setShowConverter(false)}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-gray-400 transition-colors"
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Számolj át bármilyen pénznemet bármilyenre real-time.
-                </p>
-              </div>
-
-              <div className="p-6 space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Összeg</label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={convAmount}
-                    onChange={(e) => {
-                      if (/^[0-9.,]*$/.test(e.target.value)) {
-                        setConvAmount(e.target.value);
-                      }
-                    }}
-                    className="input-field w-full text-lg font-bold"
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 items-center">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ebből</label>
-                    <select
-                      value={convFrom}
-                      onChange={(e) => setConvFrom(e.target.value)}
-                      className="input-field w-full py-3"
-                    >
-                      {AVAILABLE_CURRENCIES.map(c => (
-                        <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex justify-center pt-6">
-                    <button
-                      onClick={() => {
-                        const temp = convFrom;
-                        setConvFrom(convTo);
-                        setConvTo(temp);
-                      }}
-                      className="p-3 bg-gray-100 dark:bg-gray-800 rounded-2xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all active:scale-95 text-gray-600 dark:text-gray-400"
-                    >
-                      <Repeat size={20} />
-                    </button>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ebbe</label>
-                    <select
-                      value={convTo}
-                      onChange={(e) => setConvTo(e.target.value)}
-                      className="input-field w-full py-3"
-                    >
-                      {AVAILABLE_CURRENCIES.map(c => (
-                        <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Result Card */}
-                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-3xl text-white shadow-xl shadow-blue-500/20">
-                  <div className="text-sm opacity-80 mb-1">Eredmény ({convTo}):</div>
-                  <div className="text-3xl font-black">
+            <div className="space-y-3">
+              {Object.entries(selectedStat.breakdown).map(([curr, amount]) => (
+                <div key={curr} className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">{curr}</span>
+                  <span className="font-bold text-gray-900 dark:text-white">
                     {new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
                       style: 'currency',
-                      currency: convTo,
-                      maximumFractionDigits: 2
-                    }).format(safeConvert(parsedConvAmount, convFrom, convTo))}
-                  </div>
-                  <div className="mt-3 flex items-center justify-between text-xs opacity-70">
-                    <span>1 {convFrom} ≈ {safeConvert(1, convFrom, convTo).toFixed(4)} {convTo}</span>
-                    <div className="flex items-center gap-1">
-                      {rateSource === 'system' ? '⚠️ Becsült' : '✅ Friss'}
-                    </div>
-                  </div>
+                      currency: curr,
+                      maximumFractionDigits: 0
+                    }).format(amount)}
+                  </span>
                 </div>
-
-                {/* Live Update Button */}
-                <div className="flex justify-center">
-                  <button
-                    onClick={async () => {
-                      const btn = document.getElementById('live-refresh-btn');
-                      if (btn) {
-                        btn.textContent = 'Frissítés...';
-                        btn.setAttribute('disabled', 'true');
-                      }
-
-                      await CurrencyService.fetchRealTimeRates(true);
-                      setRateSource(CurrencyService.getUpdateSource());
-
-                      if (btn) {
-                        btn.textContent = 'Valós idejű árfolyamok lekérése (API)';
-                        btn.removeAttribute('disabled');
-                      }
-                    }}
-                    id="live-refresh-btn"
-                    className="text-xs text-blue-500 dark:text-blue-400 font-medium hover:underline flex items-center gap-1"
-                  >
-                    <RefreshCcw size={12} />
-                    Frissítés valós idejű adatokkal (API)
-                  </button>
+              ))}
+              {Object.keys(selectedStat.breakdown).length === 0 && (
+                <div className="text-center text-sm text-gray-400 py-2">
+                  Nincs adat.
                 </div>
-              </div>
+              )}
+            </div>
+            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+              <p className="text-xs text-gray-400">
+                Az átváltási árfolyamokat a Beállítások menüben módosíthatod.
+              </p>
+            </div>
+          </div>
+        </>
+      )}
 
-              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800">
+      {/* Currency Converter Modal */}
+      {showConverter && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden transform animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-blue-500/5 to-indigo-500/5">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <RefreshCcw size={20} className="text-blue-500" />
+                  Valutaváltó (Any-to-Any)
+                </h3>
                 <button
                   onClick={() => setShowConverter(false)}
-                  className="btn-primary w-full py-3 rounded-2xl"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-gray-400 transition-colors"
                 >
-                  Bezárás
+                  <X size={20} />
                 </button>
               </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Számolj át bármilyen pénznemet bármilyenre real-time.
+              </p>
             </div>
-          </div>
-        )
-      }
 
-      {/* PhD Level: Delete Confirmation Modal */}
-      {
-        showDeleteConfirm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 m-4 animate-slide-up border border-gray-100 dark:border-gray-700">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="p-3 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600">
-                  <AlertTriangle size={24} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                    Törlés megerősítése
-                  </h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {showDeleteConfirm === 'selected' && `${selectedTransactions.size} kijelölt tranzakció törlése`}
-                    {showDeleteConfirm === 'period' && deletePeriodFilter !== 'all' && `Összes "${getPeriodLabel(deletePeriodFilter as TransactionPeriod)}" típusú tranzakció törlése (${periodCounts[deletePeriodFilter as keyof typeof periodCounts]} db)`}
-                    {(showDeleteConfirm === 'all' || (showDeleteConfirm === 'period' && deletePeriodFilter === 'all')) && `ÖSSZES tranzakció törlése (${periodCounts.all} db)`}
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl mb-6 border border-red-100 dark:border-red-800">
-                <p className="text-sm text-red-700 dark:text-red-300 font-medium">
-                  ⚠️ Ez a művelet nem vonható vissza! A törölt tranzakciók véglegesen elvesznek.
-                </p>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowDeleteConfirm(null)}
-                  className="flex-1 px-4 py-3 rounded-xl font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                >
-                  Mégsem
-                </button>
-                <button
-                  onClick={() => {
-                    if (showDeleteConfirm === 'selected') {
-                      handleDeleteSelected();
-                    } else if (showDeleteConfirm === 'period') {
-                      handleDeleteByPeriod(deletePeriodFilter);
-                    } else if (showDeleteConfirm === 'all') {
-                      handleDeleteByPeriod('all');
+            <div className="p-6 space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Összeg</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={convAmount}
+                  onChange={(e) => {
+                    if (/^[0-9.,]*$/.test(e.target.value)) {
+                      setConvAmount(e.target.value);
                     }
                   }}
-                  className="flex-1 px-4 py-3 rounded-xl font-bold bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 transition-all flex items-center justify-center gap-2"
+                  className="input-field w-full text-lg font-bold"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 items-center">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ebből</label>
+                  <select
+                    value={convFrom}
+                    onChange={(e) => setConvFrom(e.target.value)}
+                    className="input-field w-full py-3"
+                  >
+                    {AVAILABLE_CURRENCIES.map(c => (
+                      <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex justify-center pt-6">
+                  <button
+                    onClick={() => {
+                      const temp = convFrom;
+                      setConvFrom(convTo);
+                      setConvTo(temp);
+                    }}
+                    className="p-3 bg-gray-100 dark:bg-gray-800 rounded-2xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all active:scale-95 text-gray-600 dark:text-gray-400"
+                  >
+                    <Repeat size={20} />
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ebbe</label>
+                  <select
+                    value={convTo}
+                    onChange={(e) => setConvTo(e.target.value)}
+                    className="input-field w-full py-3"
+                  >
+                    {AVAILABLE_CURRENCIES.map(c => (
+                      <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Result Card */}
+              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-3xl text-white shadow-xl shadow-blue-500/20">
+                <div className="text-sm opacity-80 mb-1">Eredmény ({convTo}):</div>
+                <div className="text-3xl font-black">
+                  {new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
+                    style: 'currency',
+                    currency: convTo,
+                    maximumFractionDigits: 2
+                  }).format(safeConvert(parsedConvAmount, convFrom, convTo))}
+                </div>
+                <div className="mt-3 flex items-center justify-between text-xs opacity-70">
+                  <span>1 {convFrom} ≈ {safeConvert(1, convFrom, convTo).toFixed(4)} {convTo}</span>
+                  <div className="flex items-center gap-1">
+                    {rateSource === 'system' ? '⚠️ Becsült' : '✅ Friss'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Update Button */}
+              <div className="flex justify-center">
+                <button
+                  onClick={async () => {
+                    const btn = document.getElementById('live-refresh-btn');
+                    if (btn) {
+                      btn.textContent = 'Frissítés...';
+                      btn.setAttribute('disabled', 'true');
+                    }
+
+                    await CurrencyService.fetchRealTimeRates(true);
+                    setRateSource(CurrencyService.getUpdateSource());
+
+                    if (btn) {
+                      btn.textContent = 'Valós idejű árfolyamok lekérése (API)';
+                      btn.removeAttribute('disabled');
+                    }
+                  }}
+                  id="live-refresh-btn"
+                  className="text-xs text-blue-500 dark:text-blue-400 font-medium hover:underline flex items-center gap-1"
                 >
-                  <Trash2 size={18} />
-                  Törlés
+                  <RefreshCcw size={12} />
+                  Frissítés valós idejű adatokkal (API)
                 </button>
               </div>
             </div>
+
+            <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800">
+              <button
+                onClick={() => setShowConverter(false)}
+                className="btn-primary w-full py-3 rounded-2xl"
+              >
+                Bezárás
+              </button>
+            </div>
           </div>
-        )
-      }
-    </div >
+        </div>
+      )}
+
+      {/* PhD Level: Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 m-4 animate-slide-up border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="p-3 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600">
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Törlés megerősítése
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {showDeleteConfirm === 'selected' && `${selectedTransactions.size} kijelölt tranzakció törlése`}
+                  {showDeleteConfirm === 'period' && deletePeriodFilter !== 'all' && `Összes "${getPeriodLabel(deletePeriodFilter as TransactionPeriod)}" típusú tranzakció törlése (${periodCounts[deletePeriodFilter as keyof typeof periodCounts]} db)`}
+                  {(showDeleteConfirm === 'all' || (showDeleteConfirm === 'period' && deletePeriodFilter === 'all')) && `ÖSSZES tranzakció törlése (${periodCounts.all} db)`}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl mb-6 border border-red-100 dark:border-red-800">
+              <p className="text-sm text-red-700 dark:text-red-300 font-medium">
+                ⚠️ Ez a művelet nem vonható vissza! A törölt tranzakciók véglegesen elvesznek.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="flex-1 px-4 py-3 rounded-xl font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Mégsem
+              </button>
+              <button
+                onClick={() => {
+                  if (showDeleteConfirm === 'selected') {
+                    handleDeleteSelected();
+                  } else if (showDeleteConfirm === 'period') {
+                    handleDeleteByPeriod(deletePeriodFilter);
+                  } else if (showDeleteConfirm === 'all') {
+                    handleDeleteByPeriod('all');
+                  }
+                }}
+                className="flex-1 px-4 py-3 rounded-xl font-bold bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 transition-all flex items-center justify-center gap-2"
+              >
+                <Trash2 size={18} />
+                Törlés
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
