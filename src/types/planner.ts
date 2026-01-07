@@ -79,7 +79,7 @@ export interface Transaction {
 }
 
 // Enterprise Grade Patch Type: Explicitly allows null to signal deletion
-export type TransactionPatch = Partial<Transaction> & {
+export type TransactionPatch = Omit<Partial<Transaction>, 'kind' | 'interestRate'> & {
   kind?: Transaction['kind'] | null;
   interestRate?: number | null;
 };

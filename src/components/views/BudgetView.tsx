@@ -712,7 +712,7 @@ const BudgetView: React.FC = () => {
   const { t } = ctrl;
 
   // Render Helpers (Chart Mappers)
-  const categoryData = useMemo(() => Object.entries(ctrl.categoryTotals).map(([key, value]) => ({
+  const categoryData = useMemo(() => Object.entries(ctrl.categoryTotals || {}).map(([key, value]) => ({
     name: ctrl.CATEGORIES[ctrl.getCategoryKey(key)]?.label ?? key,
     value,
     color: ctrl.CATEGORIES[ctrl.getCategoryKey(key)]?.color ?? '#9ca3af',
@@ -720,7 +720,7 @@ const BudgetView: React.FC = () => {
 
   const monthNames = [t('months.january'), t('months.february'), t('months.march'), t('months.april'), t('months.may'), t('months.june'), t('months.july'), t('months.august'), t('months.september'), t('months.october'), t('months.november'), t('months.december')];
 
-  const cashFlowChartData = useMemo(() => ctrl.cashFlowData.map(d => ({
+  const cashFlowChartData = useMemo(() => (ctrl.cashFlowData || []).map(d => ({
     name: monthNames[d.monthIndex]?.slice(0, 3) || `M${d.monthIndex + 1}`,
     income: d.income, expense: d.expense
   })), [ctrl.cashFlowData, monthNames]);
@@ -782,7 +782,7 @@ const BudgetView: React.FC = () => {
 
           <div className="card p-4 flex flex-col bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl rounded-2xl">
             <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">{t('budget.expenseCategories')}</h3>
-            <div className="h-[220px]"><ResponsiveContainer><RechartsPieChart><Pie data={categoryData} cx="50%" cy="45%" innerRadius={70} outerRadius={90} paddingAngle={5} dataKey="value">{categoryData.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={entry.color} />)}</Pie><Tooltip /></RechartsPieChart></ResponsiveContainer></div>
+            <div className="h-[220px]"><ResponsiveContainer width="100%" height="100%"><RechartsPieChart><Pie data={categoryData} cx="50%" cy="45%" innerRadius={70} outerRadius={90} paddingAngle={5} dataKey="value">{categoryData.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={entry.color} />)}</Pie><Tooltip /></RechartsPieChart></ResponsiveContainer></div>
           </div>
         </div>
       )}
