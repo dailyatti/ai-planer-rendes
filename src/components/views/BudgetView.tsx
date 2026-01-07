@@ -61,6 +61,7 @@ const BudgetView: React.FC = () => {
 
   // Árfolyam forrás (System / AI / API)
   const [rateSource, setRateSource] = useState<'system' | 'ai' | 'api'>('system');
+  const [isRefreshingRates, setIsRefreshingRates] = useState(false);
 
   // --- Segédfüggvények és Formázók ---
 
@@ -106,13 +107,16 @@ const BudgetView: React.FC = () => {
 
   // Űrlap pénznemének frissítése, ha a nézet pénzneme változik
   useEffect(() => {
+    // BUG FIX (A): Prevent overwriting transaction currency if we are editing!
+    if (editingTransaction) return;
+
     setNewTransaction(prev => {
       if (!prev.currency) {
         return { ...prev, currency: currency };
       }
       return prev;
     });
-  }, [currency]);
+  }, [currency, editingTransaction]);
 
   // PhD Level: Memoize Intl.NumberFormat for performance
   const numberFormatter = useMemo(() => {
@@ -306,10 +310,12 @@ const BudgetView: React.FC = () => {
     // 2) Keresés
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
-      filtered = filtered.filter(tr =>
-        tr.description.toLowerCase().includes(lower) ||
-        tr.amount.toString().includes(lower)
-      );
+      filtered = filtered.filter(tr => {
+        // BUG FIX (C): Null safe search
+        const desc = (tr.description || '').toLowerCase();
+        const amt = String(tr.amount || '');
+        return desc.includes(lower) || amt.includes(lower);
+      });
     }
 
     // 3) Kategória szűrés
@@ -1122,11 +1128,9 @@ const BudgetView: React.FC = () => {
                         period: period,
                         recurring: period !== 'oneTime'
                       });
-                      // JAVÍTÁS: Csak akkor nyúlunk hozzá, ha oneTime-ra vált
-                      // különben meghagyjuk az előző állapotot (vagy default true-t adunk recurringnál)
+
+                      // BUG FIX (B): Simplified Logic
                       if (period === 'oneTime') {
-                        setAddToBalanceImmediately(true);
-                      } else {
                         setAddToBalanceImmediately(true);
                       }
                     }}
@@ -1385,25 +1389,19 @@ const BudgetView: React.FC = () => {
               <div className="flex justify-center">
                 <button
                   onClick={async () => {
-                    const btn = document.getElementById('live-refresh-btn');
-                    if (btn) {
-                      btn.textContent = 'Frissítés...';
-                      btn.setAttribute('disabled', 'true');
-                    }
-
-                    await CurrencyService.fetchRealTimeRates(true);
-                    setRateSource(CurrencyService.getUpdateSource());
-
-                    if (btn) {
-                      btn.textContent = 'Valós idejű árfolyamok lekérése (API)';
-                      btn.removeAttribute('disabled');
+                    setIsRefreshingRates(true);
+                    try {
+                      await CurrencyService.fetchRealTimeRates(true);
+                      setRateSource(CurrencyService.getUpdateSource());
+                    } finally {
+                      setIsRefreshingRates(false);
                     }
                   }}
-                  id="live-refresh-btn"
-                  className="text-xs text-blue-500 dark:text-blue-400 font-medium hover:underline flex items-center gap-1"
+                  disabled={isRefreshingRates}
+                  className={`text-xs text-blue-500 dark:text-blue-400 font-medium hover:underline flex items-center gap-1 ${isRefreshingRates ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <RefreshCcw size={12} />
-                  Frissítés valós idejű adatokkal (API)
+                  <RefreshCcw size={12} className={isRefreshingRates ? "animate-spin" : ""} />
+                  {isRefreshingRates ? 'Frissítés folyamatban...' : 'Frissítés valós idejű adatokkal (API)'}
                 </button>
               </div>
             </div>
