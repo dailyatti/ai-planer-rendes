@@ -64,12 +64,7 @@ const BudgetView: React.FC = () => {
 
   // --- Segédfüggvények és Formázók ---
 
-  // PhD Fix: Timezone safe date formatter
-  const formatDateLocal = useCallback((date: Date) => {
-    const offset = date.getTimezoneOffset() * 60000;
-    const localISOTime = (new Date(date.getTime() - offset)).toISOString().slice(0, 10);
-    return localISOTime;
-  }, []);
+
 
   // Biztonságos konverzió, hogy ne omoljon össze a UI hiányzó árfolyam esetén
   const safeConvert = useCallback((amount: number, fromCurrency: string, toCurrency: string): number => {
@@ -316,28 +311,7 @@ const BudgetView: React.FC = () => {
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, searchTerm, filterCategory]);
 
-  // Tranzakció lista szűrése
-  const filteredTransactions = useMemo(() => {
-    // 1) Alap szűrés: Mutassunk MINDEN tranzakciót (Master-t is), hogy a felhasználó lássa amit felvett
-    let filtered = transactions || [];
 
-    // 2) Keresés
-    if (searchTerm) {
-      const lower = searchTerm.toLowerCase();
-      filtered = filtered.filter(tr =>
-        tr.description.toLowerCase().includes(lower) ||
-        tr.amount.toString().includes(lower)
-      );
-    }
-
-    // 3) Kategória szűrés
-    if (filterCategory !== 'all') {
-      filtered = filtered.filter(tr => tr.category === filterCategory);
-    }
-
-    // Sortálás: Dátum csökkenő (legújabb elöl)
-    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, searchTerm, filterCategory]); // Depend on transactions not volumeTransactions
 
   const getPeriodLabel = (period: TransactionPeriod = 'oneTime') => {
     const labels: Record<TransactionPeriod, string> = {
