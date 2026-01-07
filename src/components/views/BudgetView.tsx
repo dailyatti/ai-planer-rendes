@@ -64,6 +64,13 @@ const BudgetView: React.FC = () => {
 
   // --- Segédfüggvények és Formázók ---
 
+  // PhD Fix: Timezone safe date formatter
+  const formatDateLocal = useCallback((date: Date) => {
+    const offset = date.getTimezoneOffset() * 60000;
+    const localISOTime = (new Date(date.getTime() - offset)).toISOString().slice(0, 10);
+    return localISOTime;
+  }, []);
+
   // Biztonságos konverzió, hogy ne omoljon össze a UI hiányzó árfolyam esetén
   const safeConvert = useCallback((amount: number, fromCurrency: string, toCurrency: string): number => {
     if (!amount) return 0;
@@ -76,7 +83,7 @@ const BudgetView: React.FC = () => {
       return CurrencyService.convert(amount, validFrom, validTo);
     } catch (error) {
       console.warn(`Currency conversion warning (${fromCurrency} -> ${toCurrency}):`, error);
-      return amount; // Fallback az eredeti összegre hiba esetén, hogy ne legyen NaN
+      return 0; // PhD Fix: Return 0 instead of original amount to prevent massive value distortions (e.g. 100 HUF != 100 USD)
     }
   }, []);
 
@@ -139,7 +146,7 @@ const BudgetView: React.FC = () => {
     service: { color: '#10b981', label: t('budget.service') || 'Service' },
     freelance: { color: '#3b82f6', label: t('budget.freelance') || 'Freelance' },
     other: { color: '#9ca3af', label: t('budget.other') || 'Other' }
-  }), [t]);
+  }), [language, t]);
 
   // Konverzió előnézet számítás
   const conversionPreview = useMemo(() => {
@@ -171,6 +178,17 @@ const BudgetView: React.FC = () => {
   const handleAddTransaction = () => {
     if (!newTransaction.description || !newTransaction.amount) return;
 
+    // Dátum validáció (JAVÍTÁS: Critical Crash Fix)
+    if (!newTransaction.date) {
+      alert("Kérlek válassz dátumot!");
+      return;
+    }
+    const dateCheck = new Date(newTransaction.date);
+    if (isNaN(dateCheck.getTime())) {
+      alert("Érvénytelen dátum formátum!");
+      return;
+    }
+
     const amount = parseMoneyInput(newTransaction.amount);
 
     if (amount === 0 && newTransaction.amount?.trim() !== '' && newTransaction.amount !== '0' && newTransaction.amount !== '0,00' && newTransaction.amount !== '0.00') {
@@ -180,9 +198,9 @@ const BudgetView: React.FC = () => {
 
     const isRecurring = newTransaction.period !== 'oneTime';
 
-    // Parse base date
-    const [y, m, d] = newTransaction.date.split('-').map(Number);
-    const transactionDate = new Date(y, m - 1, d);
+    // JAVÍTÁS: Dátum kezelés időzóna elcsúszás nélkül
+    // A stringet (pl "2023-01-01") közvetlenül használjuk
+    const rawDateString = newTransaction.date;
 
     // Common payload props
     const basePayload = {
@@ -196,12 +214,9 @@ const BudgetView: React.FC = () => {
 
     // Handling Logic
     if (editingTransaction) {
-      // Edit Mode: Update existing (Simplified: don't split, just update params)
-      // Note: Changing from OneTime to Recurring in Edit might need tailored logic, 
-      // but for stability we stick to direct update.
       updateTransaction(editingTransaction.id, {
         ...basePayload,
-        date: transactionDate.toISOString().split('T')[0],
+        date: rawDateString,
         period: newTransaction.period,
         recurring: isRecurring,
         kind: isRecurring ? 'master' : undefined
@@ -209,21 +224,18 @@ const BudgetView: React.FC = () => {
     } else {
       // Create Mode
       if (isRecurring && addToBalanceImmediately) {
-        // SPLIT LOGIC: Realized (Now) + Master (Future)
-
         // 1. Realized One-Time Transaction
         addTransaction({
           ...basePayload,
           description: `${basePayload.description}`,
-          date: transactionDate.toISOString().split('T')[0],
+          date: rawDateString,
           period: 'oneTime',
           recurring: false,
           kind: undefined
         });
 
         // 2. Master Template for Future Projections
-        // Calculate start date for the master (One period from now)
-        const nextDate = new Date(transactionDate);
+        const nextDate = new Date(rawDateString);
         switch (newTransaction.period) {
           case 'daily': nextDate.setDate(nextDate.getDate() + 1); break;
           case 'weekly': nextDate.setDate(nextDate.getDate() + 7); break;
@@ -240,10 +252,10 @@ const BudgetView: React.FC = () => {
         });
 
       } else if (isRecurring && !addToBalanceImmediately) {
-        // Master starts NOW (Projected only, no immediate balance impact)
+        // Master starts NOW (Projected only)
         addTransaction({
           ...basePayload,
-          date: transactionDate.toISOString().split('T')[0],
+          date: rawDateString,
           period: newTransaction.period,
           recurring: true,
           kind: 'master'
@@ -252,7 +264,7 @@ const BudgetView: React.FC = () => {
         // Standard One-Time
         addTransaction({
           ...basePayload,
-          date: transactionDate.toISOString().split('T')[0],
+          date: rawDateString,
           period: 'oneTime',
           recurring: false,
           kind: undefined
@@ -279,6 +291,30 @@ const BudgetView: React.FC = () => {
       alert('Hiba történt a mentés során. Kérlek próbáld újra!');
     }
   };
+
+  // Tranzakció lista szűrése
+  const filteredTransactions = useMemo(() => {
+    // 1) Alap szűrés: Mutassunk MINDEN tranzakciót (Master-t is)
+    // JAVÍTÁS: Spread syntax [...] a másoláshoz, hogy ne az eredeti tömböt rendezzük át!
+    let filtered = [...(transactions || [])];
+
+    // 2) Keresés
+    if (searchTerm) {
+      const lower = searchTerm.toLowerCase();
+      filtered = filtered.filter(tr =>
+        tr.description.toLowerCase().includes(lower) ||
+        tr.amount.toString().includes(lower)
+      );
+    }
+
+    // 3) Kategória szűrés
+    if (filterCategory !== 'all') {
+      filtered = filtered.filter(tr => tr.category === filterCategory);
+    }
+
+    // Sortálás: Dátum csökkenő (legújabb elöl) - Most már biztonságos a másolaton
+    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [transactions, searchTerm, filterCategory]);
 
   // Tranzakció lista szűrése
   const filteredTransactions = useMemo(() => {
@@ -1096,7 +1132,13 @@ const BudgetView: React.FC = () => {
                         period: period,
                         recurring: period !== 'oneTime'
                       });
-                      setAddToBalanceImmediately(period === 'oneTime');
+                      // JAVÍTÁS: Csak akkor nyúlunk hozzá, ha oneTime-ra vált
+                      // különben meghagyjuk az előző állapotot (vagy default true-t adunk recurringnál)
+                      if (period === 'oneTime') {
+                        setAddToBalanceImmediately(true);
+                      } else {
+                        setAddToBalanceImmediately(true);
+                      }
                     }}
                     className="input-field w-full py-4 px-6 rounded-2xl border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 cursor-pointer"
                   >
@@ -1211,7 +1253,10 @@ const BudgetView: React.FC = () => {
             className="fixed z-[101] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 p-4 min-w-[280px] animate-in fade-in zoom-in-95 duration-200"
             style={{
               top: selectedStat.rect.bottom + 10,
-              left: Math.min(selectedStat.rect.left, window.innerWidth - 300)
+              left: Math.min(
+                selectedStat.rect.left,
+                (typeof window !== 'undefined' ? window.innerWidth : 1000) - 300
+              ) // JAVÍTÁS: SSR Safe window check
             }}
           >
             <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100 dark:border-gray-700">
