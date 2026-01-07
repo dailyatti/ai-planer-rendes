@@ -19,6 +19,50 @@ import { AVAILABLE_CURRENCIES } from '../../constants/currencyData';
 import { CurrencyService } from '../../services/CurrencyService';
 import { parseMoneyInput } from '../../utils/numberUtils';
 
+// (A) RectLike: Serializable replacement for DOMRect in React state
+type RectLike = { top: number; left: number; right: number; bottom: number; width: number; height: number };
+
+function toRectLike(el: Element | null): RectLike | null {
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return { top: r.top, left: r.left, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+}
+
+// (C) Timezone-safe date helpers using YYYY-MM-DD strings only
+function parseYMD(ymd: string): { y: number; m: number; d: number } {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return { y, m, d }; // m is 1-12
+}
+function formatYMD(y: number, m: number, d: number): string {
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+function daysInMonth(y: number, m: number): number {
+  return new Date(y, m, 0).getDate(); // m is 1-12
+}
+function addDaysYMD(ymd: string, days: number): string {
+  const { y, m, d } = parseYMD(ymd);
+  const dt = new Date(y, m - 1, d + days);
+  return formatYMD(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+}
+function addWeeksYMD(ymd: string, weeks: number): string {
+  return addDaysYMD(ymd, weeks * 7);
+}
+function addMonthsClampedYMD(ymd: string, months: number): string {
+  const { y, m, d } = parseYMD(ymd);
+  let newM = m + months;
+  let newY = y + Math.floor((newM - 1) / 12);
+  newM = ((newM - 1) % 12) + 1;
+  if (newM <= 0) { newM += 12; newY--; }
+  const maxD = daysInMonth(newY, newM);
+  return formatYMD(newY, newM, Math.min(d, maxD));
+}
+function addYearsClampedYMD(ymd: string, years: number): string {
+  const { y, m, d } = parseYMD(ymd);
+  const newY = y + years;
+  const maxD = daysInMonth(newY, m);
+  return formatYMD(newY, m, Math.min(d, maxD));
+}
+
 const BudgetView: React.FC = () => {
   const { t, language } = useLanguage();
   const { transactions = [], addTransaction, updateTransaction, deleteTransaction, deleteTransactions } = useData();
@@ -27,7 +71,8 @@ const BudgetView: React.FC = () => {
   const [currency, setCurrency] = useState<string>('USD');
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'planning'>('overview');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [selectedStat, setSelectedStat] = useState<{ title: string; breakdown: Record<string, number>; rect: DOMRect } | null>(null);
+  // (A) Use RectLike instead of DOMRect for serializable state
+  const [selectedStat, setSelectedStat] = useState<{ title: string; breakdown: Record<string, number>; rect: RectLike } | null>(null);
   const [transactionType, setTransactionType] = useState<'income' | 'expense'>('expense');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -44,6 +89,8 @@ const BudgetView: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<'selected' | 'all' | 'period' | null>(null);
   const [deletePeriodFilter, setDeletePeriodFilter] = useState<TransactionPeriod | 'all'>('all');
 
+  // (B) Show Masters toggle - controls visibility of master templates in the list
+  const [showMasters, setShowMasters] = useState(false);
   // Új tranzakció űrlap állapot
   const [newTransaction, setNewTransaction] = useState({
     description: '',
@@ -172,15 +219,54 @@ const BudgetView: React.FC = () => {
 
   const [projectionYears, setProjectionYears] = useState(1);
 
-  // --- Budget Core Logic Refactored ---
+  // --- Budget Core Logic (E) Pure Hook Call ---
   const {
     totalIncome,
     totalExpense,
     balance,
-    categoryData,
-    cashFlowData,
-    projectionData
-  } = useBudgetAnalytics(transactions, currency, safeConvert, t, CATEGORIES, projectionYears);
+    categoryTotals,
+    cashFlowData: rawCashFlowData,
+    projectionData: rawProjectionData
+  } = useBudgetAnalytics(transactions, currency, safeConvert, projectionYears);
+
+  // (E) Map categoryTotals to UI-ready categoryData with translated labels/colors
+  const categoryData = useMemo(() => {
+    return Object.entries(categoryTotals).map(([key, value]) => {
+      const catKey = key as keyof typeof CATEGORIES;
+      return {
+        name: CATEGORIES[catKey]?.label ?? key,
+        value,
+        color: CATEGORIES[catKey]?.color ?? '#9ca3af',
+      };
+    });
+  }, [categoryTotals, CATEGORIES]);
+
+  // (E) Map raw cashFlowData to UI-ready format with translated month names
+  const monthNames = useMemo(() => [
+    t('months.january') || 'Jan', t('months.february') || 'Feb', t('months.march') || 'Mar',
+    t('months.april') || 'Apr', t('months.may') || 'May', t('months.june') || 'Jun',
+    t('months.july') || 'Jul', t('months.august') || 'Aug', t('months.september') || 'Sep',
+    t('months.october') || 'Oct', t('months.november') || 'Nov', t('months.december') || 'Dec',
+  ], [t]);
+
+  const cashFlowData = useMemo(() => {
+    return rawCashFlowData.map(d => ({
+      name: monthNames[d.monthIndex]?.slice(0, 3) || `M${d.monthIndex + 1}`,
+      income: d.income,
+      expense: d.expense,
+    }));
+  }, [rawCashFlowData, monthNames]);
+
+  const projectionData = useMemo(() => {
+    return rawProjectionData.map(d => ({
+      name: d.monthIndex !== null
+        ? `${monthNames[d.monthIndex]?.slice(0, 3)} '${String(d.year).slice(2)}`
+        : `${d.year}`,
+      balance: d.balance,
+      income: d.income,
+      expense: d.expense,
+    }));
+  }, [rawProjectionData, monthNames]);
 
   // --- Kezelők (Handlers) ---
 
@@ -243,18 +329,19 @@ const BudgetView: React.FC = () => {
           kind: undefined
         });
 
-        // 2. Master Template for Future Projections
-        const nextDate = new Date(rawDateString);
+        // 2. Master Template for Future Projections - (C) Using timezone-safe date helpers
+        let nextDateStr: string;
         switch (newTransaction.period) {
-          case 'daily': nextDate.setDate(nextDate.getDate() + 1); break;
-          case 'weekly': nextDate.setDate(nextDate.getDate() + 7); break;
-          case 'monthly': nextDate.setMonth(nextDate.getMonth() + 1); break;
-          case 'yearly': nextDate.setFullYear(nextDate.getFullYear() + 1); break;
+          case 'daily': nextDateStr = addDaysYMD(rawDateString, 1); break;
+          case 'weekly': nextDateStr = addWeeksYMD(rawDateString, 1); break;
+          case 'monthly': nextDateStr = addMonthsClampedYMD(rawDateString, 1); break;
+          case 'yearly': nextDateStr = addYearsClampedYMD(rawDateString, 1); break;
+          default: nextDateStr = rawDateString;
         }
 
         addTransaction({
           ...basePayload,
-          date: nextDate.toISOString().split('T')[0],
+          date: nextDateStr,
           period: newTransaction.period,
           recurring: true,
           kind: 'master'
@@ -301,31 +388,36 @@ const BudgetView: React.FC = () => {
     }
   };
 
-  // Tranzakció lista szűrése
-  const filteredTransactions = useMemo(() => {
-    // 1) Alap szűrés: Mutassunk MINDEN tranzakciót (Master-t is)
-    // JAVÍTÁS: Spread syntax [...] a másoláshoz, hogy ne az eredeti tömböt rendezzük át!
-    let filtered = [...(transactions || [])];
+  // (D) Optimized sorting: Only re-sort when transactions or showMasters changes
+  const sortedTransactions = useMemo(() => {
+    // (B) Respect showMasters: by default, hide master templates
+    const base = showMasters
+      ? (transactions || [])
+      : (transactions || []).filter(tr => tr.kind !== 'master');
+    return [...base].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [transactions, showMasters]);
 
-    // 2) Keresés
+  // (D) Filter on top of sorted list - no re-sorting on search/filter changes
+  const filteredTransactions = useMemo(() => {
+    let filtered = sortedTransactions;
+
+    // Search
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
       filtered = filtered.filter(tr => {
-        // BUG FIX (C): Null safe search
         const desc = (tr.description || '').toLowerCase();
         const amt = String(tr.amount || '');
         return desc.includes(lower) || amt.includes(lower);
       });
     }
 
-    // 3) Kategória szűrés
+    // Category filter
     if (filterCategory !== 'all') {
       filtered = filtered.filter(tr => tr.category === filterCategory);
     }
 
-    // Sortálás: Dátum csökkenő (legújabb elöl) - Most már biztonságos a másolaton
-    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, searchTerm, filterCategory]);
+    return filtered;
+  }, [sortedTransactions, searchTerm, filterCategory]);
 
 
 
@@ -361,11 +453,12 @@ const BudgetView: React.FC = () => {
     setSelectedTransactions(new Set());
   };
 
-  // PhD Fix: Optimized single-pass reduce for period counts
+  // (B) periodCounts respects showMasters visibility
   const periodCounts = useMemo(() => {
-    const visibleTx = (transactions || []);
+    const visibleTx = showMasters
+      ? (transactions || [])
+      : (transactions || []).filter(tr => tr.kind !== 'master');
 
-    // Default counts
     const counts = {
       daily: 0,
       weekly: 0,
@@ -376,13 +469,13 @@ const BudgetView: React.FC = () => {
     };
 
     return visibleTx.reduce((acc, t) => {
-      const p = t.period || 'oneTime'; // Safeguard
+      const p = t.period || 'oneTime';
       if (acc[p] !== undefined) {
         acc[p]++;
       }
       return acc;
     }, counts);
-  }, [transactions]);
+  }, [transactions, showMasters]);
 
   // Tömeges törlés kezelők (PhD Fix: Use Bulk Delete)
   const handleDeleteSelected = () => {
@@ -396,14 +489,17 @@ const BudgetView: React.FC = () => {
     setShowDeleteConfirm(null);
   };
 
+  // (B) handleDeleteByPeriod respects showMasters visibility
   const handleDeleteByPeriod = (period: TransactionPeriod | 'all') => {
     const allTx = transactions || [];
+    // Only delete from visible set (respecting showMasters toggle)
+    const visibleTx = showMasters ? allTx : allTx.filter(t => t.kind !== 'master');
     let idsToDelete: string[] = [];
 
     if (period === 'all') {
-      idsToDelete = allTx.map(t => t.id);
+      idsToDelete = visibleTx.map(t => t.id);
     } else {
-      idsToDelete = allTx.filter(t => t.period === period).map(t => t.id);
+      idsToDelete = visibleTx.filter(t => t.period === period).map(t => t.id);
     }
 
     if (deleteTransactions) {
@@ -812,6 +908,18 @@ const BudgetView: React.FC = () => {
                     <option key={key} value={key}>{val.label}</option>
                   ))}
                 </select>
+                {/* (B) Show Masters Toggle */}
+                <button
+                  onClick={() => setShowMasters(!showMasters)}
+                  className={`px-3 py-2 text-sm font-medium rounded-xl border transition-colors flex items-center gap-2
+                      ${showMasters
+                      ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700'
+                      : 'bg-white/50 dark:bg-gray-900/50 text-gray-500 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                  title={showMasters ? 'Sablonok elrejtése' : 'Sablonok mutatása'}
+                >
+                  <Repeat size={14} />
+                  <span className="hidden sm:inline">{showMasters ? 'Sablonok' : 'Sablonok'}</span>
+                </button>
               </div>
             </div>
 

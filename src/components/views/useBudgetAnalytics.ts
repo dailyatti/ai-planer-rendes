@@ -3,16 +3,17 @@ import { useCallback, useMemo } from 'react';
 import { Transaction } from '../../types/planner';
 
 /**
- * useBudgetAnalytics Hook - PhD Level Financial Engine
+ * useBudgetAnalytics Hook - PhD Level Financial Engine (Pure Version)
  * Refactored for O(1) performance on Daily/Weekly frequencies and 
  * Date-Drift prevention using Anchor Date logic.
+ * 
+ * PURE API: Does not accept translation functions or UI config.
+ * Returns raw data keyed by category IDs; consumers map to UI labels.
  */
 export const useBudgetAnalytics = (
     transactions: Transaction[],
     currency: string,
     safeConvert: (amount: number, fromCurrency: string, toCurrency: string) => number,
-    t: (key: string) => string,
-    CATEGORIES: Record<string, { color: string; label: string }>,
     projectionYears: number = 1
 ) => {
     // --- BASIC HELPERS ---
@@ -178,20 +179,15 @@ export const useBudgetAnalytics = (
             });
             return total;
         },
-        [absToView, ensureCurrency, isMaster, calculateOccurrences, projectionYears]
+        [absToView, projectionYears]
     );
 
     // --- MEMOIZED DATA SETS ---
 
-    const { totalIncome, totalExpense, balance, volumeTransactions, cashTransactions } = useMemo(() => {
+    const { totalIncome, totalExpense, balance } = useMemo(() => {
         if (!transactions || transactions.length === 0) {
-            return { totalIncome: 0, totalExpense: 0, balance: 0, volumeTransactions: [], cashTransactions: [] };
+            return { totalIncome: 0, totalExpense: 0, balance: 0 };
         }
-        const now = endOfToday();
-
-        // UI FIX: Strictly exclude Master templates from the lists (they are just definitions)
-        const volumeTransactions = transactions.filter(tr => !isMaster(tr));
-        const cashTransactions = transactions.filter(tr => !isFuture(tr, now) && !isMaster(tr));
 
         const projectedIncome = sumByType(transactions, 'income', true);
         const projectedExpense = sumByType(transactions, 'expense', true);
@@ -202,59 +198,35 @@ export const useBudgetAnalytics = (
             totalIncome: projectedIncome,
             totalExpense: projectedExpense,
             balance: realizedIncome - realizedExpense,
-            volumeTransactions,
-            cashTransactions
         };
     }, [transactions, sumByType]);
 
-    const getTransactionAmountsByCurrency = (type: 'income' | 'expense') => {
+    // PURE: Returns category keys, not translated labels
+    const categoryTotals = useMemo(() => {
         const result: Record<string, number> = {};
         if (!transactions) return result;
-
-        transactions
-            .filter(tr => tr.type === type && !isMaster(tr))
-            .forEach(tr => {
-                const trCurrency = ensureCurrency(tr.currency);
-                const amount = Math.abs(tr.amount);
-                result[trCurrency] = (result[trCurrency] || 0) + amount;
-            });
-        return result;
-    };
-
-    const categoryData = useMemo(() => {
-        if (!transactions) return [];
-        const expensesByCategory: Record<string, number> = {};
 
         transactions
             .filter(tr => tr.type === 'expense' && !isMaster(tr))
             .forEach(tr => {
                 const amount = Math.abs(tr.amount);
-                const trCurrency = ensureCurrency((tr as any).currency);
+                const trCurrency = ensureCurrency(tr.currency);
                 const converted = safeConvert(amount, trCurrency, currency);
-                expensesByCategory[tr.category] = (expensesByCategory[tr.category] || 0) + converted;
+                result[tr.category] = (result[tr.category] || 0) + converted;
             });
-        return Object.entries(expensesByCategory).map(([cat, val]) => ({
-            name: CATEGORIES[cat]?.label || cat,
-            value: val,
-            color: CATEGORIES[cat]?.color || '#9ca3af',
-        }));
-    }, [transactions, CATEGORIES, currency, safeConvert]);
+        return result;
+    }, [transactions, currency, safeConvert]);
 
+    // PURE: Returns month/year indices, not translated names
     const cashFlowData = useMemo(() => {
-        const monthNames = [
-            t('months.january') || 'Jan', t('months.february') || 'Feb', t('months.march') || 'Mar', t('months.april') || 'Apr',
-            t('months.may') || 'May', t('months.june') || 'Jun', t('months.july') || 'Jul', t('months.august') || 'Aug',
-            t('months.september') || 'Sep', t('months.october') || 'Oct', t('months.november') || 'Nov', t('months.december') || 'Dec',
-        ];
         const now = new Date();
-        const monthsData: { name: string; income: number; expense: number }[] = [];
+        const monthsData: { monthIndex: number; year: number; income: number; expense: number }[] = [];
         if (!transactions) return [];
 
         for (let i = 5; i >= 0; i--) {
             const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
             const m = mDate.getMonth();
             const y = mDate.getFullYear();
-            const label = monthNames[m]?.slice(0, 3) || `M${m + 1}`;
 
             let inc = 0, exp = 0;
             transactions
@@ -266,20 +238,15 @@ export const useBudgetAnalytics = (
                         if (tr.type === 'income') inc += amt; else exp += amt;
                     }
                 });
-            monthsData.push({ name: label, income: inc, expense: exp });
+            monthsData.push({ monthIndex: m, year: y, income: inc, expense: exp });
         }
         return monthsData;
-    }, [transactions, t, absToView]);
+    }, [transactions, absToView]);
 
+    // PURE: Returns year/month indices for labeling in the UI
     const projectionData = useMemo(() => {
-        const monthNames = [
-            t('months.january') || 'Jan', t('months.february') || 'Feb', t('months.march') || 'Mar', t('months.april') || 'Apr',
-            t('months.may') || 'May', t('months.june') || 'Jun', t('months.july') || 'Jul', t('months.august') || 'Aug',
-            t('months.september') || 'Sep', t('months.october') || 'Oct', t('months.november') || 'Nov', t('months.december') || 'Dec',
-        ];
-
         const now = new Date();
-        const projData: { name: string; balance: number; income: number; expense: number }[] = [];
+        const projData: { year: number; monthIndex: number | null; balance: number; income: number; expense: number }[] = [];
         if (!transactions) return [];
 
         let cumulativeBalance = balance;
@@ -287,18 +254,19 @@ export const useBudgetAnalytics = (
         const totalPoints = isYearly ? projectionYears : (projectionYears * 12);
 
         for (let i = 1; i <= totalPoints; i++) {
-            let start: Date, end: Date, label: string;
+            let start: Date, end: Date, year: number, monthIndex: number | null;
 
             if (isYearly) {
-                const year = now.getFullYear() + i;
+                year = now.getFullYear() + i;
+                monthIndex = null;
                 start = new Date(year, 0, 1);
                 end = new Date(year, 11, 31, 23, 59, 59);
-                label = `${year}`;
             } else {
                 const target = new Date(now.getFullYear(), now.getMonth() + i, 1);
                 start = target;
                 end = new Date(target.getFullYear(), target.getMonth() + 1, 0, 23, 59, 59);
-                label = `${monthNames[target.getMonth()]?.slice(0, 3)} '${String(target.getFullYear()).slice(2)}`;
+                year = target.getFullYear();
+                monthIndex = target.getMonth();
             }
 
             let inc = 0, exp = 0;
@@ -316,21 +284,18 @@ export const useBudgetAnalytics = (
             });
 
             cumulativeBalance += inc - exp;
-            projData.push({ name: label, balance: cumulativeBalance, income: inc, expense: exp });
+            projData.push({ year, monthIndex, balance: cumulativeBalance, income: inc, expense: exp });
         }
         return projData;
-    }, [transactions, t, absToView, balance, projectionYears, calculateOccurrences]);
+    }, [transactions, absToView, balance, projectionYears]);
 
     return {
         totalIncome,
         totalExpense,
         balance,
-        volumeTransactions,
-        cashTransactions,
-        getTransactionAmountsByCurrency,
-        categoryData,
-        cashFlowData,
-        projectionData,
+        categoryTotals, // PURE: Record<categoryKey, number>
+        cashFlowData,   // PURE: { monthIndex, year, income, expense }[]
+        projectionData, // PURE: { year, monthIndex, balance, income, expense }[]
         isMaster,
         isFuture,
         absToView,
