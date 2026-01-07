@@ -78,6 +78,12 @@ export interface Transaction {
   originId?: string; // For history items: the ID of the master they came from
 }
 
+// Enterprise Grade Patch Type: Explicitly allows null to signal deletion
+export type TransactionPatch = Partial<Transaction> & {
+  kind?: Transaction['kind'] | null;
+  interestRate?: number | null;
+};
+
 // PhD-Level Invoice Types
 export interface InvoiceItem {
   id: string;

@@ -1,6 +1,6 @@
 // DataContext.tsx – provides application-wide state and financial calculations
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Note, Goal, PlanItem, Drawing, Subscription, BudgetSettings, Transaction, Invoice, Client, CompanyProfile } from '../types/planner';
+import { Note, Goal, PlanItem, Drawing, Subscription, BudgetSettings, Transaction, TransactionPatch, Invoice, Client, CompanyProfile } from '../types/planner';
 import { StorageService } from '../services/StorageService';
 import { FinancialEngine } from '../utils/FinancialEngine';
 
@@ -37,7 +37,7 @@ interface DataContextType {
   deleteSubscription: (id: string) => void;
   updateBudgetSettings: (settings: Partial<BudgetSettings>) => void;
   addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
-  updateTransaction: (id: string, updates: Partial<Transaction>) => void;
+  updateTransaction: (id: string, updates: TransactionPatch) => void;
   deleteTransaction: (id: string) => void;
   deleteTransactions: (ids: string[]) => void;
   addInvoice: (invoice: Invoice) => void;
@@ -382,13 +382,27 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const updateTransaction = (id: string, updates: Partial<Transaction>) => {
+  const updateTransaction = (id: string, updates: TransactionPatch) => {
     setTransactions(prev =>
       prev.map(t => {
         if (t.id !== id) return t;
+
+        // Merge logic with explicit key deletion for nulls
         const merged = { ...t, ...updates };
-        // keep master kind if it was master
-        if (isMasterTx(t)) (merged as any).kind = 'master';
+
+        // 1. Handle 'kind' deletion
+        if ('kind' in updates && (updates.kind === null || updates.kind === undefined)) {
+          delete (merged as any).kind;
+        } else if (isMasterTx(t) && updates.kind === undefined) {
+          // If kind wasn't sent but it WAS a master, preserve it (standard merge behavior)
+          (merged as any).kind = 'master';
+        }
+
+        // 2. Handle 'interestRate' deletion
+        if ('interestRate' in updates && (updates.interestRate === null || updates.interestRate === undefined)) {
+          delete (merged as any).interestRate; // Cleanly remove empty rates
+        }
+
         return merged;
       })
     );

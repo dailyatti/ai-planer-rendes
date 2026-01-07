@@ -12,16 +12,27 @@ import {
 import { useBudgetAnalytics } from './useBudgetAnalytics';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useData } from '../../contexts/DataContext';
-import { Transaction, TransactionPeriod } from '../../types/planner';
+import { Transaction, TransactionPeriod, TransactionPatch } from '../../types/planner';
 import { AVAILABLE_CURRENCIES } from '../../constants/currencyData';
 import { CurrencyService } from '../../services/CurrencyService';
 import { parseMoneyInput } from '../../utils/numberUtils';
+
+const normalizeDigits = (s: string) => {
+  const cleaned = s.replace(/[^\d-]/g, '');
+  // Only allow minus at start, remove others
+  return cleaned.startsWith('-')
+    ? '-' + cleaned.slice(1).replace(/-/g, '')
+    : cleaned.replace(/-/g, '');
+};
 
 // --- Types & Constants ---
 
 type RectLike = { top: number; left: number; right: number; bottom: number; width: number; height: number };
 
 type CategoryKey = 'software' | 'marketing' | 'office' | 'travel' | 'service' | 'freelance' | 'other';
+
+type CategoryDef = { color: string; label: string };
+type CategoriesMap = Record<CategoryKey, CategoryDef>;
 
 function toRectLike(el: Element | null): RectLike | null {
   if (!el) return null;
@@ -89,7 +100,7 @@ const parseLocalDate = (date: Date | string): Date | null => {
 
 const CategoryBadge: React.FC<{
   catKey: string;
-  CATEGORIES: any;
+  CATEGORIES: CategoriesMap;
   getCategoryKey: (c: string) => CategoryKey;
 }> = React.memo(({ catKey, CATEGORIES, getCategoryKey }) => {
   const key = getCategoryKey(String(catKey ?? 'other'));
@@ -140,7 +151,7 @@ const BreakdownPopover: React.FC<{
   isOpen: boolean;
   data: { title: string; breakdown: Record<string, number>; rect: RectLike } | null;
   onClose: () => void;
-  CATEGORIES: any;
+  CATEGORIES: CategoriesMap;
   formatMoney: (v: number) => string;
   getCategoryKey: (c: string) => CategoryKey;
 }> = ({ isOpen, data, onClose, CATEGORIES, formatMoney, getCategoryKey }) => {
@@ -259,7 +270,7 @@ const TransactionRow: React.FC<{
   onSelect: (id: string) => void;
   onClick: (tr: Transaction) => void;
   onDelete: (id: string) => void;
-  CATEGORIES: any;
+  CATEGORIES: CategoriesMap;
   getCategoryKey: (c: string) => CategoryKey;
   formatDate: (d: Date | string) => string;
   formatMoney: (v: number, c?: string) => string;
@@ -305,7 +316,7 @@ const TransactionRow: React.FC<{
       </div>
       <div className="text-right flex items-center gap-4">
         <span className={`text-xl font-bold block ${tr.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'}`}>
-          {tr.type === 'income' ? '+' : '−'}{formatMoney(Math.abs(Number.isFinite(tr.amount as any) ? (tr.amount as number) : 0), getTrCurrency(tr))}
+          {tr.type === 'income' ? '+' : '−'}{formatMoney(Math.abs((typeof tr.amount === 'number' && Number.isFinite(tr.amount)) ? tr.amount : 0), getTrCurrency(tr))}
         </span>
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(tr.id); }}
@@ -325,12 +336,14 @@ const TransactionRow: React.FC<{
 const useBudgetController = () => {
   const { t, language } = useLanguage();
   const { transactions: rawTransactions, addTransaction, updateTransaction, deleteTransaction, deleteTransactions } = useData();
-  const transactions = useMemo(() => Array.isArray(rawTransactions) ? rawTransactions : [], [rawTransactions]);
+  // Critical Fix: Force new reference to prevent stale memoization in analytics
+  const transactions = useMemo(() => (Array.isArray(rawTransactions) ? rawTransactions.map(t => ({ ...t })) : []),
+    [rawTransactions]);
 
   // API Guard: Ensure functions exist
-  const safeAdd = addTransaction || (() => console.warn('addTransaction missing'));
-  const safeUpdate = updateTransaction || (() => console.warn('updateTransaction missing'));
-  const safeDelete = deleteTransaction || (() => console.warn('deleteTransaction missing'));
+  const safeAdd = addTransaction ?? ((_: any) => console.warn('addTransaction missing'));
+  const safeUpdate = updateTransaction ?? ((_: any, __: any) => console.warn('updateTransaction missing'));
+  const safeDelete = deleteTransaction ?? ((_: any) => console.warn('deleteTransaction missing'));
 
   // State
   const [currency, setCurrency] = useState<string>('USD');
@@ -385,7 +398,7 @@ const useBudgetController = () => {
   }, [currency]);
 
   // CATEGORIES
-  const CATEGORIES = useMemo(() => ({
+  const CATEGORIES = useMemo((): CategoriesMap => ({
     software: { color: '#4361ee', label: t('budget.software') || 'Software' },
     marketing: { color: '#a855f7', label: t('budget.marketing') || 'Marketing' },
     office: { color: '#06b6d4', label: t('budget.office') || 'Office' },
@@ -395,19 +408,26 @@ const useBudgetController = () => {
     other: { color: '#9ca3af', label: t('budget.other') || 'Other' }
   }), [language, t]);
 
-  // Formatter Cache
-  const formatterCache = useMemo(() => new Map<string, Intl.NumberFormat>(), []);
+  // Formatter Cache - useRef for StrictMode stability
+  const formatterCacheRef = React.useRef<Map<string, Intl.NumberFormat>>(new Map());
+
   const getFormatter = useCallback((currencyCode: string): Intl.NumberFormat => {
     const key = `${language}-${currencyCode}`;
-    if (!formatterCache.has(key)) {
-      formatterCache.set(key, new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
+    if (!formatterCacheRef.current.has(key)) {
+      formatterCacheRef.current.set(key, new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
         style: 'currency',
         currency: currencyCode,
         maximumFractionDigits: 2
       }));
     }
-    return formatterCache.get(key)!;
-  }, [language, formatterCache]);
+    return formatterCacheRef.current.get(key)!;
+  }, [language]);
+
+  // Cleanup cache on language change
+  useEffect(() => {
+    formatterCacheRef.current.clear();
+  }, [language]);
+
 
   const formatMoney = useCallback((amount: number, currencyOverride?: string) => {
     const safeAmount = isNaN(amount) ? 0 : amount;
@@ -436,11 +456,9 @@ const useBudgetController = () => {
   // Update form currency when global currency changes
   useEffect(() => {
     if (editingTransaction) return;
-    setNewTransaction(prev => {
-      if (!prev.currency) return { ...prev, currency: currency };
-      return prev;
-    });
-  }, [currency, editingTransaction]);
+    if (showAddModal) return; // Don't override if user is actively creating
+    setNewTransaction(prev => ({ ...prev, currency }));
+  }, [currency, editingTransaction, showAddModal]);
 
   // Init rates
   useEffect(() => {
@@ -448,8 +466,13 @@ const useBudgetController = () => {
   }, []);
 
   // Budget Logic
+  // Analytics should follow the same visibility rules as the UI (masters ON/OFF)
+  const analyticsTransactions = useMemo(() => {
+    return showMasters ? transactions : transactions.filter(t => t.kind !== 'master');
+  }, [transactions, showMasters]);
+
   const { totalIncome, totalExpense, balance, categoryTotals, cashFlowData, projectionData } =
-    useBudgetAnalytics(transactions, currency, safeConvert, projectionYears);
+    useBudgetAnalytics(analyticsTransactions, currency, safeConvert, projectionYears);
 
   // Sorting and Filtering
   const dateToMs = useCallback((x: Date | string) => {
@@ -458,17 +481,25 @@ const useBudgetController = () => {
   }, []);
 
   const sortedTransactions = useMemo(() => {
+    // Standardized check for masters
     const base = showMasters ? transactions : transactions.filter(tr => tr.kind !== 'master');
     return [...base].sort((a, b) => dateToMs(b.date) - dateToMs(a.date));
   }, [transactions, showMasters, dateToMs]);
+
+
 
   const filteredTransactions = useMemo(() => {
     let filtered = sortedTransactions;
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
-      filtered = filtered.filter(tr =>
-        (tr.description || '').toLowerCase().includes(lower) || String(tr.amount || '').includes(lower)
-      );
+      const needleNum = normalizeDigits(searchTerm);
+      const hasDigits = /\d/.test(needleNum);
+
+      filtered = filtered.filter(tr => {
+        const desc = (tr.description || '').toLowerCase();
+        const amt = normalizeDigits(String(tr.amount ?? ''));
+        return desc.includes(lower) || (hasDigits && amt.includes(needleNum));
+      });
     }
     if (filterCategory !== 'all') {
       filtered = filtered.filter(tr => String(tr.category ?? 'other') === filterCategory);
@@ -483,7 +514,10 @@ const useBudgetController = () => {
 
   const totalPages = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
 
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, filterCategory, showMasters]);
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedTransactions(new Set()); // UX: Clear selection on filter change
+  }, [searchTerm, filterCategory, showMasters]);
 
   // Handlers
   const handleAddTransaction = () => {
@@ -502,30 +536,48 @@ const useBudgetController = () => {
     }
 
     const amount = parseMoneyInput(newTransaction.amount);
+    if (!Number.isFinite(amount)) { // Requirement 5
+      alert("Érvénytelen összeg!");
+      return;
+    }
+
     const isRecurring = newTransaction.period !== 'oneTime';
     const rawDateString = newTransaction.date;
 
-    const basePayload = {
+    const interestRateParsed = newTransaction.interestRate !== ''
+      ? parseMoneyInput(newTransaction.interestRate)
+      : null;
+
+    // Common payload parts
+    const basePayloadProps = {
       description: newTransaction.description,
       amount: transactionType === 'expense' ? -Math.abs(amount) : Math.abs(amount),
       category: newTransaction.category,
       type: transactionType,
       currency: newTransaction.currency,
-      interestRate: newTransaction.interestRate !== '' ? parseMoneyInput(newTransaction.interestRate) : undefined,
     };
 
     if (editingTransaction) {
-      safeUpdate(editingTransaction.id, {
-        ...basePayload,
+      // UPDATE: Use TransactionPatch (allows null to trigger delete)
+      const patch: TransactionPatch = {
+        ...basePayloadProps,
         date: rawDateString,
         period: newTransaction.period,
         recurring: isRecurring,
-        kind: isRecurring ? 'master' : undefined
-      });
+        kind: isRecurring ? 'master' : null, // null => delete
+        interestRate: interestRateParsed     // null => delete
+      };
+      safeUpdate(editingTransaction.id, patch);
     } else {
+      // CREATE: Use strict Transaction type (requires undefined, not null)
+      const createPayload = {
+        ...basePayloadProps,
+        interestRate: interestRateParsed ?? undefined, // null => undefined
+      };
+
       if (isRecurring && addToBalanceImmediately) {
-        safeAdd({ ...basePayload, date: rawDateString, period: 'oneTime', recurring: false });
-        // Calculate next date safely
+        safeAdd({ ...createPayload, date: rawDateString, period: 'oneTime', recurring: false });
+
         let nextDateStr: string;
         switch (newTransaction.period) {
           case 'daily': nextDateStr = addDaysYMD(rawDateString, 1); break;
@@ -534,9 +586,10 @@ const useBudgetController = () => {
           case 'yearly': nextDateStr = addYearsClampedYMD(rawDateString, 1); break;
           default: nextDateStr = rawDateString;
         }
-        safeAdd({ ...basePayload, date: nextDateStr, period: newTransaction.period, recurring: true, kind: 'master' });
+
+        safeAdd({ ...createPayload, date: nextDateStr, period: newTransaction.period, recurring: true, kind: 'master' });
       } else {
-        safeAdd({ ...basePayload, date: rawDateString, period: newTransaction.period, recurring: isRecurring, kind: isRecurring ? 'master' : undefined });
+        safeAdd({ ...createPayload, date: rawDateString, period: newTransaction.period, recurring: isRecurring, kind: isRecurring ? 'master' : undefined });
       }
     }
 
@@ -591,16 +644,39 @@ const useBudgetController = () => {
   const handleDeleteSelected = () => {
     if (deleteTransactions) deleteTransactions(Array.from(selectedTransactions));
     else if (safeDelete) selectedTransactions.forEach(id => safeDelete(id));
+
+    // UX Resets
+    setEditingTransaction(null);
+    setShowAddModal(false);
+    setSearchTerm('');
+    setFilterCategory('all');
     setSelectedTransactions(new Set());
-    setShowDeleteConfirm(null);
+    setSelectedStat(null); // Reset popover to prevent stale data
   };
 
   const handleDeleteByPeriod = (period: TransactionPeriod | 'all') => {
-    const visibleTx = showMasters ? transactions : transactions.filter(t => t.kind !== 'master');
-    const ids = period === 'all' ? visibleTx.map(t => t.id) : visibleTx.filter(t => t.period === period).map(t => t.id);
-    if (deleteTransactions) deleteTransactions(ids); else if (safeDelete) ids.forEach(id => safeDelete(id));
+    // FIX: 'Delete All' should delete EVERYTHING, even hidden masters
+    const base = period === 'all'
+      ? transactions // ✅ Always delete all
+      : (showMasters ? transactions : transactions.filter(t => t.kind !== 'master'));
+
+    const ids = period === 'all'
+      ? base.map(t => t.id)
+      : base.filter(t => t.period === period).map(t => t.id);
+
+    if (deleteTransactions) {
+      deleteTransactions(ids);
+    } else {
+      ids.forEach(id => safeDelete(id));
+    }
+
+    // UX Resets
+    setEditingTransaction(null);
+    setShowAddModal(false);
+    setSearchTerm('');
+    setFilterCategory('all');
     setSelectedTransactions(new Set());
-    setShowDeleteConfirm(null);
+    setSelectedStat(null); // Reset popover to prevent stale data
   };
 
   return {
@@ -614,11 +690,17 @@ const useBudgetController = () => {
     CATEGORIES, formatMoney, formatDate, getCategoryKey, getTrCurrency, safeConvert,
     handleAddTransaction, openAddModal, openEditModal, toggleTransactionSelection, handleDeleteSelected, handleDeleteByPeriod,
     deleteTransaction: safeDelete,
-    selectAllTransactions: () => setSelectedTransactions(new Set(filteredTransactions.map(t => t.id))),
+    selectAllTransactions: () => setSelectedTransactions(new Set(paginatedTransactions.map(t => t.id))),
     clearSelection: () => setSelectedTransactions(new Set()),
     getPeriodLabel: (p: TransactionPeriod) => {
-      const labels: Record<string, string> = { daily: t('budget.daily'), weekly: t('budget.weekly'), monthly: t('budget.monthly'), yearly: t('budget.yearly'), oneTime: t('budget.oneTime') };
-      return labels[p] || p;
+      const labels: Record<TransactionPeriod, string> = {
+        daily: t('budget.daily') || 'Daily',
+        weekly: t('budget.weekly') || 'Weekly',
+        monthly: t('budget.monthly') || 'Monthly',
+        yearly: t('budget.yearly') || 'Yearly',
+        oneTime: t('budget.oneTime') || 'One-time',
+      };
+      return labels[p] || labels.oneTime;
     }
   };
 };
@@ -728,7 +810,7 @@ const BudgetView: React.FC = () => {
             <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl flex justify-between items-center mb-4">
               <span className="text-sm font-bold text-blue-700 dark:text-blue-300">{ctrl.selectedTransactions.size} kiválasztva</span>
               <div className="flex gap-2">
-                <button onClick={ctrl.selectAllTransactions} className="text-xs text-blue-600 hover:underline">Összes kijelölése</button>
+                <button onClick={ctrl.selectAllTransactions} className="text-xs text-blue-600 hover:underline">{t('budget.selectAllPage')}</button>
                 <button onClick={() => ctrl.setShowDeleteConfirm('selected')} className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded-lg hover:bg-red-200">Törlés</button>
               </div>
             </div>
@@ -781,7 +863,7 @@ const BudgetView: React.FC = () => {
                   />
                   <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-white/20 rounded-lg px-2 py-1">
                     <select className="bg-transparent text-sm font-bold outline-none" value={ctrl.newTransaction.currency} onChange={(e) => ctrl.setNewTransaction({ ...ctrl.newTransaction, currency: e.target.value })}>
-                      {AVAILABLE_CURRENCIES.map(c => <option key={c.code} value={c.code} className="text-gray-900">{c.code}</option>)}
+                      {AVAILABLE_CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
                     </select>
                   </div>
                 </div>

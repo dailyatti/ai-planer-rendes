@@ -16,6 +16,30 @@ export const useBudgetAnalytics = (
     safeConvert: (amount: number, fromCurrency: string, toCurrency: string) => number,
     projectionYears: number = 1
 ) => {
+    // --- ZERO DATA GUARD ---
+    // If no transactions, strictly return 0/empty values to prevent stale UI
+    if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
+        // Return 12 months of zero data for charts
+        const zeroCashFlow = Array.from({ length: 12 }).map((_, i) => {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            return { monthIndex: d.getMonth(), year: d.getFullYear(), income: 0, expense: 0 };
+        }).reverse();
+
+        return {
+            totalIncome: 0,
+            totalExpense: 0,
+            balance: 0,
+            categoryTotals: {},
+            cashFlowData: zeroCashFlow, // Non-empty array of zeros to keep chart rendered but flat
+            projectionData: [],
+            isMaster: (tr: Transaction) => tr.kind === 'master',
+            isFuture: () => false,
+            absToView: () => 0,
+            ensureCurrency: (c?: string) => c || 'USD',
+        };
+    }
+
     // --- BASIC HELPERS ---
 
     const toDateSafe = (d: Date | string | number): Date | null => {
@@ -221,6 +245,7 @@ export const useBudgetAnalytics = (
     const cashFlowData = useMemo(() => {
         const now = new Date();
         const monthsData: { monthIndex: number; year: number; income: number; expense: number }[] = [];
+        // Zero guard handled at top, so here we know we have data, but double check
         if (!transactions) return [];
 
         for (let i = 5; i >= 0; i--) {
