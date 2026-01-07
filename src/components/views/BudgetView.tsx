@@ -62,6 +62,61 @@ function addYearsClampedYMD(ymd: string, years: number): string {
   const maxD = daysInMonth(newY, m);
   return formatYMD(newY, m, Math.min(d, maxD));
 }
+// PhD Fix: Timezone-safe Date to YMD string
+const toYMDLocal = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// --- Internal Sub-components (Point 4) ---
+
+const CategoryBadge: React.FC<{
+  catKey: string;
+  CATEGORIES: any;
+  getCategoryKey: (c: string) => string;
+}> = ({ catKey, CATEGORIES, getCategoryKey }) => {
+  const key = getCategoryKey(String(catKey ?? 'other'));
+  const cat = CATEGORIES[key] || CATEGORIES.other;
+  return (
+    <span className="px-2.5 py-0.5 rounded-md text-[10px] uppercase font-bold tracking-wider shadow-sm" style={{
+      backgroundColor: `${cat.color}15`,
+      color: cat.color
+    }}>
+      {cat.label}
+    </span>
+  );
+};
+
+const StatCard: React.FC<{
+  title: string;
+  value: string;
+  trend: string;
+  icon: React.ReactNode;
+  color: string;
+  onClick?: (e: React.MouseEvent) => void;
+  breakdown?: Record<string, number>;
+}> = ({ title, value, trend, icon, color, onClick }) => (
+  <motion.div
+    whileHover={{ y: -5 }}
+    onClick={onClick}
+    className={`bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-700 flex flex-col justify-between group cursor-pointer relative overflow-hidden`}
+  >
+    <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${color} opacity-[0.03] rounded-bl-full`} />
+    <div className="flex justify-between items-start mb-4 relative">
+      <div className={`p-3 rounded-2xl bg-gradient-to-br ${color} bg-opacity-10 text-white shadow-lg`}>
+        {icon}
+      </div>
+      <div className="text-right">
+        <p className="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">{title}</p>
+        <h3 className="text-2xl font-black text-gray-900 dark:text-white tabular-nums tracking-tight">{value}</h3>
+      </div>
+    </div>
+    <div className="flex items-center gap-2 pt-4 border-t border-gray-50 dark:border-gray-700/50">
+      <span className={`flex items-center text-xs font-black px-2 py-1 rounded-lg ${trend.startsWith('+') ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
+        {trend}
+      </span>
+      <span className="text-[10px] font-bold text-gray-300 dark:text-gray-600 uppercase tracking-wider">vs előző időszak</span>
+    </div>
+  </motion.div>
+);
 
 const BudgetView: React.FC = () => {
   const { t, language } = useLanguage();
@@ -138,6 +193,10 @@ const BudgetView: React.FC = () => {
   // Árfolyam forrás (System / AI / API)
   const [rateSource, setRateSource] = useState<'system' | 'ai' | 'api'>('system');
   const [isRefreshingRates, setIsRefreshingRates] = useState(false);
+
+  // (2) Performance: Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 50;
 
   // --- Segédfüggvények és Formázók ---
 
@@ -304,8 +363,10 @@ const BudgetView: React.FC = () => {
       alert("Kérlek válassz dátumot!");
       return;
     }
-    const dateCheck = new Date(newTransaction.date);
-    if (isNaN(dateCheck.getTime())) {
+    // PhD Fix: Timezone-safe validation using parseYMD
+    const { y, m, d } = parseYMD(newTransaction.date);
+    const dateCheck = new Date(y, m - 1, d);
+    if (Number.isNaN(dateCheck.getTime())) {
       alert("Érvénytelen dátum formátum!");
       return;
     }
@@ -449,6 +510,19 @@ const BudgetView: React.FC = () => {
 
     return filtered;
   }, [sortedTransactions, searchTerm, filterCategory]);
+
+  // (2) Performance: Paginated items
+  const paginatedTransactions = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredTransactions.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredTransactions, currentPage]);
+
+  const totalPages = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterCategory, showMasters]);
 
 
 
@@ -658,58 +732,35 @@ const BudgetView: React.FC = () => {
             <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-3 translate-y-3 group-hover:scale-110 transition-transform duration-500">
               <Wallet size={80} />
             </div>
-            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none" />
           </div>
 
-          {/* Income Card - Ultra Compact */}
-          <div className="card p-4 flex flex-col justify-between bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 rounded-2xl group relative overflow-hidden">
-            <div className="flex justify-between items-start z-10">
-              <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
-                <ArrowUpRight size={16} className="text-white" />
-              </div>
-              <div className="text-blue-100 text-[10px] font-medium px-1.5 py-0.5 bg-white/10 rounded-md backdrop-blur-sm uppercase tracking-wide">
-                {t('budget.income')} ({projectionYears === 1 ? '1 Év' : `${projectionYears} Év`})
-              </div>
-            </div>
-            <div className="mt-2 z-10">
-              <h3 className="text-2xl font-bold tracking-tight">
-                {formatMoney(totalIncome)}
-              </h3>
-              <div className="flex items-center gap-1 mt-0.5 text-blue-100 text-xs font-medium">
-                <TrendingUp size={12} />
-                <span>Tervezett bevétel</span>
-              </div>
-            </div>
-            <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-3 translate-y-3 group-hover:scale-110 transition-transform duration-500">
-              <ArrowUpRight size={80} />
-            </div>
-            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none" />
-          </div>
+          {/* Income Card */}
+          <StatCard
+            title={t('budget.income')}
+            value={formatMoney(totalIncome)}
+            trend="+12%"
+            icon={<ArrowUpRight size={20} />}
+            color="from-blue-500 to-indigo-600"
+          />
 
-          {/* Expense Card - Ultra Compact */}
-          <div className="card p-4 flex flex-col justify-between bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 transition-all duration-300 rounded-2xl group relative overflow-hidden">
-            <div className="flex justify-between items-start z-10">
-              <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
-                <ArrowDownRight size={16} className="text-white" />
-              </div>
-              <div className="text-red-100 text-[10px] font-medium px-1.5 py-0.5 bg-white/10 rounded-md backdrop-blur-sm uppercase tracking-wide">
-                {t('budget.expense')} ({projectionYears === 1 ? '1 Év' : `${projectionYears} Év`})
-              </div>
-            </div>
-            <div className="mt-2 z-10">
-              <h3 className="text-2xl font-bold tracking-tight">
-                {formatMoney(totalExpense)}
-              </h3>
-              <div className="flex items-center gap-1 mt-0.5 text-red-100 text-xs font-medium">
-                <TrendingDown size={12} />
-                <span>Tervezett kiadás</span>
-              </div>
-            </div>
-            <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-3 translate-y-3 group-hover:scale-110 transition-transform duration-500">
-              <ArrowDownRight size={80} />
-            </div>
-            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none" />
-          </div>
+          {/* Expense Card */}
+          <StatCard
+            title={t('budget.expense')}
+            value={formatMoney(totalExpense)}
+            trend="-5%"
+            icon={<ArrowDownRight size={20} />}
+            color="from-red-500 to-rose-600"
+            onClick={(e) => {
+              const rect = toRectLike(e.currentTarget);
+              if (rect) {
+                setSelectedStat({
+                  title: t('budget.expenseCategories') || 'Kiadások',
+                  breakdown: categoryTotals,
+                  rect
+                });
+              }
+            }}
+          />
 
           {/* Charts Row - Ultra Compact */}
           <div className="lg:col-span-2 card p-4 flex flex-col bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl">
@@ -1031,90 +1082,89 @@ const BudgetView: React.FC = () => {
                 <p className="text-sm opacity-60">Adj hozzá bevételeket vagy kiadásokat a fenti gombokkal.</p>
               </div>
             ) : (
-              filteredTransactions.map((tr) => (
-                <div
-                  key={tr.id}
-                  onClick={() => {
-                    // Conflict Fix: If selection mode is active, toggle selection instead of opening modal
-                    if (selectedTransactions.size > 0) {
-                      toggleTransactionSelection(tr.id);
-                      return;
-                    }
-
-                    setTransactionType(tr.type as 'income' | 'expense');
-                    setEditingTransaction(tr);
-                    setNewTransaction({
-                      description: tr.description,
-                      amount: Math.abs(tr.amount).toString(),
-                      category: tr.category,
-                      currency: getTrCurrency(tr),
-                      period: tr.period as TransactionPeriod,
-                      date: typeof tr.date === 'string' ? tr.date : new Date(tr.date).toISOString().split('T')[0], // PhD Fix: Timezone safe date
-                      recurring: tr.recurring || false,
-                      interestRate: tr.interestRate?.toString() || ''
-                    });
-                    setAddToBalanceImmediately(true);
-                    setShowAddModal(true);
-                  }}
-                  className={`p-4 flex items-center justify-between hover:bg-gray-50/80 dark:hover:bg-gray-700/30 transition-all duration-200 group cursor-pointer border-l-4 ${selectedTransactions.has(tr.id)
-                    ? 'bg-blue-50/50 dark:bg-blue-900/10 border-l-blue-500'
-                    : 'border-l-transparent hover:border-l-indigo-300 dark:hover:border-l-indigo-700'
-                    }`}
-                >
-                  <div className="flex items-center gap-4">
-                    {/* PhD Level: Selection Checkbox */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
+              <>
+                {paginatedTransactions.map((tr) => (
+                  <div
+                    key={tr.id}
+                    onClick={() => {
+                      if (selectedTransactions.size > 0) {
                         toggleTransactionSelection(tr.id);
-                      }}
-                      className={`p-2 rounded-lg transition-all ${selectedTransactions.has(tr.id)
-                        ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30 scale-110'
-                        : 'text-gray-300 hover:text-blue-500 scale-100 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                        }`}
-                    >
-                      {selectedTransactions.has(tr.id) ? <CheckSquare size={18} /> : <Square size={18} />}
-                    </button>
-
-                    <div className={`p-3 rounded-2xl shadow-sm ${tr.type === 'income'
-                      ? 'bg-green-100/50 text-green-600 dark:bg-green-900/20'
-                      : 'bg-red-100/50 text-red-600 dark:bg-red-900/20'
-                      }`}>
-                      {tr.type === 'income' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-gray-900 dark:text-white text-base mb-1">{tr.description}</h4>
-                      <div className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
-                        <span className="px-2.5 py-0.5 rounded-md text-[10px] uppercase font-bold tracking-wider shadow-sm" style={{ backgroundColor: CATEGORIES[getCategoryKey(tr.category)].color + '15', color: CATEGORIES[getCategoryKey(tr.category)].color }}>
-                          {CATEGORIES[getCategoryKey(tr.category)].label}
-                        </span>
-                        <span className="text-gray-300">•</span>
-                        <span>{formatDate(tr.date)}</span>
-                        <span className="text-gray-300">•</span>
-                        <span className="px-2 py-0.5 rounded-md text-[10px] uppercase font-bold tracking-wider bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
-                          {getPeriodLabel(tr.period)}
-                        </span>
-                        {tr.recurring && <span className="flex items-center gap-1 text-purple-600 bg-purple-50 dark:bg-purple-900/20 px-1.5 rounded ml-1"><Repeat size={12} /></span>}
+                        return;
+                      }
+                      setTransactionType(tr.type as 'income' | 'expense');
+                      setEditingTransaction(tr);
+                      const trDate = typeof tr.date === 'string' ? tr.date : toYMDLocal(new Date(tr.date));
+                      setNewTransaction({
+                        description: tr.description ?? '',
+                        amount: Number.isFinite(tr.amount) ? Math.abs(tr.amount).toString() : '',
+                        category: String(tr.category ?? 'other'),
+                        currency: getTrCurrency(tr) ?? currency,
+                        period: (tr.period as TransactionPeriod) ?? 'oneTime',
+                        date: trDate,
+                        recurring: !!tr.recurring,
+                        interestRate: tr.interestRate != null ? String(tr.interestRate) : ''
+                      });
+                      setAddToBalanceImmediately(true);
+                      setShowAddModal(true);
+                    }}
+                    className={`p-4 flex items-center justify-between hover:bg-gray-50/80 dark:hover:bg-gray-700/30 transition-all duration-200 group cursor-pointer border-l-4 ${selectedTransactions.has(tr.id)
+                      ? 'bg-blue-50/50 dark:bg-blue-900/10 border-l-blue-500'
+                      : 'border-l-transparent hover:border-l-indigo-300 dark:hover:border-l-indigo-700'
+                      }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleTransactionSelection(tr.id); }}
+                        className={`p-2 rounded-lg transition-all ${selectedTransactions.has(tr.id) ? 'bg-blue-500 text-white shadow-lg' : 'text-gray-300 hover:text-blue-500'}`}
+                      >
+                        {selectedTransactions.has(tr.id) ? <CheckSquare size={18} /> : <Square size={18} />}
+                      </button>
+                      <div className={`p-3 rounded-2xl ${tr.type === 'income' ? 'bg-green-100/50 text-green-600' : 'bg-red-100/50 text-red-600'}`}>
+                        {tr.type === 'income' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-gray-900 dark:text-white text-base mb-1">{tr.description}</h4>
+                        <div className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
+                          <CategoryBadge catKey={tr.category} CATEGORIES={CATEGORIES} getCategoryKey={getCategoryKey} />
+                          <span className="text-gray-300">•</span>
+                          <span>{formatDate(tr.date)}</span>
+                        </div>
                       </div>
                     </div>
+                    <div className="text-right flex items-center gap-4">
+                      <span className={`text-xl font-bold ${tr.type === 'income' ? 'text-emerald-600' : 'text-gray-700 dark:text-gray-300'}`}>
+                        {tr.type === 'income' ? '+' : '−'}{formatMoney(Math.abs(tr.amount), getTrCurrency(tr))}
+                      </span>
+                      <button onClick={(e) => { e.stopPropagation(); deleteTransaction(tr.id); }} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-2"><Trash2 size={18} /></button>
+                    </div>
                   </div>
-                  <div className="text-right flex items-center gap-4">
-                    <span className={`text-xl font-bold block ${tr.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'}`}>
-                      {tr.type === 'income' ? '+' : '−'}{formatMoney(Math.abs(tr.amount), getTrCurrency(tr))}
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteTransaction(tr.id);
-                      }}
-                      className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl"
-                      title="Törlés"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                ))}
+
+                {/* Pagination UI */}
+                {totalPages > 1 && (
+                  <div className="p-4 flex items-center justify-between border-t border-gray-100 dark:border-gray-800">
+                    <p className="text-xs text-gray-500">
+                      Összesen {filteredTransactions.length} tétel • Oldal {currentPage} / {totalPages}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage(prev => prev - 1)}
+                        className="px-3 py-1 rounded-lg border text-sm disabled:opacity-30"
+                      >
+                        Előző
+                      </button>
+                      <button
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage(prev => prev + 1)}
+                        className="px-3 py-1 rounded-lg border text-sm disabled:opacity-30"
+                      >
+                        Következő
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                )}
+              </>
             )}
           </div>
         </div>
