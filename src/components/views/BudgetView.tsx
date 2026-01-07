@@ -110,6 +110,16 @@ const BudgetView: React.FC = () => {
 
   // (B) Show Masters toggle - controls visibility of master templates in the list
   const [showMasters, setShowMasters] = useState(false);
+
+  // (3) Type Safety: Get safe currency from transaction (Transaction.currency is optional)
+  const getTrCurrency = useCallback((tr: Transaction): string => {
+    return tr.currency && typeof tr.currency === 'string' ? tr.currency : currency;
+  }, [currency]);
+
+  // (3) Type Safety: Get safe category key with fallback
+  const getCategoryKey = useCallback((cat: string): CategoryKey => {
+    return isCategoryKey(cat) ? cat : 'other';
+  }, []);
   // Új tranzakció űrlap állapot
   const [newTransaction, setNewTransaction] = useState({
     description: '',
@@ -405,13 +415,18 @@ const BudgetView: React.FC = () => {
   };
 
   // (D) Optimized sorting: Only re-sort when transactions or showMasters changes
+  // CRITICAL FIX: Use parseLocalDate to avoid timezone shift bugs
+  const dateToMs = useCallback((x: Date | string): number => {
+    const d = parseLocalDate(x);
+    return d ? d.getTime() : 0;
+  }, [parseLocalDate]);
+
   const sortedTransactions = useMemo(() => {
-    // (B) Respect showMasters: by default, hide master templates
     const base = showMasters
       ? (transactions || [])
       : (transactions || []).filter(tr => tr.kind !== 'master');
-    return [...base].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, showMasters]);
+    return [...base].sort((a, b) => dateToMs(b.date) - dateToMs(a.date));
+  }, [transactions, showMasters, dateToMs]);
 
   // (D) Filter on top of sorted list - no re-sorting on search/filter changes
   const filteredTransactions = useMemo(() => {
@@ -1032,7 +1047,7 @@ const BudgetView: React.FC = () => {
                       description: tr.description,
                       amount: Math.abs(tr.amount).toString(),
                       category: tr.category,
-                      currency: (tr as any).currency || currency,
+                      currency: getTrCurrency(tr),
                       period: tr.period as TransactionPeriod,
                       date: typeof tr.date === 'string' ? tr.date : new Date(tr.date).toISOString().split('T')[0], // PhD Fix: Timezone safe date
                       recurring: tr.recurring || false,
@@ -1070,8 +1085,8 @@ const BudgetView: React.FC = () => {
                     <div>
                       <h4 className="font-bold text-gray-900 dark:text-white text-base mb-1">{tr.description}</h4>
                       <div className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
-                        <span className="px-2.5 py-0.5 rounded-md text-[10px] uppercase font-bold tracking-wider shadow-sm" style={{ backgroundColor: (CATEGORIES as any)[tr.category]?.color + '15', color: (CATEGORIES as any)[tr.category]?.color }}>
-                          {(CATEGORIES as any)[tr.category]?.label || tr.category}
+                        <span className="px-2.5 py-0.5 rounded-md text-[10px] uppercase font-bold tracking-wider shadow-sm" style={{ backgroundColor: CATEGORIES[getCategoryKey(tr.category)].color + '15', color: CATEGORIES[getCategoryKey(tr.category)].color }}>
+                          {CATEGORIES[getCategoryKey(tr.category)].label}
                         </span>
                         <span className="text-gray-300">•</span>
                         <span>{formatDate(tr.date)}</span>
@@ -1085,7 +1100,7 @@ const BudgetView: React.FC = () => {
                   </div>
                   <div className="text-right flex items-center gap-4">
                     <span className={`text-xl font-bold block ${tr.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'}`}>
-                      {tr.type === 'income' ? '+' : '−'}{formatMoney(Math.abs(tr.amount), (tr as any).currency)}
+                      {tr.type === 'income' ? '+' : '−'}{formatMoney(Math.abs(tr.amount), getTrCurrency(tr))}
                     </span>
                     <button
                       onClick={(e) => {
