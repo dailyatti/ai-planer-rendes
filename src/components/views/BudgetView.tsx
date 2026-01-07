@@ -180,47 +180,84 @@ const BudgetView: React.FC = () => {
 
     const isRecurring = newTransaction.period !== 'oneTime';
 
-    // PhD Fix: Local date handling to prevent UTC offset issues
-    // newTransaction.date is "YYYY-MM-DD"
+    // Parse base date
     const [y, m, d] = newTransaction.date.split('-').map(Number);
-    // Explicitly create date in local timezone: year, monthIndex (0-11), day
-    let transactionDate = new Date(y, m - 1, d);
+    const transactionDate = new Date(y, m - 1, d);
 
-    // Ha nem adjuk hozzá azonnal az egyenleghez (csak ismétlődőnél), eltoljuk a kezdő dátumot
-    if (isRecurring && !addToBalanceImmediately && !editingTransaction) {
-      switch (newTransaction.period) {
-        case 'daily': transactionDate.setDate(transactionDate.getDate() + 1); break;
-        case 'weekly': transactionDate.setDate(transactionDate.getDate() + 7); break;
-        case 'monthly': transactionDate.setMonth(transactionDate.getMonth() + 1); break;
-        case 'yearly': transactionDate.setFullYear(transactionDate.getFullYear() + 1); break;
-      }
-    }
-
-    // Handle Interest Rate
-    let finalInterestRate: number | undefined = undefined;
-    if (newTransaction.interestRate !== undefined && newTransaction.interestRate !== '') {
-      finalInterestRate = parseMoneyInput(newTransaction.interestRate);
-    }
-
-    // Create transaction payload
-    const transactionPayload = {
+    // Common payload props
+    const basePayload = {
       description: newTransaction.description,
       amount: transactionType === 'expense' ? -Math.abs(amount) : Math.abs(amount),
       category: newTransaction.category,
       type: transactionType,
       currency: newTransaction.currency,
-      date: transactionDate.toISOString().split('T')[0], // Back to ISO for storage
-      period: newTransaction.period,
-      recurring: isRecurring,
-      kind: isRecurring ? 'master' as const : undefined,
-      interestRate: finalInterestRate
+      interestRate: newTransaction.interestRate !== '' ? parseMoneyInput(newTransaction.interestRate) : undefined,
     };
 
-    // Note: addTransaction/updateTransaction updates are optimistic/sync in DataContext normally
+    // Handling Logic
     if (editingTransaction) {
-      updateTransaction(editingTransaction.id, transactionPayload);
+      // Edit Mode: Update existing (Simplified: don't split, just update params)
+      // Note: Changing from OneTime to Recurring in Edit might need tailored logic, 
+      // but for stability we stick to direct update.
+      updateTransaction(editingTransaction.id, {
+        ...basePayload,
+        date: transactionDate.toISOString().split('T')[0],
+        period: newTransaction.period,
+        recurring: isRecurring,
+        kind: isRecurring ? 'master' : undefined
+      });
     } else {
-      addTransaction(transactionPayload);
+      // Create Mode
+      if (isRecurring && addToBalanceImmediately) {
+        // SPLIT LOGIC: Realized (Now) + Master (Future)
+
+        // 1. Realized One-Time Transaction
+        addTransaction({
+          ...basePayload,
+          description: `${basePayload.description}`,
+          date: transactionDate.toISOString().split('T')[0],
+          period: 'oneTime',
+          recurring: false,
+          kind: undefined
+        });
+
+        // 2. Master Template for Future Projections
+        // Calculate start date for the master (One period from now)
+        const nextDate = new Date(transactionDate);
+        switch (newTransaction.period) {
+          case 'daily': nextDate.setDate(nextDate.getDate() + 1); break;
+          case 'weekly': nextDate.setDate(nextDate.getDate() + 7); break;
+          case 'monthly': nextDate.setMonth(nextDate.getMonth() + 1); break;
+          case 'yearly': nextDate.setFullYear(nextDate.getFullYear() + 1); break;
+        }
+
+        addTransaction({
+          ...basePayload,
+          date: nextDate.toISOString().split('T')[0],
+          period: newTransaction.period,
+          recurring: true,
+          kind: 'master'
+        });
+
+      } else if (isRecurring && !addToBalanceImmediately) {
+        // Master starts NOW (Projected only, no immediate balance impact)
+        addTransaction({
+          ...basePayload,
+          date: transactionDate.toISOString().split('T')[0],
+          period: newTransaction.period,
+          recurring: true,
+          kind: 'master'
+        });
+      } else {
+        // Standard One-Time
+        addTransaction({
+          ...basePayload,
+          date: transactionDate.toISOString().split('T')[0],
+          period: 'oneTime',
+          recurring: false,
+          kind: undefined
+        });
+      }
     }
 
     try {

@@ -1,5 +1,6 @@
 import { Transaction, Invoice } from '../types/planner';
 import { CurrencyService } from '../services/CurrencyService';
+import { FinancialMathService } from './financialMath';
 
 /**
  * FinancialEngine - PhD Level Mathematical Model
@@ -107,6 +108,10 @@ export class FinancialEngine {
      * Generate Revenue Forecast for next N months
      * Uses linear regression on historical data + pending invoices
      */
+    /**
+     * Generate Revenue Forecast for next N months
+     * Uses FinancialMathService for linear regression
+     */
     static generateForecast(
         invoices: Invoice[],
         targetCurrency: string,
@@ -120,6 +125,8 @@ export class FinancialEngine {
 
         // Calculate historical monthly revenue (last 6 months)
         const historicalMonths: number[] = [];
+        const xValues: number[] = [];
+
         for (let i = 5; i >= 0; i--) {
             const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
             const monthRevenue = invoices
@@ -132,17 +139,11 @@ export class FinancialEngine {
                 .reduce((sum, inv) => sum + CurrencyService.convert(inv.total, inv.currency || targetCurrency, targetCurrency), 0);
 
             historicalMonths.push(monthRevenue);
+            xValues.push(i); // 0 to 5
         }
 
-        // Calculate trend (simple linear regression slope)
-        const n = historicalMonths.length;
-        const sumX = (n * (n - 1)) / 2;
-        const sumY = historicalMonths.reduce((a, b) => a + b, 0);
-        const sumXY = historicalMonths.reduce((sum, y, x) => sum + x * y, 0);
-        const sumX2 = historicalMonths.reduce((sum, _, x) => sum + x * x, 0);
-
-        const slope = n > 1 ? (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX) : 0;
-        const intercept = (sumY - slope * sumX) / n;
+        // Use FinancialMathService for regression AND FinancialMathService works!
+        const regression = FinancialMathService.linearRegression(xValues, historicalMonths);
 
         // Generate labels and data for past + future
         for (let i = -3; i <= months; i++) {
@@ -165,7 +166,9 @@ export class FinancialEngine {
             } else {
                 // Future prediction
                 actual.push(0); // No actual for future
-                const predictedValue = intercept + slope * (n + i);
+                // x value corresponds to index in the sequence where last known is 5.
+                // i starts at 1 (next month), so x = 5 + i
+                const predictedValue = regression.predict(5 + i);
                 predicted.push(Math.max(0, Math.round(predictedValue)));
             }
         }
@@ -179,15 +182,17 @@ export class FinancialEngine {
     static getTransactionAmountsByCurrency(transactions: Transaction[], type: 'income' | 'expense'): Record<string, number> {
         const result: Record<string, number> = {};
 
-        transactions.filter(t => t.type === type).forEach(t => {
-            const currency = (t as any).currency || 'USD'; // Transaction might not have currency yet, default to USD
-            const amount = Math.abs(t.amount);
+        transactions
+            .filter(t => t.type === type && t.kind !== 'master')
+            .forEach(t => {
+                const currency = (t as any).currency || 'USD'; // Transaction might not have currency yet, default to USD
+                const amount = Math.abs(t.amount);
 
-            if (!result[currency]) {
-                result[currency] = 0;
-            }
-            result[currency] += amount;
-        });
+                if (!result[currency]) {
+                    result[currency] = 0;
+                }
+                result[currency] += amount;
+            });
 
         return result;
     }
@@ -197,7 +202,7 @@ export class FinancialEngine {
      */
     static calculateBurnRate(transactions: Transaction[], targetCurrency: string): number {
         const expenses = transactions
-            .filter(t => t.type === 'expense')
+            .filter(t => t.type === 'expense' && t.kind !== 'master')
             .reduce((sum, t) => sum + CurrencyService.convert(Math.abs(t.amount), (t as any).currency || targetCurrency, targetCurrency), 0);
 
         // Assume transactions span ~last month (simplified for now)
@@ -205,11 +210,11 @@ export class FinancialEngine {
     }
 
     /**
-     * Calculate runway in months
+     * Calculate runway in months (Delegates to FinancialMathService)
      */
     static calculateRunway(currentBalance: number, monthlyBurn: number): number | null {
-        if (monthlyBurn <= 0) return null;
-        return Math.floor(currentBalance / monthlyBurn);
+        const res = FinancialMathService.runway(currentBalance, monthlyBurn);
+        return res === Infinity ? null : Math.floor(res);
     }
 
     /**
@@ -225,18 +230,18 @@ export class FinancialEngine {
         months: number,
         annualInterestRate: number = 0
     ): number {
+        // Use Future Value for Principal
         const r = annualInterestRate / 100 / 12; // Monthly interest rate decimal
-
         if (r === 0) {
             return currentBalance + (monthlyNet * months);
         }
 
-        // Formula for future value with monthly deposits:
-        // FV = P(1 + r)^n + PMT * [((1 + r)^n - 1) / r]
-        // Where P is principal, r is monthly rate, n is number of months, PMT is monthly deposit
+        // FV = P(1+r)^n
+        const futurePrincipal = FinancialMathService.futureValue(currentBalance, r, months);
 
+        // Future value of a series (PMT)
+        // PMT * [((1 + r)^n - 1) / r]
         const compoundFactor = Math.pow(1 + r, months);
-        const futurePrincipal = currentBalance * compoundFactor;
         const futureContributions = monthlyNet * ((compoundFactor - 1) / r);
 
         return futurePrincipal + futureContributions;
@@ -246,10 +251,12 @@ export class FinancialEngine {
      * Calculate current total balance from transactions
      */
     static calculateCurrentBalance(transactions: Transaction[], targetCurrency: string): number {
-        return transactions.reduce((sum, t) => {
-            const amount = t.type === 'expense' ? -Math.abs(t.amount) : Math.abs(t.amount);
-            return sum + CurrencyService.convert(amount, t.currency || targetCurrency, targetCurrency);
-        }, 0);
+        return transactions
+            .filter(t => t.kind !== 'master') // EXCLUDE TEMPLATES
+            .reduce((sum, t) => {
+                const amount = t.type === 'expense' ? -Math.abs(t.amount) : Math.abs(t.amount);
+                return sum + CurrencyService.convert(amount, t.currency || targetCurrency, targetCurrency);
+            }, 0);
     }
     /**
      * Generate Comprehensive Financial Report (PhD Level)
