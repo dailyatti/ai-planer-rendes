@@ -114,14 +114,26 @@ const BudgetView: React.FC = () => {
     });
   }, [currency]);
 
-  const formatMoney = useCallback((amount: number, currencyOverride?: string) => {
-    const safeAmount = isNaN(amount) ? 0 : amount;
+  // PhD Level: Memoize Intl.NumberFormat for performance
+  const numberFormatter = useMemo(() => {
     return new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
       style: 'currency',
-      currency: currencyOverride || currency,
+      currency: currency,
       maximumFractionDigits: 2
-    }).format(safeAmount);
+    });
   }, [language, currency]);
+
+  const formatMoney = useCallback((amount: number, currencyOverride?: string) => {
+    const safeAmount = isNaN(amount) ? 0 : amount;
+    if (currencyOverride && currencyOverride !== currency) {
+      return new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
+        style: 'currency',
+        currency: currencyOverride,
+        maximumFractionDigits: 2
+      }).format(safeAmount);
+    }
+    return numberFormatter.format(safeAmount);
+  }, [language, currency, numberFormatter]);
 
   const formatDate = useCallback((date: Date | string) => {
     const d = new Date(date);
@@ -161,11 +173,9 @@ const BudgetView: React.FC = () => {
     totalIncome,
     totalExpense,
     balance,
-    getTransactionAmountsByCurrency,
     categoryData,
     cashFlowData,
-    projectionData,
-    isMaster
+    projectionData
   } = useBudgetAnalytics(transactions, currency, safeConvert, t, CATEGORIES, projectionYears);
 
   // --- Kezelők (Handlers) ---
@@ -880,6 +890,12 @@ const BudgetView: React.FC = () => {
                 <div
                   key={tr.id}
                   onClick={() => {
+                    // Conflict Fix: If selection mode is active, toggle selection instead of opening modal
+                    if (selectedTransactions.size > 0) {
+                      toggleTransactionSelection(tr.id);
+                      return;
+                    }
+
                     setTransactionType(tr.type as 'income' | 'expense');
                     setEditingTransaction(tr);
                     setNewTransaction({
@@ -888,7 +904,7 @@ const BudgetView: React.FC = () => {
                       category: tr.category,
                       currency: (tr as any).currency || currency,
                       period: tr.period as TransactionPeriod,
-                      date: new Date(tr.date).toISOString().split('T')[0],
+                      date: typeof tr.date === 'string' ? tr.date : new Date(tr.date).toISOString().split('T')[0], // PhD Fix: Timezone safe date
                       recurring: tr.recurring || false,
                       interestRate: tr.interestRate?.toString() || ''
                     });
@@ -1065,12 +1081,12 @@ const BudgetView: React.FC = () => {
                   </div>
                   <div>
                     <div className="font-bold text-sm">
-                      {rateSource === 'system' ? 'Ez nem a mai napi árfolyam!' : 'Valós idejű árfolyam aktív'}
+                      {rateSource === 'system' ? 'Becsült árfolyam (System)' : 'Élő piaci árfolyam (API)'}
                     </div>
                     <div className="text-[11px] leading-relaxed opacity-80 mt-0.5">
                       {rateSource === 'system'
-                        ? 'Ez egy becsült árfolyam. A pontos adatokhoz használd az AI API-t a beállításokban.'
-                        : `Sikeres szinkronizáció az AI API-val. Utolsó frissítés: ${new Date().toLocaleDateString()}.`
+                        ? 'A rendszer beépített, becsült árfolyamokat használ. A pontos váltáshoz frissíts az API gombbal.'
+                        : `A deviza átváltása valós idejű piaci adatok alapján történik. Utolsó frissítés: ${new Date().toLocaleDateString()}`
                       }
                     </div>
                   </div>
