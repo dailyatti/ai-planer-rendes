@@ -67,6 +67,25 @@ const BudgetView: React.FC = () => {
   const { t, language } = useLanguage();
   const { transactions = [], addTransaction, updateTransaction, deleteTransaction, deleteTransactions } = useData();
 
+  // (3) Type Safety: CategoryKey type
+  type CategoryKey = 'software' | 'marketing' | 'office' | 'travel' | 'service' | 'freelance' | 'other';
+  const isCategoryKey = (v: string): v is CategoryKey =>
+    ['software', 'marketing', 'office', 'travel', 'service', 'freelance', 'other'].includes(v);
+
+  // (2) Performance: Formatter cache for different currencies
+  const formatterCache = useMemo(() => new Map<string, Intl.NumberFormat>(), []);
+  const getFormatter = useCallback((currencyCode: string): Intl.NumberFormat => {
+    const key = `${language}-${currencyCode}`;
+    if (!formatterCache.has(key)) {
+      formatterCache.set(key, new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
+        style: 'currency',
+        currency: currencyCode,
+        maximumFractionDigits: 2
+      }));
+    }
+    return formatterCache.get(key)!;
+  }, [language, formatterCache]);
+
   // --- Állapotkezelés (State) ---
   const [currency, setCurrency] = useState<string>('USD');
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'planning'>('overview');
@@ -165,36 +184,33 @@ const BudgetView: React.FC = () => {
     });
   }, [currency, editingTransaction]);
 
-  // PhD Level: Memoize Intl.NumberFormat for performance
-  const numberFormatter = useMemo(() => {
-    return new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
-      style: 'currency',
-      currency: currency,
-      maximumFractionDigits: 2
-    });
-  }, [language, currency]);
-
+  // (2) Performance: Use cached formatter
   const formatMoney = useCallback((amount: number, currencyOverride?: string) => {
     const safeAmount = isNaN(amount) ? 0 : amount;
-    if (currencyOverride && currencyOverride !== currency) {
-      return new Intl.NumberFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
-        style: 'currency',
-        currency: currencyOverride,
-        maximumFractionDigits: 2
-      }).format(safeAmount);
+    const currCode = currencyOverride || currency;
+    return getFormatter(currCode).format(safeAmount);
+  }, [currency, getFormatter]);
+
+  // (1) Timezone-safe date parsing: "YYYY-MM-DD" strings should not shift
+  const parseLocalDate = useCallback((date: Date | string): Date | null => {
+    if (date instanceof Date) return date;
+    if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      const [y, m, d] = date.split('-').map(Number);
+      return new Date(y, m - 1, d); // Local time, no UTC shift
     }
-    return numberFormatter.format(safeAmount);
-  }, [language, currency, numberFormatter]);
+    const parsed = new Date(date);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }, []);
 
   const formatDate = useCallback((date: Date | string) => {
-    const d = new Date(date);
-    if (Number.isNaN(d.getTime())) return '—';
+    const d = parseLocalDate(date);
+    if (!d) return '—';
     return new Intl.DateTimeFormat(language === 'hu' ? 'hu-HU' : 'en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
     }).format(d);
-  }, [language]);
+  }, [language, parseLocalDate]);
 
   const CATEGORIES = useMemo(() => ({
     software: { color: '#4361ee', label: t('budget.software') || 'Software' },
@@ -918,7 +934,7 @@ const BudgetView: React.FC = () => {
                   title={showMasters ? 'Sablonok elrejtése' : 'Sablonok mutatása'}
                 >
                   <Repeat size={14} />
-                  <span className="hidden sm:inline">{showMasters ? 'Sablonok' : 'Sablonok'}</span>
+                  <span className="hidden sm:inline">{showMasters ? 'Sablonok: BE' : 'Sablonok: KI'}</span>
                 </button>
               </div>
             </div>
@@ -1354,11 +1370,15 @@ const BudgetView: React.FC = () => {
           <div
             className="fixed z-[101] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 p-4 min-w-[280px] animate-in fade-in zoom-in-95 duration-200"
             style={{
-              top: selectedStat.rect.bottom + 10,
+              // (1) Clamp TOP and LEFT to prevent overflow
+              top: Math.min(
+                selectedStat.rect.bottom + 10,
+                (typeof window !== 'undefined' ? window.innerHeight : 800) - 250
+              ),
               left: Math.min(
                 selectedStat.rect.left,
                 (typeof window !== 'undefined' ? window.innerWidth : 1000) - 300
-              ) // JAVÍTÁS: SSR Safe window check
+              )
             }}
           >
             <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100 dark:border-gray-700">
