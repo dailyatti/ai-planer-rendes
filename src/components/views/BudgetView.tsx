@@ -1,570 +1,590 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
-  Plus,
-  TrendingUp,
-  Trash2,
-  X,
-  Repeat,
-  Wallet,
-  RefreshCcw,
-  ArrowUpRight,
-  ArrowDownRight,
-  CheckSquare,
-  Square,
-  AlertTriangle,
-  Search,
-  ChevronsLeft,
-  ChevronsRight,
-  ChevronLeft,
-  ChevronRight,
-  Check,
-  Loader2,
-  ArrowRightLeft,
-} from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+  Plus, TrendingUp, Trash2, X, Repeat, Wallet,
+  RefreshCcw, ArrowUpRight, ArrowDownRight, CheckSquare,
+  Square, AlertTriangle, Search, Filter, Download, Upload,
+  PieChart, BarChart3, Calendar, Clock, TrendingDown,
+  ChevronDown, ChevronUp, CreditCard, Building, Globe,
+  Lock, Unlock, Eye, EyeOff, Calculator, History
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart as RechartsPieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar,
+  LineChart, Line, Legend
+} from 'recharts';
+import { useBudgetAnalytics } from './useBudgetAnalytics';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useData } from '../../contexts/DataContext';
+import { Transaction, TransactionPeriod, TransactionPatch } from '../../types/planner';
+import { AVAILABLE_CURRENCIES, CURRENCY_SYMBOLS } from '../../constants/currencyData';
+import { CurrencyService } from '../../services/CurrencyService';
+import { parseMoneyInput, formatNumber, validateCurrency } from '../../utils/numberUtils';
+import './BudgetView.css';
 
-import { useBudgetAnalytics } from "./useBudgetAnalytics";
-import { useLanguage } from "../../contexts/LanguageContext";
-import { useData } from "../../contexts/DataContext";
-import { AVAILABLE_CURRENCIES } from "../../constants/currencyData";
-import { CurrencyService } from "../../services/CurrencyService";
-import { parseMoneyInput } from "../../utils/numberUtils";
-import { Transaction, TransactionPatch, TransactionPeriod } from "../../types/planner";
+// ==================== TYPE DEFINITIONS ====================
+type RectLike = { 
+  top: number; 
+  left: number; 
+  right: number; 
+  bottom: number; 
+  width: number; 
+  height: number;
+};
 
-/* ------------------------------------------------------------------------------------
-  Design goals
-  - Zero “undefined crash”: every external edge is guarded
-  - Date is handled as local date-only (YYYY-MM-DD), no UTC shift
-  - Currency init handles sync/async/undefined return from fetchRealTimeRates
-  - Charts always have valid container sizes (min height + minWidth:0)
-  - Deletion is strictly scoped (batch delete preferred)
------------------------------------------------------------------------------------- */
+type CategoryKey = 'software' | 'marketing' | 'office' | 'travel' | 'service' | 'freelance' | 'other';
 
-type CategoryKey = "software" | "marketing" | "office" | "travel" | "service" | "freelance" | "other";
-type CategoryDef = { color: string; label: string };
+type CategoryDef = { 
+  color: string; 
+  label: string;
+  icon: React.ReactNode;
+};
+
 type CategoriesMap = Record<CategoryKey, CategoryDef>;
 
-type RectLike = { top: number; left: number; right: number; bottom: number; width: number; height: number };
-
-const cx = (...parts: Array<string | false | undefined | null>) => parts.filter(Boolean).join(" ");
-
-const isFiniteNumber = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
-
-const normalizeDigits = (s: string) => {
-  const cleaned = String(s ?? "").replace(/[^\d-]/g, "");
-  return cleaned.startsWith("-") ? "-" + cleaned.slice(1).replace(/-/g, "") : cleaned.replace(/-/g, "");
+type CurrencyRate = {
+  code: string;
+  rate: number;
+  lastUpdated: Date;
+  trend: 'up' | 'down' | 'stable';
 };
 
-function toRectLike(el: Element | null): RectLike | null {
+type ConverterState = {
+  fromCurrency: string;
+  toCurrency: string;
+  fromAmount: string;
+  toAmount: string;
+  rate: number;
+  lastUpdate: Date | null;
+  isLoading: boolean;
+};
+
+type FinancialInsight = {
+  id: string;
+  type: 'warning' | 'info' | 'success' | 'critical';
+  title: string;
+  message: string;
+  action?: () => void;
+};
+
+// ==================== HELPER FUNCTIONS ====================
+const normalizeDigits = (s: string): string => {
+  if (!s) return '';
+  const cleaned = s.replace(/[^\d.,-]/g, '');
+  if (cleaned.startsWith('-')) {
+    return '-' + cleaned.slice(1).replace(/-/g, '');
+  }
+  return cleaned.replace(/-/g, '');
+};
+
+const toRectLike = (el: Element | null): RectLike | null => {
   if (!el) return null;
   const r = el.getBoundingClientRect();
-  return { top: r.top, left: r.left, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
-}
+  return { 
+    top: r.top, 
+    left: r.left, 
+    right: r.right, 
+    bottom: r.bottom, 
+    width: r.width, 
+    height: r.height 
+  };
+};
 
-/* ----------------------- Date-only helpers (local safe) ----------------------- */
+// ==================== DATE UTILITIES ====================
+const parseYMD = (ymd: string): { y: number; m: number; d: number } => {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return { y, m: m || 1, d: d || 1 };
+};
 
-function parseYMD(ymd: string): { y: number; m: number; d: number } | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
-  const [y, m, d] = ymd.split("-").map(Number);
-  if (!y || !m || !d) return null;
-  if (m < 1 || m > 12) return null;
-  if (d < 1 || d > 31) return null;
-  const dt = new Date(y, m - 1, d);
-  if (Number.isNaN(dt.getTime())) return null;
-  // validate round-trip (e.g. 2025-02-31)
-  if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
-  return { y, m, d };
-}
+const formatYMD = (y: number, m: number, d: number): string => {
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+};
 
-function formatYMD(y: number, m: number, d: number): string {
-  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
-
-function toYMDLocal(date: Date): string {
-  return formatYMD(date.getFullYear(), date.getMonth() + 1, date.getDate());
-}
-
-function parseLocalDate(date: Date | string): Date | null {
-  if (date instanceof Date) return Number.isNaN(date.getTime()) ? null : date;
-  if (typeof date === "string") {
-    const p = parseYMD(date);
-    if (p) return new Date(p.y, p.m - 1, p.d);
-    const dt = new Date(date);
-    return Number.isNaN(dt.getTime()) ? null : dt;
-  }
-  return null;
-}
-
-function daysInMonth(y: number, m: number): number {
+const daysInMonth = (y: number, m: number): number => {
   return new Date(y, m, 0).getDate();
-}
+};
 
-function addDaysYMD(ymd: string, days: number): string {
-  const p = parseYMD(ymd);
-  if (!p) return toYMDLocal(new Date());
-  const dt = new Date(p.y, p.m - 1, p.d + days);
-  return toYMDLocal(dt);
-}
+const addDaysYMD = (ymd: string, days: number): string => {
+  const { y, m, d } = parseYMD(ymd);
+  const dt = new Date(y, m - 1, d + days);
+  return formatYMD(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+};
 
-function addWeeksYMD(ymd: string, weeks: number): string {
-  return addDaysYMD(ymd, weeks * 7);
-}
-
-function addMonthsClampedYMD(ymd: string, months: number): string {
-  const p = parseYMD(ymd);
-  if (!p) return toYMDLocal(new Date());
-  let newM = p.m + months;
-  let newY = p.y + Math.floor((newM - 1) / 12);
+const addMonthsClampedYMD = (ymd: string, months: number): string => {
+  const { y, m, d } = parseYMD(ymd);
+  let newM = m + months;
+  let newY = y + Math.floor((newM - 1) / 12);
   newM = ((newM - 1) % 12) + 1;
-  if (newM <= 0) {
-    newM += 12;
-    newY--;
-  }
+  if (newM <= 0) { newM += 12; newY--; }
   const maxD = daysInMonth(newY, newM);
-  return formatYMD(newY, newM, Math.min(p.d, maxD));
-}
-
-function addYearsClampedYMD(ymd: string, years: number): string {
-  const p = parseYMD(ymd);
-  if (!p) return toYMDLocal(new Date());
-  const newY = p.y + years;
-  const maxD = daysInMonth(newY, p.m);
-  return formatYMD(newY, p.m, Math.min(p.d, maxD));
-}
-
-/* ----------------------- Robust guards for external types ----------------------- */
-
-const isTransaction = (t: any): t is Transaction =>
-  !!t &&
-  typeof t === "object" &&
-  typeof t.id === "string" &&
-  typeof t.description === "string";
-
-/* ----------------------- UI building blocks ----------------------- */
-
-const Chip: React.FC<{ children: React.ReactNode; tone?: "neutral" | "blue" | "red" | "green" | "purple" }> = ({
-  children,
-  tone = "neutral",
-}) => {
-  const base = "inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-bold tracking-wide uppercase border";
-  const tones: Record<string, string> = {
-    neutral: "bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700",
-    blue: "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/50",
-    red: "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800/50",
-    green:
-      "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/50",
-    purple:
-      "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/50",
-  };
-  return <span className={cx(base, tones[tone])}>{children}</span>;
+  return formatYMD(newY, newM, Math.min(d, maxD));
 };
 
-const IconPill: React.FC<{ children: React.ReactNode; tone?: "blue" | "red" | "green" | "neutral" }> = ({
-  children,
-  tone = "neutral",
-}) => {
-  const tones: Record<string, string> = {
-    neutral: "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200",
-    blue: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
-    red: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300",
-    green: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
-  };
-  return <div className={cx("p-2 rounded-xl", tones[tone])}>{children}</div>;
+const toYMDLocal = (d: Date): string => {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-const SectionCard: React.FC<{ title?: React.ReactNode; right?: React.ReactNode; children: React.ReactNode }> = ({
-  title,
-  right,
-  children,
-}) => (
-  <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl shadow-xl shadow-gray-200/30 dark:shadow-none overflow-hidden">
-    {(title || right) && (
-      <div className="px-5 py-4 flex items-center justify-between border-b border-gray-200/60 dark:border-gray-700/50 bg-white/40 dark:bg-gray-900/10">
-        <div className="text-sm font-black text-gray-900 dark:text-white">{title}</div>
-        <div>{right}</div>
-      </div>
-    )}
-    <div className="p-5">{children}</div>
-  </div>
-);
-
-const Button: React.FC<
-  React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger"; leftIcon?: React.ReactNode }
-> = ({ variant = "secondary", leftIcon, className, ...props }) => {
-  const base =
-    "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black transition active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none";
-  const variants: Record<string, string> = {
-    secondary:
-      "bg-white/70 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-white dark:hover:bg-gray-900/30",
-    primary:
-      "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:brightness-110 border border-transparent",
-    danger:
-      "bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/20 hover:brightness-110 border border-transparent",
-  };
-  return (
-    <button className={cx(base, variants[variant], className)} {...props}>
-      {leftIcon}
-      {props.children}
-    </button>
-  );
-};
-
-const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = ({ className, ...props }) => (
-  <input
-    className={cx(
-      "w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/20 px-4 py-2.5 text-sm font-semibold text-gray-900 dark:text-white placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400",
-      className
-    )}
-    {...props}
-  />
-);
-
-const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = ({ className, ...props }) => (
-  <select
-    className={cx(
-      "w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/20 px-4 py-2.5 text-sm font-extrabold text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400",
-      className
-    )}
-    {...props}
-  />
-);
-
-const Divider = () => <div className="h-px bg-gray-200/60 dark:bg-gray-700/50 my-4" />;
-
-/* ----------------------- Category badge ----------------------- */
-
-const CategoryBadge: React.FC<{ catKey: string; CATEGORIES: CategoriesMap; getCategoryKey: (c: string) => CategoryKey }> = React.memo(
-  ({ catKey, CATEGORIES, getCategoryKey }) => {
-    const key = getCategoryKey(String(catKey ?? "other"));
-    const cat = CATEGORIES[key] || CATEGORIES.other;
-    return (
-      <span
-        className="px-2.5 py-0.5 rounded-lg text-[10px] uppercase font-black tracking-wider border"
-        style={{ backgroundColor: `${cat.color}14`, borderColor: `${cat.color}2a`, color: cat.color }}
-      >
-        {cat.label}
-      </span>
-    );
-  }
-);
-
-/* ------------------------------------------------------------------------------------
-  Modals
------------------------------------------------------------------------------------- */
-
-const ModalShell: React.FC<{
-  title: React.ReactNode;
-  children: React.ReactNode;
-  onClose: () => void;
-  footer?: React.ReactNode;
-  tone?: "neutral" | "blue" | "red" | "green";
-}> = ({ title, children, onClose, footer, tone = "neutral" }) => {
-  const headerTone: Record<string, string> = {
-    neutral: "from-gray-900 to-gray-700",
-    blue: "from-blue-600 to-indigo-700",
-    red: "from-red-600 to-rose-700",
-    green: "from-emerald-600 to-teal-700",
-  };
-
-  return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm">
-      <motion.div
-        initial={{ opacity: 0, y: 10, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 10, scale: 0.98 }}
-        className="w-full max-w-lg rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-white dark:bg-gray-900"
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className={cx("px-6 py-5 bg-gradient-to-br text-white", headerTone[tone])}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-lg font-black">{title}</div>
-            <button
-              onClick={onClose}
-              className="rounded-2xl p-2 bg-white/15 hover:bg-white/25 transition"
-              aria-label="Close"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        </div>
-
-        <div className="px-6 py-5 max-h-[75vh] overflow-y-auto">{children}</div>
-
-        {footer && <div className="px-6 py-5 border-t border-gray-200 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-950/20">{footer}</div>}
-      </motion.div>
-    </div>
-  );
-};
-
-const DeleteConfirmModal: React.FC<{
-  title: string;
-  description?: string;
-  onCancel: () => void;
-  onConfirm: () => void;
-}> = ({ title, description, onCancel, onConfirm }) => (
-  <ModalShell
-    title={
-      <span className="inline-flex items-center gap-2">
-        <AlertTriangle size={18} /> {title}
-      </span>
-    }
-    tone="red"
-    onClose={onCancel}
-    footer={
-      <div className="flex gap-3">
-        <Button className="flex-1" onClick={onCancel}>
-          Mégse
-        </Button>
-        <Button className="flex-1" variant="danger" onClick={onConfirm}>
-          Törlés
-        </Button>
-      </div>
-    }
-  >
-    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{description ?? "Biztosan folytatod? Ez nem visszavonható."}</p>
-  </ModalShell>
-);
-
-const BreakdownPopover: React.FC<{
-  isOpen: boolean;
-  data: { title: string; breakdown: Record<string, number>; rect: RectLike } | null;
-  onClose: () => void;
+// ==================== SUB-COMPONENTS ====================
+const CategoryBadge: React.FC<{
+  catKey: string;
   CATEGORIES: CategoriesMap;
-  formatMoney: (v: number) => string;
   getCategoryKey: (c: string) => CategoryKey;
-}> = ({ isOpen, data, onClose, CATEGORIES, formatMoney, getCategoryKey }) => {
-  if (!isOpen || !data) return null;
-  if (typeof window === "undefined" || typeof document === "undefined") return null;
-
-  // clamp to viewport
-  const maxW = 360;
-  const maxH = 320;
-  const topPos = Math.min(data.rect.bottom + window.scrollY + 12, Math.max(12, document.documentElement.scrollHeight - maxH - 12));
-  const leftPos = Math.min(Math.max(12, data.rect.left + window.scrollX - maxW * 0.25), window.innerWidth - maxW - 12);
-
-  const entries = Object.entries(data.breakdown || {})
-    .filter(([, v]) => isFiniteNumber(v))
-    .sort(([, a], [, b]) => (b as number) - (a as number));
-
+  size?: 'sm' | 'md' | 'lg';
+}> = React.memo(({ catKey, CATEGORIES, getCategoryKey, size = 'md' }) => {
+  const key = getCategoryKey(String(catKey ?? 'other'));
+  const cat = CATEGORIES[key] || CATEGORIES.other;
+  
+  const sizeClasses = {
+    sm: 'px-2 py-0.5 text-xs',
+    md: 'px-2.5 py-1 text-sm',
+    lg: 'px-3 py-1.5 text-base'
+  };
+  
   return (
-    <>
-      <div className="fixed inset-0 z-[60]" onClick={onClose} />
-      <motion.div
-        initial={{ opacity: 0, y: 8, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 8, scale: 0.98 }}
-        className="fixed z-[70] w-[360px] rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-2xl overflow-hidden"
-        style={{ top: topPos, left: leftPos }}
-      >
-        <div className="px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-950/30 border-b border-gray-200 dark:border-gray-800">
-          <div className="font-black text-sm text-gray-900 dark:text-white">{data.title}</div>
-          <button onClick={onClose} className="p-2 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-800 transition" aria-label="Close popover">
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="p-3 max-h-[320px] overflow-y-auto">
-          {entries.length === 0 ? (
-            <div className="p-6 text-center text-sm font-bold text-gray-500 dark:text-gray-400">Nincs adat.</div>
-          ) : (
-            entries.map(([rawKey, val], idx) => {
-              const key = getCategoryKey(rawKey);
-              const cat = CATEGORIES[key] || CATEGORIES.other;
-              return (
-                <div key={`${rawKey}-${idx}`} className="flex items-center justify-between p-2 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/40 transition">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
-                    <span className="text-sm font-extrabold text-gray-700 dark:text-gray-200">{cat.label}</span>
-                  </div>
-                  <span className="text-sm font-black text-gray-900 dark:text-white">{formatMoney(val)}</span>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </motion.div>
-    </>
+    <span className={`
+      inline-flex items-center gap-1.5 rounded-full font-medium
+      ${sizeClasses[size]}
+    `} style={{
+      backgroundColor: `${cat.color}15`,
+      color: cat.color,
+      border: `1px solid ${cat.color}30`
+    }}>
+      {cat.icon}
+      {cat.label}
+    </span>
   );
-};
+});
 
-const CurrencyConverterModal: React.FC<{
+const StatCard: React.FC<{
+  title: string;
+  value: string;
+  subtitle?: string;
+  icon: React.ReactNode;
+  color: string;
+  trend?: { value: number; label: string };
+  onClick?: () => void;
+  loading?: boolean;
+}> = React.memo(({ title, value, subtitle, icon, color, trend, onClick, loading = false }) => (
+  <motion.div
+    whileHover={{ y: -4, scale: 1.02 }}
+    whileTap={{ scale: 0.98 }}
+    onClick={onClick}
+    className={`
+      relative overflow-hidden rounded-2xl p-6
+      bg-gradient-to-br from-white to-white/80 dark:from-gray-800 dark:to-gray-900
+      border border-gray-100/50 dark:border-gray-700/50
+      shadow-lg shadow-gray-200/30 dark:shadow-gray-900/30
+      backdrop-blur-sm
+      ${onClick ? 'cursor-pointer' : ''}
+      transition-all duration-300
+    `}
+  >
+    {/* Gradient Background */}
+    <div className={`
+      absolute -top-12 -right-12 w-32 h-32 rounded-full
+      bg-gradient-to-br ${color} opacity-[0.08]
+      blur-xl
+    `} />
+    
+    <div className="relative z-10">
+      <div className="flex items-start justify-between mb-4">
+        <div className={`
+          p-3 rounded-xl
+          bg-gradient-to-br ${color}
+          shadow-lg shadow-current/20
+        `}>
+          {icon}
+        </div>
+        {trend && (
+          <div className={`
+            px-3 py-1 rounded-full text-xs font-bold
+            flex items-center gap-1
+            ${trend.value >= 0 
+              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' 
+              : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+            }
+          `}>
+            {trend.value >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+            {trend.label}
+          </div>
+        )}
+      </div>
+      
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          {title}
+        </p>
+        {loading ? (
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+        ) : (
+          <>
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">
+              {value}
+            </h3>
+            {subtitle && (
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                {subtitle}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  </motion.div>
+));
+
+const CurrencyConverter: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  language: string;
   baseCurrency: string;
-  formatMoney: (n: number, c?: string) => string;
-  safeConvert: (amount: number, from: string, to: string) => number;
-}> = ({ isOpen, onClose, language, baseCurrency, formatMoney, safeConvert }) => {
-  const [from, setFrom] = useState(baseCurrency || "USD");
-  const [to, setTo] = useState("EUR");
-  const [amount, setAmount] = useState("100");
-  const [loading, setLoading] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<string>("");
-
-  useEffect(() => {
-    if (!isOpen) return;
-    setFrom(baseCurrency || "USD");
-  }, [isOpen, baseCurrency]);
-
-  const swap = () => {
-    setFrom(to);
-    setTo(from);
-  };
-
-  const parsedAmount = useMemo(() => {
-    const n = parseMoneyInput(amount);
-    return Number.isFinite(n) ? n : 0;
-  }, [amount]);
-
-  const converted = useMemo(() => safeConvert(parsedAmount, from, to), [parsedAmount, from, to, safeConvert]);
-
-  const rate = useMemo(() => {
-    const one = safeConvert(1, from, to);
-    return Number.isFinite(one) ? one : 0;
-  }, [from, to, safeConvert]);
-
-  const refreshRates = async () => {
-    setLoading(true);
-    try {
-      const maybe = CurrencyService?.fetchRealTimeRates?.();
-      await Promise.resolve(maybe); // handles sync / async / undefined
-      const dt = new Intl.DateTimeFormat(language === "hu" ? "hu-HU" : "en-US", {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(new Date());
-      setLastUpdated(dt);
-    } catch (e) {
-      // do not crash the app
-      console.warn("Rate refresh failed:", e);
-    } finally {
-      setLoading(false);
+  onCurrencyChange: (currency: string) => void;
+}> = ({ isOpen, onClose, baseCurrency, onCurrencyChange }) => {
+  const { t } = useLanguage();
+  const [converter, setConverter] = useState<ConverterState>({
+    fromCurrency: baseCurrency,
+    toCurrency: 'EUR',
+    fromAmount: '100',
+    toAmount: '',
+    rate: 0,
+    lastUpdate: null,
+    isLoading: false
+  });
+  
+  const [recentConversions, setRecentConversions] = useState<
+    Array<{ from: string; to: string; amount: number; result: number; date: Date }>
+  >([]);
+  
+  const calculateConversion = useCallback(async () => {
+    if (!converter.fromAmount || parseFloat(converter.fromAmount) <= 0) {
+      setConverter(prev => ({ ...prev, toAmount: '', rate: 0 }));
+      return;
     }
+    
+    setConverter(prev => ({ ...prev, isLoading: true }));
+    
+    try {
+      const amount = parseFloat(converter.fromAmount);
+      const rate = await CurrencyService.getRate(
+        converter.fromCurrency,
+        converter.toCurrency
+      );
+      
+      const result = amount * rate;
+      
+      setConverter(prev => ({
+        ...prev,
+        toAmount: formatNumber(result, 2),
+        rate,
+        lastUpdate: new Date(),
+        isLoading: false
+      }));
+      
+      // Save to recent conversions
+      setRecentConversions(prev => [
+        { 
+          from: converter.fromCurrency, 
+          to: converter.toCurrency, 
+          amount, 
+          result, 
+          date: new Date() 
+        },
+        ...prev.slice(0, 4)
+      ]);
+    } catch (error) {
+      console.error('Conversion error:', error);
+      setConverter(prev => ({ ...prev, isLoading: false }));
+    }
+  }, [converter.fromAmount, converter.fromCurrency, converter.toCurrency]);
+  
+  const swapCurrencies = () => {
+    setConverter(prev => ({
+      ...prev,
+      fromCurrency: prev.toCurrency,
+      toCurrency: prev.fromCurrency,
+      fromAmount: prev.toAmount,
+      toAmount: prev.fromAmount
+    }));
   };
-
+  
   useEffect(() => {
-    if (!isOpen) return;
-    // best effort auto refresh once
-    refreshRates();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
-
+    if (isOpen) {
+      calculateConversion();
+    }
+  }, [isOpen, calculateConversion]);
+  
   if (!isOpen) return null;
-
+  
   return (
-    <ModalShell
-      title={
-        <span className="inline-flex items-center gap-2">
-          <RefreshCcw size={18} /> Valuta váltó
-        </span>
-      }
-      tone="blue"
-      onClose={onClose}
-      footer={
-        <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-          <div className="text-xs font-bold text-gray-600 dark:text-gray-300">
-            {lastUpdated ? <>Frissítve: <span className="font-black">{lastUpdated}</span></> : "Frissítés folyamatban / nincs timestamp"}
-          </div>
-          <Button onClick={refreshRates} leftIcon={loading ? <Loader2 className="animate-spin" size={16} /> : <RefreshCcw size={16} />}>
-            Árfolyam frissítés
-          </Button>
-        </div>
-      }
-    >
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-3 items-end">
-          <div className="space-y-2">
-            <div className="text-xs font-black uppercase tracking-wide text-gray-600 dark:text-gray-300">From</div>
-            <Select value={from} onChange={(e) => setFrom(e.target.value)}>
-              {AVAILABLE_CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code} ({c.symbol})
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <div className="flex justify-center">
-            <button
-              onClick={swap}
-              className="mt-6 sm:mt-0 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/20 p-3 hover:bg-white dark:hover:bg-gray-900/30 transition"
-              aria-label="Swap currencies"
-              title="Swap"
-            >
-              <ArrowRightLeft size={18} className="text-gray-800 dark:text-gray-100" />
-            </button>
-          </div>
-
-          <div className="space-y-2">
-            <div className="text-xs font-black uppercase tracking-wide text-gray-600 dark:text-gray-300">To</div>
-            <Select value={to} onChange={(e) => setTo(e.target.value)}>
-              {AVAILABLE_CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code} ({c.symbol})
-                </option>
-              ))}
-            </Select>
-          </div>
-        </div>
-
-        <Divider />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <div className="text-xs font-black uppercase tracking-wide text-gray-600 dark:text-gray-300">Összeg</div>
-            <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="100" />
-            <div className="text-xs font-bold text-gray-500 dark:text-gray-400">
-              1 {from} ≈ <span className="font-black">{formatMoney(rate, to)}</span>
+    <AnimatePresence>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          className="relative w-full max-w-2xl bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-3xl shadow-2xl overflow-hidden"
+        >
+          {/* Header */}
+          <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-blue-500/5 to-purple-500/5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600">
+                  <RefreshCcw size={24} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {t('budget.converter')}
+                  </h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Valós idejű árfolyamok
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+              >
+                <X size={24} />
+              </button>
             </div>
           </div>
-
-          <div className="space-y-2">
-            <div className="text-xs font-black uppercase tracking-wide text-gray-600 dark:text-gray-300">Eredmény</div>
-            <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-gray-50 to-white dark:from-gray-950/30 dark:to-gray-900/20 p-4">
-              <div className="text-sm font-black text-gray-700 dark:text-gray-300">Converted</div>
-              <div className="text-2xl font-black text-gray-900 dark:text-white tabular-nums">{formatMoney(converted, to)}</div>
-              <div className="mt-1 text-xs font-bold text-gray-500 dark:text-gray-400">
-                {formatMoney(parsedAmount, from)} → {formatMoney(converted, to)}
+          
+          {/* Converter Body */}
+          <div className="p-6 space-y-6">
+            {/* From Currency */}
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Összeg
+              </label>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={converter.fromAmount}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9.,]/g, '');
+                      setConverter(prev => ({ ...prev, fromAmount: val }));
+                    }}
+                    onBlur={calculateConversion}
+                    className="w-full px-4 py-3 text-2xl font-bold bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="w-48">
+                  <select
+                    value={converter.fromCurrency}
+                    onChange={(e) => setConverter(prev => ({ ...prev, fromCurrency: e.target.value }))}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none appearance-none"
+                  >
+                    {AVAILABLE_CURRENCIES.map(currency => (
+                      <option key={currency.code} value={currency.code}>
+                        {currency.code} - {currency.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
+            
+            {/* Swap Button */}
+            <div className="flex justify-center">
+              <button
+                onClick={swapCurrencies}
+                className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full hover:shadow-lg hover:shadow-blue-500/25 transition-all"
+              >
+                <RefreshCcw size={20} />
+              </button>
+            </div>
+            
+            {/* To Currency */}
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Átváltott összeg
+              </label>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <div className="w-full px-4 py-3 text-2xl font-bold bg-gray-50/50 dark:bg-gray-800/50 border-2 border-gray-200 dark:border-gray-700 rounded-xl">
+                    {converter.isLoading ? (
+                      <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    ) : (
+                      converter.toAmount || '0.00'
+                    )}
+                  </div>
+                </div>
+                <div className="w-48">
+                  <select
+                    value={converter.toCurrency}
+                    onChange={(e) => setConverter(prev => ({ ...prev, toCurrency: e.target.value }))}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none appearance-none"
+                  >
+                    {AVAILABLE_CURRENCIES.map(currency => (
+                      <option key={currency.code} value={currency.code}>
+                        {currency.code} - {currency.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            {/* Rate Display */}
+            {converter.rate > 0 && (
+              <div className="p-4 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-xl border border-emerald-500/20">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Aktuális árfolyam
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      1 {converter.fromCurrency} = {formatNumber(converter.rate, 6)} {converter.toCurrency}
+                    </p>
+                  </div>
+                  {converter.lastUpdate && (
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500 dark:text-gray-500">
+                        Utoljára frissítve
+                      </p>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {converter.lastUpdate.toLocaleTimeString([], { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {/* Recent Conversions */}
+            {recentConversions.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Legutóbbi váltások
+                </h3>
+                <div className="space-y-2">
+                  {recentConversions.map((conv, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-800/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                          <Calculator size={16} className="text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {formatNumber(conv.amount, 2)} {conv.from} → {formatNumber(conv.result, 2)} {conv.to}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500">
+                            {conv.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setConverter(prev => ({
+                            ...prev,
+                            fromCurrency: conv.from,
+                            toCurrency: conv.to,
+                            fromAmount: conv.amount.toString()
+                          }));
+                        }}
+                        className="px-3 py-1 text-sm bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-500/20 transition-colors"
+                      >
+                        Újra használ
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-
-        <div className="rounded-3xl border border-blue-200/60 dark:border-blue-800/40 bg-blue-50/60 dark:bg-blue-950/20 p-4">
-          <div className="text-sm font-black text-blue-900 dark:text-blue-200">Pro tipp</div>
-          <div className="text-xs font-bold text-blue-800/80 dark:text-blue-200/80 mt-1">
-            Ha a konverzió 0-t ad, az általában azt jelenti, hogy a CurrencyService-ben még nincs rate az adott devizára — nyomj “Árfolyam frissítés”-t, és ellenőrizd a service fallback logikát.
+          
+          {/* Footer */}
+          <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gradient-to-r from-gray-50/50 to-white/50 dark:from-gray-800/50 dark:to-gray-900/50">
+            <div className="flex justify-between items-center">
+              <button
+                onClick={() => onCurrencyChange(converter.toCurrency)}
+                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all"
+              >
+                Fő pénznem beállítása erre
+              </button>
+              <button
+                onClick={calculateConversion}
+                disabled={converter.isLoading}
+                className="px-6 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                {converter.isLoading ? 'Frissítés...' : 'Frissítés'}
+              </button>
+            </div>
           </div>
-        </div>
+        </motion.div>
       </div>
-    </ModalShell>
+    </AnimatePresence>
   );
 };
 
-/* ------------------------------------------------------------------------------------
-  Transactions list row
------------------------------------------------------------------------------------- */
+const FinancialInsightCard: React.FC<{
+  insight: FinancialInsight;
+}> = ({ insight }) => {
+  const bgColor = {
+    warning: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',
+    info: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+    success: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
+    critical: 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800'
+  };
+  
+  const iconColor = {
+    warning: 'text-amber-600 dark:text-amber-400',
+    info: 'text-blue-600 dark:text-blue-400',
+    success: 'text-emerald-600 dark:text-emerald-400',
+    critical: 'text-rose-600 dark:text-rose-400'
+  };
+  
+  const icon = {
+    warning: <AlertTriangle size={20} />,
+    info: <Globe size={20} />,
+    success: <TrendingUp size={20} />,
+    critical: <AlertTriangle size={20} />
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      className={`p-4 rounded-xl border ${bgColor[insight.type]} transition-all hover:shadow-md`}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`p-2 rounded-lg ${iconColor[insight.type]}`}>
+          {icon[insight.type]}
+        </div>
+        <div className="flex-1">
+          <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
+            {insight.title}
+          </h4>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            {insight.message}
+          </p>
+          {insight.action && (
+            <button
+              onClick={insight.action}
+              className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+            >
+              Megtekintés →
+            </button>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
 
 const TransactionRow: React.FC<{
-  tr: Transaction;
+  transaction: Transaction;
   selected: boolean;
-  onToggle: (id: string) => void;
-  onOpen: (tr: Transaction) => void;
+  onSelect: (id: string) => void;
+  onClick: (tr: Transaction) => void;
   onDelete: (id: string) => void;
   CATEGORIES: CategoriesMap;
   getCategoryKey: (c: string) => CategoryKey;
@@ -572,1260 +592,1587 @@ const TransactionRow: React.FC<{
   formatMoney: (v: number, c?: string) => string;
   getTrCurrency: (tr: Transaction) => string;
   getPeriodLabel: (p: TransactionPeriod) => string;
-}> = React.memo(
-  ({ tr, selected, onToggle, onOpen, onDelete, CATEGORIES, getCategoryKey, formatDate, formatMoney, getTrCurrency, getPeriodLabel }) => {
-    const isIncome = tr.type === "income";
-    const amountAbs = isFiniteNumber(tr.amount) ? Math.abs(tr.amount) : 0;
-
-    return (
-      <div
-        className={cx(
-          "group flex items-center justify-between gap-3 px-4 py-4 border-l-4 transition cursor-pointer",
-          "hover:bg-gray-50/70 dark:hover:bg-gray-800/40",
-          selected ? "bg-blue-50/50 dark:bg-blue-950/15 border-l-blue-500" : "border-l-transparent hover:border-l-indigo-300 dark:hover:border-l-indigo-700"
-        )}
-        role="button"
-        tabIndex={0}
-        onClick={() => onOpen(tr)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") onOpen(tr);
+  isMaster?: boolean;
+}> = React.memo(({ 
+  transaction, 
+  selected, 
+  onSelect, 
+  onClick, 
+  onDelete, 
+  CATEGORIES, 
+  getCategoryKey, 
+  formatDate, 
+  formatMoney, 
+  getTrCurrency,
+  getPeriodLabel,
+  isMaster = false
+}) => {
+  const isIncome = transaction.type === 'income';
+  const currency = getTrCurrency(transaction);
+  const amount = Math.abs(typeof transaction.amount === 'number' ? transaction.amount : 0);
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, x: -20 }}
+      className={`
+        group relative p-4 flex items-center gap-4
+        bg-gradient-to-r from-white/50 to-white/30 dark:from-gray-800/50 dark:to-gray-900/30
+        border border-gray-100/50 dark:border-gray-700/50
+        rounded-xl hover:border-gray-200 dark:hover:border-gray-600
+        hover:shadow-md transition-all duration-300
+        ${isMaster ? 'border-l-4 border-l-purple-500' : ''}
+        ${selected ? 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700' : ''}
+      `}
+    >
+      {/* Selection Checkbox */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect(transaction.id);
         }}
+        className={`
+          flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center
+          transition-all duration-200
+          ${selected 
+            ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/30' 
+            : 'bg-gray-100 dark:bg-gray-800 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+          }
+        `}
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggle(tr.id);
-            }}
-            className={cx(
-              "p-2 rounded-2xl border transition",
-              selected
-                ? "bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25"
-                : "bg-white/60 dark:bg-gray-900/20 text-gray-400 hover:text-blue-600 border-gray-200 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-blue-950/20"
-            )}
-            aria-label={selected ? "Deselect transaction" : "Select transaction"}
-          >
-            {selected ? <CheckSquare size={18} /> : <Square size={18} />}
-          </button>
-
-          <IconPill tone={isIncome ? "green" : "red"}>
-            {isIncome ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}
-          </IconPill>
-
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="font-black text-gray-900 dark:text-white truncate">{tr.description || "—"}</div>
-              {tr.recurring && (
-                <Chip tone="purple">
-                  <Repeat size={12} /> sablon
-                </Chip>
-              )}
-            </div>
-
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-bold text-gray-600 dark:text-gray-300">
-              <CategoryBadge catKey={String(tr.category ?? "other")} CATEGORIES={CATEGORIES} getCategoryKey={getCategoryKey} />
-              <span className="text-gray-300 dark:text-gray-600">•</span>
-              <span>{formatDate(tr.date)}</span>
-              <span className="text-gray-300 dark:text-gray-600">•</span>
-              <Chip>{getPeriodLabel((tr.period as TransactionPeriod) ?? "oneTime")}</Chip>
-            </div>
-          </div>
+        {selected ? <CheckSquare size={18} /> : <Square size={18} />}
+      </button>
+      
+      {/* Type Icon */}
+      <div className={`
+        flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center
+        ${isIncome 
+          ? 'bg-gradient-to-br from-emerald-500 to-teal-600' 
+          : 'bg-gradient-to-br from-rose-500 to-pink-600'
+        }
+        shadow-lg ${isIncome ? 'shadow-emerald-500/30' : 'shadow-rose-500/30'}
+      `}>
+        {isIncome ? (
+          <ArrowUpRight size={24} className="text-white" />
+        ) : (
+          <ArrowDownRight size={24} className="text-white" />
+        )}
+      </div>
+      
+      {/* Content */}
+      <div 
+        className="flex-1 min-w-0 cursor-pointer"
+        onClick={() => onClick(transaction)}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="font-semibold text-gray-900 dark:text-white truncate">
+            {transaction.description}
+          </h4>
+          <span className={`
+            text-lg font-bold tabular-nums ml-2
+            ${isIncome 
+              ? 'text-emerald-600 dark:text-emerald-400' 
+              : 'text-gray-900 dark:text-gray-100'
+            }
+          `}>
+            {isIncome ? '+' : '−'}{formatMoney(amount, currency)}
+          </span>
         </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <div className={cx("text-right font-black tabular-nums", isIncome ? "text-emerald-600 dark:text-emerald-400" : "text-gray-900 dark:text-white")}>
-            {isIncome ? "+" : "−"}
-            {formatMoney(amountAbs, getTrCurrency(tr))}
-          </div>
-
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(tr.id);
-            }}
-            className={cx(
-              "p-2 rounded-2xl border border-transparent transition opacity-0 group-hover:opacity-100",
-              "hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 text-gray-400"
-            )}
-            aria-label="Delete transaction"
-            title="Törlés"
-          >
-            <Trash2 size={18} />
-          </button>
+        
+        <div className="flex items-center gap-3 flex-wrap">
+          <CategoryBadge 
+            catKey={transaction.category} 
+            CATEGORIES={CATEGORIES} 
+            getCategoryKey={getCategoryKey}
+            size="sm"
+          />
+          
+          <span className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+            <Calendar size={14} />
+            {formatDate(transaction.date)}
+          </span>
+          
+          {transaction.period !== 'oneTime' && (
+            <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs font-medium">
+              <Repeat size={12} />
+              {getPeriodLabel(transaction.period)}
+            </span>
+          )}
+          
+          {isMaster && (
+            <span className="px-2 py-1 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 text-purple-700 dark:text-purple-400 text-xs font-medium border border-purple-200 dark:border-purple-800">
+              Sablon
+            </span>
+          )}
+          
+          {transaction.interestRate && transaction.interestRate > 0 && (
+            <span className="px-2 py-1 rounded-full bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-700 dark:text-amber-400 text-xs font-medium border border-amber-200 dark:border-amber-800">
+              {transaction.interestRate}% kamat
+            </span>
+          )}
         </div>
       </div>
-    );
-  }
-);
+      
+      {/* Actions */}
+      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick(transaction);
+          }}
+          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+          title="Szerkesztés"
+        >
+          <Square size={18} />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(transaction.id);
+          }}
+          className="p-2 text-gray-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+          title="Törlés"
+        >
+          <Trash2 size={18} />
+        </button>
+      </div>
+    </motion.div>
+  );
+});
 
-/* ------------------------------------------------------------------------------------
-  Main Controller (PhD-grade guards + stable memo + safe deletes)
------------------------------------------------------------------------------------- */
-
-type DeleteConfirmKind = "selected" | "all" | "period" | null;
-
+// ==================== MAIN CONTROLLER HOOK ====================
 const useBudgetController = () => {
   const { t, language } = useLanguage();
-  const data = useData();
-
-  const rawTransactions = (data as any)?.transactions;
-  const addTransaction = (data as any)?.addTransaction;
-  const updateTransaction = (data as any)?.updateTransaction;
-  const deleteTransaction = (data as any)?.deleteTransaction;
-  const deleteTransactions = (data as any)?.deleteTransactions;
-
-  const transactions = useMemo<Transaction[]>(() => {
-    if (!Array.isArray(rawTransactions)) return [];
-    // Clone to avoid stale memo in analytics
-    return rawTransactions.filter(isTransaction).map((x: Transaction) => ({ ...x }));
-  }, [rawTransactions]);
-
-  // Safe APIs
-  const safeAdd = useCallback(
-    (payload: any) => {
-      if (typeof addTransaction === "function") return addTransaction(payload);
-      console.warn("addTransaction missing");
-    },
-    [addTransaction]
-  );
-
-  const safeUpdate = useCallback(
-    (id: string, patch: TransactionPatch) => {
-      if (!id) return;
-      if (typeof updateTransaction === "function") return updateTransaction(id, patch);
-      console.warn("updateTransaction missing");
-    },
-    [updateTransaction]
-  );
-
-  const safeDeleteOne = useCallback(
-    (id: string) => {
-      if (!id) return;
-      // Prefer batch delete for single id to avoid “delete all” class of bugs
-      if (typeof deleteTransactions === "function") return deleteTransactions([id]);
-      if (typeof deleteTransaction === "function") return deleteTransaction(id);
-      console.warn("No delete function available");
-    },
-    [deleteTransactions, deleteTransaction]
-  );
-
-  const safeDeleteMany = useCallback(
-    (ids: string[]) => {
-      const clean = (ids || []).filter(Boolean);
-      if (clean.length === 0) return;
-      if (typeof deleteTransactions === "function") return deleteTransactions(clean);
-      clean.forEach(safeDeleteOne);
-    },
-    [deleteTransactions, safeDeleteOne]
-  );
-
-  /* ----------------------- state ----------------------- */
-
-  const [currency, setCurrency] = useState<string>("USD");
-  const [activeTab, setActiveTab] = useState<"overview" | "transactions" | "planning">("overview");
-
-  const [showMasters, setShowMasters] = useState(false);
-
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState<string>("all");
-
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmKind>(null);
-  const [deletePeriodFilter, setDeletePeriodFilter] = useState<TransactionPeriod | "all">("all");
-
-  const [selectedStat, setSelectedStat] = useState<{ title: string; breakdown: Record<string, number>; rect: RectLike } | null>(null);
-
+  const { transactions: rawTransactions, addTransaction, updateTransaction, deleteTransactions } = useData();
+  
+  // State
+  const [currency, setCurrency] = useState<string>('USD');
+  const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'analytics' | 'planning'>('overview');
+  const [showAddModal, setShowAddModal] = useState(false);
   const [showConverter, setShowConverter] = useState(false);
-
-  const [showTxModal, setShowTxModal] = useState(false);
-  const [editing, setEditing] = useState<Transaction | null>(null);
-  const [txType, setTxType] = useState<"income" | "expense">("expense");
+  const [showInsights, setShowInsights] = useState(true);
+  const [selectedStat, setSelectedStat] = useState<{ 
+    title: string; 
+    breakdown: Record<string, number>; 
+    rect: RectLike 
+  } | null>(null);
+  
+  // Form State
+  const [transactionType, setTransactionType] = useState<'income' | 'expense'>('expense');
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [newTransaction, setNewTransaction] = useState({
+    description: '',
+    amount: '',
+    category: 'other' as CategoryKey,
+    currency: 'USD',
+    period: 'oneTime' as TransactionPeriod,
+    date: toYMDLocal(new Date()),
+    recurring: false,
+    interestRate: ''
+  });
   const [addToBalanceImmediately, setAddToBalanceImmediately] = useState(true);
-
-  const ITEMS_PER_PAGE = 50;
-  const [page, setPage] = useState(1);
+  
+  // Filter State
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [showMasters, setShowMasters] = useState(false);
+  const [dateRange, setDateRange] = useState<{ start: string; end: string }>({
+    start: toYMDLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
+    end: toYMDLocal(new Date())
+  });
+  
+  // Selection & Bulk Actions
+  const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<false | 'selected' | 'all' | 'period'>(false);
+  
+  // Analytics
   const [projectionYears, setProjectionYears] = useState(1);
-
-  const isCategoryKey = (v: string): v is CategoryKey =>
-    ["software", "marketing", "office", "travel", "service", "freelance", "other"].includes(v);
-
-  const getCategoryKey = useCallback((cat: string): CategoryKey => (isCategoryKey(cat) ? cat : "other"), []);
-
-  const CATEGORIES = useMemo<CategoriesMap>(
-    () => ({
-      software: { color: "#4361ee", label: t("budget.software") || "Software" },
-      marketing: { color: "#a855f7", label: t("budget.marketing") || "Marketing" },
-      office: { color: "#06b6d4", label: t("budget.office") || "Office" },
-      travel: { color: "#f59e0b", label: t("budget.travel") || "Travel" },
-      service: { color: "#10b981", label: t("budget.service") || "Service" },
-      freelance: { color: "#3b82f6", label: t("budget.freelance") || "Freelance" },
-      other: { color: "#9ca3af", label: t("budget.other") || "Other" },
-    }),
-    [t, language]
-  );
-
-  // Intl formatter cache
-  const fmtCache = useRef<Map<string, Intl.NumberFormat>>(new Map());
-  useEffect(() => {
-    fmtCache.current.clear();
+  const [viewCurrency, setViewCurrency] = useState<string>('USD');
+  
+  // Cache formatters
+  const formatterCache = useRef<Map<string, Intl.NumberFormat>>(new Map());
+  
+  // Process transactions
+  const transactions = useMemo(() => {
+    if (!Array.isArray(rawTransactions)) return [];
+    return rawTransactions
+      .filter(t => t && typeof t === 'object' && t.id)
+      .map(t => ({ ...t }));
+  }, [rawTransactions]);
+  
+  // Get formatter
+  const getFormatter = useCallback((currencyCode: string): Intl.NumberFormat => {
+    const key = `${language}-${currencyCode}`;
+    if (!formatterCache.current.has(key)) {
+      formatterCache.current.set(key, new Intl.NumberFormat(
+        language === 'hu' ? 'hu-HU' : 'en-US',
+        {
+          style: 'currency',
+          currency: currencyCode,
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }
+      ));
+    }
+    return formatterCache.current.get(key)!;
   }, [language]);
-
-  const getFormatter = useCallback(
-    (currencyCode: string) => {
-      const loc = language === "hu" ? "hu-HU" : "en-US";
-      const key = `${loc}-${currencyCode}`;
-      if (!fmtCache.current.has(key)) {
-        fmtCache.current.set(
-          key,
-          new Intl.NumberFormat(loc, {
-            style: "currency",
-            currency: currencyCode,
-            maximumFractionDigits: 2,
-          })
-        );
+  
+  // Format money
+  const formatMoney = useCallback((amount: number, currencyOverride?: string): string => {
+    const safeAmount = Number.isFinite(amount) ? amount : 0;
+    const targetCurrency = validateCurrency(currencyOverride || currency);
+    return getFormatter(targetCurrency).format(safeAmount);
+  }, [currency, getFormatter]);
+  
+  // Format date
+  const formatDate = useCallback((date: Date | string): string => {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '—';
+    
+    return new Intl.DateTimeFormat(
+      language === 'hu' ? 'hu-HU' : 'en-US',
+      {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        weekday: 'short'
       }
-      return fmtCache.current.get(key)!;
-    },
-    [language]
-  );
-
-  const formatMoney = useCallback(
-    (amount: number, currencyOverride?: string) => {
-      const safe = Number.isFinite(amount) ? amount : 0;
-      return getFormatter(currencyOverride || currency).format(safe);
-    },
-    [currency, getFormatter]
-  );
-
-  const formatDate = useCallback(
-    (date: Date | string) => {
-      const d = parseLocalDate(date);
-      if (!d) return "—";
-      const loc = language === "hu" ? "hu-HU" : "en-US";
-      return new Intl.DateTimeFormat(loc, { year: "numeric", month: "short", day: "numeric" }).format(d);
-    },
-    [language]
-  );
-
-  const getTrCurrency = useCallback(
-    (tr: Transaction) => (tr?.currency && typeof tr.currency === "string" ? tr.currency : currency),
-    [currency]
-  );
-
-  const safeConvert = useCallback((amount: number, from: string, to: string) => {
-    if (!Number.isFinite(amount) || amount === 0) return 0;
-    if (!from || !to || from === to) return amount;
+    ).format(d);
+  }, [language]);
+  
+  // Safe convert
+  const safeConvert = useCallback(async (amount: number, fromCurrency: string, toCurrency: string): Promise<number> => {
+    if (!amount || fromCurrency === toCurrency) return amount;
+    
     try {
-      const v = CurrencyService.convert(amount, from, to);
-      return Number.isFinite(v) ? v : 0;
-    } catch (e) {
-      console.warn("Conversion error:", e);
-      return 0;
+      const rate = await CurrencyService.getRate(fromCurrency, toCurrency);
+      return amount * rate;
+    } catch (error) {
+      console.warn('Conversion failed:', error);
+      return amount; // Fallback to original amount
     }
   }, []);
-
-  // Init rates (best effort, never crash)
-  useEffect(() => {
-    try {
-      const maybe = CurrencyService?.fetchRealTimeRates?.();
-      Promise.resolve(maybe).catch((e) => console.warn("Currency init failed:", e));
-    } catch (e) {
-      console.warn("Currency init crashed:", e);
+  
+  // Get category key
+  const isCategoryKey = (v: string): v is CategoryKey =>
+    ['software', 'marketing', 'office', 'travel', 'service', 'freelance', 'other'].includes(v);
+  
+  const getCategoryKey = useCallback((cat: string): CategoryKey => {
+    return isCategoryKey(cat) ? cat : 'other';
+  }, []);
+  
+  // Get transaction currency
+  const getTrCurrency = useCallback((tr: Transaction): string => {
+    return (tr.currency && typeof tr.currency === 'string') ? tr.currency : currency;
+  }, [currency]);
+  
+  // Categories with icons
+  const CATEGORIES = useMemo((): CategoriesMap => ({
+    software: { 
+      color: '#3b82f6', 
+      label: t('budget.software') || 'Software',
+      icon: <CreditCard size={14} />
+    },
+    marketing: { 
+      color: '#8b5cf6', 
+      label: t('budget.marketing') || 'Marketing',
+      icon: <TrendingUp size={14} />
+    },
+    office: { 
+      color: '#06b6d4', 
+      label: t('budget.office') || 'Office',
+      icon: <Building size={14} />
+    },
+    travel: { 
+      color: '#f59e0b', 
+      label: t('budget.travel') || 'Travel',
+      icon: <Globe size={14} />
+    },
+    service: { 
+      color: '#10b981', 
+      label: t('budget.service') || 'Service',
+      icon: <RefreshCcw size={14} />
+    },
+    freelance: { 
+      color: '#6366f1', 
+      label: t('budget.freelance') || 'Freelance',
+      icon: <User size={14} />
+    },
+    other: { 
+      color: '#9ca3af', 
+      label: t('budget.other') || 'Other',
+      icon: <Square size={14} />
     }
-  }, []);
-
-  const dateToMs = useCallback((x: Date | string) => {
-    const d = parseLocalDate(x);
-    return d ? d.getTime() : 0;
-  }, []);
-
-  const visibleTransactions = useMemo(() => {
-    return showMasters ? transactions : transactions.filter((tr: any) => tr?.kind !== "master");
-  }, [transactions, showMasters]);
-
-  const sortedTransactions = useMemo(() => {
-    return [...visibleTransactions].sort((a, b) => dateToMs(b.date) - dateToMs(a.date));
-  }, [visibleTransactions, dateToMs]);
-
+  }), [t, language]);
+  
+  // Filter transactions
   const filteredTransactions = useMemo(() => {
-    let list = sortedTransactions;
-
-    const st = searchTerm.trim();
-    if (st) {
-      const lower = st.toLowerCase();
-      const needleNum = normalizeDigits(st);
-      const hasDigits = /\d/.test(needleNum);
-
-      list = list.filter((tr) => {
-        const desc = String(tr.description ?? "").toLowerCase();
-        const amt = normalizeDigits(String(tr.amount ?? ""));
-        return desc.includes(lower) || (hasDigits && amt.includes(needleNum));
-      });
+    let filtered = showMasters 
+      ? transactions 
+      : transactions.filter(t => t.kind !== 'master');
+    
+    // Apply category filter
+    if (filterCategory !== 'all') {
+      filtered = filtered.filter(t => t.category === filterCategory);
     }
-
-    if (filterCategory !== "all") {
-      list = list.filter((tr) => String(tr.category ?? "other") === filterCategory);
+    
+    // Apply search
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(t => 
+        t.description?.toLowerCase().includes(term) ||
+        t.category?.toLowerCase().includes(term) ||
+        String(t.amount).includes(term)
+      );
     }
-
-    return list;
-  }, [sortedTransactions, searchTerm, filterCategory]);
-
-  useEffect(() => {
-    setPage(1);
-    setSelected(new Set());
-  }, [searchTerm, filterCategory, showMasters]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE));
-  const paginated = useMemo(() => {
-    const start = (page - 1) * ITEMS_PER_PAGE;
-    return filteredTransactions.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredTransactions, page]);
-
-  const selectAllPage = useCallback(() => {
-    setSelected(new Set(paginated.map((t) => t.id)));
-  }, [paginated]);
-
-  const clearSelection = useCallback(() => setSelected(new Set()), []);
-
-  const toggleSelection = useCallback((id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+    
+    // Apply date range
+    filtered = filtered.filter(t => {
+      const date = new Date(t.date);
+      const start = new Date(dateRange.start);
+      const end = new Date(dateRange.end);
+      return date >= start && date <= end;
     });
-  }, []);
-
-  /* ----------------------- Transaction modal state ----------------------- */
-
-  const emptyDraft = useMemo(
-    () => ({
-      description: "",
-      amount: "",
-      category: "other",
-      currency: currency,
-      period: "oneTime" as TransactionPeriod,
-      date: toYMDLocal(new Date()),
-      recurring: false,
-      interestRate: "",
-    }),
-    [currency]
+    
+    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [transactions, showMasters, filterCategory, searchTerm, dateRange]);
+  
+  // Get period label
+  const getPeriodLabel = useCallback((p: TransactionPeriod): string => {
+    const labels: Record<TransactionPeriod, string> = {
+      daily: t('budget.daily') || 'Daily',
+      weekly: t('budget.weekly') || 'Weekly',
+      monthly: t('budget.monthly') || 'Monthly',
+      yearly: t('budget.yearly') || 'Yearly',
+      oneTime: t('budget.oneTime') || 'One-time',
+    };
+    return labels[p] || labels.oneTime;
+  }, [t]);
+  
+  // Analytics using custom hook
+  const analyticsTransactions = useMemo(() => {
+    return showMasters ? transactions : transactions.filter(t => t.kind !== 'master');
+  }, [transactions, showMasters]);
+  
+  const analytics = useBudgetAnalytics(
+    analyticsTransactions, 
+    viewCurrency, 
+    safeConvert, 
+    projectionYears
   );
-
-  const [draft, setDraft] = useState(() => emptyDraft);
-
-  useEffect(() => {
-    if (editing) return;
-    if (showTxModal) return;
-    setDraft((d) => ({ ...d, currency }));
-  }, [currency, editing, showTxModal]);
-
-  const openCreate = useCallback(
-    (type: "income" | "expense") => {
-      setTxType(type);
-      setEditing(null);
-      setDraft({ ...emptyDraft, currency, date: toYMDLocal(new Date()) });
-      setAddToBalanceImmediately(true);
-      setShowTxModal(true);
-    },
-    [currency, emptyDraft]
-  );
-
-  const openEdit = useCallback(
-    (tr: Transaction) => {
-      // if there is active selection, clicking should toggle selection (handled in UI)
-      setTxType((tr.type as any) === "income" ? "income" : "expense");
-      setEditing(tr);
-
-      const dateStr =
-        typeof tr.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(tr.date)
-          ? tr.date
-          : (() => {
-            const d = parseLocalDate(tr.date);
-            return d ? toYMDLocal(d) : toYMDLocal(new Date());
-          })();
-
-      setDraft({
-        description: String(tr.description ?? ""),
-        amount: isFiniteNumber(tr.amount) ? String(Math.abs(tr.amount)) : "",
-        category: String(tr.category ?? "other"),
-        currency: getTrCurrency(tr) ?? currency,
-        period: ((tr.period as TransactionPeriod) ?? "oneTime") as TransactionPeriod,
-        date: dateStr,
-        recurring: !!tr.recurring,
-        interestRate: tr.interestRate != null ? String(tr.interestRate) : "",
+  
+  // Generate financial insights
+  const financialInsights = useMemo<FinancialInsight[]>(() => {
+    const insights: FinancialInsight[] = [];
+    
+    // Check for high expenses
+    if (analytics.totalExpense > analytics.totalIncome * 0.8) {
+      insights.push({
+        id: 'high-expense',
+        type: 'warning',
+        title: 'Magas kiadások',
+        message: 'A kiadásaid meghaladják a bevételeid 80%-át. Fontold meg a költségcsökkentést.',
+        action: () => setActiveTab('analytics')
       });
-
-      setAddToBalanceImmediately(true);
-      setShowTxModal(true);
-    },
-    [currency, getTrCurrency]
-  );
-
-  const getPeriodLabel = useCallback(
-    (p: TransactionPeriod) => {
-      const labels: Record<TransactionPeriod, string> = {
-        daily: t("budget.daily") || "Daily",
-        weekly: t("budget.weekly") || "Weekly",
-        monthly: t("budget.monthly") || "Monthly",
-        yearly: t("budget.yearly") || "Yearly",
-        oneTime: t("budget.oneTime") || "One-time",
-      };
-      return labels[p] || labels.oneTime;
-    },
-    [t]
-  );
-
-  const closeTxModal = useCallback(() => {
-    setShowTxModal(false);
-    setEditing(null);
-  }, []);
-
-  const validateDraft = useCallback((): { ok: true; amount: number; date: string } | { ok: false; reason: string } => {
-    const desc = draft.description.trim();
-    if (!desc) return { ok: false, reason: "Adj meg leírást!" };
-
-    const amt = parseMoneyInput(draft.amount);
-    if (!Number.isFinite(amt) || amt === 0) return { ok: false, reason: "Érvénytelen összeg!" };
-
-    const p = parseYMD(draft.date);
-    if (!p) return { ok: false, reason: "Érvénytelen dátum!" };
-
-    return { ok: true, amount: amt, date: draft.date };
-  }, [draft.amount, draft.date, draft.description]);
-
-  const saveDraft = useCallback(() => {
-    const v = validateDraft();
-    if (!v.ok) {
-      alert(v.reason);
+    }
+    
+    // Check for upcoming recurring payments
+    const upcomingRecurring = transactions.filter(t => 
+      t.recurring && 
+      new Date(t.date) > new Date() &&
+      new Date(t.date) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    );
+    
+    if (upcomingRecurring.length > 0) {
+      insights.push({
+        id: 'upcoming-recurring',
+        type: 'info',
+        title: 'Közelgő ismétlődő tranzakciók',
+        message: `${upcomingRecurring.length} tranzakció jön létre a következő 7 napban.`,
+        action: () => setFilterCategory('all')
+      });
+    }
+    
+    // Check for savings opportunity
+    if (analytics.balance > analytics.totalIncome * 0.3) {
+      insights.push({
+        id: 'savings-opportunity',
+        type: 'success',
+        title: 'Megtakarítási lehetőség',
+        message: 'Jelenlegi egyenleged lehetővé teszi a megtakarításokat. Fontold meg a befektetési lehetőségeket.',
+        action: () => setActiveTab('planning')
+      });
+    }
+    
+    return insights;
+  }, [analytics, transactions]);
+  
+  // Handlers
+  const handleAddTransaction = async () => {
+    if (!newTransaction.description.trim() || !newTransaction.amount) {
       return;
     }
-
-    const isRecurring = draft.period !== "oneTime";
-    const interestParsed = draft.interestRate.trim() !== "" ? parseMoneyInput(draft.interestRate) : null;
-    const interest = Number.isFinite(interestParsed as number) ? (interestParsed as number) : null;
-
-    const baseProps = {
-      description: draft.description.trim(),
-      category: String(draft.category ?? "other"),
-      type: txType,
-      currency: draft.currency || currency,
-      amount: txType === "expense" ? -Math.abs(v.amount) : Math.abs(v.amount),
-    };
-
-    if (editing) {
-      const patch: TransactionPatch = {
-        ...baseProps,
-        date: v.date,
-        period: draft.period,
-        recurring: isRecurring,
-        kind: isRecurring ? "master" : null, // null -> remove field
-        interestRate: interest, // null -> remove field
-      };
-      safeUpdate(editing.id, patch);
-    } else {
-      const createPayload: any = {
-        ...baseProps,
-        date: v.date,
-        period: draft.period,
-        recurring: isRecurring,
-        kind: isRecurring ? "master" : undefined,
-        interestRate: interest ?? undefined,
-      };
-
-      if (isRecurring && addToBalanceImmediately) {
-        // 1) add first occurrence now (oneTime)
-        safeAdd({ ...createPayload, period: "oneTime", recurring: false, kind: undefined });
-
-        // 2) add master for future occurrences
-        let nextDate = v.date;
-        switch (draft.period) {
-          case "daily":
-            nextDate = addDaysYMD(v.date, 1);
-            break;
-          case "weekly":
-            nextDate = addWeeksYMD(v.date, 1);
-            break;
-          case "monthly":
-            nextDate = addMonthsClampedYMD(v.date, 1);
-            break;
-          case "yearly":
-            nextDate = addYearsClampedYMD(v.date, 1);
-            break;
-          default:
-            nextDate = v.date;
-        }
-
-        safeAdd({ ...createPayload, date: nextDate, recurring: true, kind: "master" });
-      } else {
-        safeAdd(createPayload);
-      }
+    
+    const amount = parseMoneyInput(newTransaction.amount);
+    if (!Number.isFinite(amount)) {
+      alert(t('budget.invalidAmount') || 'Invalid amount');
+      return;
     }
-
-    setDraft({ ...emptyDraft, currency, date: toYMDLocal(new Date()) });
-    setAddToBalanceImmediately(true);
-    setEditing(null);
-    setShowTxModal(false);
-  }, [addToBalanceImmediately, currency, draft, editing, emptyDraft, safeAdd, safeUpdate, txType, validateDraft]);
-
-  /* ----------------------- delete flows ----------------------- */
-
-  const deleteSelected = useCallback(() => {
-    safeDeleteMany(Array.from(selected));
-    setSelected(new Set());
-    setSelectedStat(null);
-    setSearchTerm("");
-    setFilterCategory("all");
-    setShowTxModal(false);
-    setEditing(null);
-  }, [safeDeleteMany, selected]);
-
-  const deleteByPeriod = useCallback(
-    (period: TransactionPeriod | "all") => {
-      // delete ALL should delete everything, including hidden masters
-      const base = period === "all" ? transactions : visibleTransactions;
-      const ids = period === "all" ? base.map((t) => t.id) : base.filter((t) => t.period === period).map((t) => t.id);
-      safeDeleteMany(ids);
-
-      setSelected(new Set());
-      setSelectedStat(null);
-      setSearchTerm("");
-      setFilterCategory("all");
-      setShowTxModal(false);
-      setEditing(null);
-    },
-    [safeDeleteMany, transactions, visibleTransactions]
-  );
-
-  /* ----------------------- analytics ----------------------- */
-
-  const analyticsTransactions = useMemo(() => {
-    // Analytics should match the UI visibility (masters toggle)
-    return showMasters ? transactions : transactions.filter((t: any) => t?.kind !== "master");
-  }, [transactions, showMasters]);
-
-  const analytics = useBudgetAnalytics(analyticsTransactions, currency, safeConvert, projectionYears);
-
+    
+    const transactionData = {
+      description: newTransaction.description.trim(),
+      amount: transactionType === 'income' ? Math.abs(amount) : -Math.abs(amount),
+      category: newTransaction.category,
+      currency: newTransaction.currency,
+      date: newTransaction.date,
+      period: newTransaction.period,
+      recurring: newTransaction.period !== 'oneTime',
+      type: transactionType,
+      interestRate: newTransaction.interestRate ? parseFloat(newTransaction.interestRate) : undefined
+    };
+    
+    try {
+      if (editingTransaction) {
+        await updateTransaction(editingTransaction.id, transactionData);
+      } else {
+        await addTransaction(transactionData);
+      }
+      
+      // Reset form
+      setNewTransaction({
+        description: '',
+        amount: '',
+        category: 'other',
+        currency: currency,
+        period: 'oneTime',
+        date: toYMDLocal(new Date()),
+        recurring: false,
+        interestRate: ''
+      });
+      setEditingTransaction(null);
+      setShowAddModal(false);
+    } catch (error) {
+      console.error('Failed to save transaction:', error);
+      alert(t('budget.saveError') || 'Failed to save transaction');
+    }
+  };
+  
+  const handleDeleteSelected = async () => {
+    if (selectedTransactions.size === 0) return;
+    
+    try {
+      await deleteTransactions(Array.from(selectedTransactions));
+      setSelectedTransactions(new Set());
+      setShowDeleteConfirm(false);
+    } catch (error) {
+      console.error('Failed to delete transactions:', error);
+      alert(t('budget.deleteError') || 'Failed to delete transactions');
+    }
+  };
+  
+  const openAddModal = (type: 'income' | 'expense') => {
+    setTransactionType(type);
+    setEditingTransaction(null);
+    setNewTransaction({
+      description: '',
+      amount: '',
+      category: 'other',
+      currency: currency,
+      period: 'oneTime',
+      date: toYMDLocal(new Date()),
+      recurring: false,
+      interestRate: ''
+    });
+    setShowAddModal(true);
+  };
+  
+  const openEditModal = (transaction: Transaction) => {
+    setTransactionType(transaction.type as 'income' | 'expense');
+    setEditingTransaction(transaction);
+    setNewTransaction({
+      description: transaction.description || '',
+      amount: Math.abs(transaction.amount || 0).toString(),
+      category: getCategoryKey(transaction.category || 'other'),
+      currency: getTrCurrency(transaction),
+      period: transaction.period || 'oneTime',
+      date: typeof transaction.date === 'string' 
+        ? transaction.date 
+        : toYMDLocal(new Date(transaction.date)),
+      recurring: !!transaction.recurring,
+      interestRate: transaction.interestRate?.toString() || ''
+    });
+    setShowAddModal(true);
+  };
+  
+  // Export data
+  const exportData = () => {
+    const dataStr = JSON.stringify(filteredTransactions, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportFileDefaultName = `budget-export-${new Date().toISOString().split('T')[0]}.json`;
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+  };
+  
   return {
+    // State
     t,
-    language,
     currency,
     setCurrency,
     activeTab,
     setActiveTab,
-
-    CATEGORIES,
-    getCategoryKey,
-    formatMoney,
-    formatDate,
-    getTrCurrency,
-    getPeriodLabel,
-
-    transactions,
-    visibleTransactions,
-    filteredTransactions,
-    paginated,
-    ITEMS_PER_PAGE,
-    page,
-    setPage,
-    totalPages,
-
-    searchTerm,
-    setSearchTerm,
-    filterCategory,
-    setFilterCategory,
-    showMasters,
-    setShowMasters,
-
-    selected,
-    toggleSelection,
-    selectAllPage,
-    clearSelection,
-
-    deleteConfirm,
-    setDeleteConfirm,
-    deletePeriodFilter,
-    setDeletePeriodFilter,
-    deleteSelected,
-    deleteByPeriod,
-    safeDeleteOne,
-
-    selectedStat,
-    setSelectedStat,
-
+    showAddModal,
+    setShowAddModal,
     showConverter,
     setShowConverter,
-    safeConvert,
-
-    showTxModal,
-    setShowTxModal,
-    editing,
-    txType,
-    openCreate,
-    openEdit,
-    closeTxModal,
-    draft,
-    setDraft,
+    showInsights,
+    setShowInsights,
+    selectedStat,
+    setSelectedStat,
+    transactionType,
+    newTransaction,
+    setNewTransaction,
+    editingTransaction,
     addToBalanceImmediately,
     setAddToBalanceImmediately,
-    saveDraft,
-
+    filterCategory,
+    setFilterCategory,
+    searchTerm,
+    setSearchTerm,
+    showMasters,
+    setShowMasters,
+    dateRange,
+    setDateRange,
+    selectedTransactions,
+    setSelectedTransactions,
+    showDeleteConfirm,
+    setShowDeleteConfirm,
     projectionYears,
     setProjectionYears,
-
-    ...analytics,
+    viewCurrency,
+    setViewCurrency,
+    
+    // Data
+    transactions: filteredTransactions,
+    analytics,
+    financialInsights,
+    CATEGORIES,
+    
+    // Functions
+    formatMoney,
+    formatDate,
+    getCategoryKey,
+    getTrCurrency,
+    getPeriodLabel,
+    handleAddTransaction,
+    openAddModal,
+    openEditModal,
+    handleDeleteSelected,
+    exportData,
+    
+    // Selection helpers
+    selectAll: () => {
+      setSelectedTransactions(new Set(filteredTransactions.map(t => t.id)));
+    },
+    clearSelection: () => {
+      setSelectedTransactions(new Set());
+    }
   };
 };
 
-/* ------------------------------------------------------------------------------------
-  Header + tabs
------------------------------------------------------------------------------------- */
-
-const BudgetHeader: React.FC<{
-  title: string;
-  subtitle: string;
-  currency: string;
-  onCurrencyChange: (c: string) => void;
-  onOpenConverter: () => void;
-  onAddIncome: () => void;
-  onAddExpense: () => void;
-}> = ({ title, subtitle, currency, onCurrencyChange, onOpenConverter, onAddIncome, onAddExpense }) => (
-  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-    <div>
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20">
-          <Wallet size={18} className="text-white" />
-        </div>
-        <div>
-          <div className="text-2xl font-black text-gray-900 dark:text-white">{title}</div>
-          <div className="text-sm font-bold text-gray-600 dark:text-gray-400">{subtitle}</div>
-        </div>
-        <Chip tone="blue">PRO</Chip>
-      </div>
-    </div>
-
-    <div className="flex flex-wrap items-center gap-2">
-      <Select className="w-auto" value={currency} onChange={(e) => onCurrencyChange(e.target.value)}>
-        {AVAILABLE_CURRENCIES.map((c) => (
-          <option key={c.code} value={c.code}>
-            {c.code} ({c.symbol})
-          </option>
-        ))}
-      </Select>
-
-      <Button variant="secondary" onClick={onOpenConverter} leftIcon={<RefreshCcw size={16} />}>
-        Valuta váltó
-      </Button>
-
-      <Button variant="secondary" onClick={onAddIncome} leftIcon={<TrendingUp size={16} />}>
-        Bevétel
-      </Button>
-
-      <Button variant="primary" onClick={onAddExpense} leftIcon={<Plus size={16} />}>
-        Kiadás
-      </Button>
-    </div>
-  </div>
-);
-
-const Tabs: React.FC<{ active: string; onChange: (t: any) => void; labels: Array<{ key: any; label: string }> }> = ({
-  active,
-  onChange,
-  labels,
-}) => (
-  <div className="flex items-center gap-2 border-b border-gray-200/70 dark:border-gray-700/50">
-    {labels.map((tab) => {
-      const isActive = active === tab.key;
-      return (
-        <button
-          key={tab.key}
-          onClick={() => onChange(tab.key)}
-          className={cx(
-            "relative px-4 py-3 text-sm font-black transition",
-            isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
-          )}
-        >
-          {tab.label}
-          {isActive && <div className="absolute left-0 right-0 -bottom-[1px] h-[3px] bg-blue-500 rounded-t-full" />}
-        </button>
-      );
-    })}
-  </div>
-);
-
-/* ------------------------------------------------------------------------------------
-  Transaction modal
------------------------------------------------------------------------------------- */
-
-const TransactionModal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  t: (k: string) => string;
-  type: "income" | "expense";
-  editing: boolean;
-  draft: any;
-  setDraft: (v: any) => void;
-  CATEGORIES: CategoriesMap;
-  periodLabel: (p: TransactionPeriod) => string;
-  addToBalanceImmediately: boolean;
-  setAddToBalanceImmediately: (v: boolean) => void;
-  onSave: () => void;
-}> = ({
-  isOpen,
-  onClose,
-  t,
-  type,
-  editing,
-  draft,
-  setDraft,
-  CATEGORIES,
-  periodLabel,
-  addToBalanceImmediately,
-  setAddToBalanceImmediately,
-  onSave,
-}) => {
-    if (!isOpen) return null;
-
-    const tone = type === "income" ? "green" : "red";
-    const title = editing ? (type === "income" ? "Bevétel szerkesztése" : "Kiadás szerkesztése") : type === "income" ? t("budget.addIncome") : t("budget.addExpense");
-
-    const periods: TransactionPeriod[] = ["oneTime", "daily", "weekly", "monthly", "yearly"];
-    const isRecurring = draft.period !== "oneTime";
-
-    return (
-      <ModalShell
-        title={title}
-        tone={tone}
-        onClose={onClose}
-        footer={
-          <div className="flex flex-col gap-3">
-            {isRecurring && !editing && (
-              <label className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-300">
-                <input
-                  type="checkbox"
-                  checked={addToBalanceImmediately}
-                  onChange={(e) => setAddToBalanceImmediately(e.target.checked)}
-                />
-                Első alkalom azonnal kerüljön hozzáadásra (és legyen külön sablon a jövőre)
-              </label>
-            )}
-            <Button variant={type === "income" ? "primary" : "danger"} className="w-full py-3" onClick={onSave}>
-              {editing ? (t("common.save") || "Mentés") : (t("budget.addTransaction") || "Hozzáadás")}
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          <div className="rounded-3xl border border-white/10 bg-white/10 p-4">
-            <div className="text-xs font-black uppercase tracking-wide text-white/80">Összeg</div>
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                className="w-full bg-transparent text-4xl font-black text-white placeholder:text-white/50 outline-none"
-                inputMode="decimal"
-                placeholder="0"
-                value={draft.amount}
-                onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
-                autoFocus
-              />
-              <Select className="w-auto bg-white/15 text-white border-white/20" value={draft.currency} onChange={(e) => setDraft({ ...draft, currency: e.target.value })}>
-                {AVAILABLE_CURRENCIES.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.code}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="text-xs font-black uppercase tracking-wide text-gray-600 dark:text-gray-300">{t("budget.description") || "Leírás"}</div>
-            <Input value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} placeholder="Pl. Hosting / Ads / Ügyfél munka..." />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <div className="text-xs font-black uppercase tracking-wide text-gray-600 dark:text-gray-300">{t("budget.category") || "Kategória"}</div>
-              <Select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>
-                {Object.entries(CATEGORIES).map(([key, cat]) => (
-                  <option key={key} value={key}>
-                    {cat.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-xs font-black uppercase tracking-wide text-gray-600 dark:text-gray-300">{t("budget.date") || "Dátum"}</div>
-              <Input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="text-xs font-black uppercase tracking-wide text-gray-600 dark:text-gray-300">Gyakoriság</div>
-            <div className="flex flex-wrap gap-2">
-              {periods.map((p) => {
-                const active = draft.period === p;
-                return (
-                  <button
-                    key={p}
-                    onClick={() => setDraft({ ...draft, period: p, recurring: p !== "oneTime" })}
-                    className={cx(
-                      "px-3 py-2 rounded-2xl border text-sm font-black transition",
-                      active
-                        ? "bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 border-blue-300/60 dark:border-blue-800/40"
-                        : "bg-white/60 dark:bg-gray-900/20 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-900/30"
-                    )}
-                  >
-                    {periodLabel(p)}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="text-xs font-black uppercase tracking-wide text-gray-600 dark:text-gray-300">Kamat / Hozam (opcionális)</div>
-            <Input
-              inputMode="decimal"
-              value={draft.interestRate}
-              onChange={(e) => setDraft({ ...draft, interestRate: e.target.value })}
-              placeholder="pl. 5 (ha százalékot használsz a rendszerben) vagy 0.05 (ha arányt)"
-            />
-            <div className="text-xs font-bold text-gray-500 dark:text-gray-400">
-              Ha a backended % vagy arány szerint várja, igazítsd a Currency/Analytics oldalon. Itt csak “szám”-ként tároljuk.
-            </div>
-          </div>
-
-          {isRecurring && (
-            <div className="rounded-3xl border border-purple-200/60 dark:border-purple-800/40 bg-purple-50/60 dark:bg-purple-950/20 p-4">
-              <div className="text-sm font-black text-purple-900 dark:text-purple-200 flex items-center gap-2">
-                <Repeat size={16} /> Ismétlődő tétel
-              </div>
-              <div className="text-xs font-bold text-purple-800/80 dark:text-purple-200/80 mt-1">
-                Az ismétlődő tételeket “master/sablon” jelöléssel kezeli a rendszer (masters toggle).
-              </div>
-            </div>
-          )}
-        </div>
-      </ModalShell>
-    );
-  };
-
-/* ------------------------------------------------------------------------------------
-  Main View
------------------------------------------------------------------------------------- */
-
+// ==================== MAIN COMPONENT ====================
 const BudgetView: React.FC = () => {
   const ctrl = useBudgetController();
   const { t } = ctrl;
-
-  const monthNames = useMemo(() => {
-    const fallback = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const arr = [
-      t("months.january"),
-      t("months.february"),
-      t("months.march"),
-      t("months.april"),
-      t("months.may"),
-      t("months.june"),
-      t("months.july"),
-      t("months.august"),
-      t("months.september"),
-      t("months.october"),
-      t("months.november"),
-      t("months.december"),
-    ];
-    return arr.map((x, i) => (x ? String(x) : fallback[i]));
-  }, [t]);
-
+  
+  // Chart data
+  const categoryChartData = useMemo(() => {
+    return Object.entries(ctrl.analytics.categoryTotals || {}).map(([key, value]) => ({
+      name: ctrl.CATEGORIES[ctrl.getCategoryKey(key)]?.label || key,
+      value: Math.abs(Number(value) || 0),
+      color: ctrl.CATEGORIES[ctrl.getCategoryKey(key)]?.color || '#9ca3af',
+      fill: `${ctrl.CATEGORIES[ctrl.getCategoryKey(key)]?.color}30`
+    }));
+  }, [ctrl.analytics.categoryTotals, ctrl.CATEGORIES, ctrl.getCategoryKey]);
+  
   const cashFlowChartData = useMemo(() => {
-    const raw = Array.isArray(ctrl.cashFlowData) ? ctrl.cashFlowData : [];
-    return raw
-      .filter((d: any) => d && Number.isFinite(d.monthIndex))
-      .map((d: any) => ({
-        name: monthNames?.[d.monthIndex] ? String(monthNames[d.monthIndex]).slice(0, 3) : `M${d.monthIndex + 1}`,
-        income: Number(d.income) || 0,
-        expense: Number(d.expense) || 0,
-      }));
-  }, [ctrl.cashFlowData, monthNames]);
-
-  const categoryData = useMemo(() => {
-    const safeTotals = ctrl.categoryTotals && typeof ctrl.categoryTotals === "object" ? (ctrl.categoryTotals as any) : {};
-    return Object.entries(safeTotals)
-      .map(([key, value]) => ({
-        name: ctrl.CATEGORIES[ctrl.getCategoryKey(key)]?.label ?? key,
-        value: Number(value) || 0,
-        color: ctrl.CATEGORIES[ctrl.getCategoryKey(key)]?.color ?? "#9ca3af",
-      }))
-      .filter((x) => Number.isFinite(x.value))
-      .sort((a, b) => b.value - a.value);
-  }, [ctrl.categoryTotals, ctrl.CATEGORIES, ctrl.getCategoryKey]);
-
-  const onStatBreakdown = useCallback(
-    (e: React.MouseEvent, title: string, breakdown: Record<string, number>) => {
-      const rect = toRectLike(e.currentTarget as Element);
-      if (rect) ctrl.setSelectedStat({ title, breakdown, rect });
-    },
-    [ctrl]
-  );
-
-  const showBulkBar = ctrl.selected.size > 0;
-
+    return (ctrl.analytics.cashFlowData || []).map((item: any) => ({
+      name: item.month,
+      income: Number(item.income) || 0,
+      expense: Math.abs(Number(item.expense) || 0),
+      balance: Number(item.balance) || 0
+    }));
+  }, [ctrl.analytics.cashFlowData]);
+  
+  const projectionChartData = useMemo(() => {
+    return (ctrl.analytics.projectionData || []).map((item: any) => ({
+      name: item.month,
+      projected: Number(item.projected) || 0,
+      optimistic: Number(item.optimistic) || 0,
+      pessimistic: Number(item.pessimistic) || 0
+    }));
+  }, [ctrl.analytics.projectionData]);
+  
   return (
-    <div className="max-w-7xl mx-auto p-3 space-y-4">
-      <BudgetHeader
-        title={t("budget.title") || "Budget"}
-        subtitle={t("budget.subtitle") || "Tranzakciók, kategóriák, cashflow, projekciók."}
-        currency={ctrl.currency}
-        onCurrencyChange={ctrl.setCurrency}
-        onOpenConverter={() => ctrl.setShowConverter(true)}
-        onAddIncome={() => ctrl.openCreate("income")}
-        onAddExpense={() => ctrl.openCreate("expense")}
-      />
-
-      <Tabs
-        active={ctrl.activeTab}
-        onChange={ctrl.setActiveTab}
-        labels={[
-          { key: "overview", label: t("budget.overview") || "Áttekintés" },
-          { key: "transactions", label: t("budget.transactions") || "Tranzakciók" },
-          { key: "planning", label: t("budget.planning") || "Tervezés" },
-        ]}
-      />
-
-      {/* OVERVIEW */}
-      {ctrl.activeTab === "overview" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <SectionCard>
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <div className="text-xs font-black uppercase tracking-wide text-gray-500 dark:text-gray-400">Egyenleg</div>
-                <div className="text-3xl font-black text-gray-900 dark:text-white tabular-nums">{ctrl.formatMoney(ctrl.balance)}</div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4 md:p-6">
+      {/* Header */}
+      <div className="max-w-7xl mx-auto mb-8">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg shadow-blue-500/30">
+                <Wallet size={28} className="text-white" />
               </div>
-              <div className="p-3 rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20">
-                <Wallet size={20} className="text-white" />
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                  {t('budget.title')}
+                </h1>
+                <p className="text-gray-500 dark:text-gray-400">
+                  {t('budget.subtitle')}
+                </p>
               </div>
             </div>
-            <Divider />
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-3xl border border-emerald-200/60 dark:border-emerald-800/40 bg-emerald-50/60 dark:bg-emerald-950/20 p-4">
-                <div className="text-xs font-black uppercase tracking-wide text-emerald-800/80 dark:text-emerald-200/80">Bevétel</div>
-                <div className="text-xl font-black text-emerald-700 dark:text-emerald-300 tabular-nums">{ctrl.formatMoney(ctrl.totalIncome)}</div>
+            
+            {/* Currency Selector */}
+            <div className="flex items-center gap-3 mt-4">
+              <div className="relative group">
+                <select
+                  value={ctrl.currency}
+                  onChange={(e) => ctrl.setCurrency(e.target.value)}
+                  className="pl-10 pr-8 py-2 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none appearance-none cursor-pointer"
+                >
+                  {AVAILABLE_CURRENCIES.map(c => (
+                    <option key={c.code} value={c.code}>
+                      {c.code} ({c.symbol}) - {c.name}
+                    </option>
+                  ))}
+                </select>
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               </div>
+              
               <button
-                onClick={(e) => onStatBreakdown(e, t("budget.expenseCategories") || "Kiadások bontása", ctrl.categoryTotals as any)}
-                className="text-left rounded-3xl border border-red-200/60 dark:border-red-800/40 bg-red-50/60 dark:bg-red-950/20 p-4 hover:brightness-[0.99] transition"
+                onClick={() => ctrl.setShowConverter(true)}
+                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all flex items-center gap-2"
               >
-                <div className="text-xs font-black uppercase tracking-wide text-red-800/80 dark:text-red-200/80">Kiadás</div>
-                <div className="text-xl font-black text-red-700 dark:text-red-300 tabular-nums">{ctrl.formatMoney(ctrl.totalExpense)}</div>
-                <div className="mt-2 text-[11px] font-black text-red-700/70 dark:text-red-300/70 inline-flex items-center gap-1">
-                  részletek <ChevronRight size={14} />
-                </div>
+                <RefreshCcw size={18} />
+                {t('budget.converter')}
+              </button>
+              
+              <div className="flex gap-2">
+                <button
+                  onClick={() => ctrl.openAddModal('income')}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 transition-all flex items-center gap-2"
+                >
+                  <TrendingUp size={18} />
+                  {t('budget.addIncome')}
+                </button>
+                <button
+                  onClick={() => ctrl.openAddModal('expense')}
+                  className="px-4 py-2 bg-gradient-to-r from-rose-500 to-pink-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-rose-500/25 transition-all flex items-center gap-2"
+                >
+                  <TrendingDown size={18} />
+                  {t('budget.addExpense')}
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          {/* Quick Stats */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                {ctrl.formatMoney(ctrl.analytics.totalIncome)}
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {t('budget.income')}
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-rose-600 dark:text-rose-400">
+                {ctrl.formatMoney(ctrl.analytics.totalExpense)}
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {t('budget.expense')}
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {ctrl.formatMoney(ctrl.analytics.balance)}
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {t('budget.balance')}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Tabs */}
+        <div className="flex gap-1 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-1 border border-gray-200/50 dark:border-gray-700/50">
+          {(['overview', 'transactions', 'analytics', 'planning'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => ctrl.setActiveTab(tab)}
+              className={`
+                flex-1 px-6 py-3 rounded-xl font-semibold transition-all
+                ${ctrl.activeTab === tab 
+                  ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg' 
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                }
+              `}
+            >
+              {t(`budget.${tab}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+      
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto">
+        {/* Financial Insights */}
+        {ctrl.showInsights && ctrl.financialInsights.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Finanszírozási bepillantások
+              </h3>
+              <button
+                onClick={() => ctrl.setShowInsights(false)}
+                className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              >
+                <X size={18} />
               </button>
             </div>
-          </SectionCard>
-
-          <SectionCard title={t("budget.cashFlow") || "Cashflow"}>
-            <div className="min-h-[260px] w-full min-w-0">
-              {cashFlowChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={260} className="min-w-0">
-                  <AreaChart data={cashFlowChartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.45} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="income" stroke="#10b981" fill="#10b981" fillOpacity={0.22} />
-                    <Area type="monotone" dataKey="expense" stroke="#ef4444" fill="#ef4444" fillOpacity={0.18} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="min-h-[260px] flex items-center justify-center text-sm font-bold text-gray-500 dark:text-gray-400">Nincs adat.</div>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {ctrl.financialInsights.map(insight => (
+                <FinancialInsightCard key={insight.id} insight={insight} />
+              ))}
             </div>
-          </SectionCard>
-
-          <SectionCard title={t("budget.expenseCategories") || "Kategóriák"}>
-            <div className="min-h-[260px] w-full min-w-0">
-              {categoryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={260} className="min-w-0">
-                  <RechartsPieChart>
-                    <Pie data={categoryData} cx="50%" cy="48%" innerRadius={70} outerRadius={96} paddingAngle={4} dataKey="value">
-                      {categoryData.map((entry, idx) => (
-                        <Cell key={`cell-${idx}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </RechartsPieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="min-h-[260px] flex items-center justify-center text-sm font-bold text-gray-500 dark:text-gray-400">Nincs adat.</div>
-              )}
-            </div>
-
-            {categoryData.length > 0 && (
-              <div className="mt-4 grid grid-cols-1 gap-2">
-                {categoryData.slice(0, 5).map((c) => (
-                  <div key={c.name} className="flex items-center justify-between rounded-2xl p-2 border border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-900/20">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.color }} />
-                      <div className="text-xs font-black text-gray-700 dark:text-gray-200">{c.name}</div>
-                    </div>
-                    <div className="text-xs font-black text-gray-900 dark:text-white">{ctrl.formatMoney(c.value)}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </SectionCard>
-        </div>
-      )}
-
-      {/* TRANSACTIONS + PLANNING SHARE LIST UI */}
-      {(ctrl.activeTab === "transactions" || ctrl.activeTab === "planning") && (
-        <SectionCard
-          title={ctrl.activeTab === "planning" ? "Tranzakciók (tervezéshez)" : "Tranzakciók"}
-          right={
-            <div className="flex items-center gap-2">
-              <Chip tone={ctrl.showMasters ? "blue" : "neutral"}>Sablonok: {ctrl.showMasters ? "BE" : "KI"}</Chip>
-              <Button
-                variant="secondary"
-                onClick={() => ctrl.setShowMasters(!ctrl.showMasters)}
-                leftIcon={ctrl.showMasters ? <Check size={16} /> : undefined}
-              >
-                Toggle
-              </Button>
-            </div>
-          }
-        >
-          <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
-            <div className="relative w-full lg:max-w-sm">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <Input
-                className="pl-11"
-                placeholder={(t("budget.search") || "Keresés") + "..."}
-                value={ctrl.searchTerm}
-                onChange={(e) => ctrl.setSearchTerm(e.target.value)}
+          </motion.div>
+        )}
+        
+        {/* Overview Tab */}
+        {ctrl.activeTab === 'overview' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+          >
+            {/* Main Stats */}
+            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <StatCard
+                title="Havi cash flow"
+                value={ctrl.formatMoney(ctrl.analytics.monthlyCashFlow)}
+                icon={<TrendingUp size={24} />}
+                color="from-blue-500 to-cyan-500"
+                trend={{ value: 12, label: '+12%' }}
+              />
+              <StatCard
+                title="Átlagos havi kiadás"
+                value={ctrl.formatMoney(ctrl.analytics.averageMonthlyExpense)}
+                icon={<TrendingDown size={24} />}
+                color="from-rose-500 to-pink-500"
+                trend={{ value: -5, label: '-5%' }}
+              />
+              <StatCard
+                title="Megtakarítási ráta"
+                value={`${Math.round(ctrl.analytics.savingsRate)}%`}
+                subtitle="Bevételeid százaléka"
+                icon={<Wallet size={24} />}
+                color="from-emerald-500 to-teal-500"
+              />
+              <StatCard
+                title="Tartalékok (hónapok)"
+                value={Math.round(ctrl.analytics.runwayMonths).toString()}
+                subtitle="Hónapok a jelenlegi ütemezéssel"
+                icon={<Calendar size={24} />}
+                color="from-amber-500 to-orange-500"
               />
             </div>
-
-            <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-end">
-              <Select className="sm:w-64" value={ctrl.filterCategory} onChange={(e) => ctrl.setFilterCategory(e.target.value)}>
-                <option value="all">{t("budget.allCategories") || "Összes kategória"}</option>
-                {Object.entries(ctrl.CATEGORIES).map(([key, cat]) => (
-                  <option key={key} value={key}>
-                    {cat.label}
-                  </option>
-                ))}
-              </Select>
-
-              <Button variant="secondary" onClick={() => ctrl.setShowConverter(true)} leftIcon={<RefreshCcw size={16} />}>
-                Váltó
-              </Button>
-
-              <Button
-                variant="danger"
-                onClick={() => ctrl.setDeleteConfirm("all")}
-                leftIcon={<Trash2 size={16} />}
-                className="sm:w-auto"
-              >
-                Mind törlése
-              </Button>
-            </div>
-          </div>
-
-          {/* Planning controls */}
-          {ctrl.activeTab === "planning" && (
-            <div className="mt-4 rounded-3xl border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/60 dark:bg-indigo-950/20 p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-black text-indigo-900 dark:text-indigo-200">Projekció</div>
-                  <div className="text-xs font-bold text-indigo-800/80 dark:text-indigo-200/80">Állítsd be hány évre számoljon előre.</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="secondary" onClick={() => ctrl.setProjectionYears((p) => Math.max(1, p - 1))} leftIcon={<ChevronLeft size={16} />}>
-                    -
-                  </Button>
-                  <Chip tone="blue">{ctrl.projectionYears} év</Chip>
-                  <Button variant="secondary" onClick={() => ctrl.setProjectionYears((p) => Math.min(10, p + 1))} leftIcon={<ChevronRight size={16} />}>
-                    +
-                  </Button>
+            
+            {/* Category Breakdown */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Kiadások kategóriánként
+              </h3>
+              <div className="space-y-4">
+                {categoryChartData
+                  .sort((a, b) => b.value - a.value)
+                  .slice(0, 5)
+                  .map((item, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {item.name}
+                        </span>
+                      </div>
+                      <span className="font-bold text-gray-900 dark:text-white">
+                        {ctrl.formatMoney(item.value)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+              <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsPieChart>
+                      <Pie
+                        data={categoryChartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {categoryChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) => ctrl.formatMoney(Number(value))}
+                      />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
             </div>
-          )}
-
-          {/* Bulk bar */}
-          {showBulkBar && (
-            <div className="mt-4 rounded-3xl border border-blue-200/60 dark:border-blue-800/40 bg-blue-50/60 dark:bg-blue-950/20 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="text-sm font-black text-blue-900 dark:text-blue-200">{ctrl.selected.size} kiválasztva</div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={ctrl.selectAllPage}>
-                  Oldal kijelölése
-                </Button>
-                <Button variant="secondary" onClick={ctrl.clearSelection}>
-                  Kijelölés törlése
-                </Button>
-                <Button variant="danger" onClick={() => ctrl.setDeleteConfirm("selected")} leftIcon={<Trash2 size={16} />}>
-                  Törlés
-                </Button>
+            
+            {/* Cash Flow Chart */}
+            <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+                Cash Flow Kimutatás
+              </h3>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={cashFlowChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.1} />
+                    <XAxis 
+                      dataKey="name" 
+                      stroke="#9ca3af"
+                      fontSize={12}
+                    />
+                    <YAxis 
+                      stroke="#9ca3af"
+                      fontSize={12}
+                      tickFormatter={(value) => ctrl.formatMoney(value).replace(/\s/g, '')}
+                    />
+                    <Tooltip
+                      formatter={(value) => [ctrl.formatMoney(Number(value)), '']}
+                      labelFormatter={(label) => `Hónap: ${label}`}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="income"
+                      stackId="1"
+                      stroke="#10b981"
+                      fill="#10b981"
+                      fillOpacity={0.3}
+                      name="Bevételek"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="expense"
+                      stackId="1"
+                      stroke="#ef4444"
+                      fill="#ef4444"
+                      fillOpacity={0.3}
+                      name="Kiadások"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="balance"
+                      stroke="#3b82f6"
+                      strokeWidth={2}
+                      dot={false}
+                      name="Egyenleg"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </div>
-          )}
-
-          <div className="mt-4 rounded-3xl border border-gray-200/70 dark:border-gray-700/60 overflow-hidden">
-            <div className="max-h-[640px] overflow-y-auto">
-              {ctrl.filteredTransactions.length === 0 ? (
-                <div className="p-12 text-center text-sm font-bold text-gray-500 dark:text-gray-400">Nincs megjeleníthető tranzakció.</div>
-              ) : (
-                ctrl.paginated.map((tr) => (
-                  <TransactionRow
-                    key={tr.id}
-                    tr={tr}
-                    selected={ctrl.selected.has(tr.id)}
-                    onToggle={ctrl.toggleSelection}
-                    onOpen={(tx) => {
-                      // Selection-first UX: if user already started selecting, click toggles selection
-                      if (ctrl.selected.size > 0) ctrl.toggleSelection(tx.id);
-                      else ctrl.openEdit(tx);
-                    }}
-                    onDelete={(id) => ctrl.safeDeleteOne(id)}
-                    CATEGORIES={ctrl.CATEGORIES}
-                    getCategoryKey={ctrl.getCategoryKey}
-                    formatDate={ctrl.formatDate}
-                    formatMoney={ctrl.formatMoney}
-                    getTrCurrency={ctrl.getTrCurrency}
-                    getPeriodLabel={ctrl.getPeriodLabel}
+          </motion.div>
+        )}
+        
+        {/* Transactions Tab */}
+        {ctrl.activeTab === 'transactions' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-6"
+          >
+            {/* Filters */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl">
+              <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+                {/* Search */}
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="text"
+                    placeholder="Keresés tranzakciókban..."
+                    className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none"
+                    value={ctrl.searchTerm}
+                    onChange={(e) => ctrl.setSearchTerm(e.target.value)}
                   />
-                ))
+                </div>
+                
+                {/* Filter Group */}
+                <div className="flex flex-wrap gap-3">
+                  <select
+                    className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none"
+                    value={ctrl.filterCategory}
+                    onChange={(e) => ctrl.setFilterCategory(e.target.value)}
+                  >
+                    <option value="all">Összes kategória</option>
+                    {Object.entries(ctrl.CATEGORIES).map(([key, cat]) => (
+                      <option key={key} value={key}>{cat.label}</option>
+                    ))}
+                  </select>
+                  
+                  <button
+                    onClick={() => ctrl.setShowMasters(!ctrl.showMasters)}
+                    className={`px-4 py-3 rounded-xl border transition-all ${
+                      ctrl.showMasters
+                        ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white border-transparent'
+                        : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    {ctrl.showMasters ? 'Sablonok mutatása' : 'Sablonok elrejtése'}
+                  </button>
+                  
+                  <button
+                    onClick={ctrl.exportData}
+                    className="px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 transition-all flex items-center gap-2"
+                  >
+                    <Download size={18} />
+                    Export
+                  </button>
+                </div>
+              </div>
+              
+              {/* Date Range */}
+              <div className="flex gap-4 mt-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Dátumtartomány
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      className="flex-1 px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl"
+                      value={ctrl.dateRange.start}
+                      onChange={(e) => ctrl.setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                    />
+                    <input
+                      type="date"
+                      className="flex-1 px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl"
+                      value={ctrl.dateRange.end}
+                      onChange={(e) => ctrl.setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                
+                {/* Bulk Actions */}
+                {ctrl.selectedTransactions.size > 0 && (
+                  <div className="flex items-end">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => ctrl.setShowDeleteConfirm('selected')}
+                        className="px-4 py-2 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-xl hover:shadow-lg hover:shadow-rose-500/25 transition-all"
+                      >
+                        Törlés ({ctrl.selectedTransactions.size})
+                      </button>
+                      <button
+                        onClick={ctrl.clearSelection}
+                        className="px-4 py-2 bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        Kijelölés törlése
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Transactions List */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
+              {ctrl.transactions.length === 0 ? (
+                <div className="p-12 text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+                    <Search size={24} className="text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    Nincs tranzakció
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400 mb-6">
+                    Kezdj el hozzáadni tranzakciókat a fenti gombokkal
+                  </p>
+                  <button
+                    onClick={() => ctrl.openAddModal('expense')}
+                    className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all"
+                  >
+                    Első tranzakció hozzáadása
+                  </button>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {ctrl.transactions.map(transaction => (
+                    <TransactionRow
+                      key={transaction.id}
+                      transaction={transaction}
+                      selected={ctrl.selectedTransactions.has(transaction.id)}
+                      onSelect={ctrl.setSelectedTransactions}
+                      onClick={ctrl.openEditModal}
+                      onDelete={() => {
+                        ctrl.setSelectedTransactions(new Set([transaction.id]));
+                        ctrl.setShowDeleteConfirm('selected');
+                      }}
+                      CATEGORIES={ctrl.CATEGORIES}
+                      getCategoryKey={ctrl.getCategoryKey}
+                      formatDate={ctrl.formatDate}
+                      formatMoney={ctrl.formatMoney}
+                      getTrCurrency={ctrl.getTrCurrency}
+                      getPeriodLabel={ctrl.getPeriodLabel}
+                      isMaster={transaction.kind === 'master'}
+                    />
+                  ))}
+                </div>
               )}
             </div>
-
-            {/* Pagination */}
-            {ctrl.totalPages > 1 && (
-              <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-gray-200/70 dark:border-gray-700/60 bg-white/40 dark:bg-gray-950/20">
-                <div className="text-xs font-black text-gray-600 dark:text-gray-300">
-                  Oldal {ctrl.page} / {ctrl.totalPages} — összesen {ctrl.filteredTransactions.length}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="secondary" onClick={() => ctrl.setPage(1)} disabled={ctrl.page === 1} leftIcon={<ChevronsLeft size={16} />}>
-                    Első
-                  </Button>
-                  <Button variant="secondary" onClick={() => ctrl.setPage((p) => Math.max(1, p - 1))} disabled={ctrl.page === 1} leftIcon={<ChevronLeft size={16} />}>
-                    Előző
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => ctrl.setPage((p) => Math.min(ctrl.totalPages, p + 1))}
-                    disabled={ctrl.page === ctrl.totalPages}
-                    leftIcon={<ChevronRight size={16} />}
-                  >
-                    Következő
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => ctrl.setPage(ctrl.totalPages)}
-                    disabled={ctrl.page === ctrl.totalPages}
-                    leftIcon={<ChevronsRight size={16} />}
-                  >
-                    Utolsó
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Quick delete by period */}
-          <div className="mt-4 rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/50 dark:bg-gray-900/20 p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-black text-gray-900 dark:text-white">Törlés szűrővel</div>
-                <div className="text-xs font-bold text-gray-600 dark:text-gray-400">Gyorsan törölj adott gyakoriság szerint (a látható adatokból).</div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Select className="w-56" value={ctrl.deletePeriodFilter} onChange={(e) => ctrl.setDeletePeriodFilter(e.target.value as any)}>
-                  <option value="all">Összes (minden)</option>
-                  <option value="oneTime">One-time</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
-                </Select>
-                <Button variant="danger" onClick={() => ctrl.setDeleteConfirm(ctrl.deletePeriodFilter === "all" ? "all" : "period")} leftIcon={<Trash2 size={16} />}>
-                  Törlés
-                </Button>
+          </motion.div>
+        )}
+        
+        {/* Analytics Tab */}
+        {ctrl.activeTab === 'analytics' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+          >
+            {/* Spending Trends */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+                Kiadási trendek
+              </h3>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={cashFlowChartData.slice(-6)}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.1} />
+                    <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} />
+                    <YAxis 
+                      stroke="#9ca3af"
+                      fontSize={12}
+                      tickFormatter={(value) => ctrl.formatMoney(value).replace(/\s/g, '')}
+                    />
+                    <Tooltip
+                      formatter={(value) => [ctrl.formatMoney(Number(value)), '']}
+                    />
+                    <Bar dataKey="expense" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="income" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
-          </div>
-        </SectionCard>
-      )}
-
-      {/* Popover */}
-      <BreakdownPopover
-        isOpen={!!ctrl.selectedStat}
-        data={ctrl.selectedStat}
-        onClose={() => ctrl.setSelectedStat(null)}
-        CATEGORIES={ctrl.CATEGORIES}
-        formatMoney={ctrl.formatMoney}
-        getCategoryKey={ctrl.getCategoryKey}
+            
+            {/* Category Distribution */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+                Kategória eloszlás
+              </h3>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsPieChart>
+                    <Pie
+                      data={categoryChartData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      innerRadius={40}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {categoryChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value) => ctrl.formatMoney(Number(value))}
+                    />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            
+            {/* Monthly Comparison */}
+            <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+                Havi összehasonlítás
+              </h3>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={cashFlowChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.1} />
+                    <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} />
+                    <YAxis 
+                      stroke="#9ca3af"
+                      fontSize={12}
+                      tickFormatter={(value) => ctrl.formatMoney(value).replace(/\s/g, '')}
+                    />
+                    <Tooltip
+                      formatter={(value) => [ctrl.formatMoney(Number(value)), '']}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="income"
+                      stroke="#10b981"
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="expense"
+                      stroke="#ef4444"
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="balance"
+                      stroke="#3b82f6"
+                      strokeWidth={3}
+                      strokeDasharray="5 5"
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </motion.div>
+        )}
+        
+        {/* Planning Tab */}
+        {ctrl.activeTab === 'planning' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-6"
+          >
+            {/* Projection Settings */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Pénzügyi előrejelzés
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    Projekció a jövőbeli cash flow-ra
+                  </p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      Projekció hossza:
+                    </span>
+                    <select
+                      className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl"
+                      value={ctrl.projectionYears}
+                      onChange={(e) => ctrl.setProjectionYears(Number(e.target.value))}
+                    >
+                      {[1, 2, 3, 5].map(year => (
+                        <option key={year} value={year}>
+                          {year} év
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      Nézet pénzneme:
+                    </span>
+                    <select
+                      className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl"
+                      value={ctrl.viewCurrency}
+                      onChange={(e) => ctrl.setViewCurrency(e.target.value)}
+                    >
+                      {AVAILABLE_CURRENCIES.map(c => (
+                        <option key={c.code} value={c.code}>
+                          {c.code}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Projection Chart */}
+              <div className="h-96">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={projectionChartData}>
+                    <defs>
+                      <linearGradient id="colorProjected" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorOptimistic" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorPessimistic" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.1} />
+                    <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} />
+                    <YAxis 
+                      stroke="#9ca3af"
+                      fontSize={12}
+                      tickFormatter={(value) => ctrl.formatMoney(Number(value)).replace(/\s/g, '')}
+                    />
+                    <Tooltip
+                      formatter={(value) => [ctrl.formatMoney(Number(value)), '']}
+                      labelFormatter={(label) => `Hónap: ${label}`}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="pessimistic"
+                      stroke="#ef4444"
+                      fillOpacity={1}
+                      fill="url(#colorPessimistic)"
+                      name="Pesszimista"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="projected"
+                      stroke="#3b82f6"
+                      fillOpacity={1}
+                      fill="url(#colorProjected)"
+                      name="Várható"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="optimistic"
+                      stroke="#10b981"
+                      fillOpacity={1}
+                      fill="url(#colorOptimistic)"
+                      name="Optimista"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              
+              {/* Projection Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                <div className="p-4 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-xl border border-emerald-500/20">
+                  <div className="text-sm text-emerald-600 dark:text-emerald-400 font-semibold mb-1">
+                    Optimista forgatókönyv
+                  </div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {ctrl.formatMoney(projectionChartData[projectionChartData.length - 1]?.optimistic || 0)}
+                  </div>
+                </div>
+                <div className="p-4 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 rounded-xl border border-blue-500/20">
+                  <div className="text-sm text-blue-600 dark:text-blue-400 font-semibold mb-1">
+                    Várható forgatókönyv
+                  </div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {ctrl.formatMoney(projectionChartData[projectionChartData.length - 1]?.projected || 0)}
+                  </div>
+                </div>
+                <div className="p-4 bg-gradient-to-r from-rose-500/10 to-pink-500/10 rounded-xl border border-rose-500/20">
+                  <div className="text-sm text-rose-600 dark:text-rose-400 font-semibold mb-1">
+                    Pesszimista forgatókönyv
+                  </div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {ctrl.formatMoney(projectionChartData[projectionChartData.length - 1]?.pessimistic || 0)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </div>
+      
+      {/* Currency Converter Modal */}
+      <CurrencyConverter
+        isOpen={ctrl.showConverter}
+        onClose={() => ctrl.setShowConverter(false)}
+        baseCurrency={ctrl.currency}
+        onCurrencyChange={ctrl.setCurrency}
       />
-
-      {/* Currency Converter */}
+      
+      {/* Add/Edit Transaction Modal */}
       <AnimatePresence>
-        {ctrl.showConverter && (
-          <CurrencyConverterModal
-            isOpen={ctrl.showConverter}
-            onClose={() => ctrl.setShowConverter(false)}
-            language={ctrl.language}
-            baseCurrency={ctrl.currency}
-            formatMoney={ctrl.formatMoney}
-            safeConvert={ctrl.safeConvert}
-          />
+        {ctrl.showAddModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="relative w-full max-w-lg bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-3xl shadow-2xl overflow-hidden"
+            >
+              {/* Header */}
+              <div className={`p-6 ${
+                ctrl.transactionType === 'income' 
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600' 
+                  : 'bg-gradient-to-r from-rose-500 to-pink-600'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-white/20">
+                      {ctrl.transactionType === 'income' ? 
+                        <TrendingUp size={24} className="text-white" /> : 
+                        <TrendingDown size={24} className="text-white" />
+                      }
+                    </div>
+                    <h2 className="text-2xl font-bold text-white">
+                      {ctrl.editingTransaction 
+                        ? (ctrl.transactionType === 'income' ? 'Bevétel szerkesztése' : 'Kiadás szerkesztése')
+                        : (ctrl.transactionType === 'income' ? 'Új bevétel' : 'Új kiadás')
+                      }
+                    </h2>
+                  </div>
+                  <button
+                    onClick={() => ctrl.setShowAddModal(false)}
+                    className="p-2 hover:bg-white/20 rounded-xl transition-colors"
+                  >
+                    <X size={24} className="text-white" />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Form */}
+              <div className="p-6 space-y-6">
+                {/* Amount */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Összeg
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={ctrl.newTransaction.amount}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9.,]/g, '');
+                        ctrl.setNewTransaction(prev => ({ ...prev, amount: val }));
+                      }}
+                      className="w-full px-4 py-3 text-2xl font-bold bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                      placeholder="0.00"
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <select
+                        value={ctrl.newTransaction.currency}
+                        onChange={(e) => ctrl.setNewTransaction(prev => ({ ...prev, currency: e.target.value }))}
+                        className="px-3 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium outline-none"
+                      >
+                        {AVAILABLE_CURRENCIES.map(c => (
+                          <option key={c.code} value={c.code}>
+                            {c.code}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Leírás
+                  </label>
+                  <input
+                    type="text"
+                    value={ctrl.newTransaction.description}
+                    onChange={(e) => ctrl.setNewTransaction(prev => ({ ...prev, description: e.target.value }))}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                    placeholder="Pl. Áruház vásárlás"
+                  />
+                </div>
+                
+                {/* Category & Date */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Kategória
+                    </label>
+                    <select
+                      value={ctrl.newTransaction.category}
+                      onChange={(e) => ctrl.setNewTransaction(prev => ({ ...prev, category: e.target.value as CategoryKey }))}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                    >
+                      {Object.entries(ctrl.CATEGORIES).map(([key, cat]) => (
+                        <option key={key} value={key}>
+                          {cat.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Dátum
+                    </label>
+                    <input
+                      type="date"
+                      value={ctrl.newTransaction.date}
+                      onChange={(e) => ctrl.setNewTransaction(prev => ({ ...prev, date: e.target.value }))}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+                
+                {/* Frequency */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Gyakoriság
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['oneTime', 'monthly', 'yearly'] as const).map(period => (
+                      <button
+                        key={period}
+                        type="button"
+                        onClick={() => ctrl.setNewTransaction(prev => ({ 
+                          ...prev, 
+                          period,
+                          recurring: period !== 'oneTime'
+                        }))}
+                        className={`px-4 py-3 rounded-xl border transition-all ${
+                          ctrl.newTransaction.period === period
+                            ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white border-transparent'
+                            : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        {ctrl.getPeriodLabel(period)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Interest Rate (for recurring) */}
+                {ctrl.newTransaction.recurring && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Éves kamatláb (%)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={ctrl.newTransaction.interestRate}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9.,]/g, '');
+                        ctrl.setNewTransaction(prev => ({ ...prev, interestRate: val }));
+                      }}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                      placeholder="0.00"
+                    />
+                  </div>
+                )}
+              </div>
+              
+              {/* Footer */}
+              <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gradient-to-r from-gray-50/50 to-white/50 dark:from-gray-800/50 dark:to-gray-900/50">
+                <div className="flex justify-between">
+                  <button
+                    onClick={() => ctrl.setShowAddModal(false)}
+                    className="px-6 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Mégse
+                  </button>
+                  <button
+                    onClick={ctrl.handleAddTransaction}
+                    className={`px-6 py-3 font-semibold rounded-xl hover:shadow-lg transition-all ${
+                      ctrl.transactionType === 'income'
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:shadow-emerald-500/25'
+                        : 'bg-gradient-to-r from-rose-500 to-pink-600 text-white hover:shadow-rose-500/25'
+                    }`}
+                  >
+                    {ctrl.editingTransaction ? 'Mentés' : 'Hozzáadás'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
-
-      {/* Transaction modal */}
+      
+      {/* Delete Confirmation Modal */}
       <AnimatePresence>
-        {ctrl.showTxModal && (
-          <TransactionModal
-            isOpen={ctrl.showTxModal}
-            onClose={ctrl.closeTxModal}
-            t={t}
-            type={ctrl.txType}
-            editing={!!ctrl.editing}
-            draft={ctrl.draft}
-            setDraft={ctrl.setDraft}
-            CATEGORIES={ctrl.CATEGORIES}
-            periodLabel={ctrl.getPeriodLabel}
-            addToBalanceImmediately={ctrl.addToBalanceImmediately}
-            setAddToBalanceImmediately={ctrl.setAddToBalanceImmediately}
-            onSave={ctrl.saveDraft}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Delete confirm */}
-      <AnimatePresence>
-        {ctrl.deleteConfirm && (
-          <DeleteConfirmModal
-            title="Biztosan törlöd?"
-            description={
-              ctrl.deleteConfirm === "selected"
-                ? `Biztosan törlöd a kiválasztott ${ctrl.selected.size} tételt?`
-                : ctrl.deleteConfirm === "period"
-                  ? `Biztosan törlöd a(z) ${ctrl.deletePeriodFilter} gyakoriságú tételeket?`
-                  : "Biztosan törlöd az ÖSSZES tételt? (beleértve a sablonokat is)"
-            }
-            onCancel={() => ctrl.setDeleteConfirm(null)}
-            onConfirm={() => {
-              if (ctrl.deleteConfirm === "selected") ctrl.deleteSelected();
-              if (ctrl.deleteConfirm === "period") ctrl.deleteByPeriod(ctrl.deletePeriodFilter);
-              if (ctrl.deleteConfirm === "all") ctrl.deleteByPeriod("all");
-              ctrl.setDeleteConfirm(null);
-            }}
-          />
+        {ctrl.showDeleteConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-6">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+                  <AlertTriangle size={32} className="text-rose-600 dark:text-rose-400" />
+                </div>
+                <h3 className="text-xl font-bold text-center text-gray-900 dark:text-white mb-2">
+                  Biztosan törlöd?
+                </h3>
+                <p className="text-center text-gray-600 dark:text-gray-400 mb-6">
+                  {ctrl.showDeleteConfirm === 'selected'
+                    ? `${ctrl.selectedTransactions.size} tranzakció törlődik. Ez a művelet nem vonható vissza.`
+                    : 'Minden tranzakció törlődik. Ez a művelet nem vonható vissza.'}
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => ctrl.setShowDeleteConfirm(false)}
+                    className="flex-1 px-6 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Mégse
+                  </button>
+                  <button
+                    onClick={ctrl.handleDeleteSelected}
+                    className="flex-1 px-6 py-3 bg-gradient-to-r from-rose-500 to-pink-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-rose-500/25 transition-all"
+                  >
+                    Törlés
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>
   );
 };
+
+// Helper component for User icon
+const User: React.FC<{ size: number }> = ({ size }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
 
 export default BudgetView;
