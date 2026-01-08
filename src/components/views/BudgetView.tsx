@@ -510,14 +510,16 @@ function useBudgetEngine() {
 
   // --------- Monthly cashflow chart (realized vs scheduled) ----------
   const cashFlowData = useMemo(() => {
-    // last 12 months by effective date + future if mode enabled
     const now = new Date();
     const buckets: Array<{ monthIndex: number; name: string; income: number; expense: number }> = [];
     const months: Array<{ y: number; m: number }> = [];
 
-    // Generate buckets: past 11 months + current month
-    for (let i = 11; i >= 0; i--) {
-      const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    // Window: Realized (-11..0), Scheduled (-2..+9)
+    const startOffset = balanceMode === "includeScheduled" ? -2 : -11;
+
+    for (let i = 0; i < 12; i++) {
+      const offset = startOffset + i;
+      const dt = new Date(now.getFullYear(), now.getMonth() + offset, 1);
       months.push({ y: dt.getFullYear(), m: dt.getMonth() });
     }
 
@@ -530,21 +532,13 @@ function useBudgetEngine() {
     for (const tx of sourceTx) {
       if (tx.isMaster) continue;
 
-      // Filter based on mode
+      // realizedOnly: strict date filter. includeScheduled: allows all non-masters from source
       if (balanceMode === 'realizedOnly' && tx.effectiveDateYMD > todayYMD) continue;
-      // If includeScheduled, we allow future items
 
       const dt = parseYMD(tx.effectiveDateYMD);
       if (!dt) continue;
 
       const idx = months.findIndex((mm) => mm.y === dt.getFullYear() && mm.m === dt.getMonth());
-
-      // If NOT in the last 12 months window, maybe we should skip? 
-      // Or if it's future and we are in "includeScheduled", maybe we want to see it?
-      // For this chart (Historical Cashflow), we typically show the PAST.
-      // But if the user wants to see "Future", we might need a Projection chart.
-      // For now, let's just show it if it falls in the current/past months window.
-      // If it is NEXT month, it won't be in the bucket list designated above.
 
       if (idx !== -1) {
         const v = tx.currency === currency ? tx.amount : safeConvert(tx.amount, tx.currency, currency);
@@ -1294,95 +1288,124 @@ const BudgetViewPro: React.FC = () => {
 
         {/* Content */}
         {tab === "overview" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Balance card */}
-            <GlassCard
-              title="Egyenleg"
-              right={
-                <Select
-                  className="w-56 text-xs"
-                  value={engine.balanceMode}
-                  onChange={(e) => engine.setBalanceMode(e.target.value as BalanceMode)}
-                >
-                  <option value="realizedOnly">Balansz: csak “realized”</option>
-                  <option value="includeScheduled">Balansz: ütemezettet is mutasson</option>
-                </Select>
-              }
-            >
-              <div className="text-4xl font-black tabular-nums">{engine.formatMoney(balance)}</div>
-              <div className="mt-1 text-sm font-bold text-white/55">
-                Tipp: Tranzakció mindig látszik azonnal a ledgerben, a balansz pedig a beállítás szerint számol.
-              </div>
-
-              <Divider />
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-[22px] border border-emerald-400/20 bg-emerald-500/10 p-4">
-                  <div className="text-xs font-black uppercase tracking-wide text-emerald-200/80">Bevétel</div>
-                  <div className="mt-2 text-xl font-black text-emerald-200 tabular-nums">{engine.formatMoney(income)}</div>
-                </div>
-
-                <div className="rounded-[22px] border border-rose-400/20 bg-rose-500/10 p-4">
-                  <div className="text-xs font-black uppercase tracking-wide text-rose-200/80">Kiadás</div>
-                  <div className="mt-2 text-xl font-black text-rose-200 tabular-nums">{engine.formatMoney(expense)}</div>
-                </div>
-              </div>
-            </GlassCard>
-
-            {/* Cashflow */}
-            <GlassCard title="Pénzforgalom (utolsó 12 hónap)">
-              <ChartFrame height={300}>
-                {() => (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={engine.cashFlowData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "rgba(255,255,255,0.6)" }} dy={10} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "rgba(255,255,255,0.6)" }} />
-                      <Tooltip />
-                      <Area type="monotone" dataKey="income" stroke="#34d399" fill="#34d399" fillOpacity={0.18} />
-                      <Area type="monotone" dataKey="expense" stroke="#fb7185" fill="#fb7185" fillOpacity={0.14} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
-              </ChartFrame>
-            </GlassCard>
-
-            {/* Categories */}
-            <GlassCard title="Kiadások kategóriánként">
-              <ChartFrame height={300}>
-                {() =>
-                  categoryData.length ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPieChart>
-                        <Pie data={categoryData} cx="50%" cy="50%" innerRadius={72} outerRadius={100} paddingAngle={4} dataKey="value">
-                          {categoryData.map((entry) => (
-                            <Cell key={entry.key} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </RechartsPieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full grid place-items-center text-white/45 text-sm font-bold">Nincs adat.</div>
-                  )
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Balance card */}
+              <GlassCard
+                title="Egyenleg"
+                right={
+                  <Select
+                    className="w-56 text-xs"
+                    value={engine.balanceMode}
+                    onChange={(e) => engine.setBalanceMode(e.target.value as BalanceMode)}
+                  >
+                    <option value="realizedOnly">Balansz: csak “realized”</option>
+                    <option value="includeScheduled">Balansz: ütemezettet is mutasson</option>
+                  </Select>
                 }
-              </ChartFrame>
-
-              {categoryData.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  {categoryData.slice(0, 5).map((c) => (
-                    <div key={c.key} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/4 px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: c.color }} />
-                        <div className="text-xs font-black text-white/80">{c.name}</div>
-                      </div>
-                      <div className="text-xs font-black tabular-nums">{engine.formatMoney(c.value)}</div>
-                    </div>
-                  ))}
+              >
+                <div className="text-4xl font-black tabular-nums">{engine.formatMoney(balance)}</div>
+                <div className="mt-1 text-sm font-bold text-white/55">
+                  Tipp: Tranzakció mindig látszik azonnal a ledgerben, a balansz pedig a beállítás szerint számol.
                 </div>
-              )}
+
+                <Divider />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-[22px] border border-emerald-400/20 bg-emerald-500/10 p-4">
+                    <div className="text-xs font-black uppercase tracking-wide text-emerald-200/80">Bevétel</div>
+                    <div className="mt-2 text-xl font-black text-emerald-200 tabular-nums">{engine.formatMoney(income)}</div>
+                  </div>
+
+                  <div className="rounded-[22px] border border-rose-400/20 bg-rose-500/10 p-4">
+                    <div className="text-xs font-black uppercase tracking-wide text-rose-200/80">Kiadás</div>
+                    <div className="mt-2 text-xl font-black text-rose-200 tabular-nums">{engine.formatMoney(expense)}</div>
+                  </div>
+                </div>
+              </GlassCard>
+
+              {/* Cashflow */}
+              <GlassCard title={engine.balanceMode === "includeScheduled" ? "Cashflow (Múlt + Jövő)" : "Cashflow (utolsó 12 hónap)"}>
+                <ChartFrame height={300}>
+                  {() => (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={engine.cashFlowData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "rgba(255,255,255,0.6)" }} dy={10} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "rgba(255,255,255,0.6)" }} />
+                        <Tooltip />
+                        <Area type="monotone" dataKey="income" stroke="#34d399" fill="#34d399" fillOpacity={0.18} />
+                        <Area type="monotone" dataKey="expense" stroke="#fb7185" fill="#fb7185" fillOpacity={0.14} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+                </ChartFrame>
+              </GlassCard>
+
+              {/* Categories */}
+              <GlassCard title="Kiadások kategóriánként">
+                <ChartFrame height={300}>
+                  {() =>
+                    categoryData.length ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPieChart>
+                          <Pie data={categoryData} cx="50%" cy="50%" innerRadius={72} outerRadius={100} paddingAngle={4} dataKey="value">
+                            {categoryData.map((entry) => (
+                              <Cell key={entry.key} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full grid place-items-center text-white/45 text-sm font-bold">Nincs adat.</div>
+                    )
+                  }
+                </ChartFrame>
+
+                {categoryData.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {categoryData.slice(0, 5).map((c) => (
+                      <div key={c.key} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/4 px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ background: c.color }} />
+                          <div className="text-xs font-black text-white/80">{c.name}</div>
+                        </div>
+                        <div className="text-xs font-black tabular-nums">{engine.formatMoney(c.value)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </GlassCard>
+            </div>
+
+            <GlassCard title="Legutóbbi tranzakciók" className="mt-4">
+              <div className="rounded-[26px] border border-white/10 overflow-hidden bg-white/4">
+                {engine.ledger.length === 0 ? (
+                  <div className="p-10 text-center text-white/45 text-sm font-bold">Nincs tranzakció.</div>
+                ) : (
+                  engine.ledger.slice(0, 5).map(tx => (
+                    <LedgerRow
+                      key={tx.id}
+                      tx={tx}
+                      selected={selected.has(tx.id)}
+                      onToggle={toggleSel}
+                      onEdit={(x) => openEdit(x)}
+                      onDelete={(id) => setConfirm({ kind: "one", id })}
+                      engine={engine}
+                    />
+                  ))
+                )}
+                {engine.ledger.length > 5 && (
+                  <div className="p-4 border-t border-white/10 bg-white/4 text-center">
+                    <Button variant="ghost" onClick={() => setTab("ledger")} leftIcon={<ArrowRightLeft size={16} />}>
+                      Összes tranzakció megtekintése
+                    </Button>
+                  </div>
+                )}
+              </div>
             </GlassCard>
-          </div>
+          </>
         )}
 
         {tab === "ledger" && (
