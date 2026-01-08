@@ -462,7 +462,17 @@ const useBudgetController = () => {
 
   // Init rates
   useEffect(() => {
-    CurrencyService.fetchRealTimeRates().catch(console.warn);
+    // Defensive Service Call
+    if (CurrencyService && typeof CurrencyService.fetchRealTimeRates === 'function') {
+      try {
+        const result = CurrencyService.fetchRealTimeRates();
+        if (result && typeof result.catch === 'function') {
+          result.catch(console.warn);
+        }
+      } catch (e) {
+        console.warn('Currency service init failed', e);
+      }
+    }
   }, []);
 
   // Budget Logic
