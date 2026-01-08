@@ -35,6 +35,20 @@ export const MigrationService = {
             // 3. Migrate Generic Planner Data (optional, mostly 'planner-' is used which is generic)
             // But if we have specific 'contentplanner-' prefixed items in future, add here.
 
+            // 3. Purge Legacy Transactions (For v1.1.81+ Hotfix)
+            // Removes potentially corrupt data from previous buggy versions
+            const purgeTransactionsKey = 'migration_1_1_82_purge';
+            if (!localStorage.getItem(purgeTransactionsKey)) {
+                console.warn('EXECUTING NUCLEAR TRANSACTION PURGE');
+                localStorage.removeItem('planner-transactions'); // Main transaction store
+                localStorage.removeItem('contentplanner-transactions'); // Possible legacy
+                localStorage.removeItem('planner.financial.cache'); // Analytics cache
+
+                localStorage.setItem(purgeTransactionsKey, 'true');
+                console.log('PURGE COMPLETE: All transaction data has been wiped for safety.');
+                migrationCount++;
+            }
+
             if (migrationCount > 0) {
                 console.log(`Migration completed: ${migrationCount} items migrated.`);
             } else {
