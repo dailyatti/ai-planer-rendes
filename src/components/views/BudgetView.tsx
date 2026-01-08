@@ -855,11 +855,29 @@ const useBudgetController = () => {
   }, []);
 
   // Get category key
+  // Get category key
   const isCategoryKey = (v: string): v is CategoryKey =>
     ['software', 'marketing', 'office', 'travel', 'service', 'freelance', 'other'].includes(v);
 
   const getCategoryKey = useCallback((cat: string): CategoryKey => {
     return isCategoryKey(cat) ? cat : 'other';
+  }, []);
+
+  // Initialize Currency Service safely
+  useEffect(() => {
+    const initCurrency = async () => {
+      try {
+        if (CurrencyService && typeof CurrencyService.fetchRealTimeRates === 'function') {
+          const promise = CurrencyService.fetchRealTimeRates();
+          if (promise && typeof promise.then === 'function') {
+            await promise.catch(e => console.warn('Currency init warning:', e));
+          }
+        }
+      } catch (e) {
+        console.warn('Currency init failed:', e);
+      }
+    };
+    initCurrency();
   }, []);
 
   // Get transaction currency
@@ -1463,13 +1481,11 @@ const BudgetView: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            {/* Cash Flow Chart */}
-            <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl">
+            <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl overflow-hidden">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
                 Cash Flow Kimutatás
               </h3>
-              <div className="h-80">
+              <div className="h-80 min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={cashFlowChartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.1} />
@@ -1515,6 +1531,44 @@ const BudgetView: React.FC = () => {
                     />
                   </AreaChart>
                 </ResponsiveContainer>
+              </div>
+            </div>
+            {/* Recent Transactions List */}
+            <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Legutóbbi tranzakciók
+                </h3>
+                <button
+                  onClick={() => ctrl.setActiveTab('transactions')}
+                  className="text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline"
+                >
+                  Összes megtekintése →
+                </button>
+              </div>
+              <div className="space-y-3">
+                {ctrl.transactions.slice(0, 5).map(transaction => (
+                  <TransactionRow
+                    key={transaction.id}
+                    transaction={transaction}
+                    selected={false}
+                    onSelect={() => { }}
+                    onClick={() => ctrl.openEditModal(transaction)}
+                    onDelete={() => { }} // Read-only in overview
+                    CATEGORIES={ctrl.CATEGORIES}
+                    getCategoryKey={ctrl.getCategoryKey}
+                    formatDate={ctrl.formatDate}
+                    formatMoney={ctrl.formatMoney}
+                    getTrCurrency={ctrl.getTrCurrency}
+                    getPeriodLabel={ctrl.getPeriodLabel}
+                    isMaster={transaction.kind === 'master'}
+                  />
+                ))}
+                {ctrl.transactions.length === 0 && (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    Nincsenek tranzakciók ebben az időszakban.
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
