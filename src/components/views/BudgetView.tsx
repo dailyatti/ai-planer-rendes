@@ -23,19 +23,19 @@ import { parseMoneyInput, formatNumber, validateCurrency } from '../../utils/num
 import './BudgetView.css';
 
 // ==================== TYPE DEFINITIONS ====================
-type RectLike = { 
-  top: number; 
-  left: number; 
-  right: number; 
-  bottom: number; 
-  width: number; 
+type RectLike = {
+  top: number;
+  left: number;
+  right: number;
+  bottom: number;
+  width: number;
   height: number;
 };
 
 type CategoryKey = 'software' | 'marketing' | 'office' | 'travel' | 'service' | 'freelance' | 'other';
 
-type CategoryDef = { 
-  color: string; 
+type CategoryDef = {
+  color: string;
   label: string;
   icon: React.ReactNode;
 };
@@ -80,13 +80,13 @@ const normalizeDigits = (s: string): string => {
 const toRectLike = (el: Element | null): RectLike | null => {
   if (!el) return null;
   const r = el.getBoundingClientRect();
-  return { 
-    top: r.top, 
-    left: r.left, 
-    right: r.right, 
-    bottom: r.bottom, 
-    width: r.width, 
-    height: r.height 
+  return {
+    top: r.top,
+    left: r.left,
+    right: r.right,
+    bottom: r.bottom,
+    width: r.width,
+    height: r.height
   };
 };
 
@@ -133,22 +133,22 @@ const CategoryBadge: React.FC<{
 }> = React.memo(({ catKey, CATEGORIES, getCategoryKey, size = 'md' }) => {
   const key = getCategoryKey(String(catKey ?? 'other'));
   const cat = CATEGORIES[key] || CATEGORIES.other;
-  
+
   const sizeClasses = {
     sm: 'px-2 py-0.5 text-xs',
     md: 'px-2.5 py-1 text-sm',
     lg: 'px-3 py-1.5 text-base'
   };
-  
+
   return (
     <span className={`
       inline-flex items-center gap-1.5 rounded-full font-medium
       ${sizeClasses[size]}
     `} style={{
-      backgroundColor: `${cat.color}15`,
-      color: cat.color,
-      border: `1px solid ${cat.color}30`
-    }}>
+        backgroundColor: `${cat.color}15`,
+        color: cat.color,
+        border: `1px solid ${cat.color}30`
+      }}>
       {cat.icon}
       {cat.label}
     </span>
@@ -185,7 +185,7 @@ const StatCard: React.FC<{
       bg-gradient-to-br ${color} opacity-[0.08]
       blur-xl
     `} />
-    
+
     <div className="relative z-10">
       <div className="flex items-start justify-between mb-4">
         <div className={`
@@ -199,8 +199,8 @@ const StatCard: React.FC<{
           <div className={`
             px-3 py-1 rounded-full text-xs font-bold
             flex items-center gap-1
-            ${trend.value >= 0 
-              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' 
+            ${trend.value >= 0
+              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
               : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
             }
           `}>
@@ -209,7 +209,7 @@ const StatCard: React.FC<{
           </div>
         )}
       </div>
-      
+
       <div className="space-y-1">
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
           {title}
@@ -249,28 +249,28 @@ const CurrencyConverter: React.FC<{
     lastUpdate: null,
     isLoading: false
   });
-  
+
   const [recentConversions, setRecentConversions] = useState<
     Array<{ from: string; to: string; amount: number; result: number; date: Date }>
   >([]);
-  
+
   const calculateConversion = useCallback(async () => {
     if (!converter.fromAmount || parseFloat(converter.fromAmount) <= 0) {
       setConverter(prev => ({ ...prev, toAmount: '', rate: 0 }));
       return;
     }
-    
+
     setConverter(prev => ({ ...prev, isLoading: true }));
-    
+
     try {
       const amount = parseFloat(converter.fromAmount);
       const rate = await CurrencyService.getRate(
         converter.fromCurrency,
         converter.toCurrency
       );
-      
+
       const result = amount * rate;
-      
+
       setConverter(prev => ({
         ...prev,
         toAmount: formatNumber(result, 2),
@@ -278,15 +278,15 @@ const CurrencyConverter: React.FC<{
         lastUpdate: new Date(),
         isLoading: false
       }));
-      
+
       // Save to recent conversions
       setRecentConversions(prev => [
-        { 
-          from: converter.fromCurrency, 
-          to: converter.toCurrency, 
-          amount, 
-          result, 
-          date: new Date() 
+        {
+          from: converter.fromCurrency,
+          to: converter.toCurrency,
+          amount,
+          result,
+          date: new Date()
         },
         ...prev.slice(0, 4)
       ]);
@@ -295,7 +295,7 @@ const CurrencyConverter: React.FC<{
       setConverter(prev => ({ ...prev, isLoading: false }));
     }
   }, [converter.fromAmount, converter.fromCurrency, converter.toCurrency]);
-  
+
   const swapCurrencies = () => {
     setConverter(prev => ({
       ...prev,
@@ -305,15 +305,15 @@ const CurrencyConverter: React.FC<{
       toAmount: prev.fromAmount
     }));
   };
-  
+
   useEffect(() => {
     if (isOpen) {
       calculateConversion();
     }
   }, [isOpen, calculateConversion]);
-  
+
   if (!isOpen) return null;
-  
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
@@ -347,7 +347,7 @@ const CurrencyConverter: React.FC<{
               </button>
             </div>
           </div>
-          
+
           {/* Converter Body */}
           <div className="p-6 space-y-6">
             {/* From Currency */}
@@ -385,7 +385,7 @@ const CurrencyConverter: React.FC<{
                 </div>
               </div>
             </div>
-            
+
             {/* Swap Button */}
             <div className="flex justify-center">
               <button
@@ -395,7 +395,7 @@ const CurrencyConverter: React.FC<{
                 <RefreshCcw size={20} />
               </button>
             </div>
-            
+
             {/* To Currency */}
             <div className="space-y-3">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -426,7 +426,7 @@ const CurrencyConverter: React.FC<{
                 </div>
               </div>
             </div>
-            
+
             {/* Rate Display */}
             {converter.rate > 0 && (
               <div className="p-4 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-xl border border-emerald-500/20">
@@ -445,9 +445,9 @@ const CurrencyConverter: React.FC<{
                         Utoljára frissítve
                       </p>
                       <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {converter.lastUpdate.toLocaleTimeString([], { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
+                        {converter.lastUpdate.toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit'
                         })}
                       </p>
                     </div>
@@ -455,7 +455,7 @@ const CurrencyConverter: React.FC<{
                 </div>
               </div>
             )}
-            
+
             {/* Recent Conversions */}
             {recentConversions.length > 0 && (
               <div className="space-y-3">
@@ -500,7 +500,7 @@ const CurrencyConverter: React.FC<{
               </div>
             )}
           </div>
-          
+
           {/* Footer */}
           <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gradient-to-r from-gray-50/50 to-white/50 dark:from-gray-800/50 dark:to-gray-900/50">
             <div className="flex justify-between items-center">
@@ -534,21 +534,21 @@ const FinancialInsightCard: React.FC<{
     success: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
     critical: 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800'
   };
-  
+
   const iconColor = {
     warning: 'text-amber-600 dark:text-amber-400',
     info: 'text-blue-600 dark:text-blue-400',
     success: 'text-emerald-600 dark:text-emerald-400',
     critical: 'text-rose-600 dark:text-rose-400'
   };
-  
+
   const icon = {
     warning: <AlertTriangle size={20} />,
     info: <Globe size={20} />,
     success: <TrendingUp size={20} />,
     critical: <AlertTriangle size={20} />
   };
-  
+
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
@@ -593,16 +593,16 @@ const TransactionRow: React.FC<{
   getTrCurrency: (tr: Transaction) => string;
   getPeriodLabel: (p: TransactionPeriod) => string;
   isMaster?: boolean;
-}> = React.memo(({ 
-  transaction, 
-  selected, 
-  onSelect, 
-  onClick, 
-  onDelete, 
-  CATEGORIES, 
-  getCategoryKey, 
-  formatDate, 
-  formatMoney, 
+}> = React.memo(({
+  transaction,
+  selected,
+  onSelect,
+  onClick,
+  onDelete,
+  CATEGORIES,
+  getCategoryKey,
+  formatDate,
+  formatMoney,
   getTrCurrency,
   getPeriodLabel,
   isMaster = false
@@ -610,7 +610,7 @@ const TransactionRow: React.FC<{
   const isIncome = transaction.type === 'income';
   const currency = getTrCurrency(transaction);
   const amount = Math.abs(typeof transaction.amount === 'number' ? transaction.amount : 0);
-  
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -635,20 +635,20 @@ const TransactionRow: React.FC<{
         className={`
           flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center
           transition-all duration-200
-          ${selected 
-            ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/30' 
+          ${selected
+            ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/30'
             : 'bg-gray-100 dark:bg-gray-800 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
           }
         `}
       >
         {selected ? <CheckSquare size={18} /> : <Square size={18} />}
       </button>
-      
+
       {/* Type Icon */}
       <div className={`
         flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center
-        ${isIncome 
-          ? 'bg-gradient-to-br from-emerald-500 to-teal-600' 
+        ${isIncome
+          ? 'bg-gradient-to-br from-emerald-500 to-teal-600'
           : 'bg-gradient-to-br from-rose-500 to-pink-600'
         }
         shadow-lg ${isIncome ? 'shadow-emerald-500/30' : 'shadow-rose-500/30'}
@@ -659,9 +659,9 @@ const TransactionRow: React.FC<{
           <ArrowDownRight size={24} className="text-white" />
         )}
       </div>
-      
+
       {/* Content */}
-      <div 
+      <div
         className="flex-1 min-w-0 cursor-pointer"
         onClick={() => onClick(transaction)}
       >
@@ -671,41 +671,41 @@ const TransactionRow: React.FC<{
           </h4>
           <span className={`
             text-lg font-bold tabular-nums ml-2
-            ${isIncome 
-              ? 'text-emerald-600 dark:text-emerald-400' 
+            ${isIncome
+              ? 'text-emerald-600 dark:text-emerald-400'
               : 'text-gray-900 dark:text-gray-100'
             }
           `}>
             {isIncome ? '+' : '−'}{formatMoney(amount, currency)}
           </span>
         </div>
-        
+
         <div className="flex items-center gap-3 flex-wrap">
-          <CategoryBadge 
-            catKey={transaction.category} 
-            CATEGORIES={CATEGORIES} 
+          <CategoryBadge
+            catKey={transaction.category}
+            CATEGORIES={CATEGORIES}
             getCategoryKey={getCategoryKey}
             size="sm"
           />
-          
+
           <span className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
             <Calendar size={14} />
             {formatDate(transaction.date)}
           </span>
-          
+
           {transaction.period !== 'oneTime' && (
             <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs font-medium">
               <Repeat size={12} />
               {getPeriodLabel(transaction.period)}
             </span>
           )}
-          
+
           {isMaster && (
             <span className="px-2 py-1 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 text-purple-700 dark:text-purple-400 text-xs font-medium border border-purple-200 dark:border-purple-800">
               Sablon
             </span>
           )}
-          
+
           {transaction.interestRate && transaction.interestRate > 0 && (
             <span className="px-2 py-1 rounded-full bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-700 dark:text-amber-400 text-xs font-medium border border-amber-200 dark:border-amber-800">
               {transaction.interestRate}% kamat
@@ -713,7 +713,7 @@ const TransactionRow: React.FC<{
           )}
         </div>
       </div>
-      
+
       {/* Actions */}
       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
@@ -745,19 +745,19 @@ const TransactionRow: React.FC<{
 const useBudgetController = () => {
   const { t, language } = useLanguage();
   const { transactions: rawTransactions, addTransaction, updateTransaction, deleteTransactions } = useData();
-  
+
   // State
   const [currency, setCurrency] = useState<string>('USD');
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'analytics' | 'planning'>('overview');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showConverter, setShowConverter] = useState(false);
   const [showInsights, setShowInsights] = useState(true);
-  const [selectedStat, setSelectedStat] = useState<{ 
-    title: string; 
-    breakdown: Record<string, number>; 
-    rect: RectLike 
+  const [selectedStat, setSelectedStat] = useState<{
+    title: string;
+    breakdown: Record<string, number>;
+    rect: RectLike
   } | null>(null);
-  
+
   // Form State
   const [transactionType, setTransactionType] = useState<'income' | 'expense'>('expense');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -772,27 +772,27 @@ const useBudgetController = () => {
     interestRate: ''
   });
   const [addToBalanceImmediately, setAddToBalanceImmediately] = useState(true);
-  
+
   // Filter State
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [showMasters, setShowMasters] = useState(false);
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({
     start: toYMDLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
-    end: toYMDLocal(new Date())
+    end: toYMDLocal(new Date(new Date().getFullYear(), 11, 31))
   });
-  
+
   // Selection & Bulk Actions
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<false | 'selected' | 'all' | 'period'>(false);
-  
+
   // Analytics
   const [projectionYears, setProjectionYears] = useState(1);
   const [viewCurrency, setViewCurrency] = useState<string>('USD');
-  
+
   // Cache formatters
   const formatterCache = useRef<Map<string, Intl.NumberFormat>>(new Map());
-  
+
   // Process transactions
   const transactions = useMemo(() => {
     if (!Array.isArray(rawTransactions)) return [];
@@ -800,7 +800,7 @@ const useBudgetController = () => {
       .filter(t => t && typeof t === 'object' && t.id)
       .map(t => ({ ...t }));
   }, [rawTransactions]);
-  
+
   // Get formatter
   const getFormatter = useCallback((currencyCode: string): Intl.NumberFormat => {
     const key = `${language}-${currencyCode}`;
@@ -817,19 +817,19 @@ const useBudgetController = () => {
     }
     return formatterCache.current.get(key)!;
   }, [language]);
-  
+
   // Format money
   const formatMoney = useCallback((amount: number, currencyOverride?: string): string => {
     const safeAmount = Number.isFinite(amount) ? amount : 0;
     const targetCurrency = validateCurrency(currencyOverride || currency);
     return getFormatter(targetCurrency).format(safeAmount);
   }, [currency, getFormatter]);
-  
+
   // Format date
   const formatDate = useCallback((date: Date | string): string => {
     const d = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(d.getTime())) return '—';
-    
+
     return new Intl.DateTimeFormat(
       language === 'hu' ? 'hu-HU' : 'en-US',
       {
@@ -840,11 +840,11 @@ const useBudgetController = () => {
       }
     ).format(d);
   }, [language]);
-  
+
   // Safe convert
   const safeConvert = useCallback(async (amount: number, fromCurrency: string, toCurrency: string): Promise<number> => {
     if (!amount || fromCurrency === toCurrency) return amount;
-    
+
     try {
       const rate = await CurrencyService.getRate(fromCurrency, toCurrency);
       return amount * rate;
@@ -853,80 +853,80 @@ const useBudgetController = () => {
       return amount; // Fallback to original amount
     }
   }, []);
-  
+
   // Get category key
   const isCategoryKey = (v: string): v is CategoryKey =>
     ['software', 'marketing', 'office', 'travel', 'service', 'freelance', 'other'].includes(v);
-  
+
   const getCategoryKey = useCallback((cat: string): CategoryKey => {
     return isCategoryKey(cat) ? cat : 'other';
   }, []);
-  
+
   // Get transaction currency
   const getTrCurrency = useCallback((tr: Transaction): string => {
     return (tr.currency && typeof tr.currency === 'string') ? tr.currency : currency;
   }, [currency]);
-  
+
   // Categories with icons
   const CATEGORIES = useMemo((): CategoriesMap => ({
-    software: { 
-      color: '#3b82f6', 
+    software: {
+      color: '#3b82f6',
       label: t('budget.software') || 'Software',
       icon: <CreditCard size={14} />
     },
-    marketing: { 
-      color: '#8b5cf6', 
+    marketing: {
+      color: '#8b5cf6',
       label: t('budget.marketing') || 'Marketing',
       icon: <TrendingUp size={14} />
     },
-    office: { 
-      color: '#06b6d4', 
+    office: {
+      color: '#06b6d4',
       label: t('budget.office') || 'Office',
       icon: <Building size={14} />
     },
-    travel: { 
-      color: '#f59e0b', 
+    travel: {
+      color: '#f59e0b',
       label: t('budget.travel') || 'Travel',
       icon: <Globe size={14} />
     },
-    service: { 
-      color: '#10b981', 
+    service: {
+      color: '#10b981',
       label: t('budget.service') || 'Service',
       icon: <RefreshCcw size={14} />
     },
-    freelance: { 
-      color: '#6366f1', 
+    freelance: {
+      color: '#6366f1',
       label: t('budget.freelance') || 'Freelance',
       icon: <User size={14} />
     },
-    other: { 
-      color: '#9ca3af', 
+    other: {
+      color: '#9ca3af',
       label: t('budget.other') || 'Other',
       icon: <Square size={14} />
     }
   }), [t, language]);
-  
+
   // Filter transactions
   const filteredTransactions = useMemo(() => {
-    let filtered = showMasters 
-      ? transactions 
+    let filtered = showMasters
+      ? transactions
       : transactions.filter(t => t.kind !== 'master');
-    
+
     // Apply category filter
     if (filterCategory !== 'all') {
       filtered = filtered.filter(t => t.category === filterCategory);
     }
-    
+
     // Apply search
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(t => 
+      filtered = filtered.filter(t =>
         t.description?.toLowerCase().includes(term) ||
         t.category?.toLowerCase().includes(term) ||
         String(t.amount).includes(term)
       );
     }
-    
+
     // Apply date range
     filtered = filtered.filter(t => {
       const date = new Date(t.date);
@@ -934,10 +934,10 @@ const useBudgetController = () => {
       const end = new Date(dateRange.end);
       return date >= start && date <= end;
     });
-    
+
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, showMasters, filterCategory, searchTerm, dateRange]);
-  
+
   // Get period label
   const getPeriodLabel = useCallback((p: TransactionPeriod): string => {
     const labels: Record<TransactionPeriod, string> = {
@@ -949,23 +949,23 @@ const useBudgetController = () => {
     };
     return labels[p] || labels.oneTime;
   }, [t]);
-  
+
   // Analytics using custom hook
   const analyticsTransactions = useMemo(() => {
     return showMasters ? transactions : transactions.filter(t => t.kind !== 'master');
   }, [transactions, showMasters]);
-  
+
   const analytics = useBudgetAnalytics(
-    analyticsTransactions, 
-    viewCurrency, 
-    safeConvert, 
+    analyticsTransactions,
+    viewCurrency,
+    safeConvert,
     projectionYears
   );
-  
+
   // Generate financial insights
   const financialInsights = useMemo<FinancialInsight[]>(() => {
     const insights: FinancialInsight[] = [];
-    
+
     // Check for high expenses
     if (analytics.totalExpense > analytics.totalIncome * 0.8) {
       insights.push({
@@ -976,14 +976,14 @@ const useBudgetController = () => {
         action: () => setActiveTab('analytics')
       });
     }
-    
+
     // Check for upcoming recurring payments
-    const upcomingRecurring = transactions.filter(t => 
-      t.recurring && 
+    const upcomingRecurring = transactions.filter(t =>
+      t.recurring &&
       new Date(t.date) > new Date() &&
       new Date(t.date) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     );
-    
+
     if (upcomingRecurring.length > 0) {
       insights.push({
         id: 'upcoming-recurring',
@@ -993,7 +993,7 @@ const useBudgetController = () => {
         action: () => setFilterCategory('all')
       });
     }
-    
+
     // Check for savings opportunity
     if (analytics.balance > analytics.totalIncome * 0.3) {
       insights.push({
@@ -1004,22 +1004,22 @@ const useBudgetController = () => {
         action: () => setActiveTab('planning')
       });
     }
-    
+
     return insights;
   }, [analytics, transactions]);
-  
+
   // Handlers
   const handleAddTransaction = async () => {
     if (!newTransaction.description.trim() || !newTransaction.amount) {
       return;
     }
-    
+
     const amount = parseMoneyInput(newTransaction.amount);
     if (!Number.isFinite(amount)) {
       alert(t('budget.invalidAmount') || 'Invalid amount');
       return;
     }
-    
+
     const transactionData = {
       description: newTransaction.description.trim(),
       amount: transactionType === 'income' ? Math.abs(amount) : -Math.abs(amount),
@@ -1031,14 +1031,28 @@ const useBudgetController = () => {
       type: transactionType,
       interestRate: newTransaction.interestRate ? parseFloat(newTransaction.interestRate) : undefined
     };
-    
+
     try {
       if (editingTransaction) {
         await updateTransaction(editingTransaction.id, transactionData);
       } else {
         await addTransaction(transactionData);
+
+        // Auto-expand date range if needed
+        const newDate = new Date(transactionData.date);
+        const currentEnd = new Date(dateRange.end);
+        const currentStart = new Date(dateRange.start);
+
+        if (newDate > currentEnd) {
+          setDateRange(prev => ({ ...prev, end: transactionData.date }));
+        } else if (newDate < currentStart) {
+          setDateRange(prev => ({ ...prev, start: transactionData.date }));
+        }
+
+        // Ensure we are on transactions tab
+        setActiveTab('transactions');
       }
-      
+
       // Reset form
       setNewTransaction({
         description: '',
@@ -1057,10 +1071,10 @@ const useBudgetController = () => {
       alert(t('budget.saveError') || 'Failed to save transaction');
     }
   };
-  
+
   const handleDeleteSelected = async () => {
     if (selectedTransactions.size === 0) return;
-    
+
     try {
       await deleteTransactions(Array.from(selectedTransactions));
       setSelectedTransactions(new Set());
@@ -1070,7 +1084,7 @@ const useBudgetController = () => {
       alert(t('budget.deleteError') || 'Failed to delete transactions');
     }
   };
-  
+
   const openAddModal = (type: 'income' | 'expense') => {
     setTransactionType(type);
     setEditingTransaction(null);
@@ -1086,7 +1100,7 @@ const useBudgetController = () => {
     });
     setShowAddModal(true);
   };
-  
+
   const openEditModal = (transaction: Transaction) => {
     setTransactionType(transaction.type as 'income' | 'expense');
     setEditingTransaction(transaction);
@@ -1096,28 +1110,28 @@ const useBudgetController = () => {
       category: getCategoryKey(transaction.category || 'other'),
       currency: getTrCurrency(transaction),
       period: transaction.period || 'oneTime',
-      date: typeof transaction.date === 'string' 
-        ? transaction.date 
+      date: typeof transaction.date === 'string'
+        ? transaction.date
         : toYMDLocal(new Date(transaction.date)),
       recurring: !!transaction.recurring,
       interestRate: transaction.interestRate?.toString() || ''
     });
     setShowAddModal(true);
   };
-  
+
   // Export data
   const exportData = () => {
     const dataStr = JSON.stringify(filteredTransactions, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
+    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+
     const exportFileDefaultName = `budget-export-${new Date().toISOString().split('T')[0]}.json`;
-    
+
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
   };
-  
+
   return {
     // State
     t,
@@ -1155,13 +1169,13 @@ const useBudgetController = () => {
     setProjectionYears,
     viewCurrency,
     setViewCurrency,
-    
+
     // Data
     transactions: filteredTransactions,
     analytics,
     financialInsights,
     CATEGORIES,
-    
+
     // Functions
     formatMoney,
     formatDate,
@@ -1173,7 +1187,7 @@ const useBudgetController = () => {
     openEditModal,
     handleDeleteSelected,
     exportData,
-    
+
     // Selection helpers
     selectAll: () => {
       setSelectedTransactions(new Set(filteredTransactions.map(t => t.id)));
@@ -1188,7 +1202,7 @@ const useBudgetController = () => {
 const BudgetView: React.FC = () => {
   const ctrl = useBudgetController();
   const { t } = ctrl;
-  
+
   // Chart data
   const categoryChartData = useMemo(() => {
     return Object.entries(ctrl.analytics.categoryTotals || {}).map(([key, value]) => ({
@@ -1198,7 +1212,7 @@ const BudgetView: React.FC = () => {
       fill: `${ctrl.CATEGORIES[ctrl.getCategoryKey(key)]?.color}30`
     }));
   }, [ctrl.analytics.categoryTotals, ctrl.CATEGORIES, ctrl.getCategoryKey]);
-  
+
   const cashFlowChartData = useMemo(() => {
     return (ctrl.analytics.cashFlowData || []).map((item: any) => ({
       name: item.month,
@@ -1207,7 +1221,7 @@ const BudgetView: React.FC = () => {
       balance: Number(item.balance) || 0
     }));
   }, [ctrl.analytics.cashFlowData]);
-  
+
   const projectionChartData = useMemo(() => {
     return (ctrl.analytics.projectionData || []).map((item: any) => ({
       name: item.month,
@@ -1216,7 +1230,7 @@ const BudgetView: React.FC = () => {
       pessimistic: Number(item.pessimistic) || 0
     }));
   }, [ctrl.analytics.projectionData]);
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4 md:p-6">
       {/* Header */}
@@ -1236,7 +1250,7 @@ const BudgetView: React.FC = () => {
                 </p>
               </div>
             </div>
-            
+
             {/* Currency Selector */}
             <div className="flex items-center gap-3 mt-4">
               <div className="relative group">
@@ -1254,7 +1268,7 @@ const BudgetView: React.FC = () => {
                 <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               </div>
-              
+
               <button
                 onClick={() => ctrl.setShowConverter(true)}
                 className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all flex items-center gap-2"
@@ -1262,7 +1276,7 @@ const BudgetView: React.FC = () => {
                 <RefreshCcw size={18} />
                 {t('budget.converter')}
               </button>
-              
+
               <div className="flex gap-2">
                 <button
                   onClick={() => ctrl.openAddModal('income')}
@@ -1281,7 +1295,7 @@ const BudgetView: React.FC = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Quick Stats */}
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
@@ -1310,7 +1324,7 @@ const BudgetView: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Tabs */}
         <div className="flex gap-1 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-1 border border-gray-200/50 dark:border-gray-700/50">
           {(['overview', 'transactions', 'analytics', 'planning'] as const).map(tab => (
@@ -1319,8 +1333,8 @@ const BudgetView: React.FC = () => {
               onClick={() => ctrl.setActiveTab(tab)}
               className={`
                 flex-1 px-6 py-3 rounded-xl font-semibold transition-all
-                ${ctrl.activeTab === tab 
-                  ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg' 
+                ${ctrl.activeTab === tab
+                  ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
                 }
               `}
@@ -1330,7 +1344,7 @@ const BudgetView: React.FC = () => {
           ))}
         </div>
       </div>
-      
+
       {/* Main Content */}
       <div className="max-w-7xl mx-auto">
         {/* Financial Insights */}
@@ -1358,7 +1372,7 @@ const BudgetView: React.FC = () => {
             </div>
           </motion.div>
         )}
-        
+
         {/* Overview Tab */}
         {ctrl.activeTab === 'overview' && (
           <motion.div
@@ -1397,7 +1411,7 @@ const BudgetView: React.FC = () => {
                 color="from-amber-500 to-orange-500"
               />
             </div>
-            
+
             {/* Category Breakdown */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -1449,7 +1463,7 @@ const BudgetView: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* Cash Flow Chart */}
             <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
@@ -1459,12 +1473,12 @@ const BudgetView: React.FC = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={cashFlowChartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.1} />
-                    <XAxis 
-                      dataKey="name" 
+                    <XAxis
+                      dataKey="name"
                       stroke="#9ca3af"
                       fontSize={12}
                     />
-                    <YAxis 
+                    <YAxis
                       stroke="#9ca3af"
                       fontSize={12}
                       tickFormatter={(value) => ctrl.formatMoney(value).replace(/\s/g, '')}
@@ -1505,7 +1519,7 @@ const BudgetView: React.FC = () => {
             </div>
           </motion.div>
         )}
-        
+
         {/* Transactions Tab */}
         {ctrl.activeTab === 'transactions' && (
           <motion.div
@@ -1527,7 +1541,7 @@ const BudgetView: React.FC = () => {
                     onChange={(e) => ctrl.setSearchTerm(e.target.value)}
                   />
                 </div>
-                
+
                 {/* Filter Group */}
                 <div className="flex flex-wrap gap-3">
                   <select
@@ -1540,18 +1554,17 @@ const BudgetView: React.FC = () => {
                       <option key={key} value={key}>{cat.label}</option>
                     ))}
                   </select>
-                  
+
                   <button
                     onClick={() => ctrl.setShowMasters(!ctrl.showMasters)}
-                    className={`px-4 py-3 rounded-xl border transition-all ${
-                      ctrl.showMasters
-                        ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white border-transparent'
-                        : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
-                    }`}
+                    className={`px-4 py-3 rounded-xl border transition-all ${ctrl.showMasters
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white border-transparent'
+                      : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+                      }`}
                   >
                     {ctrl.showMasters ? 'Sablonok mutatása' : 'Sablonok elrejtése'}
                   </button>
-                  
+
                   <button
                     onClick={ctrl.exportData}
                     className="px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 transition-all flex items-center gap-2"
@@ -1561,7 +1574,7 @@ const BudgetView: React.FC = () => {
                   </button>
                 </div>
               </div>
-              
+
               {/* Date Range */}
               <div className="flex gap-4 mt-4">
                 <div className="flex-1">
@@ -1583,7 +1596,7 @@ const BudgetView: React.FC = () => {
                     />
                   </div>
                 </div>
-                
+
                 {/* Bulk Actions */}
                 {ctrl.selectedTransactions.size > 0 && (
                   <div className="flex items-end">
@@ -1605,7 +1618,7 @@ const BudgetView: React.FC = () => {
                 )}
               </div>
             </div>
-            
+
             {/* Transactions List */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
               {ctrl.transactions.length === 0 ? (
@@ -1653,7 +1666,7 @@ const BudgetView: React.FC = () => {
             </div>
           </motion.div>
         )}
-        
+
         {/* Analytics Tab */}
         {ctrl.activeTab === 'analytics' && (
           <motion.div
@@ -1671,7 +1684,7 @@ const BudgetView: React.FC = () => {
                   <BarChart data={cashFlowChartData.slice(-6)}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.1} />
                     <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} />
-                    <YAxis 
+                    <YAxis
                       stroke="#9ca3af"
                       fontSize={12}
                       tickFormatter={(value) => ctrl.formatMoney(value).replace(/\s/g, '')}
@@ -1685,7 +1698,7 @@ const BudgetView: React.FC = () => {
                 </ResponsiveContainer>
               </div>
             </div>
-            
+
             {/* Category Distribution */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
@@ -1716,7 +1729,7 @@ const BudgetView: React.FC = () => {
                 </ResponsiveContainer>
               </div>
             </div>
-            
+
             {/* Monthly Comparison */}
             <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
@@ -1727,7 +1740,7 @@ const BudgetView: React.FC = () => {
                   <LineChart data={cashFlowChartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.1} />
                     <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} />
-                    <YAxis 
+                    <YAxis
                       stroke="#9ca3af"
                       fontSize={12}
                       tickFormatter={(value) => ctrl.formatMoney(value).replace(/\s/g, '')}
@@ -1767,7 +1780,7 @@ const BudgetView: React.FC = () => {
             </div>
           </motion.div>
         )}
-        
+
         {/* Planning Tab */}
         {ctrl.activeTab === 'planning' && (
           <motion.div
@@ -1821,28 +1834,28 @@ const BudgetView: React.FC = () => {
                   </div>
                 </div>
               </div>
-              
+
               {/* Projection Chart */}
               <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={projectionChartData}>
                     <defs>
                       <linearGradient id="colorProjected" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="colorOptimistic" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="colorPessimistic" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.1} />
                     <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} />
-                    <YAxis 
+                    <YAxis
                       stroke="#9ca3af"
                       fontSize={12}
                       tickFormatter={(value) => ctrl.formatMoney(Number(value)).replace(/\s/g, '')}
@@ -1878,7 +1891,7 @@ const BudgetView: React.FC = () => {
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-              
+
               {/* Projection Summary */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                 <div className="p-4 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-xl border border-emerald-500/20">
@@ -1910,7 +1923,7 @@ const BudgetView: React.FC = () => {
           </motion.div>
         )}
       </div>
-      
+
       {/* Currency Converter Modal */}
       <CurrencyConverter
         isOpen={ctrl.showConverter}
@@ -1918,7 +1931,7 @@ const BudgetView: React.FC = () => {
         baseCurrency={ctrl.currency}
         onCurrencyChange={ctrl.setCurrency}
       />
-      
+
       {/* Add/Edit Transaction Modal */}
       <AnimatePresence>
         {ctrl.showAddModal && (
@@ -1930,21 +1943,20 @@ const BudgetView: React.FC = () => {
               className="relative w-full max-w-lg bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-3xl shadow-2xl overflow-hidden"
             >
               {/* Header */}
-              <div className={`p-6 ${
-                ctrl.transactionType === 'income' 
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600' 
-                  : 'bg-gradient-to-r from-rose-500 to-pink-600'
-              }`}>
+              <div className={`p-6 ${ctrl.transactionType === 'income'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-600'
+                : 'bg-gradient-to-r from-rose-500 to-pink-600'
+                }`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-xl bg-white/20">
-                      {ctrl.transactionType === 'income' ? 
-                        <TrendingUp size={24} className="text-white" /> : 
+                      {ctrl.transactionType === 'income' ?
+                        <TrendingUp size={24} className="text-white" /> :
                         <TrendingDown size={24} className="text-white" />
                       }
                     </div>
                     <h2 className="text-2xl font-bold text-white">
-                      {ctrl.editingTransaction 
+                      {ctrl.editingTransaction
                         ? (ctrl.transactionType === 'income' ? 'Bevétel szerkesztése' : 'Kiadás szerkesztése')
                         : (ctrl.transactionType === 'income' ? 'Új bevétel' : 'Új kiadás')
                       }
@@ -1958,7 +1970,7 @@ const BudgetView: React.FC = () => {
                   </button>
                 </div>
               </div>
-              
+
               {/* Form */}
               <div className="p-6 space-y-6">
                 {/* Amount */}
@@ -1993,7 +2005,7 @@ const BudgetView: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Description */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -2007,7 +2019,7 @@ const BudgetView: React.FC = () => {
                     placeholder="Pl. Áruház vásárlás"
                   />
                 </div>
-                
+
                 {/* Category & Date */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -2038,7 +2050,7 @@ const BudgetView: React.FC = () => {
                     />
                   </div>
                 </div>
-                
+
                 {/* Frequency */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -2049,23 +2061,22 @@ const BudgetView: React.FC = () => {
                       <button
                         key={period}
                         type="button"
-                        onClick={() => ctrl.setNewTransaction(prev => ({ 
-                          ...prev, 
+                        onClick={() => ctrl.setNewTransaction(prev => ({
+                          ...prev,
                           period,
                           recurring: period !== 'oneTime'
                         }))}
-                        className={`px-4 py-3 rounded-xl border transition-all ${
-                          ctrl.newTransaction.period === period
-                            ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white border-transparent'
-                            : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
-                        }`}
+                        className={`px-4 py-3 rounded-xl border transition-all ${ctrl.newTransaction.period === period
+                          ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white border-transparent'
+                          : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+                          }`}
                       >
                         {ctrl.getPeriodLabel(period)}
                       </button>
                     ))}
                   </div>
                 </div>
-                
+
                 {/* Interest Rate (for recurring) */}
                 {ctrl.newTransaction.recurring && (
                   <div>
@@ -2086,7 +2097,7 @@ const BudgetView: React.FC = () => {
                   </div>
                 )}
               </div>
-              
+
               {/* Footer */}
               <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gradient-to-r from-gray-50/50 to-white/50 dark:from-gray-800/50 dark:to-gray-900/50">
                 <div className="flex justify-between">
@@ -2098,11 +2109,10 @@ const BudgetView: React.FC = () => {
                   </button>
                   <button
                     onClick={ctrl.handleAddTransaction}
-                    className={`px-6 py-3 font-semibold rounded-xl hover:shadow-lg transition-all ${
-                      ctrl.transactionType === 'income'
-                        ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:shadow-emerald-500/25'
-                        : 'bg-gradient-to-r from-rose-500 to-pink-600 text-white hover:shadow-rose-500/25'
-                    }`}
+                    className={`px-6 py-3 font-semibold rounded-xl hover:shadow-lg transition-all ${ctrl.transactionType === 'income'
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:shadow-emerald-500/25'
+                      : 'bg-gradient-to-r from-rose-500 to-pink-600 text-white hover:shadow-rose-500/25'
+                      }`}
                   >
                     {ctrl.editingTransaction ? 'Mentés' : 'Hozzáadás'}
                   </button>
@@ -2112,7 +2122,7 @@ const BudgetView: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
-      
+
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {ctrl.showDeleteConfirm && (
