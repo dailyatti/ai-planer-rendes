@@ -480,15 +480,22 @@ const useBudgetController = () => {
 
   // Init rates
   useEffect(() => {
-    const fn = CurrencyService?.fetchRealTimeRates;
-    if (typeof fn !== 'function') return;
+    // FIX: Call directly to preserve 'this' context
+    if (CurrencyService && typeof CurrencyService.fetchRealTimeRates === 'function') {
+      try {
+        const potentialPromise = CurrencyService.fetchRealTimeRates();
 
-    try {
-      Promise
-        .resolve(fn())
-        .catch((err) => console.warn('Currency service init failed', err));
-    } catch (err) {
-      console.warn('Currency service init crashed', err);
+        // Handle if it returns a Promise
+        if (potentialPromise instanceof Promise) {
+          potentialPromise.catch(err => console.warn('Currency init failed (async)', err));
+        }
+        // Handle if it returns an object with catch (e.g. polyfill promise)
+        else if (potentialPromise && typeof (potentialPromise as any).catch === 'function') {
+          (potentialPromise as any).catch((err: any) => console.warn('Currency init failed (async-like)', err));
+        }
+      } catch (err) {
+        console.warn('Currency init crashed (sync)', err);
+      }
     }
   }, []);
 
