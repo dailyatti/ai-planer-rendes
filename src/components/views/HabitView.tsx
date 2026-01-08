@@ -1,807 +1,1118 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Plus, Trash2, Check, Clock,
-    Edit2, X,
-    Sun, Moon, Sunrise, Coffee,
-    CheckCircle, Activity, TrendingUp, Flame, Award
+  Plus,
+  Trash2,
+  Edit2,
+  X,
+  Search,
+  Archive,
+  Flame,
+  Activity,
+  Award,
+  CheckCircle2,
+  Undo2,
+  SlidersHorizontal,
+  Sparkles,
+  Calendar,
 } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 /* =====================================================================================
-  Habit Lab Pro Redesign (PhD Level)
-  - Advanced Analytics & Visualization (Heatmap, Mastery Ring)
-  - GitHub-style Contribution Graph
-  - Full I18n Support
+  HABIT STUDIO (Redesign v3)
+  - NO "check-in / bejelentkezés" UX. Instead: "Gyakorlás" + Mastery slider.
+  - Instant feedback: today stats, streaks, heatmap, weekly micro chart.
+  - Fully localStorage-based with migration from old v2 (checkins).
 ===================================================================================== */
 
 /* -------------------------------- Types -------------------------------- */
 
-type HabitFrequency = 'daily' | 'weekly';
-type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'anytime';
-type EffortLevel = 'easy' | 'medium' | 'hard';
+type HabitCadence = 'daily' | 'weekly';
 
-type HabitCheckin = {
-    dateISO: string;
-    completed: boolean;
-    effort?: EffortLevel;
-    note?: string;
-    timestamp: number;
+type HabitPracticeDay = {
+  count: number;         // how many times practiced that day (default 1)
+  lastTs: number;        // last practice timestamp
+  note?: string;         // optional quick note (last one)
 };
 
-type Habit = {
-    id: string;
-    name: string;
-    description?: string;
-    frequency: HabitFrequency;
-    timeOfDay: TimeOfDay;
-    exactTime?: string; // HH:mm
-    createdAtISO: string;
-    checkins: Record<string, HabitCheckin>; // keyed by YYYY-MM-DD
-    color?: string;
-    archived?: boolean;
-    isMastered?: boolean;
-    targetDays?: number; // Default 66
+type HabitV3 = {
+  id: string;
+  name: string;
+  description?: string;
+  cadence: HabitCadence;
+  weeklyTarget: number;      // if cadence = weekly
+  color: string;             // tailwind-ish token we map to classes
+  createdAtISO: string;
+
+  mastery: number;           // 0..100 (user-controlled)
+  archived: boolean;
+  mastered: boolean;         // optional flag (user can mark or auto when mastery=100)
+
+  practices: Record<string, HabitPracticeDay>; // key: YYYY-MM-DD
 };
 
-// --- Storage Keys ---
-const STORAGE_V2 = 'planner.habits.v2';
-const STORAGE_V1 = 'planner.statistics.habits.v1';
+type ViewTab = 'active' | 'archived' | 'mastered';
+
+/* -------------------------------- Storage -------------------------------- */
+
+const STORAGE_V3 = 'planner.habits.v3';
+const STORAGE_V2 = 'planner.habits.v2'; // your current one
+const STORAGE_V1 = 'planner.statistics.habits.v1'; // legacy
 
 /* -------------------------------- Utils -------------------------------- */
+
+const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const toISODate = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
-// Robust streak calculation
-const getStreakStats = (habit: Habit, todayISO: string) => {
-    let currentStreak = 0;
-    let bestStreak = 0;
-    let tempStreak = 0;
-
-    // Sort dates to be sure
-    const sortedDates = Object.keys(habit.checkins).sort();
-
-    // Calculate Best Streak
-    if (sortedDates.length > 0) {
-        let lastDate = new Date(sortedDates[0]);
-        tempStreak = 1;
-
-        for (let i = 1; i < sortedDates.length; i++) {
-            const currentDate = new Date(sortedDates[i]);
-            const diffTime = Math.abs(currentDate.getTime() - lastDate.getTime());
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            if (diffDays === 1) {
-                tempStreak++;
-            } else {
-                bestStreak = Math.max(bestStreak, tempStreak);
-                tempStreak = 1;
-            }
-            lastDate = currentDate;
-        }
-        bestStreak = Math.max(bestStreak, tempStreak);
-    }
-
-    // Calculate Current Streak
-    const d = new Date(todayISO);
-    // Check today or yesterday for current streak continuity
-    if (habit.checkins[todayISO]?.completed) {
-        currentStreak = 1;
-    }
-
-    // Backwards checker
-    for (let i = 1; i < 365; i++) { // Limit lookback
-        const prev = new Date(d);
-        prev.setDate(prev.getDate() - i);
-        const iso = toISODate(prev);
-        if (habit.checkins[iso]?.completed) {
-            currentStreak++;
-        } else if (i === 1 && !habit.checkins[todayISO]?.completed) {
-            // If today is not done, but yesterday was, streak is alive
-            // Continue loop to count
-        } else {
-            // Break if gap found (and not just today missing)
-            const yesterdayISO = toISODate(new Date(new Date(todayISO).setDate(new Date(todayISO).getDate() - 1)));
-            if (i === 1 && iso === yesterdayISO && !habit.checkins[iso]?.completed) {
-                // Streak broken if yesterday missing
-                currentStreak = 0;
-                break;
-            } else if (i > 1) {
-                break;
-            }
-        }
-    }
-    // If today is not checked and yesterday is not checked, streak is 0
-    const yest = new Date(d);
-    yest.setDate(yest.getDate() - 1);
-    if (!habit.checkins[todayISO]?.completed && !habit.checkins[toISODate(yest)]?.completed) {
-        currentStreak = 0;
-    }
-
-    return { currentStreak, bestStreak };
+const uid = () => {
+  // stable-ish id without external deps
+  const a = Math.random().toString(36).slice(2);
+  const b = Date.now().toString(36);
+  return `${b}-${a}`.slice(0, 18);
 };
 
-/* -------------------------------- Sub-Components -------------------------------- */
+const safeJsonParse = <T,>(s: string | null): T | null => {
+  if (!s) return null;
+  try { return JSON.parse(s) as T; } catch { return null; }
+};
 
-// 1. Mastery Ring Check
-const MasteryRing: React.FC<{ progress: number; size?: number }> = ({ progress, size = 60 }) => {
-    const strokeWidth = 4;
-    const radius = (size - strokeWidth) / 2;
-    const circumference = radius * 2 * Math.PI;
-    const offset = circumference - (progress / 100) * circumference;
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const diffDays = (a: Date, b: Date) => {
+  const A = startOfDay(a).getTime();
+  const B = startOfDay(b).getTime();
+  return Math.round((A - B) / (1000 * 60 * 60 * 24));
+};
 
-    return (
-        <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
-            <svg className="transform -rotate-90 w-full h-full">
-                <circle
-                    className="text-gray-200 dark:text-gray-700"
-                    strokeWidth={strokeWidth}
-                    stroke="currentColor"
-                    fill="transparent"
-                    r={radius}
-                    cx={size / 2}
-                    cy={size / 2}
+// Streak based on "did practice at least once that day"
+const computeStreaks = (practices: Record<string, HabitPracticeDay>, todayISO: string) => {
+  const days = Object.keys(practices).filter(k => practices[k]?.count > 0).sort();
+  if (days.length === 0) return { current: 0, best: 0, totalDays: 0 };
+
+  // best streak
+  let best = 1;
+  let run = 1;
+
+  for (let i = 1; i < days.length; i++) {
+    const prev = new Date(days[i - 1]);
+    const cur = new Date(days[i]);
+    const d = diffDays(cur, prev);
+    if (d === 1) run++;
+    else run = 1;
+    best = Math.max(best, run);
+  }
+
+  // current streak: from today backwards (today counts if practiced today)
+  const today = new Date(todayISO);
+  let current = 0;
+
+  for (let i = 0; i < 365; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const iso = toISODate(d);
+    if (practices[iso]?.count > 0) current++;
+    else break;
+  }
+
+  const totalDays = days.length;
+  return { current, best, totalDays };
+};
+
+const lastNDays = (n: number, todayISO: string) => {
+  const today = new Date(todayISO);
+  const out: { iso: string; date: Date; label: string }[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const iso = toISODate(d);
+    const label = d.toLocaleDateString(undefined, { weekday: 'narrow' });
+    out.push({ iso, date: d, label });
+  }
+  return out;
+};
+
+const COLORS = [
+  { key: 'blue',   ring: 'from-blue-500 to-cyan-400',   badge: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300' },
+  { key: 'green',  ring: 'from-emerald-500 to-lime-400',badge: 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300' },
+  { key: 'purple', ring: 'from-purple-500 to-pink-400', badge: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300' },
+  { key: 'orange', ring: 'from-orange-500 to-amber-300',badge: 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300' },
+  { key: 'teal',   ring: 'from-teal-500 to-cyan-300',   badge: 'bg-teal-50 text-teal-700 dark:bg-teal-900/20 dark:text-teal-300' },
+  { key: 'rose',   ring: 'from-rose-500 to-pink-300',   badge: 'bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300' },
+] as const;
+
+const colorMeta = (key: string) => COLORS.find(c => c.key === key) ?? COLORS[0];
+
+/* -------------------------------- Migration (v2 -> v3) --------------------------------
+   v2 Habit had: checkins: Record<YYYY-MM-DD, { completed, note?, timestamp, effort? }>
+   We'll migrate completed days into practices[iso] = {count: 1, lastTs, note}
+   Also approximate mastery from total completed / targetDays (default 66), but user can edit later.
+------------------------------------------------------------------------------------------ */
+
+type HabitV2 = {
+  id: string;
+  name: string;
+  description?: string;
+  frequency: 'daily' | 'weekly';
+  timeOfDay?: any;
+  exactTime?: string;
+  createdAtISO: string;
+  checkins: Record<string, { dateISO: string; completed: boolean; note?: string; timestamp: number }>;
+  color?: string;
+  archived?: boolean;
+  isMastered?: boolean;
+  targetDays?: number;
+};
+
+const migrateV2ToV3 = (v2: HabitV2[]): HabitV3[] => {
+  const out: HabitV3[] = v2.map((h) => {
+    const practices: Record<string, HabitPracticeDay> = {};
+    const dates = Object.keys(h.checkins ?? {});
+    let completedCount = 0;
+
+    for (const iso of dates) {
+      const c = h.checkins[iso];
+      if (c?.completed) {
+        completedCount++;
+        practices[iso] = {
+          count: 1,
+          lastTs: typeof c.timestamp === 'number' ? c.timestamp : Date.now(),
+          note: c.note || undefined,
+        };
+      }
+    }
+
+    const target = clamp(h.targetDays ?? 66, 7, 365);
+    const masteryApprox = clamp((completedCount / target) * 100, 0, 100);
+
+    return {
+      id: h.id || uid(),
+      name: h.name || 'Untitled',
+      description: h.description || '',
+      cadence: (h.frequency === 'weekly' ? 'weekly' : 'daily'),
+      weeklyTarget: 5,
+      color: (h.color && COLORS.some(c => c.key === h.color)) ? h.color : 'blue',
+      createdAtISO: h.createdAtISO || toISODate(new Date()),
+      mastery: Math.round(masteryApprox),
+      archived: !!h.archived,
+      mastered: !!h.isMastered,
+      practices,
+    };
+  });
+
+  // de-dupe ids
+  const seen = new Set<string>();
+  return out.map(h => {
+    if (!h.id || seen.has(h.id)) h.id = uid();
+    seen.add(h.id);
+    return h;
+  });
+};
+
+/* -------------------------------- UI Bits -------------------------------- */
+
+const GlassCard: React.FC<{ className?: string; children: React.ReactNode }> = ({ className = '', children }) => (
+  <div className={`rounded-3xl border border-gray-200/70 dark:border-gray-700/70 bg-white/90 dark:bg-gray-900/50 backdrop-blur-xl shadow-sm ${className}`}>
+    {children}
+  </div>
+);
+
+const MetricCard: React.FC<{ icon: React.ReactNode; title: string; value: React.ReactNode; hint?: string }> = ({ icon, title, value, hint }) => (
+  <GlassCard className="p-4">
+    <div className="flex items-center gap-3">
+      <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <div className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">{title}</div>
+        <div className="text-2xl font-black text-gray-900 dark:text-white leading-tight">{value}</div>
+        {hint && <div className="text-xs text-gray-400 mt-1">{hint}</div>}
+      </div>
+    </div>
+  </GlassCard>
+);
+
+const Ring: React.FC<{ value: number; colorKey: string; size?: number }> = ({ value, colorKey, size = 44 }) => {
+  const stroke = 5;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const pct = clamp(value, 0, 100);
+  const offset = c - (pct / 100) * c;
+  const meta = colorMeta(colorKey);
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg className="w-full h-full -rotate-90">
+        <circle r={r} cx={size / 2} cy={size / 2} strokeWidth={stroke} fill="transparent" className="text-gray-200 dark:text-gray-700" stroke="currentColor" />
+        <circle
+          r={r}
+          cx={size / 2}
+          cy={size / 2}
+          strokeWidth={stroke}
+          fill="transparent"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={offset}
+          className="transition-all duration-700 ease-out"
+          stroke="currentColor"
+          style={{
+            // using currentColor but we set via wrapper gradient text trick
+            // We'll fake it with a simple class switch:
+          }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className={`text-[11px] font-black text-transparent bg-clip-text bg-gradient-to-br ${meta.ring}`}>
+          {Math.round(pct)}%
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Heatmap: React.FC<{ habits: HabitV3[]; todayISO: string; weeks?: number; title: string; subtitle?: string }> = ({
+  habits,
+  todayISO,
+  weeks = 18,
+  title,
+  subtitle
+}) => {
+  const grid = useMemo(() => {
+    const end = new Date(todayISO);
+    const cols: { iso: string; intensity: number; tip: string }[][] = [];
+
+    for (let w = 0; w < weeks; w++) {
+      const col: { iso: string; intensity: number; tip: string }[] = [];
+      for (let d = 0; d < 7; d++) {
+        const date = new Date(end);
+        date.setDate(end.getDate() - ((weeks - 1 - w) * 7 + (6 - d)));
+        const iso = toISODate(date);
+
+        const active = habits.filter(h => !h.archived && !h.mastered && new Date(h.createdAtISO) <= date);
+        const activeCount = active.length;
+        const doneCount = active.reduce((acc, h) => acc + ((h.practices[iso]?.count ?? 0) > 0 ? 1 : 0), 0);
+
+        let intensity = 0;
+        if (activeCount > 0 && doneCount > 0) {
+          const ratio = doneCount / activeCount;
+          if (ratio >= 0.8) intensity = 3;
+          else if (ratio >= 0.5) intensity = 2;
+          else intensity = 1;
+        }
+
+        const tip = `${iso} • ${doneCount}/${activeCount} szokás megvolt`;
+        col.push({ iso, intensity, tip });
+      }
+      cols.push(col);
+    }
+    return cols;
+  }, [habits, todayISO, weeks]);
+
+  const cellClass = (i: number) => {
+    if (i === 0) return 'bg-gray-100 dark:bg-gray-800';
+    if (i === 1) return 'bg-emerald-200 dark:bg-emerald-900/35';
+    if (i === 2) return 'bg-emerald-400 dark:bg-emerald-600/80';
+    return 'bg-emerald-600 dark:bg-emerald-400 shadow-sm shadow-emerald-500/20';
+  };
+
+  return (
+    <GlassCard className="p-5">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          <div className="text-base font-black text-gray-900 dark:text-white flex items-center gap-2">
+            <Activity className="w-4 h-4 text-emerald-500" />
+            {title}
+          </div>
+          {subtitle && <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{subtitle}</div>}
+        </div>
+        <div className="flex items-center gap-1 text-[10px] text-gray-400 shrink-0">
+          <span>kevesebb</span>
+          <span className="w-3 h-3 rounded-[3px] bg-gray-100 dark:bg-gray-800 inline-block" />
+          <span className="w-3 h-3 rounded-[3px] bg-emerald-200 dark:bg-emerald-900/35 inline-block" />
+          <span className="w-3 h-3 rounded-[3px] bg-emerald-400 dark:bg-emerald-600/80 inline-block" />
+          <span className="w-3 h-3 rounded-[3px] bg-emerald-600 dark:bg-emerald-400 inline-block" />
+          <span>több</span>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto pb-1">
+        <div className="flex gap-1 min-w-max">
+          {grid.map((col, i) => (
+            <div key={i} className="flex flex-col gap-1">
+              {col.map(cell => (
+                <div
+                  key={cell.iso}
+                  title={cell.tip}
+                  className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-[4px] transition-colors ${cellClass(cell.intensity)}`}
                 />
-                <circle
-                    className="text-yellow-500 transition-all duration-1000 ease-out"
-                    strokeWidth={strokeWidth}
-                    strokeDasharray={circumference}
-                    strokeDashoffset={offset}
-                    strokeLinecap="round"
-                    stroke="currentColor"
-                    fill="transparent"
-                    r={radius}
-                    cx={size / 2}
-                    cy={size / 2}
-                />
-            </svg>
-            <div className="absolute text-[10px] font-bold text-gray-600 dark:text-gray-300">
-                {Math.round(progress)}%
+              ))}
             </div>
+          ))}
         </div>
-    );
+      </div>
+    </GlassCard>
+  );
 };
 
-// 2. Weekly Progress Bar
-const WeeklyProgress: React.FC<{ habit: Habit; todayISO: string }> = ({ habit, todayISO }) => {
-    const days = [];
-    const today = new Date(todayISO);
+const WeeklyMicroBars: React.FC<{ habit: HabitV3; todayISO: string }> = ({ habit, todayISO }) => {
+  const days = useMemo(() => lastNDays(7, todayISO), [todayISO]);
+  const max = Math.max(1, ...days.map(d => habit.practices[d.iso]?.count ?? 0));
 
-    // Generate last 7 days
-    for (let i = 6; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        days.push({
-            date: d,
-            iso: toISODate(d),
-            dayName: d.toLocaleDateString(undefined, { weekday: 'narrow' }) // M, T, W...
-        });
-    }
+  return (
+    <div className="flex items-end justify-between gap-1 h-10">
+      {days.map((d) => {
+        const v = habit.practices[d.iso]?.count ?? 0;
+        const h = Math.max(2, Math.round((v / max) * 36));
+        const isToday = d.iso === todayISO;
 
-    return (
-        <div className="flex justify-between items-end h-16 w-full gap-1">
-            {days.map((day, i) => {
-                const isDone = !!habit.checkins[day.iso]?.completed;
-                const isToday = day.iso === todayISO;
-
-                return (
-                    <div key={day.iso} className="flex flex-col items-center gap-1 flex-1">
-                        <div className={`
-                            w-full rounded-sm transition-all duration-500 relative
-                            ${isDone
-                                ? 'bg-blue-500 dark:bg-blue-500 h-8 shadow-sm'
-                                : 'bg-gray-100 dark:bg-gray-700 h-1'}
-                            ${isToday && !isDone ? 'animate-pulse bg-blue-200 dark:bg-blue-900/50 h-4' : ''}
-                        `}>
-                            {isDone && (
-                                <motion.div
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    className="absolute inset-0 bg-blue-400 opacity-20"
-                                />
-                            )}
-                        </div>
-                        <span className={`text-[9px] font-bold uppercase ${isToday ? 'text-blue-500' : 'text-gray-400'}`}>
-                            {day.dayName}
-                        </span>
-                    </div>
-                );
-            })}
-        </div>
-    );
+        return (
+          <div key={d.iso} className="flex flex-col items-center gap-1 flex-1">
+            <div
+              title={`${d.iso}: ${v} gyakorlás`}
+              className={`w-full rounded-md transition-all ${v > 0 ? 'bg-gray-900 dark:bg-white' : 'bg-gray-200 dark:bg-gray-700'} ${isToday ? 'ring-2 ring-blue-500/30' : ''}`}
+              style={{ height: v > 0 ? h : 6 }}
+            />
+            <div className={`text-[9px] font-bold uppercase ${isToday ? 'text-blue-500' : 'text-gray-400'}`}>
+              {d.label}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 };
-
-// 3. Global Stats Data
-const GlobalStats: React.FC<{ habits: Habit[]; t: any }> = ({ habits, t }) => {
-    const todayISO = toISODate(new Date());
-
-    // Aggregate stats
-    const totalHabits = habits.filter(h => !h.archived && !h.isMastered).length;
-    const completedToday = habits.filter(h => h.checkins[todayISO]?.completed).length;
-    const completionRate = totalHabits > 0 ? (completedToday / totalHabits) * 100 : 0;
-
-    // Find best streak among all active habits
-    const bestActiveStreak = Math.min(Math.max(...habits.filter(h => !h.isMastered).map(h => getStreakStats(h, todayISO).currentStreak), 0), 999);
-
-    return (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="card p-4 flex items-center gap-4">
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-500">
-                    <CheckCircle size={24} />
-                </div>
-                <div>
-                    <h3 className="text-2xl font-bold">{completedToday}/{totalHabits}</h3>
-                    <p className="text-xs text-gray-500">{t('habits.dailyProgress') || 'Daily Goal'}</p>
-                </div>
-            </div>
-
-            <div className="card p-4 flex items-center gap-4">
-                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-xl text-green-500">
-                    <TrendingUp size={24} />
-                </div>
-                <div>
-                    <h3 className="text-2xl font-bold">{Math.round(completionRate)}%</h3>
-                    <p className="text-xs text-gray-500">{t('habits.completionRate')}</p>
-                </div>
-            </div>
-
-            <div className="card p-4 flex items-center gap-4">
-                <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl text-orange-500">
-                    <Flame size={24} />
-                </div>
-                <div>
-                    <h3 className="text-2xl font-bold">{bestActiveStreak}</h3>
-                    <p className="text-xs text-gray-500">{t('habits.bestStreak')}</p>
-                </div>
-            </div>
-
-            <div className="card p-4 flex items-center gap-4">
-                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-xl text-purple-500">
-                    <Award size={24} />
-                </div>
-                <div>
-                    <h3 className="text-2xl font-bold">{habits.filter(h => h.isMastered).length}</h3>
-                    <p className="text-xs text-gray-500">{t('habits.mastery')}</p>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// 4. Global Heatmap Component
-const GlobalHeatmap: React.FC<{ habits: Habit[]; t: any }> = ({ habits, t }) => {
-    // Generate last 20 weeks
-    const weeks = 20;
-    const endDate = new Date();
-
-    // Create grid columns (weeks)
-    const grid = useMemo(() => {
-        const data = [];
-        for (let w = 0; w < weeks; w++) {
-            const weekData = [];
-            for (let d = 0; d < 7; d++) {
-                const date = new Date();
-                date.setDate(endDate.getDate() - ((weeks - 1 - w) * 7 + (6 - d)));
-                const iso = toISODate(date);
-
-                // Calculate intensity for this date across all habits
-                const totalCheckins = habits.reduce((acc, h) => acc + (h.checkins[iso]?.completed ? 1 : 0), 0);
-                const activeHabitsCount = habits.filter(h => !h.isMastered && !h.archived && new Date(h.createdAtISO) <= date).length;
-
-                // Intensity: 0=none, 1=low, 2=med, 3=high
-                let intensity = 0;
-                if (totalCheckins > 0) {
-                    const ratio = activeHabitsCount > 0 ? totalCheckins / activeHabitsCount : 0;
-                    if (ratio >= 0.8) intensity = 3;
-                    else if (ratio >= 0.5) intensity = 2;
-                    else intensity = 1;
-                }
-
-                weekData.push({ date, iso, intensity, totalCheckins, activeHabitsCount });
-            }
-            data.push(weekData);
-        }
-        return data;
-    }, [habits]);
-
-    return (
-        <div className="card mb-8 p-6 overflow-hidden">
-            <div className="flex items-center justify-between mb-4">
-                <h4 className="text-base font-bold flex items-center gap-2">
-                    <Activity size={18} className="text-blue-500" />
-                    {t('habits.heatmap.title')}
-                </h4>
-                <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                    <span>Less</span>
-                    <div className="w-3 h-3 bg-gray-100 dark:bg-gray-700 rounded-[2px]" />
-                    <div className="w-3 h-3 bg-green-200 dark:bg-green-900/40 rounded-[2px]" />
-                    <div className="w-3 h-3 bg-green-400 dark:bg-green-600 rounded-[2px]" />
-                    <div className="w-3 h-3 bg-green-600 dark:bg-green-400 rounded-[2px]" />
-                    <span>More</span>
-                </div>
-            </div>
-
-            <div className="overflow-x-auto hide-scrollbar pb-2">
-                <div className="flex gap-1 min-w-max">
-                    {grid.map((week, i) => (
-                        <div key={i} className="flex flex-col gap-1">
-                            {week.map((day) => (
-                                <div
-                                    key={day.iso}
-                                    title={`${day.iso}: ${day.totalCheckins} / ${day.activeHabitsCount} completed`}
-                                    className={`
-                                        w-3 h-3 md:w-4 md:h-4 rounded-[3px] transition-colors
-                                        ${day.intensity === 0 ? 'bg-gray-100 dark:bg-gray-700' : ''}
-                                        ${day.intensity === 1 ? 'bg-green-200 dark:bg-green-900/40' : ''}
-                                        ${day.intensity === 2 ? 'bg-green-400 dark:bg-green-600' : ''}
-                                        ${day.intensity === 3 ? 'bg-green-600 dark:bg-green-400 shadow-sm shadow-green-500/20' : ''}
-                                    `}
-                                />
-                            ))}
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-};
-
 
 /* -------------------------------- Main Component -------------------------------- */
 
 const HabitView: React.FC = () => {
-    const { t } = useLanguage();
-    const [habits, setHabits] = useState<Habit[]>([]);
-    const [filterTime, setFilterTime] = useState<TimeOfDay | 'all'>('all');
+  const { t } = useLanguage();
+  const todayISO = toISODate(new Date());
 
-    // Modals
-    const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
-    const [checkinHabit, setCheckinHabit] = useState<Habit | null>(null);
+  const [habits, setHabits] = useState<HabitV3[]>([]);
+  const [tab, setTab] = useState<ViewTab>('active');
 
-    // Form State
-    const [formData, setFormData] = useState<Partial<Habit>>({
-        name: '',
-        timeOfDay: 'anytime',
-        frequency: 'daily',
-        exactTime: ''
+  const [query, setQuery] = useState('');
+  const [onlyDueToday, setOnlyDueToday] = useState(false);
+
+  // Create/Edit sheet
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [editing, setEditing] = useState<HabitV3 | null>(null);
+
+  const [draft, setDraft] = useState<Partial<HabitV3>>({
+    name: '',
+    description: '',
+    cadence: 'daily',
+    weeklyTarget: 5,
+    color: 'blue',
+    mastery: 10,
+  });
+
+  // Quick note input per habit card (lightweight)
+  const noteRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  /* ----------------------------- Load + Migration ----------------------------- */
+
+  useEffect(() => {
+    const v3 = safeJsonParse<HabitV3[]>(localStorage.getItem(STORAGE_V3));
+    if (v3 && Array.isArray(v3)) {
+      setHabits(v3);
+      return;
+    }
+
+    // migrate from v2 if exists
+    const v2 = safeJsonParse<HabitV2[]>(localStorage.getItem(STORAGE_V2));
+    if (v2 && Array.isArray(v2)) {
+      const migrated = migrateV2ToV3(v2);
+      localStorage.setItem(STORAGE_V3, JSON.stringify(migrated));
+      setHabits(migrated);
+      return;
+    }
+
+    // legacy v1 ignored (structure unknown) — keep empty
+    const v1 = localStorage.getItem(STORAGE_V1);
+    if (v1) {
+      // If you want: implement extra migration later.
+      // For now: do nothing safely.
+    }
+
+    setHabits([]);
+  }, []);
+
+  const persist = (next: HabitV3[]) => {
+    setHabits(next);
+    localStorage.setItem(STORAGE_V3, JSON.stringify(next));
+  };
+
+  /* ----------------------------- Derived + Dashboard ----------------------------- */
+
+  const activeHabits = useMemo(() => habits.filter(h => !h.archived && !h.mastered), [habits]);
+  const archivedHabits = useMemo(() => habits.filter(h => h.archived), [habits]);
+  const masteredHabits = useMemo(() => habits.filter(h => h.mastered), [habits]);
+
+  const practicedToday = useMemo(() => {
+    return activeHabits.reduce((acc, h) => acc + ((h.practices[todayISO]?.count ?? 0) > 0 ? 1 : 0), 0);
+  }, [activeHabits, todayISO]);
+
+  const avgMastery = useMemo(() => {
+    if (activeHabits.length === 0) return 0;
+    const s = activeHabits.reduce((acc, h) => acc + clamp(h.mastery ?? 0, 0, 100), 0);
+    return s / activeHabits.length;
+  }, [activeHabits]);
+
+  const bestStreakAll = useMemo(() => {
+    const s = activeHabits.map(h => computeStreaks(h.practices, todayISO).current);
+    return s.length ? Math.max(...s) : 0;
+  }, [activeHabits, todayISO]);
+
+  /* ----------------------------- Filters ----------------------------- */
+
+  const visibleBase = useMemo(() => {
+    const list =
+      tab === 'active' ? activeHabits :
+      tab === 'archived' ? archivedHabits :
+      masteredHabits;
+
+    const q = query.trim().toLowerCase();
+
+    let out = list.filter(h => {
+      if (!q) return true;
+      return (h.name ?? '').toLowerCase().includes(q) || (h.description ?? '').toLowerCase().includes(q);
     });
 
-    // Checkin Form
-    const [checkinData, setCheckinData] = useState<{ effort: EffortLevel; note: string }>({
-        effort: 'easy',
-        note: ''
+    if (onlyDueToday && tab === 'active') {
+      out = out.filter(h => (h.practices[todayISO]?.count ?? 0) === 0);
+    }
+
+    // sort: not practiced today first, then higher priority (lower mastery)
+    if (tab === 'active') {
+      out = out.sort((a, b) => {
+        const aDone = (a.practices[todayISO]?.count ?? 0) > 0;
+        const bDone = (b.practices[todayISO]?.count ?? 0) > 0;
+        if (aDone !== bDone) return aDone ? 1 : -1;
+        return (a.mastery ?? 0) - (b.mastery ?? 0);
+      });
+    } else {
+      out = out.sort((a, b) => (b.mastery ?? 0) - (a.mastery ?? 0));
+    }
+
+    return out;
+  }, [tab, activeHabits, archivedHabits, masteredHabits, query, onlyDueToday, todayISO]);
+
+  /* ----------------------------- Actions ----------------------------- */
+
+  const openCreate = () => {
+    setEditing(null);
+    setDraft({
+      name: '',
+      description: '',
+      cadence: 'daily',
+      weeklyTarget: 5,
+      color: 'blue',
+      mastery: 10,
     });
+    setSheetOpen(true);
+  };
 
-    /* --- Data Loading --- */
-    useEffect(() => {
-        const loadHabits = () => {
-            try {
-                const stored = localStorage.getItem(STORAGE_V2);
-                if (stored) {
-                    const parsed = JSON.parse(stored);
-                    setHabits(parsed);
-                } else {
-                    // Fallback: check V1 or init empty
-                    const v1 = localStorage.getItem(STORAGE_V1);
-                    if (v1) {
-                        // ... migration logic simplified
-                    }
-                }
-            } catch (e) { console.error(e); }
-        };
-        loadHabits();
-    }, []);
+  const openEdit = (h: HabitV3) => {
+    setEditing(h);
+    setDraft({ ...h });
+    setSheetOpen(true);
+  };
 
-    const saveHabits = (newHabits: Habit[]) => {
-        setHabits(newHabits);
-        localStorage.setItem(STORAGE_V2, JSON.stringify(newHabits));
+  const saveDraft = () => {
+    const name = (draft.name ?? '').trim();
+    if (!name) return;
+
+    const nextBase: HabitV3 = {
+      id: editing?.id ?? uid(),
+      name,
+      description: (draft.description ?? '').trim(),
+      cadence: (draft.cadence ?? 'daily') as HabitCadence,
+      weeklyTarget: clamp(Number(draft.weeklyTarget ?? 5), 1, 14),
+      color: (draft.color && COLORS.some(c => c.key === draft.color)) ? (draft.color as string) : 'blue',
+      createdAtISO: editing?.createdAtISO ?? toISODate(new Date()),
+      mastery: clamp(Number(draft.mastery ?? 10), 0, 100),
+      archived: editing?.archived ?? false,
+      mastered: editing?.mastered ?? false,
+      practices: editing?.practices ?? {},
     };
 
-    /* --- Logic --- */
-    const todayISO = toISODate(new Date());
+    const next = editing
+      ? habits.map(h => h.id === editing.id ? { ...h, ...nextBase } : h)
+      : [nextBase, ...habits];
 
-    const handleCreateOrUpdate = () => {
-        if (!formData.name) return;
+    persist(next);
+    setSheetOpen(false);
+    setEditing(null);
+  };
 
-        if (editingHabit) {
-            const updated = habits.map(h => h.id === editingHabit.id ? { ...h, ...formData } : h) as Habit[];
-            saveHabits(updated);
-        } else {
-            const newHabit: Habit = {
-                id: Math.random().toString(36).substr(2, 9),
-                name: formData.name!,
-                description: formData.description || '',
-                frequency: formData.frequency as HabitFrequency || 'daily',
-                timeOfDay: formData.timeOfDay as TimeOfDay || 'anytime',
-                createdAtISO: toISODate(new Date()),
-                checkins: {},
-                color: formData.color,
-                targetDays: 66
-            };
-            saveHabits([...habits, newHabit]);
+  const removeHabit = (id: string) => {
+    // keep it simple but safe
+    const next = habits.filter(h => h.id !== id);
+    persist(next);
+  };
+
+  const toggleArchive = (id: string) => {
+    const next = habits.map(h => h.id === id ? { ...h, archived: !h.archived, mastered: h.mastered && !h.archived ? h.mastered : h.mastered } : h);
+    persist(next);
+  };
+
+  const toggleMastered = (id: string) => {
+    const next = habits.map(h => h.id === id ? { ...h, mastered: !h.mastered, archived: false } : h);
+    persist(next);
+  };
+
+  const setMastery = (id: string, mastery: number) => {
+    const m = clamp(mastery, 0, 100);
+    const next = habits.map(h => h.id === id ? { ...h, mastery: m, mastered: h.mastered || m === 100 } : h);
+    persist(next);
+  };
+
+  const practiceOnce = (id: string, note?: string) => {
+    const next = habits.map(h => {
+      if (h.id !== id) return h;
+      const existing = h.practices[todayISO];
+      const count = (existing?.count ?? 0) + 1;
+      const cleanNote = note?.trim();
+      return {
+        ...h,
+        practices: {
+          ...h.practices,
+          [todayISO]: {
+            count,
+            lastTs: Date.now(),
+            note: cleanNote ? cleanNote : existing?.note,
+          }
         }
-        setIsCreateOpen(false);
-        setEditingHabit(null);
-        setFormData({ name: '', timeOfDay: 'anytime', frequency: 'daily' });
-    };
+      };
+    });
+    persist(next);
+  };
 
-    const deleteHabit = (id: string) => {
-        if (window.confirm(t('habits.deleteConfirm') || 'Are you sure?')) {
-            saveHabits(habits.filter(h => h.id !== id));
-        }
-    };
+  const undoPractice = (id: string) => {
+    const next = habits.map(h => {
+      if (h.id !== id) return h;
+      const existing = h.practices[todayISO];
+      if (!existing) return h;
 
-    const toggleCheckin = (habit: Habit, dateISO: string) => {
-        const isDone = !!habit.checkins[dateISO]?.completed;
-        if (isDone) {
-            // Undo
-            const updatedCheckins = { ...habit.checkins };
-            delete updatedCheckins[dateISO];
-            saveHabits(habits.map(h => h.id === habit.id ? { ...h, checkins: updatedCheckins } : h));
-        } else {
-            // Open Modal
-            setCheckinHabit(habit);
-            setCheckinData({ effort: 'easy', note: '' });
-        }
-    };
+      const newCount = (existing.count ?? 0) - 1;
+      const practices = { ...h.practices };
+      if (newCount <= 0) delete practices[todayISO];
+      else practices[todayISO] = { ...existing, count: newCount, lastTs: Date.now() };
 
-    const confirmCheckin = () => {
-        if (!checkinHabit) return;
-        const dateISO = todayISO;
-        const updated = habits.map(h => {
-            if (h.id === checkinHabit.id) {
-                return {
-                    ...h,
-                    checkins: {
-                        ...h.checkins,
-                        [dateISO]: {
-                            dateISO,
-                            completed: true,
-                            effort: checkinData.effort,
-                            note: checkinData.note,
-                            timestamp: Date.now()
-                        }
-                    }
-                };
-            }
-            return h;
-        });
-        saveHabits(updated);
-        setCheckinHabit(null);
-    };
+      return { ...h, practices };
+    });
+    persist(next);
+  };
 
-    // Filtering
-    const filteredHabits = useMemo(() => {
-        let list = habits.filter(h => !h.isMastered && !h.archived);
-        if (filterTime !== 'all') {
-            list = list.filter(h => h.timeOfDay === filterTime);
-        }
-        // Sort logic
-        return list.sort((a, b) => {
-            // Priority to not done today
-            const aDone = !!a.checkins[todayISO]?.completed;
-            const bDone = !!b.checkins[todayISO]?.completed;
-            if (aDone !== bDone) return aDone ? 1 : -1;
+  /* ----------------------------- Copy for i18n fallback ----------------------------- */
 
-            // Then by time
-            if (a.exactTime && b.exactTime) return a.exactTime.localeCompare(b.exactTime);
-            return 0;
-        });
-    }, [habits, filterTime, todayISO]);
+  const TT = (k: string, fb: string) => (t?.(k) as string) || fb;
 
-    const getTimeIcon = (t: TimeOfDay) => {
-        switch (t) {
-            case 'morning': return <Sunrise className="w-4 h-4 text-amber-500" />;
-            case 'afternoon': return <Sun className="w-4 h-4 text-orange-500" />;
-            case 'evening': return <Moon className="w-4 h-4 text-indigo-400" />;
-            default: return <Clock className="w-4 h-4 text-gray-400" />;
-        }
-    };
+  /* ----------------------------- Render ----------------------------- */
 
-    // --- Render ---
-    return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900/50 p-4 lg:p-8 font-sans">
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-[#070A12] p-4 lg:p-8">
+      {/* Top header */}
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 text-white dark:text-gray-900 flex items-center justify-center shadow-sm">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-3xl font-black text-gray-900 dark:text-white">
+              {TT('habits.title', 'Habit Studio')}
+            </div>
+            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {TT('habits.subtitle', 'Szokások építése • Gyakorlás • Elsajátítás (Mastery)')}
+            </div>
+          </div>
+        </div>
 
-            {/* Header */}
-            <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                        <div className="p-2 bg-gradient-to-br from-blue-500 to-teal-400 rounded-xl text-white shadow-lg shadow-blue-500/20">
-                            <Activity size={24} />
+        <div className="flex gap-2">
+          <button
+            onClick={openCreate}
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-black shadow-sm hover:shadow-md active:scale-[0.99] transition"
+          >
+            <Plus className="w-5 h-5" />
+            {TT('habits.create', 'Új szokás')}
+          </button>
+        </div>
+      </div>
+
+      {/* Dashboard */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <MetricCard
+          icon={<Calendar className="w-5 h-5" />}
+          title={TT('habits.metrics.active', 'Aktív')}
+          value={activeHabits.length}
+          hint={TT('habits.metrics.activeHint', 'nincs archív / mester')}
+        />
+        <MetricCard
+          icon={<CheckCircle2 className="w-5 h-5" />}
+          title={TT('habits.metrics.today', 'Ma megvolt')}
+          value={`${practicedToday}/${activeHabits.length}`}
+          hint={TT('habits.metrics.todayHint', 'legalább 1 gyakorlás / szokás')}
+        />
+        <MetricCard
+          icon={<SlidersHorizontal className="w-5 h-5" />}
+          title={TT('habits.metrics.masteryAvg', 'Átlag Mastery')}
+          value={`${Math.round(avgMastery)}%`}
+          hint={TT('habits.metrics.masteryAvgHint', 'csúszkával állítható')}
+        />
+        <MetricCard
+          icon={<Flame className="w-5 h-5" />}
+          title={TT('habits.metrics.bestStreak', 'Legjobb streak')}
+          value={bestStreakAll}
+          hint={TT('habits.metrics.bestStreakHint', 'aktív szokások közt')}
+        />
+      </div>
+
+      {/* Heatmap */}
+      <div className="mb-6">
+        <Heatmap
+          habits={habits}
+          todayISO={todayISO}
+          weeks={18}
+          title={TT('habits.heatmap.title', 'Rutin hőtérkép')}
+          subtitle={TT('habits.heatmap.subtitle', 'Mennyire volt “megcsinálva” az aktív szokások arányában')}
+        />
+      </div>
+
+      {/* Tabs + Search + Filters */}
+      <GlassCard className="p-4 mb-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex gap-2">
+            {([
+              { k: 'active', label: TT('habits.tabs.active', 'Aktív') },
+              { k: 'archived', label: TT('habits.tabs.archived', 'Archív') },
+              { k: 'mastered', label: TT('habits.tabs.mastered', 'Mester') },
+            ] as const).map(b => (
+              <button
+                key={b.k}
+                onClick={() => setTab(b.k)}
+                className={`px-4 py-2 rounded-2xl font-black text-sm transition ${
+                  tab === b.k
+                    ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-sm'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-2 md:items-center">
+            {tab === 'active' && (
+              <button
+                onClick={() => setOnlyDueToday(v => !v)}
+                className={`px-4 py-2 rounded-2xl font-black text-sm transition inline-flex items-center gap-2 ${
+                  onlyDueToday
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+                title={TT('habits.filters.onlyDueTodayTip', 'Csak azok, amik ma még nem voltak meg')}
+              >
+                <Flame className="w-4 h-4" />
+                {TT('habits.filters.onlyDueToday', 'Ma még nincs kész')}
+              </button>
+            )}
+
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={TT('habits.search', 'Keresés szokások között...')}
+                className="w-full md:w-[340px] pl-9 pr-3 py-2 rounded-2xl bg-gray-100 dark:bg-gray-800 border border-transparent focus:border-blue-500/40 focus:ring-2 focus:ring-blue-500/20 outline-none text-gray-900 dark:text-white"
+              />
+            </div>
+          </div>
+        </div>
+      </GlassCard>
+
+      {/* Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <AnimatePresence mode="popLayout">
+          {visibleBase.map((h) => {
+            const meta = colorMeta(h.color);
+            const doneToday = (h.practices[todayISO]?.count ?? 0) > 0;
+            const todayCount = h.practices[todayISO]?.count ?? 0;
+            const streaks = computeStreaks(h.practices, todayISO);
+
+            return (
+              <motion.div
+                key={h.id}
+                layout
+                initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              >
+                <GlassCard className={`p-5 overflow-hidden ${doneToday && tab === 'active' ? 'ring-2 ring-emerald-400/20' : ''}`}>
+                  {/* Top row */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-black ${meta.badge}`}>
+                          {h.cadence === 'daily'
+                            ? TT('habits.cadence.daily', 'Napi')
+                            : TT('habits.cadence.weekly', 'Heti')}
+                        </span>
+
+                        {tab === 'active' && doneToday && (
+                          <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
+                            {TT('habits.doneToday', 'Ma megvolt')}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-2 text-lg font-black text-gray-900 dark:text-white truncate">
+                        {h.name}
+                      </div>
+
+                      {h.description && (
+                        <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                          {h.description}
                         </div>
-                        {t('habits.title')}
-                    </h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1 ml-1">
-                        {t('habits.subtitle')}
-                    </p>
+                      )}
+                    </div>
+
+                    <div className="shrink-0 flex items-center gap-2">
+                      <Ring value={h.mastery ?? 0} colorKey={h.color} />
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={() => openEdit(h)}
+                          className="w-9 h-9 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center transition"
+                          title={TT('common.edit', 'Szerkesztés')}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => removeHabit(h.id)}
+                          className="w-9 h-9 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-200 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 flex items-center justify-center transition"
+                          title={TT('common.delete', 'Törlés')}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Weekly micro bars */}
+                  <div className="mt-4">
+                    <WeeklyMicroBars habit={h} todayISO={todayISO} />
+                  </div>
+
+                  {/* Stats */}
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    <div className="rounded-2xl bg-gray-100 dark:bg-gray-800 p-3 text-center">
+                      <div className="text-xl font-black text-gray-900 dark:text-white">{streaks.current}</div>
+                      <div className="text-[10px] font-black uppercase tracking-wide text-gray-500">{TT('habits.stats.streak', 'Streak')}</div>
+                    </div>
+                    <div className="rounded-2xl bg-gray-100 dark:bg-gray-800 p-3 text-center">
+                      <div className="text-xl font-black text-gray-900 dark:text-white">{streaks.best}</div>
+                      <div className="text-[10px] font-black uppercase tracking-wide text-gray-500">{TT('habits.stats.best', 'Best')}</div>
+                    </div>
+                    <div className="rounded-2xl bg-gray-100 dark:bg-gray-800 p-3 text-center">
+                      <div className="text-xl font-black text-gray-900 dark:text-white">{streaks.totalDays}</div>
+                      <div className="text-[10px] font-black uppercase tracking-wide text-gray-500">{TT('habits.stats.total', 'Össznap')}</div>
+                    </div>
+                  </div>
+
+                  {/* Mastery slider */}
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs font-black uppercase tracking-wide text-gray-500">
+                        {TT('habits.mastery', 'Mastery (elsajátítás)')}
+                      </div>
+                      <div className={`text-xs font-black text-transparent bg-clip-text bg-gradient-to-br ${meta.ring}`}>
+                        {Math.round(h.mastery ?? 0)}%
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={clamp(h.mastery ?? 0, 0, 100)}
+                      onChange={(e) => setMastery(h.id, Number(e.target.value))}
+                      className="w-full accent-gray-900 dark:accent-white"
+                    />
+                    <div className="text-[11px] text-gray-400 mt-2">
+                      {TT('habits.masteryHint', 'A csúszka azt jelenti: mennyire “beégett” a szokás. Nem adminisztráció.')}
+                    </div>
+                  </div>
+
+                  {/* Action row */}
+                  <div className="mt-4 flex flex-col gap-2">
+                    {tab === 'active' && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            const note = noteRefs.current[h.id]?.value?.trim();
+                            practiceOnce(h.id, note || undefined);
+                            if (noteRefs.current[h.id]) noteRefs.current[h.id]!.value = '';
+                          }}
+                          className={`flex-1 py-3 rounded-2xl font-black shadow-sm transition active:scale-[0.99] ${
+                            doneToday ? 'bg-emerald-500 text-white hover:bg-emerald-600' : 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:shadow-md'
+                          }`}
+                          title={TT('habits.practice', 'Megvolt (gyakorlás)')}
+                        >
+                          <span className="inline-flex items-center justify-center gap-2">
+                            <CheckCircle2 className="w-4 h-4" />
+                            {TT('habits.practice', 'Megvolt')}
+                            {todayCount > 0 ? <span className="text-xs opacity-80">×{todayCount}</span> : null}
+                          </span>
+                        </button>
+
+                        <button
+                          onClick={() => undoPractice(h.id)}
+                          className="px-4 py-3 rounded-2xl font-black bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                          title={TT('habits.undoPractice', 'Mai gyakorlás visszavonása')}
+                        >
+                          <Undo2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    {tab === 'active' && (
+                      <div className="flex gap-2">
+                        <input
+                          ref={(el) => { noteRefs.current[h.id] = el; }}
+                          placeholder={TT('habits.quickNote', 'Gyors megjegyzés (opcionális)')}
+                          className="flex-1 px-4 py-3 rounded-2xl bg-gray-100 dark:bg-gray-800 border border-transparent focus:border-blue-500/40 focus:ring-2 focus:ring-blue-500/20 outline-none text-gray-900 dark:text-white"
+                        />
+                        <button
+                          onClick={() => toggleArchive(h.id)}
+                          className="px-4 py-3 rounded-2xl font-black bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition inline-flex items-center gap-2"
+                          title={TT('habits.archive', 'Archíválás')}
+                        >
+                          <Archive className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => toggleMastered(h.id)}
+                          className="px-4 py-3 rounded-2xl font-black bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition inline-flex items-center gap-2"
+                          title={TT('habits.toggleMastered', 'Mester státusz kapcsoló')}
+                        >
+                          <Award className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    {tab !== 'active' && (
+                      <div className="flex gap-2">
+                        {tab === 'archived' && (
+                          <button
+                            onClick={() => toggleArchive(h.id)}
+                            className="flex-1 py-3 rounded-2xl font-black bg-gray-900 dark:bg-white text-white dark:text-gray-900 transition hover:shadow-md"
+                          >
+                            {TT('habits.unarchive', 'Vissza aktívba')}
+                          </button>
+                        )}
+                        {tab === 'mastered' && (
+                          <button
+                            onClick={() => toggleMastered(h.id)}
+                            className="flex-1 py-3 rounded-2xl font-black bg-gray-900 dark:bg-white text-white dark:text-gray-900 transition hover:shadow-md"
+                          >
+                            {TT('habits.unmaster', 'Vissza aktívba')}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer small */}
+                  <div className="mt-4 text-[10px] text-gray-400 flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1">
+                      <Activity className="w-3 h-3" />
+                      {TT('habits.footer', 'Gyakorlás + Mastery = valódi haladás')}
+                    </span>
+                    <span>
+                      {TT('habits.created', 'Létrehozva')}: {h.createdAtISO}
+                    </span>
+                  </div>
+                </GlassCard>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+
+      {/* Empty state */}
+      {visibleBase.length === 0 && (
+        <div className="py-20 text-center opacity-70">
+          <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 mx-auto flex items-center justify-center mb-4">
+            <Sparkles className="w-8 h-8 text-gray-400" />
+          </div>
+          <div className="text-xl font-black text-gray-700 dark:text-gray-200">
+            {TT('habits.empty', 'Itt most üres.')}
+          </div>
+          <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            {TT('habits.emptyHint', 'Adj hozzá 1 szokást, és kezdd el építeni a Mastery-t.')}
+          </div>
+          <div className="mt-5">
+            <button
+              onClick={openCreate}
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-black shadow-sm hover:shadow-md transition"
+            >
+              <Plus className="w-5 h-5" />
+              {TT('habits.create', 'Új szokás')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Create/Edit Sheet */}
+      <AnimatePresence>
+        {sheetOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98, y: 8 }}
+              className="w-full max-w-xl"
+            >
+              <GlassCard className="p-6">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div>
+                    <div className="text-2xl font-black text-gray-900 dark:text-white">
+                      {editing ? TT('habits.edit', 'Szokás szerkesztése') : TT('habits.create', 'Új szokás')}
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      {TT('habits.sheetHint', 'Minimal admin, max haladás.')}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => { setSheetOpen(false); setEditing(null); }}
+                    className="w-11 h-11 rounded-2xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center"
+                    title={TT('common.close', 'Bezárás')}
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-                <button
-                    onClick={() => {
-                        setEditingHabit(null);
-                        setFormData({ name: '', timeOfDay: 'anytime', frequency: 'daily' });
-                        setIsCreateOpen(true);
-                    }}
-                    className="flex items-center gap-2 px-6 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all font-bold"
-                >
-                    <Plus size={20} />
-                    {t('habits.create')}
-                </button>
-            </header>
 
-            {/* Global Dashboard */}
-            <GlobalStats habits={habits} t={t} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="text-xs font-black uppercase tracking-wide text-gray-500">
+                      {TT('habits.fields.name', 'Név')}
+                    </label>
+                    <input
+                      value={draft.name ?? ''}
+                      onChange={(e) => setDraft(d => ({ ...d, name: e.target.value }))}
+                      className="mt-2 w-full px-4 py-3 rounded-2xl bg-gray-100 dark:bg-gray-800 border border-transparent focus:border-blue-500/40 focus:ring-2 focus:ring-blue-500/20 outline-none text-gray-900 dark:text-white"
+                      placeholder={TT('habits.fields.namePh', 'pl. 30 perc olvasás')}
+                      autoFocus
+                    />
+                  </div>
 
-            {/* Global Heatmap */}
-            <GlobalHeatmap habits={habits} t={t} />
+                  <div className="md:col-span-2">
+                    <label className="text-xs font-black uppercase tracking-wide text-gray-500">
+                      {TT('habits.fields.description', 'Leírás (opcionális)')}
+                    </label>
+                    <textarea
+                      value={draft.description ?? ''}
+                      onChange={(e) => setDraft(d => ({ ...d, description: e.target.value }))}
+                      className="mt-2 w-full px-4 py-3 rounded-2xl bg-gray-100 dark:bg-gray-800 border border-transparent focus:border-blue-500/40 focus:ring-2 focus:ring-blue-500/20 outline-none text-gray-900 dark:text-white resize-none"
+                      rows={3}
+                      placeholder={TT('habits.fields.descriptionPh', 'miért fontos, mi számít “megvolt”-nak')}
+                    />
+                  </div>
 
-            {/* Filters & Navigation */}
-            <div className="flex overflow-x-auto pb-2 gap-2 mb-6 hide-scrollbar">
-                {(['all', 'morning', 'afternoon', 'evening', 'anytime'] as const).map(ft => (
-                    <button
-                        key={ft}
-                        onClick={() => setFilterTime(ft)}
-                        className={`
-                 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all
-                 ${filterTime === ft
-                                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                                : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}
-               `}
+                  <div>
+                    <label className="text-xs font-black uppercase tracking-wide text-gray-500">
+                      {TT('habits.fields.cadence', 'Ritmus')}
+                    </label>
+                    <select
+                      value={(draft.cadence ?? 'daily') as any}
+                      onChange={(e) => setDraft(d => ({ ...d, cadence: e.target.value as HabitCadence }))}
+                      className="mt-2 w-full px-4 py-3 rounded-2xl bg-gray-100 dark:bg-gray-800 border border-transparent focus:border-blue-500/40 focus:ring-2 focus:ring-blue-500/20 outline-none text-gray-900 dark:text-white"
                     >
-                        {ft !== 'all' && getTimeIcon(ft as TimeOfDay)}
-                        {ft === 'all' ? t('common.viewAll') : t(`habits.time.${ft}`)}
-                    </button>
-                ))}
-            </div>
-
-            {/* Habits Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                <AnimatePresence mode="popLayout">
-                    {filteredHabits.map(habit => {
-                        const { currentStreak, bestStreak } = getStreakStats(habit, todayISO);
-                        const isDone = !!habit.checkins[todayISO]?.completed;
-                        const totalCheckins = Object.keys(habit.checkins).length;
-                        const progressPercent = Math.min(100, (totalCheckins / (habit.targetDays || 66)) * 100);
-
-                        return (
-                            <motion.div
-                                key={habit.id}
-                                layout
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
-                                className={`
-                        group relative bg-white dark:bg-gray-800 rounded-3xl border transition-all duration-300 overflow-hidden
-                        ${isDone
-                                        ? 'border-blue-200 dark:border-blue-900/50 shadow-sm'
-                                        : 'border-gray-100 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 shadow-sm hover:shadow-md'}
-                      `}
-                            >
-                                {/* Card Header & Main Interaction */}
-                                <div className="p-6">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="flex gap-4 items-center">
-                                            {/* Primary Interaction Button */}
-                                            <button
-                                                onClick={() => toggleCheckin(habit, todayISO)}
-                                                className={`
-                                  w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-sm transition-all duration-300 hover:scale-105 active:scale-95
-                                  ${isDone
-                                                        ? 'bg-gradient-to-br from-green-400 to-emerald-600 text-white shadow-green-500/30'
-                                                        : 'bg-white dark:bg-gray-700 border-2 border-gray-100 dark:border-gray-600 text-gray-300 hover:border-blue-200 dark:hover:border-blue-500 hover:text-blue-500'}
-                                `}
-                                                title={isDone ? t('common.undo') || 'Undo' : t('habits.checkin.title')}
-                                            >
-                                                {isDone ? <Check size={32} strokeWidth={4} /> : <div className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-600 group-hover:bg-blue-200" />}
-                                            </button>
-
-                                            <div>
-                                                <h3 className={`font-bold text-lg leading-tight transition-all ${isDone ? 'text-gray-400 line-through' : 'text-gray-900 dark:text-white'}`}>
-                                                    {habit.name}
-                                                </h3>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <div className={`p-1 rounded-md ${isDone ? 'bg-gray-100 text-gray-400' : 'bg-blue-50 text-blue-500 dark:bg-blue-900/20'}`}>
-                                                        {getTimeIcon(habit.timeOfDay)}
-                                                    </div>
-                                                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                                                        {habit.exactTime || t(`habits.time.${habit.timeOfDay}`)}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-col items-end pl-2">
-                                            <MasteryRing progress={progressPercent} size={42} />
-                                        </div>
-                                    </div>
-
-                                    {/* Interactive Weekly Chart */}
-                                    <div className="mb-4 pt-2 px-1">
-                                        <WeeklyProgress habit={habit} todayISO={todayISO} />
-                                    </div>
-
-                                    {/* Stats Row */}
-                                    <div className="grid grid-cols-3 gap-2 text-xs text-gray-500 bg-gray-50 dark:bg-gray-900/50 rounded-xl p-3 border border-gray-100 dark:border-gray-800">
-                                        <div className="flex flex-col items-center">
-                                            <span className="font-bold text-gray-900 dark:text-white text-base text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">{currentStreak}</span>
-                                            <span className="text-[9px] uppercase font-bold tracking-wider opacity-70">{t('habits.streak')}</span>
-                                        </div>
-                                        <div className="flex flex-col items-center border-l border-r border-gray-200 dark:border-gray-700">
-                                            <span className="font-bold text-gray-900 dark:text-white text-base">{bestStreak}</span>
-                                            <span className="text-[9px] uppercase font-bold tracking-wider opacity-70">Best</span>
-                                        </div>
-                                        <div className="flex flex-col items-center">
-                                            <span className="font-bold text-gray-900 dark:text-white text-base">{totalCheckins}</span>
-                                            <span className="text-[9px] uppercase font-bold tracking-wider opacity-70">Total</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Action Footer (Simplified) */}
-                                {isDone && (
-                                    <div className="px-6 py-2 bg-green-50 dark:bg-green-900/10 border-t border-green-100 dark:border-green-900/30 flex justify-center items-center">
-                                        <span className="text-xs font-bold text-green-600 dark:text-green-400 flex items-center gap-1">
-                                            <CheckCircle size={12} />
-                                            {t('habits.complete') || 'Completed today'}
-                                        </span>
-                                    </div>
-                                )}
-
-                                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                                    <button onClick={(e) => { e.stopPropagation(); setEditingHabit(habit); setFormData(habit); setIsCreateOpen(true); }} className="p-2 bg-white dark:bg-gray-800 shadow-sm hover:bg-gray-50 rounded-lg text-gray-400 hover:text-blue-500 transition-colors border border-gray-200 dark:border-gray-700">
-                                        <Edit2 size={14} />
-                                    </button>
-                                    <button onClick={(e) => { e.stopPropagation(); deleteHabit(habit.id); }} className="p-2 bg-white dark:bg-gray-800 shadow-sm hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-colors border border-gray-200 dark:border-gray-700">
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
-                            </motion.div>
-                        );
-                    })}
-                </AnimatePresence>
-            </div>
-
-            {/* Empty State */}
-            {
-                filteredHabits.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-24 opacity-60">
-                        <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6">
-                            <Coffee size={40} className="text-gray-400" />
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-600 dark:text-gray-300">{t('habits.noHabits')}</h3>
-                        <p className="text-sm text-gray-400 mt-2">Time to build some new routines!</p>
+                      <option value="daily">{TT('habits.cadence.daily', 'Napi')}</option>
+                      <option value="weekly">{TT('habits.cadence.weekly', 'Heti')}</option>
+                    </select>
+                    <div className="text-[11px] text-gray-400 mt-2">
+                      {TT('habits.fields.cadenceHint', 'A gyakorlás naponta logolódik, ez csak “cél ritmus”.')}
                     </div>
-                )
-            }
+                  </div>
 
-            {/* Create Modal */}
-            <AnimatePresence>
-                {isCreateOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
-                            className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-md p-6 border border-gray-100 dark:border-gray-700"
+                  <div>
+                    <label className="text-xs font-black uppercase tracking-wide text-gray-500">
+                      {TT('habits.fields.weeklyTarget', 'Heti cél (ha heti)')}
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={14}
+                      value={Number(draft.weeklyTarget ?? 5)}
+                      onChange={(e) => setDraft(d => ({ ...d, weeklyTarget: Number(e.target.value) }))}
+                      className="mt-2 w-full px-4 py-3 rounded-2xl bg-gray-100 dark:bg-gray-800 border border-transparent focus:border-blue-500/40 focus:ring-2 focus:ring-blue-500/20 outline-none text-gray-900 dark:text-white"
+                    />
+                    <div className="text-[11px] text-gray-400 mt-2">
+                      {TT('habits.fields.weeklyTargetHint', 'Napi ritmusnál is maradhat, később jól jön az analitikához.')}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black uppercase tracking-wide text-gray-500">
+                      {TT('habits.fields.masteryStart', 'Kezdő Mastery')}
+                    </label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={clamp(Number(draft.mastery ?? 10), 0, 100)}
+                      onChange={(e) => setDraft(d => ({ ...d, mastery: Number(e.target.value) }))}
+                      className="mt-4 w-full accent-gray-900 dark:accent-white"
+                    />
+                    <div className="mt-2 text-sm font-black text-gray-900 dark:text-white">
+                      {Math.round(clamp(Number(draft.mastery ?? 10), 0, 100))}%
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black uppercase tracking-wide text-gray-500">
+                      {TT('habits.fields.color', 'Szín')}
+                    </label>
+                    <div className="mt-2 grid grid-cols-6 gap-2">
+                      {COLORS.map(c => (
+                        <button
+                          key={c.key}
+                          onClick={() => setDraft(d => ({ ...d, color: c.key }))}
+                          className={`h-10 rounded-2xl border transition ${
+                            (draft.color ?? 'blue') === c.key
+                              ? 'border-gray-900 dark:border-white ring-2 ring-blue-500/20'
+                              : 'border-gray-200 dark:border-gray-700'
+                          }`}
+                          title={c.key}
                         >
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-2xl font-bold">{editingHabit ? 'Edit Habit' : t('habits.create')}</h2>
-                                <button onClick={() => setIsCreateOpen(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Habit Name</label>
-                                    <input
-                                        value={formData.name}
-                                        onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                        className="w-full p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 font-bold focus:ring-2 focus:ring-blue-500 outline-none"
-                                        placeholder="e.g. Read 30 mins"
-                                        autoFocus
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Time</label>
-                                        <select
-                                            value={formData.timeOfDay}
-                                            onChange={e => setFormData({ ...formData, timeOfDay: e.target.value as TimeOfDay })}
-                                            className="w-full p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 outline-none"
-                                        >
-                                            <option value="morning">{t('habits.time.morning')}</option>
-                                            <option value="afternoon">{t('habits.time.afternoon')}</option>
-                                            <option value="evening">{t('habits.time.evening')}</option>
-                                            <option value="anytime">{t('habits.time.anytime')}</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Exact Time (Opt)</label>
-                                        <input
-                                            type="time"
-                                            value={formData.exactTime || ''}
-                                            onChange={e => setFormData({ ...formData, exactTime: e.target.value })}
-                                            className="w-full p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 outline-none"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="mt-8 flex gap-3">
-                                <button onClick={() => setIsCreateOpen(false)} className="flex-1 py-3 text-gray-500 hover:bg-gray-100 rounded-xl font-medium">Cancel</button>
-                                <button onClick={handleCreateOrUpdate} disabled={!formData.name} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-500/20">
-                                    {editingHabit ? 'Save Changes' : 'Create Habit'}
-                                </button>
-                            </div>
-                        </motion.div>
+                          <div className={`w-full h-full rounded-2xl bg-gradient-to-br ${c.ring}`} />
+                        </button>
+                      ))}
                     </div>
-                )}
-            </AnimatePresence>
+                  </div>
+                </div>
 
-            {/* Checkin Impact Modal */}
-            <AnimatePresence>
-                {checkinHabit && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-sm p-6 border border-gray-100 dark:border-gray-700"
-                        >
-                            <div className="text-center mb-6">
-                                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-4 text-green-500">
-                                    <Check size={32} strokeWidth={4} />
-                                </div>
-                                <h2 className="text-2xl font-bold">{t('habits.checkin.title')}</h2>
-                                <p className="text-gray-500">{checkinHabit.name}</p>
-                            </div>
-
-                            <div className="space-y-4 mb-8">
-                                <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase mb-2 block text-center">{t('habits.checkin.howWasIt')}</label>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        {(['easy', 'medium', 'hard'] as const).map(lvl => (
-                                            <button
-                                                key={lvl}
-                                                onClick={() => setCheckinData({ ...checkinData, effort: lvl })}
-                                                className={`
-                                            py-3 rounded-xl border-2 font-bold transition-all
-                                            ${checkinData.effort === lvl
-                                                        ? 'border-blue-500 bg-blue-50 text-blue-600 dark:bg-blue-900/20'
-                                                        : 'border-transparent bg-gray-100 dark:bg-gray-700 text-gray-400'}
-                                        `}
-                                            >
-                                                {t(`habits.effort.${lvl}`)}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <textarea
-                                    placeholder={t('habits.checkin.addNote')}
-                                    value={checkinData.note}
-                                    onChange={e => setCheckinData({ ...checkinData, note: e.target.value })}
-                                    className="w-full p-4 bg-gray-50 dark:bg-gray-900 rounded-xl resize-none outline-none focus:ring-2 focus:ring-blue-200"
-                                    rows={2}
-                                />
-                            </div>
-
-                            <div className="flex gap-3">
-                                <button onClick={() => setCheckinHabit(null)} className="flex-1 py-3 text-gray-400 hover:text-gray-600 font-medium">Cancel</button>
-                                <button onClick={confirmCheckin} className="flex-[2] py-3 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 shadow-lg shadow-green-500/20">
-                                    {t('habits.checkin.confirm')}
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-        </div >
-    );
+                <div className="mt-6 flex gap-2">
+                  <button
+                    onClick={() => { setSheetOpen(false); setEditing(null); }}
+                    className="flex-1 py-3 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-black hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                  >
+                    {TT('common.cancel', 'Mégse')}
+                  </button>
+                  <button
+                    onClick={saveDraft}
+                    disabled={!String(draft.name ?? '').trim()}
+                    className="flex-1 py-3 rounded-2xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-black shadow-sm hover:shadow-md disabled:opacity-50 transition"
+                  >
+                    {editing ? TT('common.save', 'Mentés') : TT('common.create', 'Létrehozás')}
+                  </button>
+                </div>
+              </GlassCard>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 };
 
 export default HabitView;
