@@ -37,3 +37,23 @@ export const parseMoneyInput = (raw: string | number | undefined | null): number
     const n = Number(normalized);
     return Number.isFinite(n) ? n : 0;
 };
+
+export const formatNumber = (
+    value: number | string,
+    fractionDigits: number = 2,
+    locale: string = 'hu-HU'
+): string => {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '0';
+    return new Intl.NumberFormat(locale, {
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits,
+    }).format(num);
+};
+
+export const validateCurrency = (currency: string): string => {
+    // Basic validation, fallback to USD if invalid
+    if (!currency || typeof currency !== 'string') return 'USD';
+    const upper = currency.toUpperCase();
+    return /^[A-Z]{3}$/.test(upper) ? upper : 'USD';
+};
