@@ -842,12 +842,11 @@ const useBudgetController = () => {
   }, [language]);
 
   // Safe convert
-  const safeConvert = useCallback(async (amount: number, fromCurrency: string, toCurrency: string): Promise<number> => {
+  const safeConvert = useCallback((amount: number, fromCurrency: string, toCurrency: string): number => {
     if (!amount || fromCurrency === toCurrency) return amount;
 
     try {
-      const rate = await CurrencyService.getRate(fromCurrency, toCurrency);
-      return amount * rate;
+      return CurrencyService.convert(amount, fromCurrency, toCurrency);
     } catch (error) {
       console.warn('Conversion failed:', error);
       return amount; // Fallback to original amount
@@ -1011,6 +1010,7 @@ const useBudgetController = () => {
         action: () => {
           setActiveTab('transactions');
           setFilterCategory('all');
+          setShowMasters(true); // Reveal hidden recurring templates
         }
       });
     }
