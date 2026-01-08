@@ -337,8 +337,13 @@ const useBudgetController = () => {
   const { t, language } = useLanguage();
   const { transactions: rawTransactions, addTransaction, updateTransaction, deleteTransaction, deleteTransactions } = useData();
   // Critical Fix: Force new reference to prevent stale memoization in analytics
-  const transactions = useMemo(() => (Array.isArray(rawTransactions) ? rawTransactions.map(t => ({ ...t })) : []),
-    [rawTransactions]);
+  // Strict filter added to prevent crash during deletion when sync state might vary
+  const transactions = useMemo(() => {
+    if (!Array.isArray(rawTransactions)) return [];
+    return rawTransactions
+      .filter(t => t && typeof t === 'object' && t.id)
+      .map(t => ({ ...t }));
+  }, [rawTransactions]);
 
   // API Guard: Ensure functions exist
   const safeAdd = addTransaction ?? ((_: any) => console.warn('addTransaction missing'));
