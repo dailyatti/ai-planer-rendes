@@ -403,13 +403,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           delete (merged as any).interestRate; // Cleanly remove empty rates
         }
 
-        return merged;
+        return merged as Transaction;
       })
     );
   };
 
   const deleteTransaction = (id: string) => {
     setTransactions(prev => {
+      // Defensive guard
+      if (!prev || !Array.isArray(prev)) return [];
+
       const target = prev.find(t => t.id === id);
       if (!target) return prev;
 
@@ -424,14 +427,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteTransactions = (ids: string[]) => {
+    if (!ids || !Array.isArray(ids) || ids.length === 0) return;
+
     setTransactions(prev => {
+      // Defensive guard
+      if (!prev || !Array.isArray(prev)) return [];
+
       const idsSet = new Set(ids);
       // Identify masters to delete children efficiently
       const mastersToDelete = new Set(
-        prev.filter(t => idsSet.has(t.id) && isMasterTx(t)).map(t => t.id)
+        prev.filter(t => t && idsSet.has(t.id) && isMasterTx(t)).map(t => t.id)
       );
 
       return prev.filter(t => {
+        if (!t) return false;
         // Drop if ID is in list
         if (idsSet.has(t.id)) return false;
         // Drop if it's a child of a deleted master
