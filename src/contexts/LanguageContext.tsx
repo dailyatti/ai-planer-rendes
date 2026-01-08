@@ -231,6 +231,8 @@ const translations: Translations = {
   'common.prev': { en: 'Prev', hu: 'Előző', ro: 'Anterior', sk: 'Predchádzajúci', hr: 'Prethodni', de: 'Vorherige', fr: 'Précédent', es: 'Anterior', it: 'Precedente', pl: 'Poprzedni', cn: '上一个', jp: '前へ', pt: 'Anterior', tr: 'Önceki', ar: 'سابق', ru: 'Пред.', hi: 'पिछला', bn: 'পূর্ববর্তী', ur: 'پچھلا', th: 'ก่อนหน้า', id: 'Sebellumnya', ko: 'Prev' },
   'common.next': { en: 'Next', hu: 'Következő', ro: 'Următor', sk: 'Ďalší', hr: 'Sljedeći', de: 'Nächste', fr: 'Suivant', es: 'Siguiente', it: 'Successivo', pl: 'Następny', cn: '下一个', jp: '次へ', pt: 'Próximo', tr: 'Sonraki', ar: 'توي', ru: 'След.', hi: 'अगला', bn: 'পরবর্তী', ur: 'اگلا', th: 'ถัดไป', id: 'Berikutnya', ko: 'Next' },
   'common.last': { en: 'Last', hu: 'Utolsó', ro: 'Ultimul', sk: 'Posledný', hr: 'Zadnji', de: 'Letzte', fr: 'Dernier', es: 'Último', it: 'Ultimo', pl: 'Ostatni', cn: '最后', jp: '最後', pt: 'Último', tr: 'Son', ar: 'أخير', ru: 'Последний', hi: 'अंतिम', bn: 'শেষ', ur: 'آخری', th: 'สุดท้าย', id: 'Terakhir', ko: 'Last' },
+  'common.undo': { en: 'Undo', hu: 'Visszavonás', ro: 'Anulează', sk: 'Späť', hr: 'Poništi', de: 'Rückgängig' },
+  'habits.complete': { en: 'Completed', hu: 'Teljesítve', ro: 'Completat', sk: 'Dokončené', hr: 'Završeno', de: 'Erledigt' },
 
   // Budget Modals Titles & Alerts
   'budget.modal.title.newIncome': { en: 'New Income', hu: 'Új bevétel', ro: 'Venit Nou', sk: 'Nový Príjem', hr: 'Novi Prihod', de: 'Neues Einkommen', fr: 'Nouveau Revenu', es: 'Nuevo Ingreso', it: 'Nuova Entrata', pl: 'Nowy Dochód', cn: '新收入', jp: '新しい収入', pt: 'Nova Receita', tr: 'Yeni Gelir', ar: 'دخل جديد', ru: 'Новый доход', hi: 'नई आय', bn: 'নতুন আয়', ur: 'نئی آمدنی', th: 'รายได้ใหม่', id: 'Pendapatan Baru', ko: 'New Income' },

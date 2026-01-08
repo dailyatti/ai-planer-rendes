@@ -578,79 +578,82 @@ const HabitView: React.FC = () => {
                                         : 'border-gray-100 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 shadow-sm hover:shadow-md'}
                       `}
                             >
-                                {/* Card Header */}
+                                {/* Card Header & Main Interaction */}
                                 <div className="p-6">
                                     <div className="flex justify-between items-start mb-4">
-                                        <div className="flex gap-3">
-                                            <div className={`
-                                w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner
-                                ${isDone ? 'bg-green-100 text-green-600 dark:bg-green-900/30' : 'bg-gray-100 text-gray-400 dark:bg-gray-700'}
-                              `}>
-                                                {isDone ? <Check size={24} strokeWidth={3} /> : <div className="w-3 h-3 rounded-full bg-gray-300" />}
-                                            </div>
+                                        <div className="flex gap-4 items-center">
+                                            {/* Primary Interaction Button */}
+                                            <button
+                                                onClick={() => toggleCheckin(habit, todayISO)}
+                                                className={`
+                                  w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-sm transition-all duration-300 hover:scale-105 active:scale-95
+                                  ${isDone
+                                                        ? 'bg-gradient-to-br from-green-400 to-emerald-600 text-white shadow-green-500/30'
+                                                        : 'bg-white dark:bg-gray-700 border-2 border-gray-100 dark:border-gray-600 text-gray-300 hover:border-blue-200 dark:hover:border-blue-500 hover:text-blue-500'}
+                                `}
+                                                title={isDone ? t('common.undo') || 'Undo' : t('habits.checkin.title')}
+                                            >
+                                                {isDone ? <Check size={32} strokeWidth={4} /> : <div className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-600 group-hover:bg-blue-200" />}
+                                            </button>
+
                                             <div>
-                                                <h3 className={`font-bold text-lg leading-tight ${isDone ? 'text-gray-500 line-through' : 'text-gray-900 dark:text-white'}`}>
+                                                <h3 className={`font-bold text-lg leading-tight transition-all ${isDone ? 'text-gray-400 line-through' : 'text-gray-900 dark:text-white'}`}>
                                                     {habit.name}
                                                 </h3>
                                                 <div className="flex items-center gap-2 mt-1">
-                                                    {getTimeIcon(habit.timeOfDay)}
-                                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                                    <div className={`p-1 rounded-md ${isDone ? 'bg-gray-100 text-gray-400' : 'bg-blue-50 text-blue-500 dark:bg-blue-900/20'}`}>
+                                                        {getTimeIcon(habit.timeOfDay)}
+                                                    </div>
+                                                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
                                                         {habit.exactTime || t(`habits.time.${habit.timeOfDay}`)}
                                                     </span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="flex flex-col items-end">
+                                        <div className="flex flex-col items-end pl-2">
                                             <MasteryRing progress={progressPercent} size={42} />
                                         </div>
                                     </div>
 
                                     {/* Interactive Weekly Chart */}
-                                    <div className="mb-4 pt-2">
+                                    <div className="mb-4 pt-2 px-1">
                                         <WeeklyProgress habit={habit} todayISO={todayISO} />
                                     </div>
 
                                     {/* Stats Row */}
-                                    <div className="flex items-center justify-between text-xs text-gray-500 bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3">
+                                    <div className="grid grid-cols-3 gap-2 text-xs text-gray-500 bg-gray-50 dark:bg-gray-900/50 rounded-xl p-3 border border-gray-100 dark:border-gray-800">
                                         <div className="flex flex-col items-center">
-                                            <span className="font-bold text-gray-900 dark:text-white text-base">{currentStreak}</span>
-                                            <span className="text-[10px] uppercase">{t('habits.currentStreak')}</span>
+                                            <span className="font-bold text-gray-900 dark:text-white text-base text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">{currentStreak}</span>
+                                            <span className="text-[9px] uppercase font-bold tracking-wider opacity-70">{t('habits.streak')}</span>
                                         </div>
-                                        <div className="w-px h-6 bg-gray-200 dark:bg-gray-700" />
-                                        <div className="flex flex-col items-center">
+                                        <div className="flex flex-col items-center border-l border-r border-gray-200 dark:border-gray-700">
                                             <span className="font-bold text-gray-900 dark:text-white text-base">{bestStreak}</span>
-                                            <span className="text-[10px] uppercase">{t('habits.bestStreak')}</span>
+                                            <span className="text-[9px] uppercase font-bold tracking-wider opacity-70">Best</span>
                                         </div>
-                                        <div className="w-px h-6 bg-gray-200 dark:bg-gray-700" />
                                         <div className="flex flex-col items-center">
                                             <span className="font-bold text-gray-900 dark:text-white text-base">{totalCheckins}</span>
-                                            <span className="text-[10px] uppercase">{t('habits.totalCheckins')}</span>
+                                            <span className="text-[9px] uppercase font-bold tracking-wider opacity-70">Total</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Action Footer */}
-                                <div className="px-6 py-4 bg-gray-50/50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
-                                    <div className="flex gap-2">
-                                        <button onClick={() => { setEditingHabit(habit); setFormData(habit); setIsCreateOpen(true); }} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-gray-400 transition-colors">
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <button onClick={() => deleteHabit(habit.id)} className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 rounded-full transition-colors">
-                                            <Trash2 size={16} />
-                                        </button>
+                                {/* Action Footer (Simplified) */}
+                                {isDone && (
+                                    <div className="px-6 py-2 bg-green-50 dark:bg-green-900/10 border-t border-green-100 dark:border-green-900/30 flex justify-center items-center">
+                                        <span className="text-xs font-bold text-green-600 dark:text-green-400 flex items-center gap-1">
+                                            <CheckCircle size={12} />
+                                            {t('habits.complete') || 'Completed today'}
+                                        </span>
                                     </div>
+                                )}
 
-                                    <button
-                                        onClick={() => toggleCheckin(habit, todayISO)}
-                                        className={`
-                             px-5 py-2 rounded-xl text-sm font-bold transition-all shadow-sm active:scale-95
-                             ${isDone
-                                                ? 'bg-white border-2 border-gray-200 text-gray-500 hover:text-red-500 hover:border-red-200'
-                                                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/20'}
-                           `}
-                                    >
-                                        {isDone ? 'Undo' : t('habits.checkin.title')}
+                                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                                    <button onClick={(e) => { e.stopPropagation(); setEditingHabit(habit); setFormData(habit); setIsCreateOpen(true); }} className="p-2 bg-white dark:bg-gray-800 shadow-sm hover:bg-gray-50 rounded-lg text-gray-400 hover:text-blue-500 transition-colors border border-gray-200 dark:border-gray-700">
+                                        <Edit2 size={14} />
+                                    </button>
+                                    <button onClick={(e) => { e.stopPropagation(); deleteHabit(habit.id); }} className="p-2 bg-white dark:bg-gray-800 shadow-sm hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-colors border border-gray-200 dark:border-gray-700">
+                                        <Trash2 size={14} />
                                     </button>
                                 </div>
                             </motion.div>
@@ -660,15 +663,17 @@ const HabitView: React.FC = () => {
             </div>
 
             {/* Empty State */}
-            {filteredHabits.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-24 opacity-60">
-                    <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6">
-                        <Coffee size={40} className="text-gray-400" />
+            {
+                filteredHabits.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-24 opacity-60">
+                        <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6">
+                            <Coffee size={40} className="text-gray-400" />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-600 dark:text-gray-300">{t('habits.noHabits')}</h3>
+                        <p className="text-sm text-gray-400 mt-2">Time to build some new routines!</p>
                     </div>
-                    <h3 className="text-xl font-bold text-gray-600 dark:text-gray-300">{t('habits.noHabits')}</h3>
-                    <p className="text-sm text-gray-400 mt-2">Time to build some new routines!</p>
-                </div>
-            )}
+                )
+            }
 
             {/* Create Modal */}
             <AnimatePresence>
@@ -795,7 +800,7 @@ const HabitView: React.FC = () => {
                 )}
             </AnimatePresence>
 
-        </div>
+        </div >
     );
 };
 
