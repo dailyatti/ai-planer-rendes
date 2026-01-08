@@ -795,8 +795,8 @@ const translations: Translations = {
     hu: 'Szokáslabor'
   },
   'habits.subtitle': {
-    en: 'Building sustainable routines • Consistent practice • Skill mastery',
-    hu: 'Fenntartható rutinok építése • Következetes gyakorlás • Készségszintű elsajátítás'
+    en: 'Build your future, one day at a time',
+    hu: 'Építsd a jövődet, egy nappal egyszerre'
   },
   'habits.create': { en: 'New Habit', hu: 'Új Szokás' },
   'habits.edit': { en: 'Edit Habit', hu: 'Szokás Szerkesztése' },
@@ -820,7 +820,14 @@ const translations: Translations = {
   'habits.heatmap.title': { en: 'Activity Heatmap', hu: 'Aktivitási Hőtérkép' },
   'habits.heatmap.subtitle': { en: 'Visual overview of consistency and intensity', hu: 'Vizuális áttekintés az elmúlt időszak intenzitásáról' },
 
-  // Tabs
+  // Calendar & Simple View
+  'habits.view.list': { en: 'List View', hu: 'Lista Nézet' },
+  'habits.view.calendar': { en: 'Calendar View', hu: 'Naptár Nézet' },
+  'habits.calendar.hourlyLog': { en: 'Log Hourly Activity', hu: 'Óránkénti Naplózás' },
+  'habits.calendar.timePlaceholder': { en: 'e.g. 14:00', hu: 'pl. 14:00' },
+  'habits.actions.cancel': { en: 'Cancel', hu: 'Mégse' },
+  'habits.actions.add': { en: 'Add', hu: 'Hozzáad' },
+  'habits.actions.save': { en: 'Save', hu: 'Mentés' },
   'habits.tabs.active': { en: 'Active', hu: 'Aktív' },
   'habits.tabs.archived': { en: 'Archived', hu: 'Archív' },
   'habits.tabs.mastered': { en: 'Mastered', hu: 'Elsajátítva' },
