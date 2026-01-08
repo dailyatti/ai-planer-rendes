@@ -433,20 +433,7 @@ const translations: Translations = {
   'yearly.priority.medium': { en: 'medium', hu: 'közepes', ro: 'mediu', sk: 'stredná', hr: 'srednji', de: 'mittel', fr: 'moyen', es: 'media', it: 'media', pl: 'średni', cn: '中', jp: '中', pt: 'média', tr: 'orta', ar: 'متوسط', ru: 'средний', hi: 'मध्यम', bn: 'মাঝারি', ur: 'درمیانہ', th: 'ปานกลาง', id: 'sedang', ko: 'medium' },
   'yearly.priority.low': { en: 'low', hu: 'alacsony', ro: 'scăzut', sk: 'nízka', hr: 'nizak', de: 'niedrig', fr: 'bas', es: 'baja', it: 'bassa', pl: 'niski', cn: '低', jp: '低', pt: 'baixa', tr: 'düşük', ar: 'منخفض', ru: 'низкий', hi: 'कम', bn: 'নিম্ন', ur: 'کم', th: 'ต่ำ', id: 'rendah', ko: 'low' },
 
-  // Habits View - Additional Analytics Keys (PhD-level i18n)
-  'habits.currentStreak': { en: 'Current Streak', hu: 'Aktuális Sorozat', ro: 'Seria Curentă', sk: 'Aktuálna Séria', hr: 'Trenutni Niz', de: 'Aktuelle Serie', fr: 'Série Actuelle', es: 'Racha Actual', it: 'Serie Attuale', pl: 'Obecna Seria', cn: '当前连续', jp: '現在の連続', pt: 'Sequência Atual', tr: 'Mevcut Seri', ar: 'السلسلة الحالية', ru: 'Текущая серия', hi: 'वर्तमान श्रृंखला', bn: 'বর্তমান সিরিজ', ur: 'موجودہ سلسلہ', th: 'ต่อเนื่องปัจจุบัน', id: 'Beruntun Saat Ini', ko: 'Current Streak' },
-  'habits.bestStreak': { en: 'Best Streak', hu: 'Legjobb Sorozat', ro: 'Cea Mai Bună Serie', sk: 'Najlepšia Séria', hr: 'Najbolji Niz', de: 'Beste Serie', fr: 'Meilleure Série', es: 'Mejor Racha', it: 'Migliore Serie', pl: 'Najlepsza Seria', cn: '最佳连续', jp: '最高連続', pt: 'Melhor Sequência', tr: 'En İyi Seri', ar: 'أفضل سلسلة', ru: 'Лучшая серия', hi: 'सर्वश्रेष्ठ श्रृंखला', bn: 'সেরা সিরিজ', ur: 'بہترین سلسلہ', th: 'ต่อเนื่องสูงสุด', id: 'Beruntun Terbaik', ko: 'Best Streak' },
-  'habits.completionRate': { en: 'Completion Rate', hu: 'Teljesítési Arány', ro: 'Rata de Finalizare', sk: 'Miera Dokončenia', hr: 'Stopa Dovršenosti', de: 'Abschlussrate', fr: 'Taux de Complétion', es: 'Tasa de Finalización', it: 'Tasso di Completamento', pl: 'Wskaźnik Ukończenia', cn: '完成率', jp: '完了率', pt: 'Taxa de Conclusão', tr: 'Tamamlanma Oranı', ar: 'معدل الإنجاز', ru: 'Процент выполнения', hi: 'पूर्णता दर', bn: 'সমাপ্তির হার', ur: 'تکمیل کی شرح', th: 'อัตราความสำเร็จ', id: 'Tingkat Penyelesaian', ko: 'Completion Rate' },
-  'habits.totalCheckins': { en: 'Total Check-ins', hu: 'Összes Bejelentkezés', ro: 'Total Înregistrări', sk: 'Celkom Zápisov', hr: 'Ukupno Prijava', de: 'Gesamt Check-ins', fr: 'Total Check-ins', es: 'Total de Registros', it: 'Check-in Totali', pl: 'Łączna Liczba', cn: '总签到', jp: '総チェックイン', pt: 'Total de Check-ins', tr: 'Toplam Giriş', ar: 'إجمالي التسجيلات', ru: 'Всего отметок', hi: 'कुल चेक-इन', bn: 'মোট চেক-ইন', ur: 'کل چیک ان', th: 'เช็คอินทั้งหมด', id: 'Total Check-in', ko: 'Total Check-ins' },
-  'habits.mastery': { en: 'Mastery', hu: 'Mesterség', ro: 'Stăpânire', sk: 'Majstrovstvo', hr: 'Majstorstvo', de: 'Meisterschaft', fr: 'Maîtrise', es: 'Dominio', it: 'Padronanza', pl: 'Mistrzostwo', cn: '精通', jp: 'マスター', pt: 'Domínio', tr: 'Ustalık', ar: 'إتقان', ru: 'Мастерство', hi: 'महारत', bn: 'দক্ষতা', ur: 'مہارت', th: 'ความเชี่ยวชาญ', id: 'Penguasaan', ko: 'Mastery' },
-  'habits.masteryProgress': { en: 'Mastery Progress', hu: 'Mesterség Haladása', ro: 'Progres Stăpânire', sk: 'Pokrok Majstrovstva', hr: 'Napredak Majstorstva', de: 'Meisterschafts-Fortschritt', fr: 'Progrès de Maîtrise', es: 'Progreso de Dominio', it: 'Progresso Padronanza', pl: 'Postęp Mistrzostwa', cn: '精通进度', jp: 'マスター進捗', pt: 'Progresso de Domínio', tr: 'Ustalık İlerlemesi', ar: 'تقدم الإتقان', ru: 'Прогресс мастерства', hi: 'महारत प्रगति', bn: 'দক্ষতা অগ্রগতি', ur: 'مہارت کی پیش رفت', th: 'ความก้าวหน้าความเชี่ยวชาญ', id: 'Kemajuan Penguasaan', ko: 'Mastery Progress' },
-  'habits.daysToMastery': { en: 'days to mastery', hu: 'nap a mesterségig', ro: 'zile până la stăpânire', sk: 'dní do majstrovstva', hr: 'dana do majstorstva', de: 'Tage bis zur Meisterschaft', fr: 'jours jusqu\'à la maîtrise', es: 'días para dominio', it: 'giorni alla padronanza', pl: 'dni do mistrzostwa', cn: '天达到精通', jp: '日でマスター', pt: 'dias para domínio', tr: 'ustalığa gün', ar: 'أيام للإتقان', ru: 'дней до мастерства', hi: 'दिन महारत तक', bn: 'দিন দক্ষতা পর্যন্ত', ur: 'دن مہارت تک', th: 'วันถึงความเชี่ยวชาญ', id: 'hari menuju penguasaan', ko: 'days to mastery' },
-  'habits.checkin.title': { en: 'Check-in', hu: 'Bejelentkezés', ro: 'Înregistrare', sk: 'Zápis', hr: 'Prijava', de: 'Check-in', fr: 'Check-in', es: 'Registro', it: 'Check-in', pl: 'Zapis', cn: '签到', jp: 'チェックイン', pt: 'Check-in', tr: 'Giriş', ar: 'تسجيل', ru: 'Отметка', hi: 'चेक-इन', bn: 'চেক-ইন', ur: 'چیک ان', th: 'เช็คอิน', id: 'Check-in', ko: 'Check-in' },
-  'habits.checkin.howWasIt': { en: 'How was it?', hu: 'Milyen volt?', ro: 'Cum a fost?', sk: 'Ako to bolo?', hr: 'Kako je bilo?', de: 'Wie war es?', fr: 'Comment c\'était?', es: '¿Cómo fue?', it: 'Com\'è stato?', pl: 'Jak poszło?', cn: '怎么样?', jp: 'どうでしたか?', pt: 'Como foi?', tr: 'Nasıldı?', ar: 'كيف كان؟', ru: 'Как прошло?', hi: 'कैसा था?', bn: 'কেমন ছিল?', ur: 'کیسا رہا؟', th: 'เป็นอย่างไร?', id: 'Bagaimana?', ko: 'How was it?' },
-  'habits.checkin.addNote': { en: 'Add a note (optional)', hu: 'Megjegyzés (opcionális)', ro: 'Adaugă o notă (opțional)', sk: 'Pridať poznámku (voliteľné)', hr: 'Dodaj bilješku (opcionalno)', de: 'Notiz hinzufügen (optional)', fr: 'Ajouter une note (optionnel)', es: 'Añadir nota (opcional)', it: 'Aggiungi nota (opzionale)', pl: 'Dodaj notatkę (opcjonalne)', cn: '添加备注 (可选)', jp: 'メモを追加 (任意)', pt: 'Adicionar nota (opcional)', tr: 'Not ekle (isteğe bağlı)', ar: 'أضف ملاحظة (اختياري)', ru: 'Добавить заметку (опционально)', hi: 'नोट जोड़ें (वैकल्पिक)', bn: 'নোট যোগ করুন (ঐচ্ছিক)', ur: 'نوٹ شامل کریں (اختیاری)', th: 'เพิ่มโน้ต (ไม่บังคับ)', id: 'Tambah catatan (opsional)', ko: 'Add a note (optional)' },
-  'habits.checkin.confirm': { en: 'Confirm Check-in', hu: 'Bejelentkezés Megerősítése', ro: 'Confirmă Înregistrarea', sk: 'Potvrdiť Zápis', hr: 'Potvrdi Prijavu', de: 'Check-in Bestätigen', fr: 'Confirmer le Check-in', es: 'Confirmar Registro', it: 'Conferma Check-in', pl: 'Potwierdź Zapis', cn: '确认签到', jp: 'チェックインを確認', pt: 'Confirmar Check-in', tr: 'Girişi Onayla', ar: 'تأكيد التسجيل', ru: 'Подтвердить отметку', hi: 'चेक-इन की पुष्टि करें', bn: 'চেক-ইন নিশ্চিত করুন', ur: 'چیک ان کی تصدیق کریں', th: 'ยืนยันเช็คอิน', id: 'Konfirmasi Check-in', ko: 'Confirm Check-in' },
-  'habits.heatmap.title': { en: 'Activity Heatmap', hu: 'Aktivitási Hőtérkép', ro: 'Hartă de Activitate', sk: 'Tepelná Mapa Aktivity', hr: 'Toplinska Karta Aktivnosti', de: 'Aktivitäts-Heatmap', fr: 'Carte de Chaleur d\'Activité', es: 'Mapa de Calor de Actividad', it: 'Mappa di Calore Attività', pl: 'Mapa Ciepła Aktywności', cn: '活动热力图', jp: 'アクティビティヒートマップ', pt: 'Mapa de Calor de Atividade', tr: 'Aktivite Isı Haritası', ar: 'خريطة حرارية للنشاط', ru: 'Тепловая карта активности', hi: 'गतिविधि हीटमैप', bn: 'ক্রিয়াকলাপ হিটম্যাপ', ur: 'سرگرمی ہیٹ میپ', th: 'แผนที่ความร้อนกิจกรรม', id: 'Peta Panas Aktivitas', ko: 'Activity Heatmap' },
-  'habits.weeklyProgress': { en: 'This Week', hu: 'Ez a Hét', ro: 'Această Săptămână', sk: 'Tento Týždeň', hr: 'Ovaj Tjedan', de: 'Diese Woche', fr: 'Cette Semaine', es: 'Esta Semana', it: 'Questa Settimana', pl: 'Ten Tydzień', cn: '本周', jp: '今週', pt: 'Esta Semana', tr: 'Bu Hafta', ar: 'هذا الأسبوع', ru: 'Эта неделя', hi: 'इस सप्ताह', bn: 'এই সপ্তাহ', ur: 'اس ہفتے', th: 'สัปดาห์นี้', id: 'Minggu Ini', ko: 'This Week' },
+
 
 
 
@@ -512,45 +499,7 @@ const translations: Translations = {
 
 
 
-  // Habit Lab (Redesigned)
-  'habits.title': { en: 'Habit Lab', hu: 'Szokás Labor', ro: 'Laborator de Obiceiuri', sk: 'Laboratórium Zvykov', hr: 'Laboratorij Navika', de: 'Gewohnheitslabor', fr: 'Laboratoire d\'Habitudes', es: 'Laboratorio de Hábitos', it: 'Laboratorio Abitudini', pl: 'Laboratorium Nawyków', cn: '习惯实验室', jp: '習慣ラボ', pt: 'Laboratório de Hábitos', tr: 'Alışkanlık Laboratuvarı', ar: 'مختبر العادات', ru: 'Лаборатория привычек', hi: 'आदत लैब', bn: 'অভ্যাস ল্যাব', ur: 'عادت لیب', th: 'ห้องปฏิบัติการนิสัย', id: 'Laboratorium Kebiasaan', ko: '습관 연구소' },
-  'habits.subtitle': { en: 'Build better routines, one day at a time', hu: 'Építs jobb rutinokat, napról napra', ro: 'Construiește rutine mai bune, zi de zi', sk: 'Budujte lepšie rutiny, deň po dni', hr: 'Izgradite bolje rutine, dan po dan', de: 'Bessere Routinen aufbauen, Tag für Tag', fr: 'Construisez de meilleures routines, un jour à la fois', es: 'Construye mejores rutinas, día a día', it: 'Costruisci routine migliori, un giorno alla volta', pl: 'Buduj lepsze nawyki, dzień po dniu', cn: '建立更好的日常生活，一天一天来', jp: 'より良いルーチンを、一日一日築く', pt: 'Construa rotinas melhores, um dia de cada vez', tr: 'Daha iyi rutinler oluşturun, günden güne', ar: 'بناء روتين أفضل، يومًا بيوم', ru: 'Создавайте лучшие привычки, день за днем', hi: 'बेहतर दिनचर्या बनाएं, एक समय में एक दिन', bn: 'ভাল রুটিন তৈরি করুন, দিনে দিনে', ur: 'بہتر معمولات بنائیں، ایک وقت میں ایک دن', th: 'สร้างกิจวัตรที่ดีขึ้น ทีละวัน', id: 'Bangun rutinitas yang lebih baik, satu hari demi satu hari', ko: '하루하루 더 나은 루틴을 만드세요' },
 
-  'habits.create': { en: 'New Habit', hu: 'Új Szokás', ro: 'Obicei Nou', sk: 'Nový Zvyk', hr: 'Nova Navika', de: 'Neue Gewohnheit', fr: 'Nouvelle Habitude', es: 'Nuevo Hábito', it: 'Nuova Abitudine', pl: 'Nowy Nawyk', cn: '新习惯', jp: '新しい習慣', pt: 'Novo Hábito', tr: 'Yeni Alışkanlık', ar: 'عادة جديدة', ru: 'Новая привычка', hi: 'नई आदत', bn: 'নতুন অভ্যাস', ur: 'نئی عادت', th: 'นิสัยใหม่', id: 'Kebiasaan Baru', ko: '새로운 습관' },
-  'habits.edit': { en: 'Edit Habit', hu: 'Szokás Szerkesztése', ro: 'Editează Obicei', sk: 'Upraviť Zvyk', hr: 'Uredi Naviku', de: 'Gewohnheit bearbeiten', fr: 'Modifier l\'Habitude', es: 'Editar Hábito', it: 'Modifica Abitudine', pl: 'Edytuj Nawyk', cn: '编辑习惯', jp: '習慣を編集', pt: 'Editar Hábito', tr: 'Alışkanlığı Düzenle', ar: 'تعديل العادة', ru: 'Редактировать привычку', hi: 'आदत संपादित करें', bn: 'অভ্যাস সম্পাদনা করুন', ur: 'عادت میں ترمیم کریں', th: 'แก้ไขนิสัย', id: 'Edit Kebiasaan', ko: '습관 편집' },
-  'habits.deleteConfirm': { en: 'Delete this habit? History will be lost.', hu: 'Törlöd ezt a szokást? Az előzmények elvesznek.', ro: 'Ștergeți acest obicei? Istoricul va fi pierdut.', sk: 'Vymazať tento zvyk? História sa stratí.', hr: 'Izbrisati ovu naviku? Povijest će biti izgubljena.', de: 'Diese Gewohnheit löschen? Der Verlauf geht verloren.', fr: 'Supprimer cette habitude ? L\'historique sera perdu.', es: '¿Eliminar este hábito? Se perderá el historial.', it: 'Eliminare questa abitudine? La cronologia andrà persa.', pl: 'Usunąć ten nawyk? Historia zostanie utracona.', cn: '删除此习惯？历史记录将丢失。', jp: 'この習慣を削除しますか？履歴は失われます。', pt: 'Excluir este hábito? O histórico será perdido.', tr: 'Bu alışkanlığı sil? Geçmiş kaybolacak.', ar: 'حذف هذه العادة؟ سيتم فقدان السجل.', ru: 'Удалить эту привычку? История будет потеряна.', hi: 'इस आदत को हटाएं? इतिहास खो जाएगा।', bn: 'এই অভ্যাস মুছে ফেলবেন? ইতিহাস হারিয়ে যাবে।', ur: 'اس عادت کو ختم کریں؟ تاریخ ضائع ہو جائے گی۔', th: 'ลบนิสัยนี้หรือไม่? ประวัติจะสูญหาย', id: 'Hapus kebiasaan ini? Riwayat akan hilang.', ko: '이 습관을 삭제하시겠습니까? 기록이 손실됩니다.' },
-
-  'habits.nameLabel': { en: 'Habit Name', hu: 'Szokás Neve', ro: 'Nume Obicei', sk: 'Názov Zvyku', hr: 'Naziv Navike', de: 'Gewohnheitsname', fr: 'Nom de l\'Habitude', es: 'Nombre del Hábito', it: 'Nome Abitudine', pl: 'Nazwa Nawyku', cn: '习惯名称', jp: '習慣名', pt: 'Nome do Hábito', tr: 'Alışkanlık Adı', ar: 'اسم العادة', ru: 'Название привычки', hi: 'आदत का नाम', bn: 'অভ্যাসের নাম', ur: 'عادت کا نام', th: 'ชื่อนิสัย', id: 'Nama Kebiasaan', ko: '습관 이름' },
-  'habits.descLabel': { en: 'Description / Motivation', hu: 'Leírás / Motiváció', ro: 'Descriere / Motivație', sk: 'Popis / Motivácia', hr: 'Opis / Motivacija', de: 'Beschreibung / Motivation', fr: 'Description / Motivation', es: 'Descripción / Motivación', it: 'Descrizione / Motivazione', pl: 'Opis / Motywacja', cn: '描述 / 动力', jp: '説明 / モチベーション', pt: 'Descrição / Motivação', tr: 'Açıklama / Motivasyon', ar: 'الوصف / التحفيز', ru: 'Описание / Мотивация', hi: 'विवरण / प्रेरणा', bn: 'বর্ণনা / অনুপ্রেরণা', ur: 'تفصیل / حوصلہ افزائی', th: 'คำอธิบาย / แรงจูงใจ', id: 'Deskripsi / Motivasi', ko: '설명 / 동기 부여' },
-
-  'habits.frequencyLabel': { en: 'Frequency', hu: 'Gyakoriság', ro: 'Frecvență', sk: 'Frekvencia', hr: 'Učestalost', de: 'Häufigkeit', fr: 'Fréquence', es: 'Frecuencia', it: 'Frequenza', pl: 'Częstotliwość', cn: '频率', jp: '頻度', pt: 'Frequência', tr: 'Sıklık', ar: 'التكرار', ru: 'Частота', hi: 'आवृत्ति', bn: 'ফ্রিকোয়েন্সি', ur: 'فریکوئنسی', th: 'ความถี่', id: 'Frekuensi', ko: '빈도' },
-  'habits.freq.daily': { en: 'Daily', hu: 'Naponta', ro: 'Zilnic', sk: 'Denne', hr: 'Dnevno', de: 'Täglich', fr: 'Quotidien', es: 'Diario', it: 'Giornaliero', pl: 'Codziennie', cn: '每天', jp: '毎日', pt: 'Diariamente', tr: 'Günlük', ar: 'يوميًا', ru: 'Ежедневно', hi: 'दैनिक', bn: 'দৈনিক', ur: 'روزانہ', th: 'ทุกวัน', id: 'Harian', ko: '매일' },
-  'habits.freq.weekly': { en: 'Weekly', hu: 'Hetente', ro: 'Săptămânal', sk: 'Týždenne', hr: 'Tjedno', de: 'Wöchentlich', fr: 'Hebdomadaire', es: 'Semanal', it: 'Settimanale', pl: 'Tygodniowo', cn: '每周', jp: '毎週', pt: 'Semanalmente', tr: 'Haftalık', ar: 'أسبوعيًا', ru: 'Еженедельно', hi: 'साप्ताहिक', bn: 'সাপ্তাহিক', ur: 'ہفتہ وار', th: 'รายสัปดาห์', id: 'Mingguan', ko: '매주' },
-
-  'habits.timeLabel': { en: 'Time of Day', hu: 'Napszak', ro: 'Momentul Zilei', sk: 'Čas Dňa', hr: 'Doba Dana', de: 'Tageszeit', fr: 'Moment de la Journée', es: 'Momento del Día', it: 'Momento della Giornata', pl: 'Pora Dnia', cn: '一天中的时间', jp: '時間帯', pt: 'Hora do Dia', tr: 'Günün Saati', ar: 'وقت اليوم', ru: 'Время суток', hi: 'दिन का समय', bn: 'দিনের সময়', ur: 'دن کا وقت', th: 'เวลาของวัน', id: 'Waktu Hari', ko: '하루 중 시간' },
-  'habits.time.morning': { en: 'Morning', hu: 'Reggel', ro: 'Dimineața', sk: 'Ráno', hr: 'Jutro', de: 'Morgens', fr: 'Matin', es: 'Mañana', it: 'Mattina', pl: 'Rano', cn: '早晨', jp: '朝', pt: 'Manhã', tr: 'Sabah', ar: 'صباحًا', ru: 'Утро', hi: 'सुबह', bn: 'সকাল', ur: 'صبح', th: 'เช้า', id: 'Pagi', ko: '아침' },
-  'habits.time.afternoon': { en: 'Afternoon', hu: 'Délután', ro: 'După-amiază', sk: 'Poobede', hr: 'Poslijepodne', de: 'Nachmittags', fr: 'Après-midi', es: 'Tarde', it: 'Pomeriggio', pl: 'Popołudnie', cn: '下午', jp: '午後', pt: 'Tarde', tr: 'Öğleden Sonra', ar: 'بعد الظهر', ru: 'День', hi: 'दोपहर', bn: 'বিকেল', ur: 'دوپہر', th: 'บ่าย', id: 'Sore', ko: '오후' },
-  'habits.time.evening': { en: 'Evening', hu: 'Este', ro: 'Seara', sk: 'Večer', hr: 'Večer', de: 'Abends', fr: 'Soir', es: 'Noche', it: 'Sera', pl: 'Wieczór', cn: '晚上', jp: '夕方', pt: 'Noite', tr: 'Akşam', ar: 'مساءً', ru: 'Вечер', hi: 'शाम', bn: 'संध্যা', ur: 'شام', th: 'เย็น', id: 'Malam', ko: '저녁' },
-  'habits.time.anytime': { en: 'Anytime', hu: 'Bármikor', ro: 'Oricând', sk: 'Kedykoľvek', hr: 'Bilo kada', de: 'Jederzeit', fr: 'À tout moment', es: 'En cualquier momento', it: 'Qualsiasi momento', pl: 'Kiedykolwiek', cn: '随时', jp: 'いつでも', pt: 'A qualquer momento', tr: 'Herhangi bir zaman', ar: 'في أي وقت', ru: 'В любое время', hi: 'किसी भी समय', bn: 'যেকোনো সময়', ur: 'کسی بھی وقت', th: 'ทุกเวลา', id: 'Kapan saja', ko: '언제든지' },
-
-  'habits.checkInTitle': { en: 'How did it go?', hu: 'Hogy ment?', ro: 'Cum a mers?', sk: 'Ako to išlo?', hr: 'Kako je prošlo?', de: 'Wie lief es?', fr: 'Comment ça s\'est passé ?', es: '¿Cómo fue?', it: 'Com\'è andata?', pl: 'Jak poszło?', cn: '进展如何？', jp: 'どうでしたか？', pt: 'Como foi?', tr: 'Nasıl geçti?', ar: 'كيف سارت الأمور؟', ru: 'Как все прошло?', hi: 'यह कैसा रहा?', bn: 'কেমন হলো?', ur: 'یہ کیسا رہا؟', th: 'เป็นอย่างไรบ้าง?', id: 'Bagaimana hasilnya?', ko: '어땠나요?' },
-  'habits.effortLabel': { en: 'Effort Level', hu: 'Nehézségi Szint', ro: 'Nivel de Efort', sk: 'Úroveň Úsilia', hr: 'Razina Truda', de: 'Anstrengungsgrad', fr: 'Niveau d\'Effort', es: 'Nivel de Esfuerzo', it: 'Livello di Sforzo', pl: 'Poziom Wysiłku', cn: '努力程度', jp: '努力レベル', pt: 'Nível de Esforço', tr: 'Çaba Seviyesi', ar: 'مستوى الجهد', ru: 'Уровень усилий', hi: 'प्रयास स्तर', bn: 'প্রচেষ্টার স্তর', ur: 'کوشش کی سطح', th: 'ระดับความพยายาม', id: 'Tingkat Usaha', ko: '노력 수준' },
-  'habits.effort.easy': { en: 'Easy', hu: 'Könnyű', ro: 'Ușor', sk: 'Ľahké', hr: 'Lako', de: 'Leicht', fr: 'Facile', es: 'Fácil', it: 'Facile', pl: 'Łatwy', cn: '容易', jp: '簡単', pt: 'Fácil', tr: 'Kolay', ar: 'سهل', ru: 'Легко', hi: 'आसान', bn: 'সহজ', ur: 'آسان', th: 'ง่าย', id: 'Mudah', ko: '쉬움' },
-  'habits.effort.medium': { en: 'Medium', hu: 'Közepes', ro: 'Mediu', sk: 'Stredné', hr: 'Srednje', de: 'Mittel', fr: 'Moyen', es: 'Medio', it: 'Medio', pl: 'Średni', cn: '中等', jp: '普通', pt: 'Médio', tr: 'Orta', ar: 'متوسط', ru: 'Средне', hi: 'मध्यम', bn: 'মাঝারি', ur: 'درمیانہ', th: 'ปานกลาง', id: 'Sedang', ko: '보통' },
-  'habits.effort.hard': { en: 'Hard', hu: 'Nehéz', ro: 'Greu', sk: 'Ťažké', hr: 'Teško', de: 'Schwer', fr: 'Difficile', es: 'Difícil', it: 'Difficile', pl: 'Trudny', cn: '困难', jp: '難しい', pt: 'Difícil', tr: 'Zor', ar: 'صعب', ru: 'Тяжело', hi: 'कठिन', bn: 'কঠিন', ur: 'مشکل', th: 'ยาก', id: 'Sulit', ko: '어려움' },
-  'habits.notePlaceholder': { en: 'Add a note (optional)...', hu: 'Megjegyzés hozzáadása (opcionális)...', ro: 'Adaugă o notă (opțional)...', sk: 'Pridať poznámku (voliteľné)...', hr: 'Dodaj bilješku (neobavezno)...', de: 'Notiz hinzufügen (optional)...', fr: 'Ajouter une note (facultatif)...', es: 'Añadir nota (opcional)...', it: 'Aggiungi nota (facoltativo)...', pl: 'Dodaj notatkę (opcjonalnie)...', cn: '添加备注（可选）...', jp: 'メモを追加（任意）...', pt: 'Adicionar nota (opcional)...', tr: 'Not ekle (isteğe bağlı)...', ar: 'إضافة ملاحظة (اختياري)...', ru: 'Добавить заметку (необязательно)...', hi: 'नोट जोड़ें (वैकल्पिक)...', bn: 'নোট যোগ করুন (ঐচ্ছিক)...', ur: 'نوٹ شامل کریں (اختیاری)...', th: 'เพิ่มบันทึก (ไม่บังคับ)...', id: 'Tambahkan catatan (opsional)...', ko: '메모 추가 (선택 사항)...' },
-  'habits.streak': { en: 'Streak', hu: 'Széria', ro: 'Serie', sk: 'Séria', hr: 'Niz', de: 'Serie', fr: 'Série', es: 'Racha', it: 'Serie', pl: 'Seria', cn: '连胜', jp: '連続', pt: 'Sequência', tr: 'Seri', ar: 'سلسلة', ru: 'Серия', hi: 'लगातार', bn: 'ধারাবাহিকতা', ur: 'مسلسل', th: 'สตรีค', id: 'Runtun', ko: '연속' },
-  'habits.emptyState': { en: 'No habits yet. Create one to start!', hu: 'Még nincsenek szokások. Hozz létre egyet a kezdéshez!', ro: 'Încă nu sunt obiceiuri. Creează unul pentru a începe!', sk: 'Zatiaľ žiadne zvyky. Vytvorte jeden a začnite!', hr: 'Još nema navika. Stvorite jednu za početak!', de: 'Noch keine Gewohnheiten. Erstelle eine!', fr: 'Pas encore d\'habitudes. Créez-en une pour commencer !', es: 'Todavía no hay hábitos. ¡Crea uno para empezar!', it: 'Nessuna abitudine ancora. Creane una per iniziare!', pl: 'Brak nawyków. Utwórz jeden, aby zacząć!', cn: '还没有习惯。创建一个开始吧！', jp: 'まだ習慣がありません。作成して始めましょう！', pt: 'Ainda sem hábitos. Crie um para começar!', tr: 'Henüz alışkanlık yok. Başlamak için bir tane oluşturun!', ar: 'لا توجد عادات بعد. أنشئ واحدة للبدء!', ru: 'Привычек пока нет. Создайте одну, чтобы начать!', hi: 'अभी तक कोई आदत नहीं। शुरू करने के लिए एक बनाएँ!', bn: 'এখনও কোন অভ্যাস নেই। শুরু করতে একটি তৈরি করুন!', ur: 'ابھی تک کوئی عادت نہیں۔ شروع کرنے کے لئے ایک بنائیں!', th: 'ยังไม่มีนิสัย สร้างหนึ่งเพื่อเริ่มต้น!', id: 'Belum ada kebiasaan. Buat satu untuk memulai!', ko: '아직 습관이 없습니다. 시작하려면 하나를 만드세요!' },
-  'habits.completedToday': { en: 'Completed Today', hu: 'Mai nap teljesítve', ro: 'Completat Azi', sk: 'Dnes Dokončené', hr: 'Danas Završeno', de: 'Heute erledigt', fr: 'Terminé Aujourd\'hui', es: 'Completado Hoy', it: 'Completato Oggi', pl: 'Ukończono Dzisiaj', cn: '今天完成', jp: '今日完了', pt: 'Concluído Hoje', tr: 'Bugün Tamamlandı', ar: 'اكتمل اليوم', ru: 'Завершено сегодня', hi: 'आज पूरा हुआ', bn: 'আজ সম্পন্ন হয়েছে', ur: 'آج مکمل ہوا', th: 'เสร็จสิ้นวันนี้', id: 'Selesai Hari Ini', ko: '오늘 완료됨' },
-  'habits.allHabits': { en: 'All Habits', hu: 'Összes Szokás', ro: 'Toate Obiceiurile', sk: 'Všetky Zvyky', hr: 'Sve Navike', de: 'Alle Gewohnheiten', fr: 'Toutes les Habitudes', es: 'Todos los Hábitos', it: 'Tutte le Abitudini', pl: 'Wszystkie Nawyki', cn: '所有习惯', jp: 'すべての習慣', pt: 'Todos os Hábitos', tr: 'Tüm Alışkanlıklar', ar: 'كل العادات', ru: 'Все привычки', hi: 'सभी आदतें', bn: 'সমস্ত অভ্যাস', ur: 'تمام عادات', th: 'นิสัยทั้งหมด', id: 'Semua Kebiasaan', ko: '모든 습관' },
-  'habits.exactTime': { en: 'Exact Time', hu: 'Pontos Idő', ro: 'Ora Exactă', sk: 'Presný Čas', hr: 'Točno Vrijeme', de: 'Genaue Zeit', fr: 'Heure Exacte', es: 'Hora Exacta', it: 'Ora Esatta', pl: 'Dokładny Czas', cn: '精确时间', jp: '正確な時間', pt: 'Hora Exata', tr: 'Kesin Zaman', ar: 'الوقت المحدد', ru: 'Точное время', hi: 'सटीक समय', bn: 'সঠিক সময়', ur: 'عین وقت', th: 'เวลาที่แน่นอน', id: 'Waktu Tepat', ko: '정확한 시간' },
-  'habits.masteryGuidance': { en: '60 days recommended for mastery', hu: '60 nap javasolt az elsajátításhoz', ro: '60 de zile recomandate pentru stăpânire', sk: 'Na osvojenie sa odporúča 60 dní', hr: 'Preporučuje se 60 dana za svladavanje', de: '60 Tage für die Meisterschaft empfohlen', fr: '60 jours recommandés pour la maîtrise', es: '60 días recomendados para el dominio', it: '60 giorni raccomandati per la padronanza', pl: 'Zaleca się 60 dni na opanowanie', cn: '建议 60 天达到精通', jp: '習得には60日が推奨されます', pt: '60 dias recommandados para o domínio', tr: 'Ustalık için 60 gün önerilir', ar: 'موصى بـ 60 يومًا للإتقان', ru: 'Рекомендуется 60 дней для освоения', hi: 'महारत के लिए 60 दिन की सिफारिश की गई', bn: 'দক্ষতার জন্য ৬০ দিন সুপারিশ করা হয়েছে', ur: 'مہارت کے لیے 60 دن تجویز کیے گئے ہیں', th: 'แนะนำ 60 วันเพื่อความชำนาญ', id: '60 hari direkomendasikan untuk penguasaan', ko: '숙달을 위해 60일 권장' },
-  'habits.markMastered': { en: 'Mark as Mastered', hu: 'Elsajátítottnak jelölöm', ro: 'Marchează ca Stăpânit', sk: 'Označiť ako Osvojené', hr: 'Označi kao Svladano', de: 'Als beherrscht markieren', fr: 'Marquer comme Maîtrisé', es: 'Marcar como Dominado', it: 'Segna come Padroneggiato', pl: 'Oznacz jako Opanowane', cn: '标记为精通', jp: '習得済みとしてマーク', pt: 'Marcar como Dominado', tr: 'Ustalık Olarak İşaretle', ar: 'تحديد كمتقن', ru: 'Отметить как освоенное', hi: 'महारत के रूप में चिह्नित करें', bn: 'দক্ষ হিসেবে চিহ্নিত করুন', ur: 'مہارت کے طور پر نشان زد کریں', th: 'ทำเครื่องหมายว่าชำนาญแล้ว', id: 'Tandai sebagai Dikuasai', ko: '숙달됨으로 표시' },
-  'habits.masteredHabits': { en: 'Mastered Habits', hu: 'Elsajátított Szokások', ro: 'Obiceiuri Stăpânite', sk: 'Osvojené Zvyky', hr: 'Svladane Navike', de: 'Beherrschte Gewohnheiten', fr: 'Habitudes Maîtrisées', es: 'Hábitos Dominados', it: 'Abitudini Padroneggiate', pl: 'Opanowane Nawyki', cn: '精通的习惯', jp: '習得した習慣', pt: 'Hábitos Dominados', tr: 'Ustalaşılmış Alışkanlıklar', ar: 'العادات المتقنة', ru: 'Освоенные привычки', hi: 'महारत हासिल की गई आदतें', bn: 'দক্ষ অভ্যাস', ur: 'مہارت یافتہ عادات', th: 'นิสัยที่ชำนาญแล้ว', id: 'Kebiasaan yang Dikuasai', ko: '숙달된 습관' },
-  'habits.noMoreDays': { en: 'I have mastered this, no more days needed', hu: 'Már elsajátítottam, nincs szükség több napra', ro: 'Am stăpânit acest lucru, nu mai este nevoie de alte zile', sk: 'Už som si to osvojil, viac dní netreba', hr: 'Već sam ovo svladao, nije potrebno više dana', de: 'Ich habe das gemeistert, keine weiteren Tage nötig', fr: 'J\'ai maîtrisé cela, plus de jours nécessaires', es: 'He dominado esto, no se necesitan más días', it: 'L\'ho padroneggiato, non servono altri giorni', pl: 'Opanowałem to, nie potrzeba więcej dni', cn: '我已经精通了，不需要更多时间', jp: '習得しました、これ以上の日数は不要です', pt: 'Já dominei isso, não são necessários mais dias', tr: 'Bunu ustalaştırdım, daha fazla güne gerek yok', ar: 'لقد أتقنت هذا، لا حاجة لمزيد من الأيام', ru: 'Я это освоил, больше дней не требуется', hi: 'मैंने इसे महारत हासिल कर ली है, अब और दिनों की आवश्यकता नहीं है', bn: 'আমি এটি আয়ত্ত করেছি, আর কোন দিনের প্রয়োজন নেই', ur: 'میں نے اسے مہارت حاصل کر لی ہے، اب مزید دنوں کی ضرورت نہیں ہے', th: 'ฉันชำนาญแล้ว ไม่ต้องการวันเพิ่มแล้ว', id: 'Saya sudah menguasai ini, tidak perlu hari lagi', ko: '이미 숙달했습니다. 더 이상 날짜가 필요하지 않습니다' },
-  'habits.nextSession': { en: 'Next session', hu: 'Következő alkalom', ro: 'Următoarea sesiune', sk: 'Ďalšie sedenie', hr: 'Sljedeći termin', de: 'Nächste Sitzung', fr: 'Prochaine session', es: 'Próxima sesión', it: 'Prossima sessione', pl: 'Następna sesja', cn: '下一次会话', jp: '次回のセッション', pt: 'Próxima sessão', tr: 'Sonraki seans', ar: 'الجلسة القادمة', ru: 'Следующий сеанс', hi: 'अगla सत्र', bn: 'পরবর্তী সেশন', ur: 'اگلا سیشن', th: 'เซสชันถัดไป', id: 'Sesi berikutnya', ko: '다음 세션' },
-  'habits.success': { en: 'Success', hu: 'Sikeres', ro: 'Succes', sk: 'Úspech', hr: 'Uspjeh', de: 'Erfolg', fr: 'Succès', es: 'Éxito', it: 'Successo', pl: 'Sukces', cn: '成功', jp: '成功', pt: 'Sucesso', tr: 'Başarı', ar: 'نجاح', ru: 'Успех', hi: 'सफलता', bn: 'সফল', ur: 'کامیابی', th: 'ความสำเร็จ', id: 'Berhasil', ko: '성공' },
-  'habits.missed': { en: 'Missed', hu: 'Sikertelen', ro: 'Eșuat', sk: 'Zmeškané', hr: 'Propušteno', de: 'Verpasst', fr: 'Manqué', es: 'Perdido', it: 'Mancato', pl: 'Pominięte', cn: '错过', jp: '逃した', pt: 'Perdido', tr: 'Kaçırıldı', ar: 'فائت', ru: 'Пропущено', hi: 'छूट गया', bn: 'মিস হয়েছে', ur: 'رہ گیا', th: 'พลาด', id: 'Terlewat', ko: '놓침' },
 
   // Statistics View
   'statistics.title': { en: 'Productivity Statistics', hu: 'Produktivitási Statisztikák', ro: 'Statistici Productivitate', sk: 'Štatistiky Produktivity', hr: 'Statistika Produckivnosti', de: 'Produktivitätsstatistiken', fr: 'Statistiques de Productivité', es: 'Estadísticas de Productividad', it: 'Statistiche di Produttività', pl: 'Statystyki Produktywności', cn: '生产力统计', jp: '生産性統計', pt: 'Estatísticas de Produtividade', tr: 'Verimlilik İstatistikleri', ar: 'إحصائيات الإنتاجية', ru: 'Статистика продуктивности', hi: 'उत्पादकता आँकड़े', bn: 'উত্পাদনশীলতা পরিসংখ্যান', ur: 'پیداواری نمو کے اعدادوشمار', th: 'สถิติการผลิต', id: 'Statistik Produktivitas' },
@@ -840,18 +789,80 @@ const translations: Translations = {
   'settings.fetchRatesAI': { en: 'AI Exchange Rates', hu: 'AI Árfolyam Lekérés' },
   'settings.baseCurrencyDesc': { en: 'Base currency: {currency}. Enter value of 1 unit in {currency}.', hu: 'Alap pénznem: {currency}. Adj meg, 1 egység mennyit ér {currency}-ben.' },
   'settings.saveBudgetSettings': { en: 'Save Budget Settings', hu: 'Költségvetési Beállítások Mentése' },
-  'settings.theme': { en: 'Theme', hu: 'Téma' },
-  'settings.lightTheme': { en: 'Light Mode', hu: 'Világos Mód' },
-  'settings.lightThemeDesc': { en: 'Best for bright environments', hu: 'Ideális világos környezetben' },
-  'settings.darkTheme': { en: 'Dark Mode', hu: 'Sötét Mód' },
-  'settings.darkThemeDesc': { en: 'Easy on the eyes at night', hu: 'Kíméli a szemet éjszaka' },
-  'settings.sidebarPosition': { en: 'Sidebar Position', hu: 'Oldalsáv Pozíciója' },
-  'settings.leftSide': { en: 'Left Side', hu: 'Bal Oldal' },
-  'settings.rightSide': { en: 'Right Side', hu: 'Jobb Oldal' },
-  'settings.compactMode': { en: 'Compact Mode', hu: 'Kompakt Mód' },
-  'settings.compactModeDesc': { en: 'Show more content on screen', hu: 'Több tartalom megjelenítése a képernyőn' },
-  'settings.animations': { en: 'Animations', hu: 'Animációk' },
-  'settings.animationsDesc': { en: 'Enable smooth transitions', hu: 'Finom áttűnések engedélyezése' },
+  // --- HABIT STUDIO (PhD V3) ---
+  'habits.title': {
+    en: 'Habit Studio',
+    hu: 'Szokáslabor'
+  },
+  'habits.subtitle': {
+    en: 'Building sustainable routines • Consistent practice • Skill mastery',
+    hu: 'Fenntartható rutinok építése • Következetes gyakorlás • Készségszintű elsajátítás'
+  },
+  'habits.create': { en: 'New Habit', hu: 'Új Szokás' },
+  'habits.edit': { en: 'Edit Habit', hu: 'Szokás Szerkesztése' },
+  'habits.archive': { en: 'Archive', hu: 'Archiválás' },
+  'habits.unarchive': { en: 'Reactivate', hu: 'Visszaállítás' },
+  'habits.toggleMastered': { en: 'Toggle Mastery', hu: 'Mester Státusz' },
+  'habits.unmaster': { en: 'Revert to Active', hu: 'Vissza Aktívba' },
+  'habits.deleteConfirm': { en: 'Are you sure you want to delete this habit?', hu: 'Biztosan végleg törölni szeretnéd ezt a szokást?' },
+
+  // Metrics
+  'habits.metrics.active': { en: 'Active Habits', hu: 'Aktív Rutinok' },
+  'habits.metrics.activeHint': { en: 'Focus goals (non-archived)', hu: 'Fókuszban lévő célok' },
+  'habits.metrics.today': { en: 'Daily Completion', hu: 'Mai Teljesítés' },
+  'habits.metrics.todayHint': { en: 'At least 1 practice/habit', hu: 'Napi aktivitás mértéke' },
+  'habits.metrics.masteryAvg': { en: 'Mastery Index', hu: 'Elsajátítási Index' },
+  'habits.metrics.masteryAvgHint': { en: 'Subjective progress', hu: 'Szubjektív fejlődési mutató' },
+  'habits.metrics.bestStreak': { en: 'Longest Streak', hu: 'Rekord Sorozat' },
+  'habits.metrics.bestStreakHint': { en: 'Consistency record', hu: 'Megszakítás nélküli napok' },
+
+  // Heatmap
+  'habits.heatmap.title': { en: 'Activity Heatmap', hu: 'Aktivitási Hőtérkép' },
+  'habits.heatmap.subtitle': { en: 'Visual overview of consistency and intensity', hu: 'Vizuális áttekintés az elmúlt időszak intenzitásáról' },
+
+  // Tabs
+  'habits.tabs.active': { en: 'Active', hu: 'Aktív' },
+  'habits.tabs.archived': { en: 'Archived', hu: 'Archív' },
+  'habits.tabs.mastered': { en: 'Mastered', hu: 'Elsajátítva' },
+
+  // Filters & Search
+  'habits.filters.onlyDueToday': { en: 'Due Today', hu: 'Ma Esedékes' },
+  'habits.filters.onlyDueTodayTip': { en: 'Show items not yet practiced today', hu: 'Csak a ma még elvégzendő feladatok' },
+  'habits.search': { en: 'Search habits...', hu: 'Szokások keresése...' },
+
+  // Card Content
+  'habits.cadence.daily': { en: 'Daily', hu: 'Napi' },
+  'habits.cadence.weekly': { en: 'Weekly', hu: 'Heti' },
+  'habits.doneToday': { en: 'Done Today', hu: 'Mai nap kész' },
+  'habits.stats.streak': { en: 'Streak', hu: 'Széria' },
+  'habits.stats.best': { en: 'Best', hu: 'Rekord' },
+  'habits.stats.total': { en: 'Total Days', hu: 'Össznap' },
+  'habits.mastery': { en: 'Mastery Level', hu: 'Elsajátítási Szint' },
+  'habits.masteryHint': { en: 'Adjust slider to reflect how ingrained this habit is.', hu: 'Állítsd be, mennyire vált automatikussá a szokás.' },
+
+  // Actions
+  'habits.practice': { en: 'Log Practice', hu: 'Teljesítve' },
+  'habits.undoPractice': { en: 'Undo Last', hu: 'Visszavonás' },
+  'habits.quickNote': { en: 'Quick note...', hu: 'Gyorsjegyzet...' },
+  'habits.footer': { en: 'Practice + Mastery = True Progress', hu: 'Következetesség + Tudatosság = Valódi Haladás' },
+  'habits.created': { en: 'Started', hu: 'Kezdve' },
+
+  // Empty State
+  'habits.empty': { en: 'No Active Habits', hu: 'Nincsenek Aktív Szokások' },
+  'habits.emptyHint': { en: 'Start small. Define one habit and build from there.', hu: 'Kezdd kicsiben! Definiálj egy célt, és építkezz.' },
+
+  // Sheet / Form
+  'habits.sheetHint': { en: 'Minimal administration, maximum focus.', hu: 'Minimális adminisztráció, maximális fókusz.' },
+  'habits.fields.name': { en: 'Habit Name', hu: 'Megnevezés' },
+  'habits.fields.namePh': { en: 'e.g. Read 30 mins professional', hu: 'pl. Napi 30p szakmai olvasás' },
+  'habits.fields.description': { en: 'Purpose / Definition', hu: 'Cél és Definíció' },
+  'habits.fields.descriptionPh': { en: 'Why is this important? What counts as done?', hu: 'Miért fontos? Mi számít elvégzettnek?' },
+  'habits.fields.cadence': { en: 'Frequency', hu: 'Gyakoriság' },
+  'habits.fields.cadenceHint': { en: 'Tracking is always daily. This sets your target rhythm.', hu: 'A naplózás mindig napi szintű. Ez a cél ritmusát jelöli.' },
+  'habits.fields.weeklyTarget': { en: 'Weekly Target', hu: 'Heti Célszám' },
+  'habits.fields.weeklyTargetHint': { en: 'Target days per week for analytics.', hu: 'Hány napot tervezel hetente? (Analitikához)' },
+  'habits.fields.masteryStart': { en: 'Initial Mastery', hu: 'Kezdő Szint' },
+  'habits.fields.color': { en: 'Color Code', hu: 'Színkód' },
   'settings.notificationSettings': { en: 'Notification Preferences', hu: 'Értesítési Beállítások' },
   'settings.taskReminders': { en: 'Task Reminders', hu: 'Feladat Emlékeztetők' },
   'settings.taskRemindersDesc': { en: 'Get reminded about upcoming tasks', hu: 'Emlékeztető a közelgő feladatokról' },
