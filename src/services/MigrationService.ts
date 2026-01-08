@@ -49,6 +49,24 @@ export const MigrationService = {
                 migrationCount++;
             }
 
+            // 4. NUCLEAR RESET v1.1.91 (User requested clear-all)
+            const purge1191Key = 'migration_1_1_91_nuclear';
+            if (!localStorage.getItem(purge1191Key)) {
+                console.warn('EXECUTING NUCLEAR RESET v1.1.91');
+                localStorage.removeItem('planner-transactions');
+                localStorage.removeItem('contentplanner-transactions');
+                localStorage.removeItem('planner.financial.cache');
+
+                // Also clear settings to be safe
+                localStorage.removeItem('digitalplanner-settings');
+                localStorage.removeItem('contentplanner_ai_config');
+                localStorage.removeItem('digitalplanner_ai_config');
+
+                localStorage.setItem(purge1191Key, 'true');
+                console.log('NUCLEAR RESET COMPLETE');
+                migrationCount++;
+            }
+
             if (migrationCount > 0) {
                 console.log(`Migration completed: ${migrationCount} items migrated.`);
             } else {
