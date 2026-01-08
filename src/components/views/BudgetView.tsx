@@ -230,7 +230,7 @@ const Button: React.FC<
 const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = ({ className, ...props }) => (
   <input
     className={cx(
-      "w-full rounded-2xl border border-white/10 bg-white/6 px-4 py-2.5 text-sm font-bold text-white placeholder:text-white/35 outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400/40",
+      "w-full rounded-2xl border border-white/10 bg-[#1e293b] px-4 py-2.5 text-sm font-bold text-white placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400/40",
       className
     )}
     {...props}
@@ -240,7 +240,7 @@ const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = ({ classNam
 const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = ({ className, ...props }) => (
   <select
     className={cx(
-      "w-full rounded-2xl border border-white/10 bg-white/6 px-4 py-2.5 text-sm font-extrabold text-white outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400/40",
+      "w-full rounded-2xl border border-white/10 bg-[#1e293b] px-4 py-2.5 text-sm font-extrabold text-white outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400/40",
       className
     )}
     {...props}
@@ -508,12 +508,14 @@ function useBudgetEngine() {
     return { income, expense, balance };
   }, [sourceTx, affectsBalanceNow, currency, safeConvert]);
 
-  // --------- Monthly cashflow chart (realized only view for sanity) ----------
+  // --------- Monthly cashflow chart (realized vs scheduled) ----------
   const cashFlowData = useMemo(() => {
-    // last 12 months by effective date
+    // last 12 months by effective date + future if mode enabled
     const now = new Date();
     const buckets: Array<{ monthIndex: number; name: string; income: number; expense: number }> = [];
     const months: Array<{ y: number; m: number }> = [];
+
+    // Generate buckets: past 11 months + current month
     for (let i = 11; i >= 0; i--) {
       const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
       months.push({ y: dt.getFullYear(), m: dt.getMonth() });
@@ -527,22 +529,32 @@ function useBudgetEngine() {
 
     for (const tx of sourceTx) {
       if (tx.isMaster) continue;
-      // realizedOnly chart: only effectiveDate <= today
-      if (tx.effectiveDateYMD > todayYMD) continue;
+
+      // Filter based on mode
+      if (balanceMode === 'realizedOnly' && tx.effectiveDateYMD > todayYMD) continue;
+      // If includeScheduled, we allow future items
 
       const dt = parseYMD(tx.effectiveDateYMD);
       if (!dt) continue;
 
       const idx = months.findIndex((mm) => mm.y === dt.getFullYear() && mm.m === dt.getMonth());
-      if (idx === -1) continue;
 
-      const v = tx.currency === currency ? tx.amount : safeConvert(tx.amount, tx.currency, currency);
-      if (v >= 0) buckets[idx].income += v;
-      else buckets[idx].expense += Math.abs(v);
+      // If NOT in the last 12 months window, maybe we should skip? 
+      // Or if it's future and we are in "includeScheduled", maybe we want to see it?
+      // For this chart (Historical Cashflow), we typically show the PAST.
+      // But if the user wants to see "Future", we might need a Projection chart.
+      // For now, let's just show it if it falls in the current/past months window.
+      // If it is NEXT month, it won't be in the bucket list designated above.
+
+      if (idx !== -1) {
+        const v = tx.currency === currency ? tx.amount : safeConvert(tx.amount, tx.currency, currency);
+        if (v >= 0) buckets[idx].income += v;
+        else buckets[idx].expense += Math.abs(v);
+      }
     }
 
     return buckets;
-  }, [sourceTx, currency, language, safeConvert, todayYMD]);
+  }, [sourceTx, currency, language, safeConvert, todayYMD, balanceMode]);
 
   // --------- Category totals (realized now) ----------
   const categoryTotals = useMemo(() => {
