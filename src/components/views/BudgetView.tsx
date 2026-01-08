@@ -1008,7 +1008,10 @@ const useBudgetController = () => {
         type: 'info',
         title: 'Közelgő ismétlődő tranzakciók',
         message: `${upcomingRecurring.length} tranzakció jön létre a következő 7 napban.`,
-        action: () => setFilterCategory('all')
+        action: () => {
+          setActiveTab('transactions');
+          setFilterCategory('all');
+        }
       });
     }
 
@@ -1086,7 +1089,7 @@ const useBudgetController = () => {
       setShowAddModal(false);
     } catch (error) {
       console.error('Failed to save transaction:', error);
-      alert(t('budget.saveError') || 'Failed to save transaction');
+      // alert(t('budget.saveError') || 'Failed to save transaction');
     }
   };
 
@@ -1416,14 +1419,14 @@ const BudgetView: React.FC = () => {
               />
               <StatCard
                 title="Megtakarítási ráta"
-                value={`${Math.round(ctrl.analytics.savingsRate)}%`}
+                value={`${Number.isFinite(ctrl.analytics.savingsRate) ? Math.round(ctrl.analytics.savingsRate) : 0}%`}
                 subtitle="Bevételeid százaléka"
                 icon={<Wallet size={24} />}
                 color="from-emerald-500 to-teal-500"
               />
               <StatCard
                 title="Tartalékok (hónapok)"
-                value={Math.round(ctrl.analytics.runwayMonths).toString()}
+                value={Number.isFinite(ctrl.analytics.runwayMonths) ? Math.round(ctrl.analytics.runwayMonths).toString() : '0'}
                 subtitle="Hónapok a jelenlegi ütemezéssel"
                 icon={<Calendar size={24} />}
                 color="from-amber-500 to-orange-500"

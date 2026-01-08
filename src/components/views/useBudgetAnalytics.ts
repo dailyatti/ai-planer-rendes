@@ -30,6 +30,10 @@ export const useBudgetAnalytics = (
             totalIncome: 0,
             totalExpense: 0,
             balance: 0,
+            averageMonthlyExpense: 0,
+            savingsRate: 0,
+            runwayMonths: 0,
+            monthlyCashFlow: 0,
             categoryTotals: {},
             cashFlowData: zeroCashFlow, // Non-empty array of zeros to keep chart rendered but flat
             projectionData: [],
@@ -56,6 +60,12 @@ export const useBudgetAnalytics = (
     const ensureCurrency = (c?: string) => (c && c.trim() ? c : 'USD');
 
     const isMaster = (tr: Transaction) => tr.kind === 'master';
+
+    // ... existing helpers ...
+
+    // Derived Key Metrics (re-inserting to ensure scope availability if needed, but primarily for the return object update below)
+    // Note: This replacement chunk spans widely to update the TOP zero-guard return. The bottom calculation needs to be updated too.
+
 
     const isFuture = (tr: Transaction, now: Date) => {
         const dt = toDateSafe(tr.date);
@@ -314,13 +324,39 @@ export const useBudgetAnalytics = (
         return projData;
     }, [transactions, absToView, balance, projectionYears]);
 
+    const averageMonthlyExpense = useMemo(() => {
+        if (!cashFlowData || cashFlowData.length === 0) return 0;
+        const totalExp = cashFlowData.reduce((acc, curr) => acc + curr.expense, 0);
+        return totalExp / cashFlowData.length;
+    }, [cashFlowData]);
+
+    const monthlyCashFlow = useMemo(() => {
+        if (!cashFlowData || cashFlowData.length === 0) return 0;
+        const totalNet = cashFlowData.reduce((acc, curr) => acc + (curr.income - curr.expense), 0);
+        return totalNet / cashFlowData.length;
+    }, [cashFlowData]);
+
+    const savingsRate = useMemo(() => {
+        if (totalIncome === 0) return 0;
+        return ((totalIncome - totalExpense) / totalIncome) * 100;
+    }, [totalIncome, totalExpense]);
+
+    const runwayMonths = useMemo(() => {
+        if (averageMonthlyExpense === 0) return balance > 0 ? 999 : 0;
+        return balance / averageMonthlyExpense;
+    }, [balance, averageMonthlyExpense]);
+
     return {
         totalIncome,
         totalExpense,
         balance,
-        categoryTotals, // PURE: Record<categoryKey, number>
-        cashFlowData,   // PURE: { monthIndex, year, income, expense }[]
-        projectionData, // PURE: { year, monthIndex, balance, income, expense }[]
+        averageMonthlyExpense,
+        monthlyCashFlow,     // Added
+        savingsRate,
+        runwayMonths,
+        categoryTotals,
+        cashFlowData,
+        projectionData,
         isMaster,
         isFuture,
         absToView,
