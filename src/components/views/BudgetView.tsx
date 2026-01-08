@@ -776,23 +776,40 @@ const BudgetView: React.FC = () => {
 
           <div className="lg:col-span-2 card p-4 flex flex-col bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl rounded-2xl">
             <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">{t('budget.cashFlow')}</h3>
-            <div className="h-[220px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={cashFlowChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.5} />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="income" stroke="#10b981" fill="#10b981" fillOpacity={0.3} />
-                  <Area type="monotone" dataKey="expense" stroke="#ef4444" fill="#ef4444" fillOpacity={0.3} />
-                </AreaChart>
-              </ResponsiveContainer>
+            <div className="h-[220px] w-full" style={{ minHeight: '220px' }}>
+              {cashFlowChartData && cashFlowChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%" minHeight={200}>
+                  <AreaChart data={cashFlowChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.5} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="income" stroke="#10b981" fill="#10b981" fillOpacity={0.3} />
+                    <Area type="monotone" dataKey="expense" stroke="#ef4444" fill="#ef4444" fillOpacity={0.3} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-400">—</div>
+              )}
             </div>
           </div>
 
           <div className="card p-4 flex flex-col bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl rounded-2xl">
             <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">{t('budget.expenseCategories')}</h3>
-            <div className="h-[220px]"><ResponsiveContainer width="100%" height="100%"><RechartsPieChart><Pie data={categoryData} cx="50%" cy="45%" innerRadius={70} outerRadius={90} paddingAngle={5} dataKey="value">{categoryData.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={entry.color} />)}</Pie><Tooltip /></RechartsPieChart></ResponsiveContainer></div>
+            <div className="h-[220px]" style={{ minHeight: '220px' }}>
+              {categoryData && categoryData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%" minHeight={200}>
+                  <RechartsPieChart>
+                    <Pie data={categoryData} cx="50%" cy="45%" innerRadius={70} outerRadius={90} paddingAngle={5} dataKey="value">
+                      {categoryData.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                    </Pie>
+                    <Tooltip />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-400">—</div>
+              )}
+            </div>
           </div>
         </div>
       )}
