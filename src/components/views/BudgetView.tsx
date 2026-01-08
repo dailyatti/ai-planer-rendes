@@ -79,21 +79,11 @@ type BalanceMode = "realizedOnly" | "includeScheduled";
 type CategoryKey = "software" | "marketing" | "office" | "travel" | "service" | "freelance" | "other";
 type CategoryDef = { label: string; color: string; bg: string; border: string };
 
-type RectLike = { top: number; left: number; width: number; height: number };
-
 /* -------------------------------- Utils -------------------------------- */
 
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(" ");
 
 const uid = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
-
-const isFiniteNumber = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
-
-function toRectLike(el: Element | null): RectLike | null {
-  if (!el) return null;
-  const r = el.getBoundingClientRect();
-  return { top: r.top, left: r.left, width: r.width, height: r.height };
-}
 
 // ---- Local date-only (NO UTC drift) ----
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -310,33 +300,36 @@ const ModalShell: React.FC<{
 );
 
 const ConfirmModal: React.FC<{
-  title: string;
-  description: string;
+  title: string | React.ReactNode;
+  description: string | React.ReactNode;
   confirmText?: string;
   onCancel: () => void;
   onConfirm: () => void;
-}> = ({ title, description, confirmText = "Törlés", onCancel, onConfirm }) => (
-  <ModalShell
-    title={
-      <span className="inline-flex items-center gap-2">
-        <AlertTriangle size={18} className="text-rose-300" /> {title}
-      </span>
-    }
-    onClose={onCancel}
-    footer={
-      <div className="flex gap-3">
-        <Button className="flex-1" onClick={onCancel} variant="secondary">
-          Mégse
-        </Button>
-        <Button className="flex-1" onClick={onConfirm} variant="danger">
-          {confirmText}
-        </Button>
-      </div>
-    }
-  >
-    <div className="text-sm font-bold text-white/75">{description}</div>
-  </ModalShell>
-);
+}> = ({ title, description, confirmText, onCancel, onConfirm }) => {
+  const { t } = useLanguage();
+  return (
+    <ModalShell
+      title={
+        <span className="inline-flex items-center gap-2">
+          <AlertTriangle size={18} className="text-rose-300" /> {title}
+        </span>
+      }
+      onClose={onCancel}
+      footer={
+        <div className="flex gap-3">
+          <Button className="flex-1" onClick={onCancel} variant="secondary">
+            {t('common.cancel')}
+          </Button>
+          <Button className="flex-1" onClick={onConfirm} variant="danger">
+            {confirmText || t('common.delete')}
+          </Button>
+        </div>
+      }
+    >
+      <div className="text-sm font-bold text-white/75">{description}</div>
+    </ModalShell>
+  );
+};
 
 /* -------------------------------- Categories -------------------------------- */
 
@@ -512,7 +505,8 @@ function useBudgetEngine() {
   const cashFlowData = useMemo(() => {
     const now = new Date();
     const buckets: Array<{ monthIndex: number; name: string; income: number; expense: number }> = [];
-    const months: Array<{ y: number; m: number }> = [];
+    // Enhanced months array with date ranges for easier projection checks
+    const months: Array<{ y: number; m: number; startDate: Date; endDate: Date }> = [];
 
     // Window: Realized (-11..0), Scheduled (-2..+9)
     const startOffset = balanceMode === "includeScheduled" ? -2 : -11;
@@ -520,7 +514,11 @@ function useBudgetEngine() {
     for (let i = 0; i < 12; i++) {
       const offset = startOffset + i;
       const dt = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-      months.push({ y: dt.getFullYear(), m: dt.getMonth() });
+      const y = dt.getFullYear();
+      const m = dt.getMonth();
+      const startDate = new Date(y, m, 1);
+      const endDate = new Date(y, m + 1, 0); // last day of month
+      months.push({ y, m, startDate, endDate });
     }
 
     const labelsHU = ["Jan", "Feb", "Már", "Ápr", "Máj", "Jún", "Júl", "Aug", "Sze", "Okt", "Nov", "Dec"];
@@ -529,6 +527,7 @@ function useBudgetEngine() {
 
     for (let i = 0; i < 12; i++) buckets.push({ monthIndex: i, name: labels[months[i].m], income: 0, expense: 0 });
 
+    // 1. Regular Transactions
     for (const tx of sourceTx) {
       if (tx.isMaster) continue;
 
@@ -538,12 +537,63 @@ function useBudgetEngine() {
       const dt = parseYMD(tx.effectiveDateYMD);
       if (!dt) continue;
 
-      const idx = months.findIndex((mm) => mm.y === dt.getFullYear() && mm.m === dt.getMonth());
+      // Check which bucket this falls into
+      const idx = months.findIndex((mm) => dt >= mm.startDate && dt <= mm.endDate);
 
       if (idx !== -1) {
         const v = tx.currency === currency ? tx.amount : safeConvert(tx.amount, tx.currency, currency);
         if (v >= 0) buckets[idx].income += v;
         else buckets[idx].expense += Math.abs(v);
+      }
+    }
+
+    // 2. Projected Occurrences from Masters (only if includeScheduled)
+    if (balanceMode === "includeScheduled") {
+      const windowStart = months[0].startDate;
+      const windowEnd = months[11].endDate;
+
+      for (const tx of sourceTx) {
+        if (!tx.isMaster) continue;
+
+        const ruleStart = parseYMD(tx.effectiveDateYMD);
+        if (!ruleStart) continue;
+
+        // Projection loop
+        let current = new Date(ruleStart);
+        // optimization: if start is far in future beyond window, skip
+        if (current > windowEnd) continue;
+
+        // "catch up" if rule started way back, but only for simple periods to avoid massive loops?
+        // For now, simple iteration. Safety break to prevent infinite loops.
+        let safety = 0;
+
+        // If current is before windowStart, we might need to fast-forward for performance,
+        // but for daily/weekly/monthly simple iteration is usually fine for a few years.
+        // Let's iterate until we hit windowEnd.
+
+        while (current <= windowEnd && safety < 2000) {
+          safety++;
+
+          // Should we book this occurrence?
+          if (current >= windowStart) {
+            const idx = months.findIndex(mm => current >= mm.startDate && current <= mm.endDate);
+            if (idx !== -1) {
+              const v = tx.currency === currency ? tx.amount : safeConvert(tx.amount, tx.currency, currency);
+              if (v >= 0) buckets[idx].income += v;
+              else buckets[idx].expense += Math.abs(v);
+            }
+          }
+
+          // Advance
+          switch (tx.period) {
+            case "daily": current.setDate(current.getDate() + 1); break;
+            case "weekly": current.setDate(current.getDate() + 7); break;
+            case "monthly": current.setMonth(current.getMonth() + 1); break;
+            case "yearly": current.setFullYear(current.getFullYear() + 1); break;
+            case "oneTime": current = new Date(windowEnd.getTime() + 1000); break; // break
+            default: current = new Date(windowEnd.getTime() + 1000); break;
+          }
+        }
       }
     }
 
@@ -644,15 +694,8 @@ function useBudgetEngine() {
 
 /* -------------------------------- Transaction Modal -------------------------------- */
 
-function periodLabel(p: TransactionPeriod) {
-  const m: Record<TransactionPeriod, string> = {
-    oneTime: "Egyszeri",
-    daily: "Napi",
-    weekly: "Heti",
-    monthly: "Havi",
-    yearly: "Éves",
-  };
-  return m[p] ?? "Egyszeri";
+function getPeriodLabel(p: TransactionPeriod, t: (k: string) => string) {
+  return t(`budget.period.${p}`) || p;
 }
 
 const TransactionModal: React.FC<{
@@ -663,6 +706,7 @@ const TransactionModal: React.FC<{
   engine: ReturnType<typeof useBudgetEngine>;
   editingTx?: Transaction | null;
 }> = ({ isOpen, onClose, mode, txType, engine, editingTx }) => {
+  const { t } = useLanguage();
   const { CATEGORIES } = engine;
   const today = toYMDLocal(new Date());
 
@@ -701,17 +745,17 @@ const TransactionModal: React.FC<{
   const title =
     mode === "edit"
       ? txType === "income"
-        ? "Bevétel szerkesztése"
-        : "Kiadás szerkesztése"
+        ? t('budget.modal.title.editIncome')
+        : t('budget.modal.title.editExpense')
       : txType === "income"
-        ? "Új bevétel"
-        : "Új kiadás";
+        ? t('budget.modal.title.newIncome')
+        : t('budget.modal.title.newExpense');
 
   const save = () => {
     const a = safeParseMoney(amount);
-    if (!desc.trim()) return alert("Írj leírást!");
-    if (!Number.isFinite(a) || a <= 0) return alert("Adj meg érvényes összeget!");
-    if (!parseYMD(dateYMD)) return alert("Érvénytelen dátum!");
+    if (!desc.trim()) return alert(t('budget.modal.alert.desc'));
+    if (!Number.isFinite(a) || a <= 0) return alert(t('budget.modal.alert.amount'));
+    if (!parseYMD(dateYMD)) return alert(t('budget.modal.alert.date'));
 
     const signed = txType === "income" ? Math.abs(a) : -Math.abs(a);
     const nowISO = new Date().toISOString();
@@ -775,7 +819,7 @@ const TransactionModal: React.FC<{
         id: uid(),
         createdAtISO: new Date(Date.now() + 1).toISOString(), // keep it just after master in ordering
         effectiveDateYMD: dateYMD,
-        description: `${desc.trim()} (1. alkalom)`,
+        description: `${desc.trim()} ${t('budget.modal.firstOcc')}`,
         type: txType,
         amount: signed,
         currency: ccy,
@@ -806,18 +850,18 @@ const TransactionModal: React.FC<{
           {period !== "oneTime" && mode === "create" && (
             <label className="flex items-center gap-2 text-sm font-bold text-white/75">
               <input type="checkbox" checked={addFirstOccurrenceNow} onChange={(e) => setAddFirstOccurrenceNow(e.target.checked)} />
-              Első alkalom azonnal legyen “booked” tétel is (balanszba is számítson a dátum szerint)
+              {t('budget.modal.checkbox.firstOcc')}
             </label>
           )}
           <Button variant="primary" className="w-full py-3" onClick={save} leftIcon={<Check size={16} />}>
-            Mentés
+            {t('common.save')}
           </Button>
         </div>
       }
     >
       <div className="space-y-4">
         <div className="rounded-[26px] border border-white/10 bg-white/6 p-4">
-          <div className="text-xs font-black uppercase tracking-wide text-white/60">Összeg</div>
+          <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('budget.modal.amount')}</div>
           <div className="mt-2 flex items-center gap-2">
             <Input inputMode="decimal" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} className="text-lg font-black" />
             <Select className="w-40" value={ccy} onChange={(e) => setCcy(e.target.value)}>
@@ -828,17 +872,17 @@ const TransactionModal: React.FC<{
               ))}
             </Select>
           </div>
-          <div className="mt-2 text-xs font-bold text-white/45">Tipp: beírhatsz “12.5”, “12,5”, “$12” – rendbe tesszük.</div>
+          <div className="mt-2 text-xs font-bold text-white/45">{t('budget.modal.tip.amount')}</div>
         </div>
 
         <div className="space-y-2">
-          <div className="text-xs font-black uppercase tracking-wide text-white/60">Leírás</div>
-          <Input placeholder="Pl. Hosting / Ads / Ügyfél munka…" value={desc} onChange={(e) => setDesc(e.target.value)} />
+          <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('budget.modal.description')}</div>
+          <Input placeholder={t('budget.modal.placeholder.desc')} value={desc} onChange={(e) => setDesc(e.target.value)} />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
-            <div className="text-xs font-black uppercase tracking-wide text-white/60">Kategória</div>
+            <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('budget.modal.category')}</div>
             <Select value={cat} onChange={(e) => setCat(e.target.value as CategoryKey)}>
               {Object.entries(CATEGORIES).map(([k, v]) => (
                 <option key={k} value={k}>
@@ -849,16 +893,16 @@ const TransactionModal: React.FC<{
           </div>
 
           <div className="space-y-2">
-            <div className="text-xs font-black uppercase tracking-wide text-white/60">Hatás dátuma</div>
+            <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('budget.modal.date')}</div>
             <Input type="date" value={dateYMD} onChange={(e) => setDateYMD(e.target.value)} />
             <div className="text-[11px] font-bold text-white/45">
-              Ez a dátum dönti el, hogy a balanszba mikortól számít be (Realized mód).
+              {t('budget.modal.tip.date')}
             </div>
           </div>
         </div>
 
         <div className="space-y-2">
-          <div className="text-xs font-black uppercase tracking-wide text-white/60">Gyakoriság</div>
+          <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('budget.modal.period')}</div>
           <div className="flex flex-wrap gap-2">
             {(["oneTime", "daily", "weekly", "monthly", "yearly"] as TransactionPeriod[]).map((p) => {
               const active = period === p;
@@ -871,21 +915,21 @@ const TransactionModal: React.FC<{
                     active ? "bg-blue-500/18 border-blue-400/25 text-blue-100" : "bg-white/4 border-white/10 text-white/75 hover:bg-white/8"
                   )}
                 >
-                  {periodLabel(p)}
+                  {getPeriodLabel(p, t)}
                 </button>
               );
             })}
           </div>
           {period !== "oneTime" && (
             <div className="rounded-2xl border border-purple-400/20 bg-purple-500/10 p-3 text-sm font-bold text-purple-100/90 inline-flex items-center gap-2">
-              <Repeat size={16} /> Ismétlődő tétel: a “Sablon” azonnal látszik a listában
+              <Repeat size={16} /> {t('budget.modal.recurringInfo')}
             </div>
           )}
         </div>
 
         <div className="space-y-2">
-          <div className="text-xs font-black uppercase tracking-wide text-white/60">Megjegyzés (opcionális)</div>
-          <Input placeholder="Pl. számla #, ügyfél, project..." value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('budget.modal.notes')}</div>
+          <Input placeholder={t('budget.modal.placeholder.notes')} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
       </div>
     </ModalShell>
@@ -899,6 +943,7 @@ const CurrencyConverterModal: React.FC<{
   onClose: () => void;
   engine: ReturnType<typeof useBudgetEngine>;
 }> = ({ isOpen, onClose, engine }) => {
+  const { t } = useLanguage();
   const [from, setFrom] = useState(engine.currency);
   const [to, setTo] = useState("EUR");
   const [amount, setAmount] = useState("100");
@@ -939,7 +984,7 @@ const CurrencyConverterModal: React.FC<{
     <ModalShell
       title={
         <span className="inline-flex items-center gap-2">
-          <RefreshCcw size={18} className="text-blue-200" /> Valuta váltó
+          <RefreshCcw size={18} className="text-blue-200" /> {t('currency.converter.title')}
         </span>
       }
       onClose={onClose}
@@ -995,7 +1040,7 @@ const CurrencyConverterModal: React.FC<{
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
-            <div className="text-xs font-black uppercase tracking-wide text-white/60">Összeg</div>
+            <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('currency.amount')}</div>
             <Input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" />
             <div className="text-xs font-bold text-white/55">
               1 {from} ≈ <span className="text-white font-black">{engine.formatMoney(rate, to)}</span>
@@ -1003,7 +1048,7 @@ const CurrencyConverterModal: React.FC<{
           </div>
 
           <div className="rounded-[26px] border border-white/10 bg-white/6 p-4">
-            <div className="text-xs font-black uppercase tracking-wide text-white/60">Eredmény</div>
+            <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('currency.result')}</div>
             <div className="mt-2 text-2xl font-black text-white tabular-nums">{engine.formatMoney(converted, to)}</div>
             <div className="mt-1 text-xs font-bold text-white/45">
               {engine.formatMoney(parsed, from)} → {engine.formatMoney(converted, to)}
@@ -1031,6 +1076,7 @@ const LedgerRow: React.FC<{
   onDelete: (id: string) => void;
   engine: ReturnType<typeof useBudgetEngine>;
 }> = React.memo(({ tx, selected, onToggle, onEdit, onDelete, engine }) => {
+  const { t } = useLanguage();
   const isIncome = tx.type === "income";
   const amountAbs = Math.abs(tx.amount);
 
@@ -1071,17 +1117,17 @@ const LedgerRow: React.FC<{
             <div className="font-black text-white truncate">{tx.description}</div>
             {tx.isMaster && (
               <Chip tone="purple">
-                <Repeat size={12} /> Sablon
+                <Repeat size={12} /> {t('budget.ledger.template')}
               </Chip>
             )}
             {!tx.isMaster && tx.effectiveDateYMD > engine.todayYMD && (
               <Chip tone="blue">
-                <CalendarClock size={12} /> Ütemezett
+                <CalendarClock size={12} /> {t('budget.ledger.scheduled')}
               </Chip>
             )}
             {!tx.isMaster && affectsNow && (
               <Chip tone="green">
-                <Sparkles size={12} /> Booked
+                <Sparkles size={12} /> {t('budget.ledger.booked')}
               </Chip>
             )}
           </div>
@@ -1089,9 +1135,9 @@ const LedgerRow: React.FC<{
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-bold text-white/60">
             <CategoryBadge def={engine.CATEGORIES[tx.category]} />
             <span className="text-white/25">•</span>
-            <span>Hatás: {engine.formatDate(tx.effectiveDateYMD)}</span>
+            <span>{t('budget.ledger.effect')}: {engine.formatDate(tx.effectiveDateYMD)}</span>
             <span className="text-white/25">•</span>
-            <Chip tone="neutral">{periodLabel(tx.period)}</Chip>
+            <Chip tone="neutral">{getPeriodLabel(tx.period, t)}</Chip>
           </div>
         </div>
       </div>
@@ -1109,7 +1155,7 @@ const LedgerRow: React.FC<{
           }}
           className="opacity-0 group-hover:opacity-100 transition p-2 rounded-2xl border border-white/10 bg-white/6 hover:bg-rose-500/15"
           aria-label="Delete"
-          title="Törlés"
+          title={t('common.delete')}
         >
           <Trash2 size={18} className="text-rose-200" />
         </button>
@@ -1121,6 +1167,7 @@ const LedgerRow: React.FC<{
 /* -------------------------------- Main Component -------------------------------- */
 
 const BudgetViewPro: React.FC = () => {
+  const { t } = useLanguage();
   const engine = useBudgetEngine();
 
   const [tab, setTab] = useState<"overview" | "ledger" | "planning">("overview");
@@ -1233,8 +1280,8 @@ const BudgetViewPro: React.FC = () => {
               <Wallet size={18} className="text-white" />
             </div>
             <div>
-              <div className="text-2xl font-black">Költségvetés Követő</div>
-              <div className="text-sm font-bold text-white/55">Bevételek, kiadások és célok – profi ledger rendszerrel</div>
+              <div className="text-2xl font-black">{t('budget.title')}</div>
+              <div className="text-sm font-bold text-white/55">{t('budget.subtitle')}</div>
             </div>
             <Chip tone="blue">PRO</Chip>
           </div>
@@ -1249,15 +1296,15 @@ const BudgetViewPro: React.FC = () => {
             </Select>
 
             <Button variant="secondary" onClick={() => setShowConverter(true)} leftIcon={<RefreshCcw size={16} />}>
-              Valuta váltó
+              {t('currency.converter')}
             </Button>
 
             <Button variant="secondary" onClick={() => openCreate("income")} leftIcon={<TrendingUp size={16} />}>
-              Bevétel
+              {t('budget.modal.createIncome')}
             </Button>
 
             <Button variant="primary" onClick={() => openCreate("expense")} leftIcon={<Plus size={16} />}>
-              Kiadás
+              {t('budget.modal.createExpense')}
             </Button>
           </div>
         </div>
@@ -1265,9 +1312,9 @@ const BudgetViewPro: React.FC = () => {
         {/* Tabs */}
         <div className="flex items-center gap-2 border-b border-white/10">
           {[
-            { key: "overview", label: "Áttekintés" },
-            { key: "ledger", label: "Legutóbbi tranzakciók" },
-            { key: "planning", label: "Tervezés" },
+            { key: "overview", label: t('budget.tab.overview') },
+            { key: "ledger", label: t('budget.tab.ledger') },
+            { key: "planning", label: t('budget.tab.planning') },
           ].map((x) => {
             const active = tab === (x.key as any);
             return (
@@ -1292,40 +1339,40 @@ const BudgetViewPro: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Balance card */}
               <GlassCard
-                title="Egyenleg"
+                title={t('budget.balance')}
                 right={
                   <Select
                     className="w-56 text-xs"
                     value={engine.balanceMode}
                     onChange={(e) => engine.setBalanceMode(e.target.value as BalanceMode)}
                   >
-                    <option value="realizedOnly">Balansz: csak “realized”</option>
-                    <option value="includeScheduled">Balansz: ütemezettet is mutasson</option>
+                    <option value="realizedOnly">{t('budget.balanceMode.realizedOnly')}</option>
+                    <option value="includeScheduled">{t('budget.balanceMode.includeScheduled')}</option>
                   </Select>
                 }
               >
                 <div className="text-4xl font-black tabular-nums">{engine.formatMoney(balance)}</div>
                 <div className="mt-1 text-sm font-bold text-white/55">
-                  Tipp: Tranzakció mindig látszik azonnal a ledgerben, a balansz pedig a beállítás szerint számol.
+                  {t('budget.tip.balance')}
                 </div>
 
                 <Divider />
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-[22px] border border-emerald-400/20 bg-emerald-500/10 p-4">
-                    <div className="text-xs font-black uppercase tracking-wide text-emerald-200/80">Bevétel</div>
+                    <div className="text-xs font-black uppercase tracking-wide text-emerald-200/80">{t('budget.modal.income')}</div>
                     <div className="mt-2 text-xl font-black text-emerald-200 tabular-nums">{engine.formatMoney(income)}</div>
                   </div>
 
                   <div className="rounded-[22px] border border-rose-400/20 bg-rose-500/10 p-4">
-                    <div className="text-xs font-black uppercase tracking-wide text-rose-200/80">Kiadás</div>
+                    <div className="text-xs font-black uppercase tracking-wide text-rose-200/80">{t('budget.modal.expense')}</div>
                     <div className="mt-2 text-xl font-black text-rose-200 tabular-nums">{engine.formatMoney(expense)}</div>
                   </div>
                 </div>
               </GlassCard>
 
               {/* Cashflow */}
-              <GlassCard title={engine.balanceMode === "includeScheduled" ? "Cashflow (Múlt + Jövő)" : "Cashflow (utolsó 12 hónap)"}>
+              <GlassCard title={engine.balanceMode === "includeScheduled" ? t('budget.chart.cashFlow.projected') : t('budget.chart.cashFlow.realized')}>
                 <ChartFrame height={300}>
                   {() => (
                     <ResponsiveContainer width="100%" height="100%">
@@ -1343,7 +1390,7 @@ const BudgetViewPro: React.FC = () => {
               </GlassCard>
 
               {/* Categories */}
-              <GlassCard title="Kiadások kategóriánként">
+              <GlassCard title={t('budget.chart.categories')}>
                 <ChartFrame height={300}>
                   {() =>
                     categoryData.length ? (
@@ -1358,7 +1405,7 @@ const BudgetViewPro: React.FC = () => {
                         </RechartsPieChart>
                       </ResponsiveContainer>
                     ) : (
-                      <div className="h-full grid place-items-center text-white/45 text-sm font-bold">Nincs adat.</div>
+                      <div className="h-full grid place-items-center text-white/45 text-sm font-bold">{t('common.noData')}</div>
                     )
                   }
                 </ChartFrame>
@@ -1379,10 +1426,10 @@ const BudgetViewPro: React.FC = () => {
               </GlassCard>
             </div>
 
-            <GlassCard title="Legutóbbi tranzakciók" className="mt-4">
+            <GlassCard title={t('budget.ledger.title')} className="mt-4">
               <div className="rounded-[26px] border border-white/10 overflow-hidden bg-white/4">
                 {engine.ledger.length === 0 ? (
-                  <div className="p-10 text-center text-white/45 text-sm font-bold">Nincs tranzakció.</div>
+                  <div className="p-10 text-center text-white/45 text-sm font-bold">{t('common.noData')}</div>
                 ) : (
                   engine.ledger.slice(0, 5).map(tx => (
                     <LedgerRow
@@ -1439,18 +1486,18 @@ const BudgetViewPro: React.FC = () => {
 
                 {selected.size > 0 && (
                   <>
-                    <Chip tone="blue">{selected.size} kijelölve</Chip>
+                    <Chip tone="blue">{selected.size} {t('common.selected')}</Chip>
                     <Button variant="secondary" onClick={clearSel} leftIcon={<X size={16} />}>
-                      Kijelölés törlése
+                      {t('common.clearSelection')}
                     </Button>
                     <Button variant="danger" onClick={() => setConfirm({ kind: "selected" })} leftIcon={<Trash2 size={16} />}>
-                      Törlés
+                      {t('common.delete')}
                     </Button>
                   </>
                 )}
 
                 <Button variant="ghost" onClick={() => openCreate("expense")} leftIcon={<Plus size={16} />}>
-                  Új tétel
+                  {t('budget.modal.createExpense')}
                 </Button>
               </div>
             </div>
@@ -1461,7 +1508,7 @@ const BudgetViewPro: React.FC = () => {
             <div className="rounded-[26px] border border-white/10 overflow-hidden bg-white/4">
               <div className="max-h-[680px] overflow-y-auto">
                 {paginated.length === 0 ? (
-                  <div className="p-12 text-center text-white/45 text-sm font-bold">Nincs találat.</div>
+                  <div className="p-12 text-center text-white/45 text-sm font-bold">{t('common.noData')}</div>
                 ) : (
                   paginated.map((tx) => (
                     <LedgerRow
@@ -1485,14 +1532,14 @@ const BudgetViewPro: React.FC = () => {
               {totalPages > 1 && (
                 <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-white/10 bg-white/4">
                   <div className="text-xs font-black text-white/55">
-                    Oldal {page} / {totalPages} — összesen {filteredLedger.length}
+                    {t('common.page')} {page} / {totalPages} — {t('common.total')} {filteredLedger.length}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button variant="secondary" onClick={() => setPage(1)} disabled={page === 1} leftIcon={<ChevronsLeft size={16} />}>
-                      Első
+                      {t('common.first')}
                     </Button>
                     <Button variant="secondary" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} leftIcon={<ChevronLeft size={16} />}>
-                      Előző
+                      {t('common.prev')}
                     </Button>
                     <Button
                       variant="secondary"
@@ -1500,7 +1547,7 @@ const BudgetViewPro: React.FC = () => {
                       disabled={page === totalPages}
                       leftIcon={<ChevronRight size={16} />}
                     >
-                      Következő
+                      {t('common.next')}
                     </Button>
                     <Button
                       variant="secondary"
@@ -1508,7 +1555,7 @@ const BudgetViewPro: React.FC = () => {
                       disabled={page === totalPages}
                       leftIcon={<ChevronsRight size={16} />}
                     >
-                      Utolsó
+                      {t('common.last')}
                     </Button>
                   </div>
                 </div>
@@ -1519,29 +1566,29 @@ const BudgetViewPro: React.FC = () => {
 
         {tab === "planning" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <GlassCard title="Mit látsz itt?">
+            <GlassCard title={t('budget.planning.helpTitle')}>
               <div className="text-sm font-bold text-white/70 leading-relaxed">
-                A “Tervezés” lényege: a ledgerben azonnal látszik minden, de itt külön kiemeljük:
+                {t('budget.planning.description')}
                 <div className="mt-3 space-y-2">
                   <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
-                    <div className="font-black text-white">Sablon (Master)</div>
-                    <div className="text-xs font-bold text-white/55">Ismétlődő tétel – nem számít a balanszba, csak szabály.</div>
+                    <div className="font-black text-white">{t('budget.planning.master')}</div>
+                    <div className="text-xs font-bold text-white/55">{t('budget.planning.masterDesc')}</div>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
-                    <div className="font-black text-white">Ütemezett</div>
-                    <div className="text-xs font-bold text-white/55">A dátuma jövőben van – látod, de Realized balanszban még nincs.</div>
+                    <div className="font-black text-white">{t('budget.planning.scheduled')}</div>
+                    <div className="text-xs font-bold text-white/55">{t('budget.planning.scheduledDesc')}</div>
                   </div>
                 </div>
               </div>
             </GlassCard>
 
-            <GlassCard title="Gyors szűrő: sablonok">
+            <GlassCard title={t('budget.planning.quickFilter')}>
               <div className="text-sm font-bold text-white/70">
-                Sablonok (Master tételek):
+                {t('budget.planning.master')}:
                 <div className="mt-3 rounded-[26px] border border-white/10 bg-white/4 overflow-hidden">
                   <div className="max-h-[360px] overflow-y-auto">
                     {engine.ledger.filter((x) => x.isMaster).length === 0 ? (
-                      <div className="p-10 text-center text-white/45 text-sm font-bold">Nincs sablon.</div>
+                      <div className="p-10 text-center text-white/45 text-sm font-bold">{t('budget.planning.noTemplates')}</div>
                     ) : (
                       engine.ledger
                         .filter((x) => x.isMaster)
@@ -1558,10 +1605,10 @@ const BudgetViewPro: React.FC = () => {
                                 <div className="mt-1 text-xs font-bold text-white/55 flex items-center gap-2">
                                   <CategoryBadge def={engine.CATEGORIES[tx.category]} />
                                   <Chip tone="purple">
-                                    <Repeat size={12} /> {periodLabel(tx.period)}
+                                    <Repeat size={12} /> {getPeriodLabel(tx.period, t)}
                                   </Chip>
                                   <span className="text-white/25">•</span>
-                                  <span>Kezdet: {engine.formatDate(tx.effectiveDateYMD)}</span>
+                                  <span>{t('budget.planning.start')}: {engine.formatDate(tx.effectiveDateYMD)}</span>
                                 </div>
                               </div>
                               <div className="font-black tabular-nums text-white/85">{engine.formatMoney(Math.abs(tx.amount), tx.currency)}</div>
@@ -1574,37 +1621,65 @@ const BudgetViewPro: React.FC = () => {
               </div>
             </GlassCard>
 
-            <GlassCard title="Ütemezett tételek (jövő)">
+            <GlassCard title={`${t('budget.planning.upcoming')} ${t('budget.planning.upcomingSub')}`}>
               <div className="rounded-[26px] border border-white/10 bg-white/4 overflow-hidden">
                 <div className="max-h-[360px] overflow-y-auto">
-                  {engine.ledger.filter((x) => !x.isMaster && x.effectiveDateYMD > engine.todayYMD).length === 0 ? (
-                    <div className="p-10 text-center text-white/45 text-sm font-bold">Nincs ütemezett tétel.</div>
-                  ) : (
-                    engine.ledger
-                      .filter((x) => !x.isMaster && x.effectiveDateYMD > engine.todayYMD)
-                      .slice(0, 50)
-                      .map((tx) => (
-                        <div key={tx.id} className="px-4 py-4 border-b border-white/10 hover:bg-white/6 transition cursor-pointer" onClick={() => openEdit(tx)}>
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="font-black truncate">{tx.description}</div>
-                              <div className="mt-1 text-xs font-bold text-white/55 flex items-center gap-2">
-                                <Chip tone="blue">
-                                  <CalendarClock size={12} /> {engine.formatDate(tx.effectiveDateYMD)}
-                                </Chip>
-                                <CategoryBadge def={engine.CATEGORIES[tx.category]} />
-                              </div>
-                            </div>
-                            <div className="font-black tabular-nums text-white/85">{engine.formatMoney(Math.abs(tx.amount), tx.currency)}</div>
-                          </div>
-                        </div>
-                      ))
-                  )}
-                </div>
-              </div>
+                  {(() => {
+                    const scheduled = engine.ledger.filter((x) => !x.isMaster && x.effectiveDateYMD > engine.todayYMD);
+                    const masters = engine.ledger.filter((x) => x.isMaster);
 
-              <div className="mt-3 text-xs font-bold text-white/50">
-                Ha akarod, a következő körben megcsinálom a “Generate occurrences” gombot is (masterből automatikus hónapokra előregenerálás).
+                    // Combine them. For Masters, calculate next occurrence date relative to today
+                    const combined = scheduled.map((x) => ({ ...x, _displayDate: x.effectiveDateYMD, _isProj: false }));
+
+                    for (const m of masters) {
+                      let dt = parseYMD(m.effectiveDateYMD);
+                      const today = parseYMD(engine.todayYMD);
+
+                      if (dt && today) {
+                        // Fast forward to next future date
+                        let safety = 0;
+                        while (dt <= today && safety < 1000) {
+                          safety++;
+                          switch (m.period) {
+                            case "daily": dt.setDate(dt.getDate() + 1); break;
+                            case "weekly": dt.setDate(dt.getDate() + 7); break;
+                            case "monthly": dt.setMonth(dt.getMonth() + 1); break;
+                            case "yearly": dt.setFullYear(dt.getFullYear() + 1); break;
+                            case "oneTime": dt = new Date(today.getTime() + 86400000); break; // force exit
+                          }
+                        }
+                        combined.push({ ...m, _displayDate: toYMDLocal(dt), _isProj: true });
+                      }
+                    }
+
+                    const sorted = combined.sort((a, b) => a._displayDate.localeCompare(b._displayDate)).slice(0, 50);
+
+                    if (sorted.length === 0) {
+                      return <div className="p-10 text-center text-white/45 text-sm font-bold">{t('budget.planning.noUpcoming')}</div>;
+                    }
+
+                    return sorted.map((tx) => (
+                      <div
+                        key={tx.id + (tx._isProj ? "_proj" : "")}
+                        className="px-4 py-4 border-b border-white/10 hover:bg-white/6 transition cursor-pointer"
+                        onClick={() => openEdit(tx)}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-black truncate">{tx.description}</div>
+                            <div className="mt-1 text-xs font-bold text-white/55 flex items-center gap-2">
+                              <Chip tone={tx._isProj ? "purple" : "blue"}>
+                                {tx._isProj ? <Repeat size={12} /> : <CalendarClock size={12} />} {engine.formatDate(tx._displayDate)}
+                              </Chip>
+                              <CategoryBadge def={engine.CATEGORIES[tx.category]} />
+                            </div>
+                          </div>
+                          <div className="font-black tabular-nums text-white/85">{engine.formatMoney(Math.abs(tx.amount), tx.currency)}</div>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
               </div>
             </GlassCard>
           </div>
@@ -1632,11 +1707,11 @@ const BudgetViewPro: React.FC = () => {
       <AnimatePresence>
         {confirm && (
           <ConfirmModal
-            title="Biztosan törlöd?"
+            title={t('budget.delete.confirmTitle')}
             description={
               confirm.kind === "selected"
-                ? `Törlöd a kijelölt ${selected.size} tranzakciót?`
-                : "Törlöd ezt a tranzakciót? Ez nem visszavonható."
+                ? t('budget.delete.confirmSelected')
+                : t('budget.delete.confirmOne')
             }
             onCancel={() => setConfirm(null)}
             onConfirm={() => {
