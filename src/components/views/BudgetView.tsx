@@ -480,16 +480,15 @@ const useBudgetController = () => {
 
   // Init rates
   useEffect(() => {
-    // Defensive Service Call
-    if (CurrencyService && typeof CurrencyService.fetchRealTimeRates === 'function') {
-      try {
-        const result = CurrencyService.fetchRealTimeRates();
-        if (result && typeof result.catch === 'function') {
-          result.catch(console.warn);
-        }
-      } catch (e) {
-        console.warn('Currency service init failed', e);
-      }
+    const fn = CurrencyService?.fetchRealTimeRates;
+    if (typeof fn !== 'function') return;
+
+    try {
+      Promise
+        .resolve(fn())
+        .catch((err) => console.warn('Currency service init failed', err));
+    } catch (err) {
+      console.warn('Currency service init crashed', err);
     }
   }, []);
 
@@ -743,18 +742,32 @@ const BudgetView: React.FC = () => {
   const { t } = ctrl;
 
   // Render Helpers (Chart Mappers)
-  const categoryData = useMemo(() => Object.entries(ctrl.categoryTotals || {}).map(([key, value]) => ({
-    name: ctrl.CATEGORIES[ctrl.getCategoryKey(key)]?.label ?? key,
-    value,
-    color: ctrl.CATEGORIES[ctrl.getCategoryKey(key)]?.color ?? '#9ca3af',
-  })), [ctrl.categoryTotals, ctrl.CATEGORIES, ctrl.getCategoryKey]);
+  // Render Helpers (Chart Mappers)
+  const categoryData = useMemo(() => {
+    const safeCategoryTotals = (ctrl.categoryTotals && typeof ctrl.categoryTotals === 'object')
+      ? ctrl.categoryTotals
+      : {};
+
+    return Object.entries(safeCategoryTotals).map(([key, value]) => ({
+      name: ctrl.CATEGORIES[ctrl.getCategoryKey(key)]?.label ?? key,
+      value: Number(value) || 0,
+      color: ctrl.CATEGORIES[ctrl.getCategoryKey(key)]?.color ?? '#9ca3af',
+    }));
+  }, [ctrl.categoryTotals, ctrl.CATEGORIES, ctrl.getCategoryKey]);
 
   const monthNames = [t('months.january'), t('months.february'), t('months.march'), t('months.april'), t('months.may'), t('months.june'), t('months.july'), t('months.august'), t('months.september'), t('months.october'), t('months.november'), t('months.december')];
 
-  const cashFlowChartData = useMemo(() => (ctrl.cashFlowData || []).map(d => ({
-    name: monthNames[d.monthIndex]?.slice(0, 3) || `M${d.monthIndex + 1}`,
-    income: d.income, expense: d.expense
-  })), [ctrl.cashFlowData, monthNames]);
+  const cashFlowChartData = useMemo(() => {
+    const safeCashFlow = Array.isArray(ctrl.cashFlowData) ? ctrl.cashFlowData : [];
+
+    return safeCashFlow
+      .filter((d: any) => d && Number.isFinite(d.monthIndex))
+      .map((d: any) => ({
+        name: (monthNames?.[d.monthIndex] ? String(monthNames[d.monthIndex]).slice(0, 3) : `M${d.monthIndex + 1}`),
+        income: Number(d.income) || 0,
+        expense: Number(d.expense) || 0
+      }));
+  }, [ctrl.cashFlowData, monthNames]);
 
   return (
     <div className="view-container max-w-7xl mx-auto space-y-4 p-3">
@@ -795,11 +808,11 @@ const BudgetView: React.FC = () => {
             }}
           />
 
-          <div className="lg:col-span-2 card p-4 flex flex-col bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl rounded-2xl">
+          <div className="lg:col-span-2 card p-4 flex flex-col bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl rounded-2xl min-w-0">
             <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">{t('budget.cashFlow')}</h3>
-            <div className="h-[220px] w-full" style={{ minHeight: '220px' }}>
+            <div className="w-full" style={{ height: 220 }}>
               {cashFlowChartData && cashFlowChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%" minHeight={200}>
+                <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={cashFlowChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" opacity={0.5} />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} dy={10} />
@@ -815,11 +828,11 @@ const BudgetView: React.FC = () => {
             </div>
           </div>
 
-          <div className="card p-4 flex flex-col bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl rounded-2xl">
+          <div className="card p-4 flex flex-col bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl rounded-2xl min-w-0">
             <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">{t('budget.expenseCategories')}</h3>
-            <div className="h-[220px]" style={{ minHeight: '220px' }}>
+            <div className="w-full" style={{ height: 220 }}>
               {categoryData && categoryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%" minHeight={200}>
+                <ResponsiveContainer width="100%" height={220}>
                   <RechartsPieChart>
                     <Pie data={categoryData} cx="50%" cy="45%" innerRadius={70} outerRadius={90} paddingAngle={5} dataKey="value">
                       {categoryData.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={entry.color} />)}
