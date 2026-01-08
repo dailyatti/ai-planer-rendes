@@ -343,7 +343,25 @@ const useBudgetController = () => {
   // API Guard: Ensure functions exist
   const safeAdd = addTransaction ?? ((_: any) => console.warn('addTransaction missing'));
   const safeUpdate = updateTransaction ?? ((_: any, __: any) => console.warn('updateTransaction missing'));
-  const safeDelete = deleteTransaction ?? ((_: any) => console.warn('deleteTransaction missing'));
+
+  // ✅ PhD Fix: ALWAYS use batch delete for single items to prevent "delete all" bug
+  const safeDeleteOne = useCallback((id: string) => {
+    if (!id) return;
+
+    // Prefer batch delete → guaranteed to only delete 1 item
+    if (typeof deleteTransactions === 'function') {
+      deleteTransactions([id]);
+      return;
+    }
+
+    // Fallback (if no batch delete available)
+    if (typeof deleteTransaction === 'function') {
+      (deleteTransaction as any)(id);
+      return;
+    }
+
+    console.warn('No delete function available');
+  }, [deleteTransactions, deleteTransaction]);
 
   // State
   const [currency, setCurrency] = useState<string>('USD');
@@ -652,8 +670,11 @@ const useBudgetController = () => {
   };
 
   const handleDeleteSelected = () => {
-    if (deleteTransactions) deleteTransactions(Array.from(selectedTransactions));
-    else if (safeDelete) selectedTransactions.forEach(id => safeDelete(id));
+    if (typeof deleteTransactions === 'function') {
+      deleteTransactions(Array.from(selectedTransactions));
+    } else {
+      Array.from(selectedTransactions).forEach(id => safeDeleteOne(id));
+    }
 
     // UX Resets
     setEditingTransaction(null);
@@ -674,10 +695,10 @@ const useBudgetController = () => {
       ? base.map(t => t.id)
       : base.filter(t => t.period === period).map(t => t.id);
 
-    if (deleteTransactions) {
+    if (typeof deleteTransactions === 'function') {
       deleteTransactions(ids);
     } else {
-      ids.forEach(id => safeDelete(id));
+      ids.forEach(id => safeDeleteOne(id));
     }
 
     // UX Resets
@@ -699,7 +720,7 @@ const useBudgetController = () => {
     categoryTotals, cashFlowData, projectionData, searchTerm, setSearchTerm, filterCategory, setFilterCategory,
     CATEGORIES, formatMoney, formatDate, getCategoryKey, getTrCurrency, safeConvert,
     handleAddTransaction, openAddModal, openEditModal, toggleTransactionSelection, handleDeleteSelected, handleDeleteByPeriod,
-    deleteTransaction: safeDelete,
+    deleteTransaction: safeDeleteOne,
     selectAllTransactions: () => setSelectedTransactions(new Set(paginatedTransactions.map(t => t.id))),
     clearSelection: () => setSelectedTransactions(new Set()),
     getPeriodLabel: (p: TransactionPeriod) => {
