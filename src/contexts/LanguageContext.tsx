@@ -192,52 +192,52 @@ const translations: Translations = {
   'invoicing.currency': { en: 'Currency', ko: 'Currency', hu: 'Pénznem', ro: 'Monedă', sk: 'Mena', hr: 'Valuta', de: 'Währung', fr: 'Devise', es: 'Moneda', it: 'Valuta', pl: 'Waluta', cn: '货币', jp: '通貨', pt: 'Moeda', tr: 'Para Birimi', ar: 'العملة', ru: 'Валюта', hi: 'मुद्रा', bn: 'মুদ্রা', ur: 'کرنسی', th: 'สกุลเงิน', id: 'Mata Uang' },
 
   // Budget View General
-  'app.title': { en: 'Budget Pro', hu: 'Budget Pro' },
-  'app.subtitle': { en: 'Advanced financial management', hu: 'Haladó pénzügyi kezelés' },
+  'app.title': { en: 'Budget Pro', hu: 'Budget Pro', ro: 'Budget Pro' },
+  'app.subtitle': { en: 'Advanced financial management', hu: 'Haladó pénzügyi kezelés', ro: 'Gestionare financiară avansată' },
 
   // Tabs
-  'tabs.dashboard': { en: 'Dashboard', hu: 'Áttekintés' },
-  'tabs.transactions': { en: 'Transactions', hu: 'Tranzakciók' },
-  'tabs.analytics': { en: 'Analytics', hu: 'Elemzések' },
-  'tabs.goals': { en: 'Goals', hu: 'Célok' },
-  'tabs.settings': { en: 'Settings', hu: 'Beállítások' },
+  'tabs.dashboard': { en: 'Dashboard', hu: 'Áttekintés', ro: 'Tablou de bord' },
+  'tabs.transactions': { en: 'Transactions', hu: 'Tranzakciók', ro: 'Tranzacții' },
+  'tabs.analytics': { en: 'Analytics', hu: 'Elemzések', ro: 'Analize' },
+  'tabs.goals': { en: 'Goals', hu: 'Célok', ro: 'Obiective' },
+  'tabs.settings': { en: 'Settings', hu: 'Beállítások', ro: 'Setări' },
 
   // Stats Cards
-  'stats.balance': { en: 'Total Balance', hu: 'Egyenleg' },
-  'stats.income': { en: 'Total Income', hu: 'Bevétel' },
-  'stats.expenses': { en: 'Total Expenses', hu: 'Kiadás' },
-  'stats.savings': { en: 'Total Savings', hu: 'Megtakarítás' },
+  'stats.balance': { en: 'Total Balance', hu: 'Egyenleg', ro: 'Sold Total' },
+  'stats.income': { en: 'Total Income', hu: 'Bevétel', ro: 'Venituri Totale' },
+  'stats.expenses': { en: 'Total Expenses', hu: 'Kiadás', ro: 'Cheltuieli Totale' },
+  'stats.savings': { en: 'Total Savings', hu: 'Megtakarítás', ro: 'Economii Totale' },
 
   // Charts
-  'charts.cashFlow': { en: 'Cash Flow Analysis', hu: 'Pénzforgalmi Elemzés' },
-  'charts.categoryBreakdown': { en: 'Expense Breakdown', hu: 'Kiadások Kategóriánként' },
+  'charts.cashFlow': { en: 'Cash Flow Analysis', hu: 'Pénzforgalmi Elemzés', ro: 'Analiza Fluxului de Numerar' },
+  'charts.categoryBreakdown': { en: 'Expense Breakdown', hu: 'Kiadások Kategóriánként', ro: 'Defalcarea Cheltuielilor' },
 
   // Quick Actions
-  'quickActions.title': { en: 'Quick Actions', hu: 'Gyors Műveletek' },
-  'quickActions.addExpense': { en: 'Add Expense', hu: 'Kiadás Hozzáadása' },
-  'quickActions.addIncome': { en: 'Add Income', hu: 'Bevétel Hozzáadása' },
-  'quickActions.setGoal': { en: 'Set Goal', hu: 'Cél Beállítása' },
-  'quickActions.export': { en: 'Export Data', hu: 'Adatok Exportálása' },
+  'quickActions.title': { en: 'Quick Actions', hu: 'Gyors Műveletek', ro: 'Acțiuni Rapide' },
+  'quickActions.addExpense': { en: 'Add Expense', hu: 'Kiadás Hozzáadása', ro: 'Adaugă Cheltuială' },
+  'quickActions.addIncome': { en: 'Add Income', hu: 'Bevétel Hozzáadása', ro: 'Adaugă Venit' },
+  'quickActions.setGoal': { en: 'Set Goal', hu: 'Cél Beállítása', ro: 'Setează Obiectiv' },
+  'quickActions.export': { en: 'Export Data', hu: 'Adatok Exportálása', ro: 'Exportă Date' },
 
   // Transactions List
-  'transactions.recent': { en: 'Recent Transactions', hu: 'Legutóbbi Tranzakciók' },
-  'transactions.viewAll': { en: 'View All', hu: 'Összes Megtekintése' },
-  'transactions.noTransactions': { en: 'No transactions found', hu: 'Nincsenek tranzakciók' },
-  'transactions.searchPlaceholder': { en: 'Search transactions...', hu: 'Tranzakciók keresése...' },
-  'transactions.add': { en: 'Add Transaction', hu: 'Új Tranzakció' },
+  'transactions.recent': { en: 'Recent Transactions', hu: 'Legutóbbi Tranzakciók', ro: 'Tranzacții Recente' },
+  'transactions.viewAll': { en: 'View All', hu: 'Összes Megtekintése', ro: 'Vezi Tot' },
+  'transactions.noTransactions': { en: 'No transactions found', hu: 'Nincsenek tranzakciók', ro: 'Nu s-au găsit tranzacții' },
+  'transactions.searchPlaceholder': { en: 'Search transactions...', hu: 'Tranzakciók keresése...', ro: 'Caută tranzacții...' },
+  'transactions.add': { en: 'Add Transaction', hu: 'Új Tranzakció', ro: 'Adaugă Tranzacție' },
 
   // Transaction Modal
-  'transactions.newTransaction': { en: 'New Transaction', hu: 'Új Tranzakció' },
-  'transactions.editTransaction': { en: 'Edit Transaction', hu: 'Tranzakció Szerkesztése' },
-  'transactions.description': { en: 'Description', hu: 'Leírás' },
-  'transactions.descriptionPlaceholder': { en: 'Example: Client Payment', hu: 'Pl.: Ügyfél fizetés' },
-  'transactions.amount': { en: 'Amount', hu: 'Összeg' },
-  'transactions.category': { en: 'Category', hu: 'Kategória' },
-  'transactions.dateTime': { en: 'Date & Time', hu: 'Dátum és Idő' },
-  'transactions.type': { en: 'Type', hu: 'Típus' },
-  'transactions.income': { en: 'Income', hu: 'Bevétel' },
-  'transactions.expense': { en: 'Expense', hu: 'Kiadás' },
-  'transactions.tags': { en: 'Tags', hu: 'Címkék' },
+  'transactions.newTransaction': { en: 'New Transaction', hu: 'Új Tranzakció', ro: 'Tranzacție Nouă' },
+  'transactions.editTransaction': { en: 'Edit Transaction', hu: 'Tranzakció Szerkesztése', ro: 'Editează Tranzacția' },
+  'transactions.description': { en: 'Description', hu: 'Leírás', ro: 'Descriere' },
+  'transactions.descriptionPlaceholder': { en: 'Example: Client Payment', hu: 'Pl.: Ügyfél fizetés', ro: 'Ex.: Plată Client' },
+  'transactions.amount': { en: 'Amount', hu: 'Összeg', ro: 'Sumă' },
+  'transactions.category': { en: 'Category', hu: 'Kategória', ro: 'Categorie' },
+  'transactions.dateTime': { en: 'Date & Time', hu: 'Dátum és Idő', ro: 'Dată și Oră' },
+  'transactions.type': { en: 'Type', hu: 'Típus', ro: 'Tip' },
+  'transactions.income': { en: 'Income', hu: 'Bevétel', ro: 'Venit' },
+  'transactions.expense': { en: 'Expense', hu: 'Kiadás', ro: 'Cheltuială' },
+  'transactions.tags': { en: 'Tags', hu: 'Címkék', ro: 'Etichete' },
   'transactions.addTag': { en: 'Add a tag...', hu: 'Címke hozzáadása...' },
   'transactions.notes': { en: 'Notes', hu: 'Megjegyzés' },
   'transactions.notesPlaceholder': { en: 'Optional notes...', hu: 'Opcionális megjegyzés...' },
@@ -245,48 +245,48 @@ const translations: Translations = {
   'transactions.priority': { en: 'Priority', hu: 'Prioritás' },
 
   // Transaction Filters
-  'filter.all': { en: 'All', hu: 'Összes' },
-  'filter.income': { en: 'Income', hu: 'Bevétel' },
-  'filter.expense': { en: 'Expense', hu: 'Kiadás' },
+  'filter.all': { en: 'All', hu: 'Összes', ro: 'Toate' },
+  'filter.income': { en: 'Income', hu: 'Bevétel', ro: 'Venituri' },
+  'filter.expense': { en: 'Expense', hu: 'Kiadás', ro: 'Cheltuieli' },
 
   // Periods
-  'period.oneTime': { en: 'One Time', hu: 'Egyszeri' },
-  'period.daily': { en: 'Daily', hu: 'Napi' },
-  'period.weekly': { en: 'Weekly', hu: 'Heti' },
-  'period.monthly': { en: 'Monthly', hu: 'Havi' },
-  'period.yearly': { en: 'Yearly', hu: 'Éves' },
+  'period.oneTime': { en: 'One Time', hu: 'Egyszeri', ro: 'O singură dată' },
+  'period.daily': { en: 'Daily', hu: 'Napi', ro: 'Zilnic' },
+  'period.weekly': { en: 'Weekly', hu: 'Heti', ro: 'Săptămânal' },
+  'period.monthly': { en: 'Monthly', hu: 'Havi', ro: 'Lunar' },
+  'period.yearly': { en: 'Yearly', hu: 'Éves', ro: 'Anual' },
 
   // Priorities
-  'priority.low': { en: 'Low', hu: 'Alacsony' },
-  'priority.medium': { en: 'Medium', hu: 'Közepes' },
-  'priority.high': { en: 'High', hu: 'Magas' },
+  'priority.low': { en: 'Low', hu: 'Alacsony', ro: 'Scăzută' },
+  'priority.medium': { en: 'Medium', hu: 'Közepes', ro: 'Medie' },
+  'priority.high': { en: 'High', hu: 'Magas', ro: 'Ridicată' },
 
   // Common Buttons
-  'transactions.actions.save': { en: 'Save Transaction', hu: 'Mentés' },
-  'transactions.actions.update': { en: 'Update Transaction', hu: 'Frissítés' },
+  'transactions.actions.save': { en: 'Save Transaction', hu: 'Mentés', ro: 'Salvează Tranzacția' },
+  'transactions.actions.update': { en: 'Update Transaction', hu: 'Frissítés', ro: 'Actualizează Tranzacția' },
 
   // Notifications
-  'notifications.welcome': { en: 'Welcome to Budget Pro!', hu: 'Üdvözöl a Budget Pro-ban!' },
-  'notifications.getStarted': { en: 'Start by adding your first transaction', hu: 'Kezd az első tranzakciód hozzáadásával!' },
-  'notifications.largeTransaction': { en: 'Large Transaction Added', hu: 'Nagy összegű tranzakció!' },
-  'notifications.validationError': { en: 'Validation Error', hu: 'Validációs Hiba' },
-  'notifications.pleaseCheckFields': { en: 'Please fill all required fields', hu: 'Kérlek töltsd ki a kötelező mezőket' },
+  'notifications.welcome': { en: 'Welcome to Budget Pro!', hu: 'Üdvözöl a Budget Pro-ban!', ro: 'Bun venit în Budget Pro!' },
+  'notifications.getStarted': { en: 'Start by adding your first transaction', hu: 'Kezd az első tranzakciód hozzáadásával!', ro: 'Începe prin adăugarea primei tranzacții' },
+  'notifications.largeTransaction': { en: 'Large Transaction Added', hu: 'Nagy összegű tranzakció!', ro: 'Tranzacție Mare Adăugată' },
+  'notifications.validationError': { en: 'Validation Error', hu: 'Validációs Hiba', ro: 'Eroare de Validare' },
+  'notifications.pleaseCheckFields': { en: 'Please fill all required fields', hu: 'Kérlek töltsd ki a kötelező mezőket', ro: 'Vă rugăm completați toate câmpurile obligatorii' },
 
   // Categories
-  'categories.software': { en: 'Software', hu: 'Szoftver' },
-  'categories.marketing': { en: 'Marketing', hu: 'Marketing' },
-  'categories.office': { en: 'Office', hu: 'Iroda' },
-  'categories.travel': { en: 'Travel', hu: 'Utazás' },
-  'categories.service': { en: 'Service', hu: 'Szolgáltatás' },
-  'categories.freelance': { en: 'Freelance', hu: 'Szabadúszó' },
-  'categories.food': { en: 'Food', hu: 'Élelmiszer' },
-  'categories.transport': { en: 'Transport', hu: 'Közlekedés' },
-  'categories.entertainment': { en: 'Entertainment', hu: 'Szórakozás' },
-  'categories.health': { en: 'Health', hu: 'Egészség' },
-  'categories.education': { en: 'Education', hu: 'Oktatás' },
-  'categories.shopping': { en: 'Shopping', hu: 'Vásárlás' },
-  'categories.investment': { en: 'Investment', hu: 'Befektetés' },
-  'categories.other': { en: 'Other', hu: 'Egyéb' },
+  'categories.software': { en: 'Software', hu: 'Szoftver', ro: 'Software' },
+  'categories.marketing': { en: 'Marketing', hu: 'Marketing', ro: 'Marketing' },
+  'categories.office': { en: 'Office', hu: 'Iroda', ro: 'Birou' },
+  'categories.travel': { en: 'Travel', hu: 'Utazás', ro: 'Călătorie' },
+  'categories.service': { en: 'Service', hu: 'Szolgáltatás', ro: 'Serviciu' },
+  'categories.freelance': { en: 'Freelance', hu: 'Szabadúszó', ro: 'Freelance' },
+  'categories.food': { en: 'Food', hu: 'Élelmiszer', ro: 'Mâncare' },
+  'categories.transport': { en: 'Transport', hu: 'Közlekedés', ro: 'Transport' },
+  'categories.entertainment': { en: 'Entertainment', hu: 'Szórakozás', ro: 'Divertisment' },
+  'categories.health': { en: 'Health', hu: 'Egészség', ro: 'Sănătate' },
+  'categories.education': { en: 'Education', hu: 'Oktatás', ro: 'Educație' },
+  'categories.shopping': { en: 'Shopping', hu: 'Vásárlás', ro: 'Cumpărături' },
+  'categories.investment': { en: 'Investment', hu: 'Befektetés', ro: 'Investiție' },
+  'categories.other': { en: 'Other', hu: 'Egyéb', ro: 'Altele' },
 
   // Invoicing Statuses (complete 21 languages) - Keeping existing line
   'invoicing.statusCancelled': { en: 'Cancelled', ko: 'Cancelled', hu: 'Törölve', ro: 'Anulat', sk: 'Zrušené', hr: 'Otkazano', de: 'Storniert', fr: 'Annulé', es: 'Cancelado', it: 'Annullato', pl: 'Anulowano', cn: '已取消', jp: 'キャンセル済み', pt: 'Cancelado', tr: 'İptal Edildi', ar: 'ملغى', ru: 'Отменено', hi: 'рэдд', bn: 'বাতিল', ur: 'منسوخ', th: 'ยกเลิก', id: 'Dibatalkan' },
@@ -701,10 +701,6 @@ const translations: Translations = {
   'statistics.cashFlowProjection': { en: 'Cash-flow Projection', hu: 'Cash-flow Előrejelzés', ro: 'Proiecție Cash-flow', sk: 'Projekcia Cash-flow', hr: 'Projekcija toka', de: 'Cashflow-Prognose', fr: 'Projection de flux', es: 'Proyección de flujo', it: 'Proiezione cash-flow', pl: 'Prognoza przepływów', cn: '现金流预测', jp: 'キャッシュフロー予測', pt: 'Projeção de fluxo', tr: 'Nakit Akışı Projeksiyonu', ar: 'توقعات التدفق', ru: 'Прогноз Денежных Потоков', hi: 'नकदी प्रवाह प्रोजेक्शन', bn: 'নগদ প্রবাহ পূর্বাভাস', ur: 'نقد بہاؤ کی پیش گوئی', th: 'การคาดการณ์กระแสเงินสด', id: 'Proyeksi Arus Kas' },
   'statistics.projectionDisclaimer': { en: 'Projection is based on linear regression of past transactions.', hu: 'Az előrejelzés a múltbeli tranzakciók lineáris regresszióján alapul.', ro: 'Proiecția se bazează pe regresia liniară a tranzacțiilor trecute.', sk: 'Projekcia je založená na lineárnej regresii past transactions.', hr: 'Projekcija se temelji na regresiji', de: 'Die Prognose basiert auf linearer Regression vergangener Transaktionen.', fr: 'Projection basée sur une régression linéaire.', es: 'La proyección se basa en regresión lineal.', it: 'Proiezione basata su regressione lineare.', pl: 'Prognoza oparta na regresji liniowej.', cn: '预测基于过去交易的线性回归。', jp: '予測は過去の取引の線形回帰に基づいています。', pt: 'Projeção baseada em regressão linear.', tr: 'Projeksiyon geçmiş işlemlerin lineer regresyonuna dayanır.', ar: 'التوقعات تعتمد على الانحدار الخطي.', ru: 'Прогноз основан на линейной регрессии.', hi: 'प्रोजेक्शन पिछले लेनदेन के रैखिक प्रतिगमन पर आधारित है।', bn: 'পূর্বাভাস অতীত লেনদেনের রৈখিক রিগ্রেশনের উপর ভিত্তি করে।', ur: 'پیش گوئی ماضی کے لین دین کے لکیری رجعت پر مبنی ہے۔', th: 'การคาดการณ์อิงตามการถดถอยเชิงเส้น', id: 'Proyeksi didasarkan pada regresi linier.' },
 
-  // Priority Keys (Unified)
-  'priority.high': { en: 'High', hu: 'Magas', ro: 'Ridicată', sk: 'Vysoká', hr: 'Visok', de: 'Hoch', fr: 'Haute', es: 'Alta', it: 'Alta', pl: 'Wysoki', cn: '高', jp: '高', pt: 'Alta', tr: 'Yüksek', ar: 'مرتفع', ru: 'Высокий', hi: 'उच्च', bn: 'উচ্চ', ur: 'اعلیٰ', th: 'สูง', id: 'Tinggi' },
-  'priority.medium': { en: 'Medium', hu: 'Közepes', ro: 'Medie', sk: 'Stredná', hr: 'Srednji', de: 'Mittel', fr: 'Moyenne', es: 'Media', it: 'Media', pl: 'Średni', cn: '中', jp: '中', pt: 'Média', tr: 'Orta', ar: 'متوسط', ru: 'Средний', hi: 'मध्यम', bn: 'মাঝারি', ur: 'درمیانہ', th: 'ปานกลาง', id: 'Sedang' },
-  'priority.low': { en: 'Low', hu: 'Alacsony', ro: 'Scăzută', sk: 'Nízka', hr: 'Nizak', de: 'Niedrig', fr: 'Basse', es: 'Baja', it: 'Bassa', pl: 'Niski', cn: '低', jp: '低', pt: 'Baixa', tr: 'Düşük', ar: 'منخفض', ru: 'Низкий', hi: 'निम्न', bn: 'কম', ur: 'کم', th: 'ต่ำ', id: 'Rendah' },
 
   // Weekly & Daily View Additional Keys
   'daily.newTask': { en: 'New Task', hu: 'Új Feladat', ro: 'Sarcină Nouă', sk: 'Nová Úloha', hr: 'Novi zadatak', de: 'Neue Aufgabe', fr: 'Nouvelle tâche', es: 'Nueva tarea', it: 'Nuova attività', pl: 'Nowe zadanie', cn: '新任务', jp: '新しいタスク', pt: 'Nova tarefa', tr: 'Yeni Görev', ar: 'مهمة جديدة', ru: 'Новая задача', hi: 'नया कार्य', bn: 'নতুন কাজ', ur: 'نیا کام', th: 'งานใหม่', id: 'Tugas Baru' },
@@ -716,7 +712,7 @@ const translations: Translations = {
   'daily.taskPlaceholder': { en: 'What needs to be done?', hu: 'Mi a teendő?', ro: 'Ce trebuie făcut?', sk: 'Čo treba urobiť?', hr: 'Što treba učiniti?', de: 'Was ist zu tun?', fr: 'Que faut-il faire?', es: '¿Qué hay que hacer?', it: 'Cosa c\'è da fare?', pl: 'Co jest do zrobienia?', cn: '需要做什么？', jp: '何をすべきですか？', pt: 'O que precisa ser feito?', tr: 'Neler yapılması gerekiyor?', ar: 'ما الذي ينبغي فعله؟', ru: 'Что нужно сделать?', hi: 'क्या किया जाना है?', bn: 'কি করতে হবে?', ur: 'کیا کرنے کی ضرورت ہے؟', th: 'ต้องทำอะไรบ้าง?', id: 'Apa yang perlu dilakukan?' },
   'daily.descriptionPlaceholder': { en: 'Add more details...', hu: 'További részletek...', ro: 'Adăugați detalii...', sk: 'Pridať podrobnosti...', hr: 'Dodaj detalje...', de: 'Details hinzufügen...', fr: 'Ajouter des détails...', es: 'Añadir detalles...', it: 'Aggiungi dettagli...', pl: 'Dodaj szczegóły...', cn: '添加更多细节...', jp: '詳細を追加...', pt: 'Adicionar detalhes...', tr: 'Daha fazla detay ekle...', ar: 'أضf المزيد من التفاصيل...', ru: 'Добавить детали...', hi: 'और विवरण जोड़ें...', bn: 'আরও বিস্তারিত যোগ করুন...', ur: 'مزید تفصیلات شامل کریں...', th: 'เพิ่มรายละเอียดเพิ่มเติม...', id: 'Tambahkan rincian...' },
   'daily.taskTitle': { en: 'Task Title', hu: 'Feladat címe', ro: 'Titlu Sarcină', sk: 'Názov Úlohy', hr: 'Naslov zadatka', de: 'Aufgabentitel', fr: 'Titre de la tâche', es: 'Título de la tarea', it: 'Titolo attività', pl: 'Tytuł zadania', cn: '任务标题', jp: 'タスクのタイトル', pt: 'Título da tarefa', tr: 'Görev Başlığı', ar: 'عنوان المهمة', ru: 'Заголовок задачи', hi: 'कार्य शीर्षक', bn: 'কাজের শিরোনাম', ur: 'کام کا عنوان', th: 'ชื่อเรื่องงาน', id: 'Judul Tugas' },
-  'habits.fields.description': { en: 'Description', hu: 'Leírás' },
+  'habits.fields.description': { en: 'Description', hu: 'Leírás', ro: 'Descriere' },
 
   // 66-Day Challenge
   'habits.challenge.title': { en: 'Habit Formation', hu: 'Szokáskialakítás' },
