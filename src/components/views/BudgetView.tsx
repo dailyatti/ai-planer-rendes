@@ -653,7 +653,8 @@ const useEnhancedBudgetEngine = () => {
     totalExpense,
     balance,
     categoryTotals,
-    projectionData
+    projectionData,
+    cashFlowData
   } = useBudgetAnalytics(
     transactions as any,
     currency,
@@ -703,9 +704,38 @@ const useEnhancedBudgetEngine = () => {
     t('months.september') || 'Sep', t('months.october') || 'Oct', t('months.november') || 'Nov', t('months.december') || 'Dec'
   ], [t]);
 
-  // Map projection data
+  // Map projection data - UNIFIED: Historical + Future
   const cashFlowProjection = useMemo(() => {
-    return projectionData.map((p) => {
+    const result: { month: string; income: number; expense: number; balance: number }[] = [];
+
+    // PART 1: Historical data (past 6 months from cashFlowData)
+    // Calculate running balance backward from current balance
+    let runningBalance = balance;
+    const historicalReversed = [...cashFlowData].reverse(); // Most recent first
+    const historicalWithBalance: { monthIndex: number; year: number; income: number; expense: number; balance: number }[] = [];
+
+    for (const h of historicalReversed) {
+      // Balance BEFORE this month = current balance - net of this month
+      historicalWithBalance.unshift({
+        ...h,
+        balance: runningBalance
+      });
+      runningBalance -= (h.income - h.expense); // Go backward in time
+    }
+
+    // Add historical months to result
+    for (const h of historicalWithBalance) {
+      const yStr = String(h.year).slice(2);
+      result.push({
+        month: `${monthNames[h.monthIndex]} '${yStr}`,
+        income: h.income,
+        expense: h.expense,
+        balance: h.balance
+      });
+    }
+
+    // PART 2: Future projection data
+    for (const p of projectionData) {
       let name = "";
       if (p.monthIndex !== null && p.monthIndex !== undefined) {
         const yStr = String(p.year).slice(2);
@@ -713,14 +743,16 @@ const useEnhancedBudgetEngine = () => {
       } else {
         name = String(p.year);
       }
-      return {
+      result.push({
         month: name,
         income: p.income,
         expense: p.expense,
         balance: p.balance
-      };
-    });
-  }, [projectionData, monthNames]);
+      });
+    }
+
+    return result;
+  }, [projectionData, cashFlowData, monthNames, balance]);
 
   // Export functionality
   const exportData = useCallback((format: 'json' | 'csv' | 'pdf') => {
