@@ -1279,7 +1279,7 @@ const EnhancedTransactionModal: React.FC<{
               fullWidth
               leftIcon={<Check size={16} />}
             >
-              {mode === 'edit' ? t('common.update') : t('common.save')}
+              {mode === 'edit' ? t('transactions.actions.update') : t('transactions.actions.save')}
             </GradientButton>
           </div>
         </div>

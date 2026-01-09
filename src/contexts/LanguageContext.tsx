@@ -99,9 +99,7 @@ const translations: Translations = {
 
   // Currency Converter
   'currency.converterTitle': { en: 'Currency Converter', hu: 'Valutaváltó' },
-  'currency.amount': { en: 'Amount', hu: 'Összeg' },
-  'currency.from': { en: 'From', hu: 'Erről' },
-  'currency.to': { en: 'To', hu: 'Erre' },
+
   'currency.liveRates': { en: 'Live Rates (API)', hu: 'Élő Árfolyamok (API)' },
   'currency.manualRates': { en: 'Manual Rates', hu: 'Kézi Árfolyamok' },
   'currency.refresh': { en: 'Refresh', hu: 'Frissítés' },
@@ -264,11 +262,8 @@ const translations: Translations = {
   'priority.high': { en: 'High', hu: 'Magas' },
 
   // Common Buttons
-  'common.cancel': { en: 'Cancel', hu: 'Mégse' },
-  'common.save': { en: 'Save Transaction', hu: 'Mentés' },
-  'common.update': { en: 'Update Transaction', hu: 'Frissítés' },
-  'common.delete': { en: 'Delete', hu: 'Törlés' },
-  'common.edit': { en: 'Edit', hu: 'Szerkesztés' },
+  'transactions.actions.save': { en: 'Save Transaction', hu: 'Mentés' },
+  'transactions.actions.update': { en: 'Update Transaction', hu: 'Frissítés' },
 
   // Notifications
   'notifications.welcome': { en: 'Welcome to Budget Pro!', hu: 'Üdvözöl a Budget Pro-ban!' },
@@ -387,21 +382,21 @@ const translations: Translations = {
 
 
   // Notifications Extras
-  'notifications.title': { en: 'Notifications', hu: 'Értesítések' },
-  'notifications.clearAll': { en: 'Clear All', hu: 'Összes törlése' },
-  'notifications.empty': { en: 'No notifications', hu: 'Nincsenek értesítések' },
+  // Notifications Extras
+
+  'notifications.empty': { en: 'No notifications', hu: 'Nincsenek értesítések', ro: 'Fără notificări', sk: 'Žiadne oznámenia', hr: 'Nema obavijesti', de: 'Keine Benachrichtigungen', fr: 'Aucune notification', es: 'No hay notificaciones', it: 'Nessuna notifica', pl: 'Brak powiadomień', cn: '无通知', jp: '通知なし', pt: 'Sem notificações', tr: 'Bildirim yok', ar: 'لا توجد إشعارات', ru: 'Нет уведомлений', hi: 'कोई सूचना नहीं', bn: 'কোন বিজ্ঞপ্তি নেই', ur: 'کوئی نوٹیفکیشن نہیں', th: 'ไม่มีการแจ้งเตือน', id: 'Tidak ada notifikasi', ko: 'No notifications' },
 
   // Settings Extras
-  'settings.dataManagement': { en: 'Data Management', hu: 'Adatkezelés' },
-  'settings.startCalculation': { en: 'Start Calculation From', hu: 'Számítás kezdete' },
-  'settings.realizedOnly': { en: 'Realized Only', hu: 'Csak realizált' },
-  'settings.includeScheduled': { en: 'Include Scheduled', hu: 'Ütemezett is' },
-  'settings.currency': { en: 'Currency', hu: 'Pénznem' },
+
+  'settings.startCalculation': { en: 'Start Calculation From', hu: 'Számítás kezdete', ro: 'Începe calculul de la', sk: 'Začať výpočet od', hr: 'Počni izračun od', de: 'Berechnung starten ab', fr: 'Commencer le calcul à partir de', es: 'Iniciar cálculo desde', it: 'Inizia calcolo da', pl: 'Rozpocznij obliczenia od', cn: '计算起始于', jp: '計算開始日', pt: 'Iniciar cálculo de', tr: 'Hesaplamayı Başlat', ar: 'بدء الحساب من', ru: 'Начать расчет с', hi: 'गणना शुरू करें', bn: 'গণনা শুরু করুন', ur: 'حساب شروع کریں', th: 'เริ่มคำนวณจาก', id: 'Mulai Perhitungan Dari', ko: 'Start Calculation From' },
+
+  'settings.includeScheduled': { en: 'Include Scheduled', hu: 'Ütemezett is', ro: 'Include programate', sk: 'Zahrnúť naplánované', hr: 'Uključi zakazano', de: 'Geplante einbeziehen', fr: 'Inclure planifié', es: 'Incluir programado', it: 'Includi pianificato', pl: 'Uwzględnij zaplanowane', cn: '包括已计划', jp: '予定を含む', pt: 'Incluir agendado', tr: 'Planlananları Dahil Et', ar: 'تضمين المجدولة', ru: 'Вкл. запланированные', hi: 'अनुसूचित शामिल करें', bn: 'তফসিল অন্তর্ভুক্ত', ur: 'شیڈول شامل کریں', th: 'รวมตามกำหนดการ', id: 'Termasuk Terjadwal', ko: 'Include Scheduled' },
+
 
   // Goals Extras
-  'goals.target': { en: 'Target', hu: 'Cél' },
-  'goals.noGoals': { en: 'No goals set', hu: 'Nincsenek célok' },
-  'goals.subtitle': { en: 'Set financial goals to track your progress.', hu: 'Állíts be pénzügyi célokat a haladás követéséhez.' },
+  'goals.target': { en: 'Target', hu: 'Cél', ro: 'Țintă', sk: 'Cieľ', hr: 'Cilj', de: 'Ziel', fr: 'Cible', es: 'Objetivo', it: 'Obiettivo', pl: 'Cel', cn: '目标', jp: '目標', pt: 'Alvo', tr: 'Hedef', ar: 'الهدف', ru: 'Цель', hi: 'लक्ष्य', bn: 'লক্ষ্য', ur: 'ہدف', th: 'เป้าหมาย', id: 'Target', ko: 'Target' },
+  'goals.noGoals': { en: 'No goals set', hu: 'Nincsenek célok', ro: 'Fără obiective', sk: 'Žiadne ciele', hr: 'Nema ciljeva', de: 'Keine Ziele gesetzt', fr: 'Aucun objectif défini', es: 'Sin objetivos', it: 'Nessun obiettivo', pl: 'Brak celów', cn: '未设定目标', jp: '目標設定なし', pt: 'Sem metas', tr: 'Hedef belirlenmedi', ar: 'لم يتم تحديد أهداف', ru: 'Цели не заданы', hi: 'कोई लक्ष्य निर्धारित नहीं', bn: 'কোন লক্ষ্য নেই', ur: 'کوئی مقصد مقرر نہیں', th: 'ไม่ได้ตั้งเป้าหมาย', id: 'Tidak ada tujuan', ko: 'No goals set' },
+  'goals.subtitle': { en: 'Set financial goals to track your progress.', hu: 'Állíts be pénzügyi célokat a haladás követéséhez.', ro: 'Setați obiective financiare pentru a urmări progresul.', sk: 'Nastavte finančné ciele na sledovanie pokroku.', hr: 'Postavite financijske ciljeve za praćenje napretka.', de: 'Setzen Sie finanzielle Ziele, um Ihren Fortschritt zu verfolgen.', fr: 'Définissez des objectifs financiers pour suivre vos progrès.', es: 'Establece metas financieras para seguir tu progreso.', it: 'Imposta obiettivi finanziari per tracciare i tuoi progressi.', pl: 'Ustaw cele finansowe, aby śledzić postępy.', cn: '设定财务目标以跟踪进度。', jp: '進捗を追跡するために財務目標を設定します。', pt: 'Defina metas financeiras para acompanhar seu progresso.', tr: 'İlerlemenizi izlemek için finansal hedefler belirleyin.', ar: 'حدد أهدافًا مالية لتتبع تقدمك.', ru: 'Установите фин. цели для отслеживания прогресса.', hi: 'अपनी प्रगति को ट्रैक करने के लिए वित्तीय लक्ष्य निर्धारित करें।', bn: 'আপনার অগ্রগতি ট্র্যাক করতে আর্থিক লক্ষ্য সেট করুন।', ur: 'اپنی پیشرفت کو ٹریک کرنے کے لیے مالی اہداف مقرر کریں۔', th: 'ตั้งเป้าหมายทางการเงินเพื่อติดตามความคืบหน้าของคุณ', id: 'Tetapkan tujuan keuangan untuk melacak kemajuan Anda.', ko: 'Set financial goals to track your progress.' },
   // Common Pagination & Selection
   'common.selected': { en: 'selected', hu: 'kijelölve', ro: 'selectat', sk: 'vybrané', hr: 'odabrano', de: 'ausgewählt', fr: 'sélectionné', es: 'seleccionado', it: 'selezionato', pl: 'wybrano', cn: '已选择', jp: '選択済み', pt: 'selecionado', tr: 'seçildi', ar: 'محدد', ru: 'выбрано', hi: 'चयनित', bn: 'নির্বাচিত', ur: 'منتخب', th: 'เลือกแล้ว', id: 'dipilih', ko: 'selected' },
   'common.clearSelection': { en: 'Clear selection', hu: 'Kijelölés törlése', ro: 'Șterge selecția', sk: 'Zrušiť výber', hr: 'Očisti odabir', de: 'Auswahl aufheben', fr: 'Effacer sélection', es: 'Borrar selección', it: 'Cancella selezione', pl: 'Wyczyść zaznaczenie', cn: '清除选择', jp: '選択をクリア', pt: 'Limpar seleção', tr: 'Seçimi Temizle', ar: 'مسح التحديد', ru: 'Очистить выбор', hi: 'चयन साफ़ करें', bn: 'নির্বাচন পরিষ্কার করুন', ur: 'انتخاب صاف کریں', th: 'ล้างการเลือก', id: 'Hapus pilihan', ko: 'Clear selection' },
@@ -444,7 +439,7 @@ const translations: Translations = {
   'currency.converter.title': { en: 'Currency Converter', hu: 'Valuta váltó', ro: 'Convertor Valutar', sk: 'Prevodník mien', hr: 'Pretvarač valuta', de: 'Währungsrechner', fr: 'Convertisseur de devises', es: 'Convertidor de divisas', it: 'Convertitore di valuta', pl: 'Przelicznik walut', cn: '货币转换器', jp: '通貨コンバーター', pt: 'Conversor de moedas', tr: 'Döviz Çevirici', ar: 'محول العملات', ru: 'Конвертер валют', hi: 'मुद्रा परिवर्तक', bn: 'মুদ্রা রূপান্তরকারী', ur: 'کرنسی کنورٹر', th: 'ตัวแปลงสกุลเงิน', id: 'Konverter Mata Uang', ko: 'Currency Converter' },
 
 
-  'budget.exampleExpense': { en: 'e.g. Software Subscription', ko: 'e.g. Software Subscription', hu: 'pl. Szoftver előfizetés', ro: 'ex. Abonament Software', sk: 'napr. Predplatné softvéru', hr: 'npr. Pretplata na softver', de: 'z.B. Software-Abo', fr: 'ex. Abonnement logiciel', es: 'p.ej. Suscripción de software', it: 'es. Abbonamento software', pl: 'np. Subskrypcja oprogramowania', cn: '例如 软件订阅', jp: '例：ソフトウェアサブスクリプション', pt: 'ex. Assinatura de software', tr: 'örn. Yazılım Aboneliği', ar: 'مثال: اشتراك البرنامج', ru: 'напр. Подписка на ПО', hi: 'उदा. सॉफ्टवेयर सदस्यता', bn: 'উদা. সফটওয়্যার সাবস্ক্রিপশন', ur: 'مثال: سافٹ ویئر سبسکرپشن', th: 'ตัวอย่าง การสมัครสมาชิกซอฟต์แวร์', id: 'contoh: Langganan Perangkat Lunak' },
+
 
   // Budget Tabs
   'budget.tab.overview': { en: 'Overview', hu: 'Áttekintés', ro: 'Prezentare', sk: 'Prehľad', hr: 'Pregled', de: 'Übersicht', fr: 'Aperçu', es: 'Resumen', it: 'Panoramica', pl: 'Przegląd', cn: '概览', jp: '概要', pt: 'Visão Geral', tr: 'Genel Bakış', ar: 'نظرة عامة', ru: 'Обзор', hi: 'अवलोकन', bn: 'ওভারভিউ', ur: 'جائزہ', th: 'ภาพรวม', id: 'Ikhtisar', ko: 'Overview' },
