@@ -73,6 +73,7 @@ import { useData } from "../../contexts/DataContext";
 import { AVAILABLE_CURRENCIES } from "../../constants/currencyData";
 import { CurrencyService } from "../../services/CurrencyService";
 import { useBudgetAnalytics } from "./useBudgetAnalytics";
+import CurrencyConverterModal from "./CurrencyConverterModal";
 
 /* -------------------------------------------------------------------------------------------------
   ENHANCED PREMIUM REDESIGN WITH NEW FEATURES:
@@ -1297,8 +1298,12 @@ const EnhancedBudgetView: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<"dashboard" | "transactions" | "analytics" | "goals" | "settings">("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
+
+
+  // ... inside component ...
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
   const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [showConverterModal, setShowConverterModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -1355,9 +1360,18 @@ const EnhancedBudgetView: React.FC = () => {
                 className="px-4 py-2.5 rounded-2xl border border-white/20 bg-white/5 text-white font-bold outline-none"
               >
                 {AVAILABLE_CURRENCIES.map(c => (
-                  <option key={c.code} value={c.code}>{c.code}</option>
+                  <option key={c.code} value={c.code} className="bg-gray-900 text-white">{c.code}</option>
                 ))}
               </select>
+
+              {/* Currency Converter */}
+              <button
+                onClick={() => setShowConverterModal(true)}
+                className="p-2.5 rounded-2xl border border-white/20 bg-white/5 hover:bg-white/10 transition-colors"
+                title="Currency Converter"
+              >
+                <RefreshCcw size={20} className="text-white" />
+              </button>
 
               {/* Notifications */}
               <button
@@ -1854,6 +1868,15 @@ const EnhancedBudgetView: React.FC = () => {
             mode={editingTransaction ? "edit" : "create"}
             transaction={editingTransaction || undefined}
             engine={engine}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showConverterModal && (
+          <CurrencyConverterModal
+            isOpen={showConverterModal}
+            onClose={() => setShowConverterModal(false)}
           />
         )}
       </AnimatePresence>
