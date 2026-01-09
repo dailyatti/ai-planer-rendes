@@ -369,26 +369,38 @@ const EnhancedChartFrame: React.FC<{
   useEffect(() => {
     if (!ref.current) return;
 
-    const updateDimensions = () => {
+    let rafId: number;
+    const observer = new ResizeObserver(() => {
+      // Debounce with requestAnimationFrame to prevent "ResizeObserver loop limit exceeded"
+      // and ensure dimensions are non-zero (or at least safe)
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        if (!ref.current) return;
+        const rect = ref.current.getBoundingClientRect();
+        setDimensions({
+          width: Math.max(320, Math.floor(rect.width)), // Minimum width to prevent Recharts -1 error
+          height: Math.max(220, Math.floor(rect.height)), // Minimum height
+        });
+      });
+    });
+
+    observer.observe(ref.current);
+
+    // Initial measure
+    rafId = requestAnimationFrame(() => {
       if (ref.current) {
         const rect = ref.current.getBoundingClientRect();
         setDimensions({
-          width: Math.max(0, Math.floor(rect.width)),
-          height: Math.max(0, Math.floor(rect.height)),
+          width: Math.max(320, Math.floor(rect.width)),
+          height: Math.max(220, Math.floor(rect.height)),
         });
       }
+    });
+
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(rafId);
     };
-
-    if (typeof ResizeObserver === 'undefined') {
-      updateDimensions();
-      return;
-    }
-
-    const observer = new ResizeObserver(updateDimensions);
-    observer.observe(ref.current);
-    updateDimensions();
-
-    return () => observer.disconnect();
   }, [height]);
 
   return (
@@ -398,7 +410,7 @@ const EnhancedChartFrame: React.FC<{
           <h3 className="text-lg font-black text-white">{title}</h3>
         </div>
       )}
-      <div ref={ref} style={{ height }} className="relative">
+      <div ref={ref} style={{ height }} className="relative overflow-hidden">
         {dimensions.width > 0 && dimensions.height > 0 ? (
           children(dimensions)
         ) : (
@@ -414,10 +426,10 @@ const EnhancedChartFrame: React.FC<{
   );
 };
 
-const CustomTooltip: React.FC<any> = ({ active, payload, label, currency }) => {
+const CustomTooltip: React.FC<any> = ({ active, payload, label, currency, language }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-[#1e293b]/95 backdrop-blur-sm border border-white/10 rounded-2xl p-4 shadow-2xl">
+      <div className="bg-[#1e293b]/95 backdrop-blur-sm border border-white/10 rounded-2xl p-4 shadow-2xl z-50">
         <p className="text-sm font-bold text-white/80 mb-2">{label}</p>
         {payload.map((entry: any, index: number) => (
           <div key={index} className="flex items-center justify-between gap-4 mb-1 last:mb-0">
@@ -431,7 +443,7 @@ const CustomTooltip: React.FC<any> = ({ active, payload, label, currency }) => {
               </span>
             </div>
             <span className="text-sm font-bold text-white">
-              {formatCurrency(entry.value, currency, "en-US")}
+              {formatCurrency(entry.value, currency, language || "en-US")}
             </span>
           </div>
         ))}
@@ -451,7 +463,7 @@ const useEnhancedBudgetEngine = () => {
   const dataContext = useData();
 
   // State
-  const [localTransactions, setLocalTransactions] = useState<Transaction[]>([]);
+  // localTransactions removed - using DataContext as source of truth
   const [currency, setCurrency] = useState("USD");
   const [balanceMode, setBalanceMode] = useState<BalanceMode>("realizedOnly");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
@@ -483,6 +495,9 @@ const useEnhancedBudgetEngine = () => {
   useEffect(() => {
     localStorage.setItem('budget_notifications', JSON.stringify(notifications));
   }, [notifications]);
+
+  // Today's date (Moved up to fix use before declaration)
+  const todayYMD = useMemo(() => toYMDLocal(new Date()), []);
 
   // Categories with enhanced data
   const categories = useMemo<Record<CategoryKey, CategoryDef>>(() => ({
@@ -587,27 +602,29 @@ const useEnhancedBudgetEngine = () => {
   }), [t]);
 
   // Merge transactions from context and local state
-  const transactions = useMemo(() => {
-    const ctxTx = dataContext?.transactions || [];
+  // Merge transactions from context and local state
+  // FIX: Using DataContext as single source of truth
+  const transactions = dataContext?.transactions || [];
 
-    // Map global transactions to local enhanced format
-    const mappedGlobalTx: Transaction[] = ctxTx.map(t => {
+  // Filter/transform for UI consumption (safe dates & type mapping)
+  const uiTransactions = useMemo(() => {
+    return transactions.map(t => {
       // Safe conversion for date
       let dateYMD = "";
       if (t.effectiveDateYMD) {
         dateYMD = t.effectiveDateYMD;
       } else if (typeof t.date === 'string') {
-        dateYMD = t.date.substring(0, 10); // Simple ISO YYYY-MM-DD extract
+        dateYMD = t.date.substring(0, 10);
       } else if (t.date instanceof Date) {
         dateYMD = toYMDLocal(t.date);
       } else {
-        dateYMD = toYMDLocal(new Date()); // Fallback
+        dateYMD = toYMDLocal(new Date());
       }
 
       // Safe creation date
       const createdStr = t.createdAtISO || new Date().toISOString();
 
-      // Type mapping (subscriptions become expenses in this view)
+      // Type mapping
       const txType: TransactionType = (t.type === 'income') ? 'income' : 'expense';
 
       return {
@@ -615,7 +632,7 @@ const useEnhancedBudgetEngine = () => {
         description: t.description,
         amount: t.amount,
         currency: t.currency || 'USD',
-        category: t.category as CategoryKey, // Fallback handled in UI
+        category: (t.category || "other") as CategoryKey,
         effectiveDateYMD: dateYMD,
         time: t.time,
         type: txType,
@@ -633,14 +650,21 @@ const useEnhancedBudgetEngine = () => {
         date: t.date,
         kind: t.kind,
         recurring: !!t.recurring
-      };
+      } as Transaction;
     });
+  }, [transactions]);
 
-    return [...mappedGlobalTx, ...localTransactions];
-  }, [dataContext?.transactions, localTransactions]);
+  // Balance calculations using filtered transactions based on balanceMode
+  const visibleTransactions = useMemo(() => {
+    if (balanceMode === "includeScheduled") return uiTransactions;
+    const today = parseYMD(todayYMD)?.getTime() ?? Date.now();
+    return uiTransactions.filter(tx => {
+      const dt = parseYMD(tx.effectiveDateYMD)?.getTime() ?? today;
+      return dt <= today && tx.status !== "cancelled";
+    });
+  }, [uiTransactions, balanceMode, todayYMD]);
 
-  // Today's date
-  const todayYMD = useMemo(() => toYMDLocal(new Date()), []);
+  // Today's date removed from here (moved up)
 
   // Balance calculations
   // --- INTEGRATED ANALYTICS ENGINE (PhD Refactor) ---
@@ -652,7 +676,7 @@ const useEnhancedBudgetEngine = () => {
     projectionData,
     cashFlowData
   } = useBudgetAnalytics(
-    transactions as any,
+    visibleTransactions as any,
     currency,
     (amount, from, to) => CurrencyService.convert(amount, from, to),
     1
@@ -687,17 +711,17 @@ const useEnhancedBudgetEngine = () => {
       monthlyData: [],
       categoryBreakdown: mappedCategories,
       weeklyTrend: [],
-      topTransactions: [...transactions]
+      topTransactions: [...uiTransactions]
         .sort((a, b) => {
           const dateA = a.effectiveDateYMD ? parseYMD(a.effectiveDateYMD) : new Date(0);
           const dateB = b.effectiveDateYMD ? parseYMD(b.effectiveDateYMD) : new Date(0);
           return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
         }),
       totalSavings: totalIncome - totalExpense,
-      avgTransactionValue: transactions.length > 0 ? (totalIncome + totalExpense) / transactions.length : 0,
-      transactionCount: transactions.length
+      avgTransactionValue: uiTransactions.length > 0 ? (totalIncome + totalExpense) / uiTransactions.length : 0,
+      transactionCount: uiTransactions.length
     };
-  }, [categoryTotals, totalIncome, totalExpense, categories, transactions]);
+  }, [categoryTotals, totalIncome, totalExpense, categories, uiTransactions]);
 
   const monthNames = useMemo(() => [
     t('months.january') || 'Jan', t('months.february') || 'Feb', t('months.march') || 'Mar', t('months.april') || 'Apr',
@@ -758,9 +782,9 @@ const useEnhancedBudgetEngine = () => {
   // Export functionality
   const exportData = useCallback((format: 'json' | 'csv' | 'pdf') => {
     const data = {
-      transactions: transactions.map(tx => ({
+      transactions: uiTransactions.map(tx => ({
         ...tx,
-        amount: formatCurrency(tx.amount, tx.currency, language),
+        // Keep numeric amount for re-import
       })),
       analytics,
       balanceStats,
@@ -780,12 +804,15 @@ const useEnhancedBudgetEngine = () => {
   }, [transactions, analytics, balanceStats, language]);
 
   // Import functionality
+  // Import functionality
   const importData = useCallback((data: any) => {
     // Validate and import data
     if (data.transactions && Array.isArray(data.transactions)) {
-      setLocalTransactions(prev => [...prev, ...data.transactions]);
+      data.transactions.forEach((tx: Transaction) => {
+        dataContext?.addTransaction?.(tx);
+      });
     }
-  }, []);
+  }, [dataContext]);
 
   // Add notification
   const addNotification = useCallback((notification: Omit<Notification, 'id'>) => {
@@ -818,7 +845,14 @@ const useEnhancedBudgetEngine = () => {
       createdAtISO: new Date().toISOString(),
     };
 
-    setLocalTransactions(prev => [newTransaction, ...prev]);
+    // Use DataContext instead of local state
+    if (dataContext?.addTransaction) {
+      dataContext.addTransaction({
+        ...newTransaction,
+        // Ensure proper types for Omit<Transaction, 'id'> which matches what addTransaction expects largely
+        // but verify interface match. DataContext expects Omit<Transaction, 'id'>
+      });
+    }
 
     // Add notification for large transactions
     if (Math.abs(transaction.amount) > 5000) {
@@ -836,22 +870,24 @@ const useEnhancedBudgetEngine = () => {
 
   // Update transaction
   const updateTransaction = useCallback((id: string, updates: TransactionPatch) => {
-    setLocalTransactions(prev =>
-      prev.map(tx =>
-        tx.id === id ? { ...tx, ...updates } : tx
-      )
-    );
-  }, []);
+    if (dataContext?.updateTransaction) {
+      dataContext.updateTransaction(id, updates);
+    }
+  }, [dataContext]);
 
   // Delete transaction
   const deleteTransaction = useCallback((id: string) => {
-    setLocalTransactions(prev => prev.filter(tx => tx.id !== id));
-  }, []);
+    if (dataContext?.deleteTransaction) {
+      dataContext.deleteTransaction(id);
+    }
+  }, [dataContext]);
 
   // Bulk delete
   const deleteTransactions = useCallback((ids: string[]) => {
-    setLocalTransactions(prev => prev.filter(tx => !ids.includes(tx.id)));
-  }, []);
+    if (dataContext?.deleteTransactions) {
+      dataContext.deleteTransactions(ids);
+    }
+  }, [dataContext]);
 
   // Add budget goal
   const addBudgetGoal = useCallback((goal: Omit<BudgetGoal, 'id'>) => {
@@ -936,7 +972,8 @@ const EnhancedTransactionModal: React.FC<{
   mode: "create" | "edit";
   transaction?: Transaction;
   engine: ReturnType<typeof useEnhancedBudgetEngine>;
-}> = ({ isOpen, onClose, mode, transaction, engine }) => {
+  presetType?: TransactionType;
+}> = ({ isOpen, onClose, mode, transaction, engine, presetType = "expense" }) => {
   const { t, categories, todayYMD } = engine;
 
   const [form, setForm] = useState({
@@ -946,7 +983,7 @@ const EnhancedTransactionModal: React.FC<{
     category: "other" as CategoryKey,
     date: todayYMD,
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    type: "expense" as TransactionType,
+    type: presetType as TransactionType,
     period: "oneTime" as TransactionPeriod,
     tags: [] as string[],
     notes: "",
@@ -969,6 +1006,7 @@ const EnhancedTransactionModal: React.FC<{
         tags: transaction.tags || [],
         notes: transaction.notes || "",
         priority: transaction.priority || "medium",
+        // Force priority valid
       });
     } else {
       setForm({
@@ -978,14 +1016,14 @@ const EnhancedTransactionModal: React.FC<{
         category: "other",
         date: todayYMD,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        type: "expense",
+        type: presetType,
         period: "oneTime",
         tags: [],
         notes: "",
         priority: "medium",
       });
     }
-  }, [mode, transaction, engine.currency, todayYMD]);
+  }, [mode, transaction, engine.currency, todayYMD, presetType, isOpen]); // Added isOpen to reset on open
 
   const handleSubmit = () => {
     const amount = parseFloat(form.amount);
@@ -1321,6 +1359,7 @@ const EnhancedBudgetView: React.FC = () => {
 
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [showConverterModal, setShowConverterModal] = useState(false);
+  const [showGoalModal, setShowGoalModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -1330,11 +1369,42 @@ const EnhancedBudgetView: React.FC = () => {
   );
 
   // Quick actions
+  // Quick Action Handlers
+  const [presetType, setPresetType] = useState<TransactionType>("expense");
+
   const quickActions = [
-    { label: t('quickActions.addExpense'), icon: <Plus />, color: "rose", action: () => setShowTransactionModal(true) },
-    { label: t('quickActions.addIncome'), icon: <TrendingUp />, color: "emerald", action: () => setShowTransactionModal(true) },
-    { label: t('quickActions.setGoal'), icon: <Target />, color: "purple", action: () => setActiveTab("goals") },
-    { label: t('quickActions.export'), icon: <Download />, color: "blue", action: () => engine.exportData('json') },
+    {
+      label: t('quickActions.addExpense'),
+      icon: <TrendingDown size={18} />,
+      color: "rose",
+      action: () => {
+        setPresetType("expense");
+        setEditingTransaction(null);
+        setShowTransactionModal(true);
+      }
+    },
+    {
+      label: t('quickActions.addIncome'),
+      icon: <TrendingUp size={18} />,
+      color: "emerald",
+      action: () => {
+        setPresetType("income");
+        setEditingTransaction(null);
+        setShowTransactionModal(true);
+      }
+    },
+    {
+      label: t('quickActions.addGoal'),
+      icon: <Target size={18} />,
+      color: "blue",
+      action: () => setShowGoalModal(true)
+    },
+    {
+      label: t('quickActions.export'),
+      icon: <Download size={18} />,
+      color: "purple",
+      action: () => engine.exportData("json")
+    }
   ];
 
   return (
@@ -1405,7 +1475,11 @@ const EnhancedBudgetView: React.FC = () => {
 
               {/* Quick Add */}
               <GradientButton
-                onClick={() => setShowTransactionModal(true)}
+                onClick={() => {
+                  setPresetType("expense"); // Default to expense for quick add
+                  setEditingTransaction(null);
+                  setShowTransactionModal(true);
+                }}
                 leftIcon={<Plus size={16} />}
               >
                 {t('transactions.add')}
@@ -1640,10 +1714,10 @@ const EnhancedBudgetView: React.FC = () => {
                               <p className="font-bold text-white">{tx.description}</p>
                               <div className="flex items-center gap-2 mt-1">
                                 <Tag
-                                  label={engine.categories[tx.category]?.label || engine.categories.other.label}
-                                  color={engine.categories[tx.category]?.color || engine.categories.other.color}
+                                  label={engine.categories[tx.category as CategoryKey]?.label || engine.categories.other.label}
+                                  color={engine.categories[tx.category as CategoryKey]?.color || engine.categories.other.color}
                                 />
-                                <span className="text-xs text-white/40">{engine.formatDate(tx.effectiveDateYMD)}</span>
+                                <span className="text-xs text-white/40">{engine.formatDate(tx.effectiveDateYMD || "")}</span>
                               </div>
                             </div>
                           </div>
@@ -1804,8 +1878,7 @@ const EnhancedBudgetView: React.FC = () => {
                       </div>
                     </div>
                     <h3 className="text-xl font-bold text-white mb-1">{goal.name}</h3>
-                    <p className="text-sm text-white/60 mb-4">{t('tabs.goals')} • {engine.categories[goal.category as CategoryKey]?.label}</p>
-
+                    <span className="text-sm text-white/60 mb-4">{t('tabs.goals')} • {engine.categories[goal.category as CategoryKey]?.label}</span>
                     <div className="relative h-2 bg-white/10 rounded-full overflow-hidden mb-2">
                       <div
                         className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-1000"
@@ -1901,6 +1974,7 @@ const EnhancedBudgetView: React.FC = () => {
             mode={editingTransaction ? "edit" : "create"}
             transaction={editingTransaction || undefined}
             engine={engine}
+            presetType={presetType}
           />
         )}
       </AnimatePresence>
