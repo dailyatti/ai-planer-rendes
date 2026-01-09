@@ -1225,7 +1225,7 @@ const EnhancedTransactionModal: React.FC<{
                 value={form.notes}
                 onChange={(e) => setForm(prev => ({ ...prev, notes: e.target.value }))}
                 placeholder={t('transactions.notesPlaceholder')}
-                className="w-full h-24 px-4 py-3 rounded-2xl border-2 border-white/20 bg-white/[0.06] text-white font-semibold placeholder:text-white/40 outline-none focus:border-blue-400/60 resize-none"
+                className="w-full h-24 px-4 py-3 rounded-2xl border-2 border-white/20 bg-gray-800 text-white font-semibold placeholder:text-white/40 outline-none focus:border-blue-400/60 resize-none"
               />
             </div>
 
@@ -1861,64 +1861,78 @@ const EnhancedBudgetView: React.FC = () => {
       {/* Notifications Panel */}
       <AnimatePresence>
         {showNotifications && (
-          <motion.div
-            initial={{ opacity: 0, x: 300 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 300 }}
-            className="fixed right-6 top-20 w-96 max-h-[80vh] bg-gradient-to-b from-gray-900 to-gray-950 rounded-3xl border border-white/10 shadow-2xl overflow-hidden z-50"
-          >
-            <div className="p-4 border-b border-white/10">
-              <div className="flex items-center justify-between">
-                <h3 className="font-black text-white">Notifications</h3>
-                <button
-                  onClick={() => engine.clearNotifications()}
-                  className="text-sm font-bold text-rose-400 hover:text-rose-300"
-                >
-                  Clear All
-                </button>
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setShowNotifications(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, x: 300 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 300 }}
+              className="fixed right-6 top-20 w-96 max-h-[80vh] bg-gradient-to-b from-gray-900 to-gray-950 rounded-3xl border border-white/10 shadow-2xl overflow-hidden z-50"
+            >
+              <div className="p-4 border-b border-white/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setShowNotifications(false)}
+                      className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-white"
+                    >
+                      <Bell size={18} />
+                    </button>
+                    <h3 className="font-black text-white">Notifications</h3>
+                  </div>
+                  <button
+                    onClick={() => engine.clearNotifications()}
+                    className="text-sm font-bold text-rose-400 hover:text-rose-300"
+                  >
+                    Clear All
+                  </button>
+                </div>
               </div>
-            </div>
-            <div className="max-h-[60vh] overflow-y-auto">
-              {notifications.map(notif => (
-                <div
-                  key={notif.id}
-                  className={`p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!notif.read ? "bg-blue-500/5" : ""
-                    }`}
-                  onClick={() => engine.markAsRead(notif.id)}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-xl ${notif.type === "success" ? "bg-emerald-500/10" :
-                      notif.type === "warning" ? "bg-amber-500/10" :
-                        notif.type === "error" ? "bg-rose-500/10" :
-                          "bg-blue-500/10"
-                      }`}>
-                      <BellRing size={16} className={
-                        notif.type === "success" ? "text-emerald-400" :
-                          notif.type === "warning" ? "text-amber-400" :
-                            notif.type === "error" ? "text-rose-400" :
-                              "text-blue-400"
-                      } />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="font-bold text-white">{notif.title}</p>
-                        <span className="text-xs text-white/40">
-                          {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+              <div className="max-h-[60vh] overflow-y-auto">
+                {notifications.map(notif => (
+                  <div
+                    key={notif.id}
+                    className={`p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!notif.read ? "bg-blue-500/5" : ""
+                      }`}
+                    onClick={() => engine.markAsRead(notif.id)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-xl ${notif.type === "success" ? "bg-emerald-500/10" :
+                        notif.type === "warning" ? "bg-amber-500/10" :
+                          notif.type === "error" ? "bg-rose-500/10" :
+                            "bg-blue-500/10"
+                        }`}>
+                        <BellRing size={16} className={
+                          notif.type === "success" ? "text-emerald-400" :
+                            notif.type === "warning" ? "text-amber-400" :
+                              notif.type === "error" ? "text-rose-400" :
+                                "text-blue-400"
+                        } />
                       </div>
-                      <p className="text-sm text-white/60 mt-1">{notif.message}</p>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="font-bold text-white">{notif.title}</p>
+                          <span className="text-xs text-white/40">
+                            {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-white/60 mt-1">{notif.message}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-              {notifications.length === 0 && (
-                <div className="p-8 text-center">
-                  <Bell size={24} className="text-white/20 mx-auto mb-2" />
-                  <p className="text-white/40 text-sm">No notifications</p>
-                </div>
-              )}
-            </div>
-          </motion.div>
+                ))}
+                {notifications.length === 0 && (
+                  <div className="p-8 text-center">
+                    <Bell size={24} className="text-white/20 mx-auto mb-2" />
+                    <p className="text-white/40 text-sm">No notifications</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>

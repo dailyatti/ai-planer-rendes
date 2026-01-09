@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Settings, Save, Download, Upload, Palette, Bell, Globe, Shield, Moon, Sun } from 'lucide-react';
+import { Settings, Save, Download, Upload, Palette, Bell, Globe, Shield, Moon, Sun, RefreshCw } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useLanguage, Language } from '../../contexts/LanguageContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { CurrencyService } from '../../services/CurrencyService';
 import { AVAILABLE_CURRENCIES } from '../../constants/currencyData';
-import { AIService } from '../../services/AIService';
+// import { AIService } from '../../services/AIService';
 import { DataTransferService } from '../../services/DataTransferService';
 
 const SettingsView: React.FC = () => {
@@ -293,28 +293,28 @@ const SettingsView: React.FC = () => {
                     <h4 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                       💱 {t('settings.exchangeRates')}
                     </h4>
-                    {AIService.isConfigured() && (
-                      <button
-                        onClick={async () => {
-                          setIsFetchingRates(true);
-                          setRateMessage(null);
-                          const result = await CurrencyService.fetchRatesWithAI();
-                          setRateMessage(result.message);
-                          if (result.success) {
-                            setExchangeRates(CurrencyService.getAllRates());
-                          }
-                          setIsFetchingRates(false);
-                        }}
-                        disabled={isFetchingRates}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50"
-                      >
-                        {isFetchingRates ? (
-                          <><span className="animate-spin">⏳</span> {t('settings.fetching')}</>
-                        ) : (
-                          <><span>🤖</span> {t('settings.fetchRatesAI')}</>
-                        )}
-                      </button>
-                    )}
+
+                    <button
+                      onClick={async () => {
+                        setIsFetchingRates(true);
+                        setRateMessage(null);
+                        const result = await CurrencyService.fetchRealTimeRates(true);
+                        setRateMessage(result.message);
+                        if (result.success) {
+                          setExchangeRates(CurrencyService.getAllRates());
+                        }
+                        setIsFetchingRates(false);
+                      }}
+                      disabled={isFetchingRates}
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50"
+                    >
+                      {isFetchingRates ? (
+                        <><span className="animate-spin">⏳</span> {t('settings.fetching')}</>
+                      ) : (
+                        <><RefreshCw size={16} /> {t('settings.refresh') || 'Frissítés'}</>
+                      )}
+                    </button>
+
                   </div>
 
                   {rateMessage && (
