@@ -193,7 +193,107 @@ const translations: Translations = {
   'invoicing.total': { en: 'Total', ko: 'Total', hu: 'Végösszeg', ro: 'Total', sk: 'Celkom', hr: 'Ukupno', de: 'Gesamt', fr: 'Total', es: 'Total', it: 'Totale', pl: 'Razem', cn: '总计', jp: '合計', pt: 'Total', tr: 'Toplam', ar: 'المجموع', ru: 'Итого', hi: 'कुल', bn: 'মোট', ur: 'کل', th: 'รวม', id: 'Total' },
   'invoicing.currency': { en: 'Currency', ko: 'Currency', hu: 'Pénznem', ro: 'Monedă', sk: 'Mena', hr: 'Valuta', de: 'Währung', fr: 'Devise', es: 'Moneda', it: 'Valuta', pl: 'Waluta', cn: '货币', jp: '通貨', pt: 'Moeda', tr: 'Para Birimi', ar: 'العملة', ru: 'Валюта', hi: 'मुद्रा', bn: 'মুদ্রা', ur: 'کرنسی', th: 'สกุลเงิน', id: 'Mata Uang' },
 
-  // Invoicing Statuses (complete 21 languages)
+  // Budget View General
+  'app.title': { en: 'Budget Pro', hu: 'Budget Pro' },
+  'app.subtitle': { en: 'Advanced financial management', hu: 'Haladó pénzügyi kezelés' },
+
+  // Tabs
+  'tabs.dashboard': { en: 'Dashboard', hu: 'Áttekintés' },
+  'tabs.transactions': { en: 'Transactions', hu: 'Tranzakciók' },
+  'tabs.analytics': { en: 'Analytics', hu: 'Elemzések' },
+  'tabs.goals': { en: 'Goals', hu: 'Célok' },
+  'tabs.settings': { en: 'Settings', hu: 'Beállítások' },
+
+  // Stats Cards
+  'stats.balance': { en: 'Total Balance', hu: 'Egyenleg' },
+  'stats.income': { en: 'Total Income', hu: 'Bevétel' },
+  'stats.expenses': { en: 'Total Expenses', hu: 'Kiadás' },
+  'stats.savings': { en: 'Total Savings', hu: 'Megtakarítás' },
+
+  // Charts
+  'charts.cashFlow': { en: 'Cash Flow Analysis', hu: 'Pénzforgalmi Elemzés' },
+  'charts.categoryBreakdown': { en: 'Expense Breakdown', hu: 'Kiadások Kategóriánként' },
+
+  // Quick Actions
+  'quickActions.title': { en: 'Quick Actions', hu: 'Gyors Műveletek' },
+  'quickActions.addExpense': { en: 'Add Expense', hu: 'Kiadás Hozzáadása' },
+  'quickActions.addIncome': { en: 'Add Income', hu: 'Bevétel Hozzáadása' },
+  'quickActions.setGoal': { en: 'Set Goal', hu: 'Cél Beállítása' },
+  'quickActions.export': { en: 'Export Data', hu: 'Adatok Exportálása' },
+
+  // Transactions List
+  'transactions.recent': { en: 'Recent Transactions', hu: 'Legutóbbi Tranzakciók' },
+  'transactions.viewAll': { en: 'View All', hu: 'Összes Megtekintése' },
+  'transactions.noTransactions': { en: 'No transactions found', hu: 'Nincsenek tranzakciók' },
+  'transactions.searchPlaceholder': { en: 'Search transactions...', hu: 'Tranzakciók keresése...' },
+  'transactions.add': { en: 'Add Transaction', hu: 'Új Tranzakció' },
+
+  // Transaction Modal
+  'transactions.newTransaction': { en: 'New Transaction', hu: 'Új Tranzakció' },
+  'transactions.editTransaction': { en: 'Edit Transaction', hu: 'Tranzakció Szerkesztése' },
+  'transactions.description': { en: 'Description', hu: 'Leírás' },
+  'transactions.descriptionPlaceholder': { en: 'Example: Client Payment', hu: 'Pl.: Ügyfél fizetés' },
+  'transactions.amount': { en: 'Amount', hu: 'Összeg' },
+  'transactions.category': { en: 'Category', hu: 'Kategória' },
+  'transactions.dateTime': { en: 'Date & Time', hu: 'Dátum és Idő' },
+  'transactions.type': { en: 'Type', hu: 'Típus' },
+  'transactions.income': { en: 'Income', hu: 'Bevétel' },
+  'transactions.expense': { en: 'Expense', hu: 'Kiadás' },
+  'transactions.tags': { en: 'Tags', hu: 'Címkék' },
+  'transactions.addTag': { en: 'Add a tag...', hu: 'Címke hozzáadása...' },
+  'transactions.notes': { en: 'Notes', hu: 'Megjegyzés' },
+  'transactions.notesPlaceholder': { en: 'Optional notes...', hu: 'Opcionális megjegyzés...' },
+  'transactions.period': { en: 'Period', hu: 'Gyakoriság' },
+  'transactions.priority': { en: 'Priority', hu: 'Prioritás' },
+
+  // Transaction Filters
+  'filter.all': { en: 'All', hu: 'Összes' },
+  'filter.income': { en: 'Income', hu: 'Bevétel' },
+  'filter.expense': { en: 'Expense', hu: 'Kiadás' },
+
+  // Periods
+  'period.oneTime': { en: 'One Time', hu: 'Egyszeri' },
+  'period.daily': { en: 'Daily', hu: 'Napi' },
+  'period.weekly': { en: 'Weekly', hu: 'Heti' },
+  'period.monthly': { en: 'Monthly', hu: 'Havi' },
+  'period.yearly': { en: 'Yearly', hu: 'Éves' },
+
+  // Priorities
+  'priority.low': { en: 'Low', hu: 'Alacsony' },
+  'priority.medium': { en: 'Medium', hu: 'Közepes' },
+  'priority.high': { en: 'High', hu: 'Magas' },
+
+  // Common Buttons
+  'common.cancel': { en: 'Cancel', hu: 'Mégse' },
+  'common.save': { en: 'Save Transaction', hu: 'Mentés' },
+  'common.update': { en: 'Update Transaction', hu: 'Frissítés' },
+  'common.delete': { en: 'Delete', hu: 'Törlés' },
+  'common.edit': { en: 'Edit', hu: 'Szerkesztés' },
+
+  // Notifications
+  'notifications.welcome': { en: 'Welcome to Budget Pro!', hu: 'Üdvözöl a Budget Pro-ban!' },
+  'notifications.getStarted': { en: 'Start by adding your first transaction', hu: 'Kezd az első tranzakciód hozzáadásával!' },
+  'notifications.largeTransaction': { en: 'Large Transaction Added', hu: 'Nagy összegű tranzakció!' },
+  'notifications.validationError': { en: 'Validation Error', hu: 'Validációs Hiba' },
+  'notifications.pleaseCheckFields': { en: 'Please fill all required fields', hu: 'Kérlek töltsd ki a kötelező mezőket' },
+
+  // Categories
+  'categories.software': { en: 'Software', hu: 'Szoftver' },
+  'categories.marketing': { en: 'Marketing', hu: 'Marketing' },
+  'categories.office': { en: 'Office', hu: 'Iroda' },
+  'categories.travel': { en: 'Travel', hu: 'Utazás' },
+  'categories.service': { en: 'Service', hu: 'Szolgáltatás' },
+  'categories.freelance': { en: 'Freelance', hu: 'Szabadúszó' },
+  'categories.food': { en: 'Food', hu: 'Élelmiszer' },
+  'categories.transport': { en: 'Transport', hu: 'Közlekedés' },
+  'categories.entertainment': { en: 'Entertainment', hu: 'Szórakozás' },
+  'categories.health': { en: 'Health', hu: 'Egészség' },
+  'categories.education': { en: 'Education', hu: 'Oktatás' },
+  'categories.shopping': { en: 'Shopping', hu: 'Vásárlás' },
+  'categories.investment': { en: 'Investment', hu: 'Befektetés' },
+  'categories.other': { en: 'Other', hu: 'Egyéb' },
+
+  // Invoicing Statuses (complete 21 languages) - Keeping existing line
   'invoicing.statusCancelled': { en: 'Cancelled', ko: 'Cancelled', hu: 'Törölve', ro: 'Anulat', sk: 'Zrušené', hr: 'Otkazano', de: 'Storniert', fr: 'Annulé', es: 'Cancelado', it: 'Annullato', pl: 'Anulowano', cn: '已取消', jp: 'キャンセル済み', pt: 'Cancelado', tr: 'İptal Edildi', ar: 'ملغى', ru: 'Отменено', hi: 'рэдд', bn: 'বাতিল', ur: 'منسوخ', th: 'ยกเลิก', id: 'Dibatalkan' },
   'invoicing.statusDraft': { en: 'Draft', ko: 'Draft', hu: 'Piszkozat', ro: 'Ciornă', sk: 'Návrh', hr: 'Nacrt', de: 'Entwurf', fr: 'Brouillon', es: 'Borrador', it: 'Bozza', pl: 'Wersja robocza', cn: '草稿', jp: '下書き', pt: 'Rascunho', tr: 'Taslak', ar: 'مسودة', ru: 'Черновик', hi: 'ड्राफ्ट', bn: 'খসড়া', ur: 'مسودہ', th: 'ร่าง', id: 'Draf' },
   'invoicing.issueDate': { en: 'Issue Date', hu: 'Kiállítás Dátuma', ro: 'Data Emiterii', sk: 'Dátum Vystavenia', hr: 'Datum Izdavanja', de: 'Ausstellungsdatum', fr: 'Date d\'Émission', es: 'Fecha de Emisión', it: 'Data di Emissione', pl: 'Data Wystawienia', cn: '发行日期', jp: '発行日', pt: 'Data de Emissão', tr: 'Düzenleme Tarihi', ar: 'تاريخ الإصدار', ru: 'Дата Выпуска', hi: 'जारी करने की तिथि', bn: 'ইস্যু তারিখ', ur: 'آغاز کی تاریخ', th: 'วันที่ออก', id: 'Tanggal Terbit' },
@@ -285,65 +385,23 @@ const translations: Translations = {
   'budget.time.optional': { en: 'Time (Optional)', hu: 'Időpont (Opcionális)' },
   'budget.time.set': { en: 'Set Time', hu: 'Időpont Beállítása' },
 
-  // Enhanced Budget View Keys
-  'notifications.welcome': { en: 'Welcome to Budget Pro!', hu: 'Üdvözöl a Budget Pro!' },
-  'notifications.getStarted': { en: 'Start by adding your first transaction', hu: 'Kezdd az első tranzakció hozzáadásával' },
-  'categories.software': { en: 'Software', hu: 'Szoftver' },
-  'categories.marketing': { en: 'Marketing', hu: 'Marketing' },
-  'categories.office': { en: 'Office', hu: 'Iroda' },
-  'categories.travel': { en: 'Travel', hu: 'Utazás' },
-  'categories.service': { en: 'Service', hu: 'Szolgáltatás' },
-  'categories.freelance': { en: 'Freelance', hu: 'Szabadúszó' },
-  'categories.food': { en: 'Food', hu: 'Élelmiszer' },
-  'categories.transport': { en: 'Transport', hu: 'Közlekedés' },
-  'categories.entertainment': { en: 'Entertainment', hu: 'Szórakozás' },
-  'categories.health': { en: 'Health', hu: 'Egészség' },
-  'categories.education': { en: 'Education', hu: 'Oktatás' },
-  'categories.shopping': { en: 'Shopping', hu: 'Vásárlás' },
-  'categories.investment': { en: 'Investment', hu: 'Befektetés' },
-  'categories.other': { en: 'Other', hu: 'Egyéb' },
-  'notifications.largeTransaction': { en: 'Large Transaction Added', hu: 'Nagy összegű tranzakció hozzáadva' },
-  'notifications.validationError': { en: 'Validation Error', hu: 'Validálási hiba' },
-  'notifications.pleaseCheckFields': { en: 'Please check your input fields', hu: 'Kérlek ellenőrizd a mezőket' },
-  'transactions.editTransaction': { en: 'Edit Transaction', hu: 'Tranzakció szerkesztése' },
-  'transactions.newTransaction': { en: 'New Transaction', hu: 'Új tranzakció' },
-  'transactions.description': { en: 'Description', hu: 'Leírás' },
-  'transactions.descriptionPlaceholder': { en: 'e.g. Monthly Rent', hu: 'pl. Havi bérleti díj' },
-  'transactions.amount': { en: 'Amount', hu: 'Összeg' },
-  'transactions.category': { en: 'Category', hu: 'Kategória' },
-  'transactions.dateTime': { en: 'Date & Time', hu: 'Dátum és Idő' },
-  'transactions.type': { en: 'Type', hu: 'Típus' },
-  'transactions.income': { en: 'Income', hu: 'Bevétel' },
-  'transactions.expense': { en: 'Expense', hu: 'Kiadás' },
-  'transactions.tags': { en: 'Tags', hu: 'Címkék' },
-  'transactions.addTag': { en: 'Add tag...', hu: 'Címke hozzáadása...' },
-  'transactions.notes': { en: 'Notes', hu: 'Jegyzetek' },
-  'transactions.notesPlaceholder': { en: 'Add any additional details...', hu: 'További részletek hozzáadása...' },
-  'transactions.period': { en: 'Frequency', hu: 'Gyakoriság' },
-  'period.oneTime': { en: 'One-time', hu: 'Egyszeri' },
-  'period.daily': { en: 'Daily', hu: 'Napi' },
-  'period.weekly': { en: 'Weekly', hu: 'Heti' },
-  'period.monthly': { en: 'Monthly', hu: 'Havi' },
-  'period.yearly': { en: 'Yearly', hu: 'Éves' },
-  'transactions.priority': { en: 'Priority', hu: 'Prioritás' },
-  'app.title': { en: 'Budget Pro', hu: 'Költségvetés Pro' },
-  'app.subtitle': { en: 'Advanced financial management', hu: 'Fejlett pénzügyi kezelés' },
-  'tabs.dashboard': { en: 'Dashboard', hu: 'Áttekintés' },
-  'tabs.transactions': { en: 'Transactions', hu: 'Tranzakciók' },
-  'tabs.analytics': { en: 'Analytics', hu: 'Elemzés' },
-  'tabs.goals': { en: 'Goals', hu: 'Célok' },
-  'tabs.settings': { en: 'Settings', hu: 'Beállítások' },
-  'stats.balance': { en: 'Total Balance', hu: 'Teljes egyenleg' },
-  'stats.income': { en: 'Income', hu: 'Bevétel' },
-  'stats.expenses': { en: 'Expenses', hu: 'Kiadások' },
-  'stats.savings': { en: 'Total Savings', hu: 'Megtakarítás' },
-  'charts.cashFlow': { en: 'Cash Flow Analysis', hu: 'Pénzforgalom elemzés' },
-  'charts.categoryBreakdown': { en: 'Category Breakdown', hu: 'Kategória bontás' },
-  'quickActions.title': { en: 'Quick Actions', hu: 'Gyors műveletek' },
-  'quickActions.addExpense': { en: 'Add Expense', hu: 'Kiadás rögzítése' },
-  'quickActions.addIncome': { en: 'Add Income', hu: 'Bevétel rögzítése' },
-  'quickActions.setGoal': { en: 'Set Goal', hu: 'Cél beállítása' },
-  'quickActions.export': { en: 'Export Data', hu: 'Adatok exportálása' },
+
+  // Notifications Extras
+  'notifications.title': { en: 'Notifications', hu: 'Értesítések' },
+  'notifications.clearAll': { en: 'Clear All', hu: 'Összes törlése' },
+  'notifications.empty': { en: 'No notifications', hu: 'Nincsenek értesítések' },
+
+  // Settings Extras
+  'settings.dataManagement': { en: 'Data Management', hu: 'Adatkezelés' },
+  'settings.startCalculation': { en: 'Start Calculation From', hu: 'Számítás kezdete' },
+  'settings.realizedOnly': { en: 'Realized Only', hu: 'Csak realizált' },
+  'settings.includeScheduled': { en: 'Include Scheduled', hu: 'Ütemezett is' },
+  'settings.currency': { en: 'Currency', hu: 'Pénznem' },
+
+  // Goals Extras
+  'goals.target': { en: 'Target', hu: 'Cél' },
+  'goals.noGoals': { en: 'No goals set', hu: 'Nincsenek célok' },
+  'goals.subtitle': { en: 'Set financial goals to track your progress.', hu: 'Állíts be pénzügyi célokat a haladás követéséhez.' },
   // Common Pagination & Selection
   'common.selected': { en: 'selected', hu: 'kijelölve', ro: 'selectat', sk: 'vybrané', hr: 'odabrano', de: 'ausgewählt', fr: 'sélectionné', es: 'seleccionado', it: 'selezionato', pl: 'wybrano', cn: '已选择', jp: '選択済み', pt: 'selecionado', tr: 'seçildi', ar: 'محدد', ru: 'выбрано', hi: 'चयनित', bn: 'নির্বাচিত', ur: 'منتخب', th: 'เลือกแล้ว', id: 'dipilih', ko: 'selected' },
   'common.clearSelection': { en: 'Clear selection', hu: 'Kijelölés törlése', ro: 'Șterge selecția', sk: 'Zrušiť výber', hr: 'Očisti odabir', de: 'Auswahl aufheben', fr: 'Effacer sélection', es: 'Borrar selección', it: 'Cancella selezione', pl: 'Wyczyść zaznaczenie', cn: '清除选择', jp: '選択をクリア', pt: 'Limpar seleção', tr: 'Seçimi Temizle', ar: 'مسح التحديد', ru: 'Очистить выбор', hi: 'चयन साफ़ करें', bn: 'নির্বাচন পরিষ্কার করুন', ur: 'انتخاب صاف کریں', th: 'ล้างการเลือก', id: 'Hapus pilihan', ko: 'Clear selection' },

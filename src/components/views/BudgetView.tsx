@@ -28,40 +28,23 @@ import {
   Search,
   X,
   Trash2,
-  CheckSquare,
-  Square,
-  Repeat,
-  CalendarClock,
-  ArrowUpRight,
-  ArrowDownRight,
   ArrowRightLeft,
-  AlertTriangle,
-  Filter,
   Sparkles,
   Check,
   Loader2,
   Download,
-  Upload,
   BarChart3,
-
   Calendar,
   Target,
   Bell,
   Settings,
   MoreVertical,
-  EyeOff,
   Tag as TagIcon,
-
   TrendingDown,
-  DollarSign,
   Zap,
-
   Star,
   History,
   FileText,
-  Share2,
-  QrCode,
-  Calculator,
   BellRing,
   PieChart as PieChartIcon,
   ShoppingBag as ShoppingBagIcon
@@ -994,8 +977,8 @@ const EnhancedTransactionModal: React.FC<{
     const amount = parseFloat(form.amount);
     if (!form.description.trim() || isNaN(amount) || amount <= 0) {
       engine.addNotification({
-        title: t('notifications.validationError'),
-        message: t('notifications.pleaseCheckFields'),
+        title: t('notifications.validationError') || 'Validation Error',
+        message: t('notifications.pleaseCheckFields') || 'Please fill all required fields',
         type: "error",
         timestamp: new Date().toISOString(),
         read: false,
@@ -1057,8 +1040,8 @@ const EnhancedTransactionModal: React.FC<{
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black text-white">
               {mode === "edit"
-                ? t('transactions.editTransaction')
-                : t('transactions.newTransaction')}
+                ? t('transactions.editTransaction') || 'Edit Transaction'
+                : t('transactions.newTransaction') || 'New Transaction'}
             </h2>
             <button
               onClick={onClose}
@@ -1075,12 +1058,12 @@ const EnhancedTransactionModal: React.FC<{
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-bold text-white/80 mb-2">
-                  {t('transactions.description')}
+                  {t('transactions.description') || 'Description'}
                 </label>
                 <AnimatedInput
                   value={form.description}
                   onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder={t('transactions.descriptionPlaceholder')}
+                  placeholder={t('transactions.descriptionPlaceholder') || 'Example: Client Payment'}
                 />
               </div>
 
@@ -1316,7 +1299,7 @@ const EnhancedBudgetView: React.FC = () => {
 
 
   // ... inside component ...
-  const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
+
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [showConverterModal, setShowConverterModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -1414,11 +1397,11 @@ const EnhancedBudgetView: React.FC = () => {
           {/* Navigation Tabs */}
           <nav className="flex flex-wrap gap-2 border-b border-white/10 pb-2">
             {[
-              { id: "dashboard", label: t('tabs.dashboard'), icon: <BarChart3 size={16} /> },
-              { id: "transactions", label: t('tabs.transactions'), icon: <FileText size={16} /> },
-              { id: "analytics", label: t('tabs.analytics'), icon: <PieChartIcon size={16} /> },
-              { id: "goals", label: t('tabs.goals'), icon: <Target size={16} /> },
-              { id: "settings", label: t('tabs.settings'), icon: <Settings size={16} /> },
+              { id: "dashboard", label: t('tabs.dashboard') || 'Dashboard', icon: <BarChart3 size={16} /> },
+              { id: "transactions", label: t('tabs.transactions') || 'Transactions', icon: <FileText size={16} /> },
+              { id: "analytics", label: t('tabs.analytics') || 'Analytics', icon: <PieChartIcon size={16} /> },
+              { id: "goals", label: t('tabs.goals') || 'Goals', icon: <Target size={16} /> },
+              { id: "settings", label: t('tabs.settings') || 'Settings', icon: <Settings size={16} /> },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -1598,7 +1581,7 @@ const EnhancedBudgetView: React.FC = () => {
                         onClick={() => setActiveTab("transactions")}
                         className="text-sm font-bold text-blue-400 hover:text-blue-300"
                       >
-                        {t('common.viewAll')}
+                        {t('transactions.viewAll') || "View All"}
                       </button>
                     </div>
                     <div className="space-y-3">
@@ -1637,7 +1620,7 @@ const EnhancedBudgetView: React.FC = () => {
                       ))}
                       {analytics.topTransactions.length === 0 && (
                         <div className="text-center py-8 text-white/40">
-                          <p className="text-sm font-medium">No transactions yet</p>
+                          <p className="text-sm font-medium">{t('transactions.noTransactions') || "No transactions yet"}</p>
                         </div>
                       )}
                     </div>
@@ -1656,7 +1639,7 @@ const EnhancedBudgetView: React.FC = () => {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={16} />
                     <input
                       type="text"
-                      placeholder={t('transactions.descriptionPlaceholder') || "Search transactions..."}
+                      placeholder={t('transactions.searchPlaceholder') || "Search transactions..."}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-white font-medium outline-none focus:border-blue-500/50 transition-colors"
@@ -1696,7 +1679,7 @@ const EnhancedBudgetView: React.FC = () => {
                               </span>
                               {tx.status === 'pending' && (
                                 <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400">
-                                  PENDING
+                                  {(t('invoicing.pending') || "PENDING").toUpperCase()}
                                 </span>
                               )}
                             </div>
@@ -1781,7 +1764,7 @@ const EnhancedBudgetView: React.FC = () => {
                         {engine.categories[goal.category as CategoryKey]?.icon || <Target size={20} />}
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-white/40 font-bold uppercase tracking-wider">Target</p>
+                        <p className="text-xs text-white/40 font-bold uppercase tracking-wider">{t('goals.target') || "Target"}</p>
                         <p className="text-lg font-black text-white">{engine.formatCurrency(goal.targetAmount)}</p>
                       </div>
                     </div>
@@ -1803,8 +1786,8 @@ const EnhancedBudgetView: React.FC = () => {
               )) : (
                 <div className="col-span-full py-12 text-center border-2 border-dashed border-white/10 rounded-3xl">
                   <Target size={48} className="mx-auto text-white/20 mb-4" />
-                  <h3 className="text-xl font-bold text-white mb-2">No goals set</h3>
-                  <p className="text-white/60 mb-6">Set financial goals to track your progress.</p>
+                  <h3 className="text-xl font-bold text-white mb-2">{t('goals.noGoals') || "No goals set"}</h3>
+                  <p className="text-white/60 mb-6">{t('goals.subtitle') || "Set financial goals to track your progress."}</p>
                   <GradientButton onClick={() => { /* Placeholder for add goal */ }}>
                     {t('quickActions.setGoal')}
                   </GradientButton>
@@ -1821,25 +1804,25 @@ const EnhancedBudgetView: React.FC = () => {
                 <div className="space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
-                      <label className="block text-sm font-bold text-white/60 mb-2 uppercase tracking-wider">Start Calculation From</label>
+                      <label className="block text-sm font-bold text-white/60 mb-2 uppercase tracking-wider">{t('settings.startCalculation') || "Start Calculation From"}</label>
                       <div className="flex gap-2 p-1 bg-white/5 rounded-xl border border-white/10">
                         <button
                           onClick={() => engine.setBalanceMode('realizedOnly')}
                           className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${engine.balanceMode === 'realizedOnly' ? 'bg-blue-500 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
                         >
-                          Realized Only
+                          {t('settings.realizedOnly') || "Realized Only"}
                         </button>
                         <button
                           onClick={() => engine.setBalanceMode('includeScheduled')}
                           className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${engine.balanceMode === 'includeScheduled' ? 'bg-purple-500 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
                         >
-                          Include Scheduled
+                          {t('settings.includeScheduled') || "Include Scheduled"}
                         </button>
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-bold text-white/60 mb-2 uppercase tracking-wider">Currency</label>
+                      <label className="block text-sm font-bold text-white/60 mb-2 uppercase tracking-wider">{t('settings.currency') || "Currency"}</label>
                       <select
                         value={engine.currency}
                         onChange={(e) => engine.setCurrency(e.target.value)}
@@ -1853,14 +1836,14 @@ const EnhancedBudgetView: React.FC = () => {
                   </div>
 
                   <div className="pt-8 border-t border-white/10">
-                    <h3 className="text-lg font-bold text-white mb-4">Data Management</h3>
+                    <h3 className="text-lg font-bold text-white mb-4">{t('settings.dataManagement') || "Data Management"}</h3>
                     <div className="flex gap-4">
                       <button
                         onClick={() => engine.exportData('json')}
                         className="flex items-center gap-2 px-6 py-3 rounded-xl border border-white/10 hover:bg-white/5 font-bold transition-colors"
                       >
                         <Download size={18} />
-                        Export Data
+                        {t('quickActions.export') || "Export Data"}
                       </button>
                     </div>
                   </div>
@@ -1919,13 +1902,13 @@ const EnhancedBudgetView: React.FC = () => {
                     >
                       <Bell size={18} />
                     </button>
-                    <h3 className="font-black text-white">Notifications</h3>
+                    <h3 className="font-black text-white">{t('notifications.title') || "Notifications"}</h3>
                   </div>
                   <button
                     onClick={() => engine.clearNotifications()}
                     className="text-sm font-bold text-rose-400 hover:text-rose-300"
                   >
-                    Clear All
+                    {t('notifications.clearAll') || "Clear All"}
                   </button>
                 </div>
               </div>
@@ -1965,7 +1948,7 @@ const EnhancedBudgetView: React.FC = () => {
                 {notifications.length === 0 && (
                   <div className="p-8 text-center">
                     <Bell size={24} className="text-white/20 mx-auto mb-2" />
-                    <p className="text-white/40 text-sm">No notifications</p>
+                    <p className="text-white/40 text-sm">{t('notifications.empty') || "No notifications"}</p>
                   </div>
                 )}
               </div>
