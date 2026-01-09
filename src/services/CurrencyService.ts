@@ -151,24 +151,33 @@ class CurrencyServiceClass {
     }
 
     /**
-     * Fetch real-time exchange rates (API -> AI -> Fallback)
+     * Fetch real-time exchange rates (Free API -> AI -> Fallback)
      */
     async fetchRealTimeRates(force: boolean = false): Promise<{ success: boolean; message: string; method: 'api' | 'ai' | 'fallback' }> {
         const now = Date.now();
         const oneDay = 24 * 60 * 60 * 1000;
 
-        // If data is fresh (< 24h) and not forced, return status based on stored source
+        // If data is fresh (<24h) and not forced, return status based on stored source
         if (!force && now - this.config.lastUpdated < oneDay && this.config.lastUpdated > 0) {
-            const method = this.config.updateSource === 'ai' ? 'ai' : 'fallback';
+            const method = this.config.updateSource || 'fallback';
             return {
                 success: true,
-                message: method === 'ai' ? 'Árfolyamok naprakészek (AI).' : 'Becsült árfolyamok betöltve.',
-                method
+                message: method === 'api' ? 'Árfolyamok naprakészek (API).' : method === 'ai' ? 'Árfolyamok naprakészek (AI).' : 'Becsült árfolyamok betöltve.',
+                method: method as 'api' | 'ai' | 'fallback'
             };
         }
 
         try {
-            // Priority 1: AI (Gemini) - Most reliable for complex queries without API key
+            // Priority 1: Free Exchange Rate API (exchangerate.host - no API key required)
+            const apiResult = await this.fetchRatesFromAPI();
+            if (apiResult.success) {
+                this.config.lastUpdated = now;
+                this.config.updateSource = 'api';
+                this.saveConfig();
+                return { success: true, message: 'Árfolyamok frissítve (API)', method: 'api' };
+            }
+
+            // Priority 2: AI (Gemini) - Good for when API is unavailable
             if (AIService.isConfigured()) {
                 const aiResult = await this.fetchRatesWithAI();
                 if (aiResult.success) {
@@ -179,8 +188,8 @@ class CurrencyServiceClass {
                 }
             }
 
-            // Priority 2: Fallback to Hardcoded Today's Rates (2025-12-21)
-            this.config.rates = { ...DEFAULT_RATES }; // Reset to 'Today's' known good values
+            // Priority 3: Fallback to Hardcoded Today's Rates
+            this.config.rates = { ...DEFAULT_RATES };
             this.config.lastUpdated = now;
             this.config.updateSource = 'system';
             this.saveConfig();
@@ -189,6 +198,46 @@ class CurrencyServiceClass {
 
         } catch (error) {
             return { success: false, message: 'Hiba a frissítés közben', method: 'fallback' };
+        }
+    }
+
+    /**
+     * Fetch exchange rates from free API (exchangerate.host)
+     * No API key required, 250 requests/month on free tier
+     */
+    async fetchRatesFromAPI(): Promise<{ success: boolean; message: string }> {
+        try {
+            // Using exchangerate.host - free, no key required
+            const response = await fetch('https://api.exchangerate.host/latest?base=HUF');
+
+            if (!response.ok) {
+                return { success: false, message: `API hiba: ${response.status}` };
+            }
+
+            const data = await response.json();
+
+            if (!data.success && data.success !== undefined) {
+                return { success: false, message: 'API nem elérhető' };
+            }
+
+            // exchangerate.host returns rates FROM base, we need rates TO base (inverted)
+            // data.rates = { EUR: 0.00258, USD: 0.00303, ... } means 1 HUF = 0.00258 EUR
+            // We need: 1 EUR = 387.6 HUF, so we invert
+            const rates = data.rates;
+            if (rates) {
+                Object.entries(rates).forEach(([currency, rate]) => {
+                    if (typeof rate === 'number' && rate > 0 && currency !== 'HUF') {
+                        const invertedRate = 1 / rate; // 1 EUR = X HUF
+                        this.setRate(currency, invertedRate);
+                    }
+                });
+                return { success: true, message: `Árfolyamok frissítve: ${Object.keys(rates).length} pénznem` };
+            }
+
+            return { success: false, message: 'Nincs adat az API válaszban' };
+        } catch (error) {
+            console.warn('CurrencyService: API fetch failed', error);
+            return { success: false, message: error instanceof Error ? error.message : 'API hiba' };
         }
     }
 
