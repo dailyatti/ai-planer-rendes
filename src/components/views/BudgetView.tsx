@@ -741,7 +741,9 @@ const TransactionModal: React.FC<{
       setDateYMD(today);
       setPeriod("oneTime");
       setNotes("");
-      setTime("");
+      const now = new Date();
+      const currentHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      setTime(currentHHMM);
       setAddFirstOccurrenceNow(true);
     }
   }, [isOpen, mode, editingTx, today, engine.currency]);
