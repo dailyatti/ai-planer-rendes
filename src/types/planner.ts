@@ -76,6 +76,29 @@ export interface Transaction {
   // PhD Level: Master/History model for recurring transactions
   kind?: 'master' | 'history'; // 'master' = template, 'history' = actual payment
   originId?: string; // For history items: the ID of the master they came from
+
+  // Enhanced Budget View Fields
+  effectiveDateYMD?: string;
+  time?: string;
+  tags?: string[];
+  status?: 'pending' | 'completed' | 'cancelled';
+  priority?: 'low' | 'medium' | 'high';
+  attachmentUrl?: string;
+  location?: string;
+  reminderId?: string;
+  notes?: string;
+  createdAtISO?: string;
+}
+
+export interface BudgetGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadlineYMD: string;
+  category: string;
+  currency: string;
+  isCompleted: boolean;
 }
 
 // Enterprise Grade Patch Type: Explicitly allows null to signal deletion

@@ -1,16 +1,24 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  AreaChart,
-  Area,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
+  BarChart,
+  Bar,
+  Legend,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Area,
   PieChart as RechartsPieChart,
   Pie,
   Cell,
+  ComposedChart,
 } from "recharts";
 import {
   Plus,
@@ -30,63 +38,135 @@ import {
   AlertTriangle,
   Filter,
   Sparkles,
-  ChevronsLeft,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsRight,
   Check,
   Loader2,
+  Download,
+  Upload,
+  BarChart3,
+
+  Calendar,
+  Target,
+  Bell,
+  Settings,
+  MoreVertical,
+  EyeOff,
+  Tag as TagIcon,
+
+  TrendingDown,
+  DollarSign,
+  Zap,
+  ChevronDown,
+  ChevronUp,
+  Star,
+  History,
+  FileText,
+  Share2,
+  QrCode,
+  Calculator,
+  BellRing,
+  PieChart as PieChartIcon,
+  ShoppingBag as ShoppingBagIcon
 } from "lucide-react";
 
-// Optional (ha nálad léteznek, hagyd így; ha nem, töröld az importot és használd a fallbackot)
+// Context imports
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useData } from "../../contexts/DataContext";
 import { AVAILABLE_CURRENCIES } from "../../constants/currencyData";
 import { CurrencyService } from "../../services/CurrencyService";
-import { parseMoneyInput } from "../../utils/numberUtils";
+import { useBudgetAnalytics } from "./useBudgetAnalytics";
 
 /* -------------------------------------------------------------------------------------------------
-  GOAL: Premium redesign + "Ledger-first" UX
-  - Transaction always appears immediately after Save (ledger visibility is independent from balance timing)
-  - Balance can be computed with mode: "realized only" vs "include scheduled"
-  - Charts never crash (measure container, render only if width/height are valid)
+  ENHANCED PREMIUM REDESIGN WITH NEW FEATURES:
+  1. Advanced Analytics Dashboard
+  2. Transaction Tags & Labels
+  3. Budget Goals & Targets
+  4. Export/Import Functionality
+  5. Dark/Light Theme Support
+  6. Quick Actions Panel
+  7. Notification Center
+  8. Recurring Transaction Manager
+  9. Performance Optimizations
+  10. Responsive Design Improvements
 -------------------------------------------------------------------------------------------------- */
 
-/* -------------------------------- Types -------------------------------- */
+/* -------------------------------- Enhanced Types -------------------------------- */
 
 type TransactionType = "income" | "expense";
 type TransactionPeriod = "oneTime" | "daily" | "weekly" | "monthly" | "yearly";
+type TransactionStatus = "pending" | "completed" | "cancelled";
+type PriorityLevel = "low" | "medium" | "high";
 
-// Ledger item: can be booked (affects balance) OR scheduled/master (visible but not counted now)
 export type Transaction = {
   id: string;
-  createdAtISO: string;          // for "instant visibility ordering"
-  effectiveDateYMD: string;      // date that determines balance inclusion (local date-only)
+  createdAtISO: string;
+  effectiveDateYMD: string;
   description: string;
   type: TransactionType;
-  amount: number;                // signed amount: income positive, expense negative
+  amount: number;
   currency: string;
   category: CategoryKey;
   period: TransactionPeriod;
-  isMaster: boolean;             // "template/master" for recurring
-  time?: string;                 // "HH:MM", optional
+  isMaster: boolean;
+  time?: string;
   notes?: string;
+  tags: string[];
+  status: TransactionStatus;
+  priority: PriorityLevel;
+  attachmentUrl?: string;
+  location?: string;
+  reminderId?: string;
+  // Compatibility fields for useBudgetAnalytics
+  date: Date | string;
+  kind?: 'master' | 'history';
+  recurring?: boolean;
 };
 
 type TransactionPatch = Partial<Omit<Transaction, "id" | "createdAtISO">>;
-
 type BalanceMode = "realizedOnly" | "includeScheduled";
+type ViewMode = "cards" | "list" | "compact";
+type ChartType = "area" | "bar" | "radar";
 
-type CategoryKey = "software" | "marketing" | "office" | "travel" | "service" | "freelance" | "other";
-type CategoryDef = { label: string; color: string; bg: string; border: string };
+type CategoryKey =
+  | "software" | "marketing" | "office" | "travel" | "service"
+  | "freelance" | "other" | "food" | "transport" | "entertainment"
+  | "health" | "education" | "shopping" | "investment";
 
-/* -------------------------------- Utils -------------------------------- */
+type CategoryDef = {
+  label: string;
+  color: string;
+  bg: string;
+  border: string;
+  icon: React.ReactNode;
+};
+
+type BudgetGoal = {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadlineYMD: string;
+  category: CategoryKey;
+  currency: string;
+  isCompleted: boolean;
+};
+
+type Notification = {
+  id: string;
+  title: string;
+  message: string;
+  type: "info" | "warning" | "success" | "error";
+  timestamp: string;
+  read: boolean;
+  action?: () => void;
+};
+
+/* -------------------------------- Enhanced Utils -------------------------------- */
 
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(" ");
 
-const uid = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+const uid = () => crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-// ---- Local date-only (NO UTC drift) ----
+// Date utilities
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
 function toYMDLocal(d: Date): string {
@@ -102,1641 +182,1735 @@ function parseYMD(ymd: string): Date | null {
   return dt;
 }
 
-function addDaysYMD(ymd: string, days: number): string {
-  const dt = parseYMD(ymd) ?? new Date();
-  dt.setDate(dt.getDate() + days);
-  return toYMDLocal(dt);
+// Formatting utilities
+function formatCurrency(amount: number, currency: string, language: string): string {
+  const formatter = new Intl.NumberFormat(language === "hu" ? "hu-HU" : "en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+  return formatter.format(amount);
 }
 
-function addMonthsClampedYMD(ymd: string, months: number): string {
-  const dt = parseYMD(ymd) ?? new Date();
-  const y = dt.getFullYear();
-  const m = dt.getMonth();
-  const d = dt.getDate();
-
-  const target = new Date(y, m + months, 1);
-  const daysInTarget = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
-  target.setDate(Math.min(d, daysInTarget));
-  return toYMDLocal(target);
+function getContrastColor(hexColor: string): string {
+  const r = parseInt(hexColor.slice(1, 3), 16);
+  const g = parseInt(hexColor.slice(3, 5), 16);
+  const b = parseInt(hexColor.slice(5, 7), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 128 ? "#000000" : "#ffffff";
 }
 
-function addYearsClampedYMD(ymd: string, years: number): string {
-  const dt = parseYMD(ymd) ?? new Date();
-  const y = dt.getFullYear();
-  const m = dt.getMonth();
-  const d = dt.getDate();
+/* -------------------------------- Premium UI Components -------------------------------- */
 
-  const target = new Date(y + years, m, 1);
-  const daysInTarget = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
-  target.setDate(Math.min(d, daysInTarget));
-  return toYMDLocal(target);
-}
-
-function nextByPeriod(ymd: string, period: TransactionPeriod): string {
-  switch (period) {
-    case "daily":
-      return addDaysYMD(ymd, 1);
-    case "weekly":
-      return addDaysYMD(ymd, 7);
-    case "monthly":
-      return addMonthsClampedYMD(ymd, 1);
-    case "yearly":
-      return addYearsClampedYMD(ymd, 1);
-    default:
-      return ymd;
-  }
-}
-
-function normalizeDigits(s: string) {
-  const cleaned = String(s ?? "").replace(/[^\d-]/g, "");
-  return cleaned.startsWith("-") ? "-" + cleaned.slice(1).replace(/-/g, "") : cleaned.replace(/-/g, "");
-}
-
-/* -------------------------------- UI atoms -------------------------------- */
-
-const Chip: React.FC<{ children: React.ReactNode; tone?: "neutral" | "blue" | "green" | "red" | "purple" }> = ({
-  children,
-  tone = "neutral",
-}) => {
-  const tones: Record<string, string> = {
-    neutral: "bg-white/8 text-white/80 border-white/10",
-    blue: "bg-blue-500/15 text-blue-200 border-blue-400/20",
-    green: "bg-emerald-500/15 text-emerald-200 border-emerald-400/20",
-    red: "bg-rose-500/15 text-rose-200 border-rose-400/20",
-    purple: "bg-purple-500/15 text-purple-200 border-purple-400/20",
-  };
-  return (
-    <span className={cx("inline-flex items-center gap-1 rounded-xl px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide border", tones[tone])}>
-      {children}
-    </span>
-  );
-};
-
-const GlassCard: React.FC<{ title?: React.ReactNode; right?: React.ReactNode; children: React.ReactNode; className?: string }> = ({
-  title,
-  right,
-  children,
-  className,
-}) => (
-  <div
+const GlassCard: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+  hoverEffect?: boolean;
+  gradient?: boolean;
+}> = ({ children, className, hoverEffect = true, gradient = false }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
     className={cx(
-      "rounded-[28px] border border-white/10 bg-white/[0.06] backdrop-blur-xl shadow-[0_20px_80px_-40px_rgba(0,0,0,0.9)] overflow-hidden",
+      "rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.02] backdrop-blur-xl",
+      "shadow-[0_8px_32px_rgba(0,0,0,0.36)]",
+      gradient && "bg-gradient-to-br from-blue-500/10 to-purple-500/10",
+      hoverEffect && "hover:shadow-[0_16px_64px_rgba(0,0,0,0.48)] hover:border-white/20 transition-all duration-300",
       className
     )}
   >
-    {(title || right) && (
-      <div className="px-5 py-4 flex items-center justify-between border-b border-white/10 bg-white/[0.04]">
-        <div className="text-sm font-black text-white">{title}</div>
-        <div>{right}</div>
-      </div>
+    {children}
+  </motion.div>
+);
+
+const GradientButton: React.FC<
+  React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    variant?: "primary" | "secondary" | "danger" | "success" | "ghost";
+    size?: "sm" | "md" | "lg";
+    leftIcon?: React.ReactNode;
+    rightIcon?: React.ReactNode;
+    fullWidth?: boolean;
+    gradient?: boolean;
+  }
+> = ({
+  variant = "primary",
+  size = "md",
+  leftIcon,
+  rightIcon,
+  fullWidth = false,
+  gradient = true,
+  className,
+  children,
+  ...props
+}) => {
+    const base = "inline-flex items-center justify-center gap-2 rounded-2xl font-bold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none";
+
+    const variants = {
+      primary: gradient
+        ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-[0_8px_32px_rgba(59,130,246,0.32)] hover:shadow-[0_12px_48px_rgba(59,130,246,0.48)]"
+        : "bg-blue-600 text-white shadow-lg hover:bg-blue-700",
+      secondary: "bg-white/10 text-white border border-white/20 hover:bg-white/20",
+      danger: "bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-[0_8px_32px_rgba(244,63,94,0.32)]",
+      success: "bg-gradient-to-r from-emerald-600 to-green-600 text-white",
+      ghost: "bg-transparent text-white/80 hover:text-white hover:bg-white/10",
+    };
+
+    const sizes = {
+      sm: "px-3 py-2 text-sm",
+      md: "px-5 py-3 text-sm",
+      lg: "px-6 py-4 text-base",
+    };
+
+    return (
+      <button
+        className={cx(base, variants[variant], sizes[size], fullWidth && "w-full", className)}
+        {...props}
+      >
+        {leftIcon}
+        {children}
+        {rightIcon}
+      </button>
+    );
+  };
+
+const AnimatedInput: React.FC<
+  React.InputHTMLAttributes<HTMLInputElement> & {
+    label?: string;
+    error?: string;
+    success?: boolean;
+  }
+> = ({ label, error, success, className, ...props }) => (
+  <div className="relative">
+    {label && (
+      <label className="block mb-2 text-sm font-bold text-white/80">
+        {label}
+      </label>
     )}
-    <div className="p-5">{children}</div>
+    <input
+      className={cx(
+        "w-full rounded-2xl border-2 px-4 py-3 bg-white/[0.06] text-white font-semibold",
+        "placeholder:text-white/40 outline-none transition-all duration-200",
+        "focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/30",
+        error ? "border-rose-400/50" : success ? "border-emerald-400/50" : "border-white/20",
+        className
+      )}
+      {...props}
+    />
+    {error && (
+      <motion.p
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mt-2 text-xs text-rose-300 font-medium"
+      >
+        {error}
+      </motion.p>
+    )}
   </div>
 );
 
-const Button: React.FC<
-  React.ButtonHTMLAttributes<HTMLButtonElement> & {
-    variant?: "ghost" | "primary" | "secondary" | "danger";
-    leftIcon?: React.ReactNode;
-  }
-> = ({ variant = "secondary", leftIcon, className, ...props }) => {
-  const base =
-    "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black transition active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none";
-  const variants: Record<string, string> = {
-    ghost: "bg-white/0 hover:bg-white/8 text-white border border-white/10",
-    secondary: "bg-white/8 hover:bg-white/12 text-white border border-white/10",
-    primary:
-      "bg-gradient-to-br from-blue-500 to-indigo-600 text-white border border-blue-300/20 shadow-[0_14px_40px_-18px_rgba(59,130,246,0.9)] hover:brightness-110",
-    danger:
-      "bg-gradient-to-br from-rose-500 to-red-600 text-white border border-rose-300/20 shadow-[0_14px_40px_-18px_rgba(244,63,94,0.85)] hover:brightness-110",
+const Tag: React.FC<{
+  label: string;
+  color?: string;
+  removable?: boolean;
+  onRemove?: () => void;
+}> = ({ label, color = "#3b82f6", removable = false, onRemove }) => (
+  <span
+    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold"
+    style={{
+      backgroundColor: `${color}20`,
+      color: getContrastColor(color),
+      border: `1px solid ${color}40`
+    }}
+  >
+    {label}
+    {removable && (
+      <button
+        onClick={onRemove}
+        className="ml-1 hover:opacity-70 transition-opacity"
+      >
+        <X size={12} />
+      </button>
+    )}
+  </span>
+);
+
+const StatCard: React.FC<{
+  title: string;
+  value: string;
+  change?: number;
+  icon: React.ReactNode;
+  color: "blue" | "green" | "red" | "purple" | "yellow";
+  trend?: "up" | "down" | "neutral";
+}> = ({ title, value, change, icon, color, trend }) => {
+  const colors = {
+    blue: "from-blue-500/20 to-blue-600/20",
+    green: "from-emerald-500/20 to-emerald-600/20",
+    red: "from-rose-500/20 to-rose-600/20",
+    purple: "from-purple-500/20 to-purple-600/20",
+    yellow: "from-amber-500/20 to-amber-600/20",
   };
+
   return (
-    <button className={cx(base, variants[variant], className)} {...props}>
-      {leftIcon}
-      {props.children}
-    </button>
+    <GlassCard>
+      <div className="p-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm font-bold text-white/60 mb-2">{title}</p>
+            <p className="text-2xl font-black text-white">{value}</p>
+            {change !== undefined && (
+              <div className="flex items-center gap-1 mt-2">
+                <span className={`text-sm font-bold ${trend === "up" ? "text-emerald-300" :
+                  trend === "down" ? "text-rose-300" :
+                    "text-white/60"
+                  }`}>
+                  {trend === "up" ? "+" : ""}{change}%
+                </span>
+                {trend === "up" ? <ChevronUp size={16} /> :
+                  trend === "down" ? <ChevronDown size={16} /> : null}
+              </div>
+            )}
+          </div>
+          <div className={`p-3 rounded-2xl bg-gradient-to-br ${colors[color]}`}>
+            {icon}
+          </div>
+        </div>
+      </div>
+    </GlassCard>
   );
 };
 
-const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = ({ className, ...props }) => (
-  <input
-    className={cx(
-      "w-full rounded-2xl border border-white/10 bg-[#1e293b] px-4 py-2.5 text-sm font-bold text-white placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400/40",
-      className
-    )}
-    {...props}
-  />
-);
+/* -------------------------------- Enhanced Chart Components -------------------------------- */
 
-const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = ({ className, ...props }) => (
-  <select
-    className={cx(
-      "w-full rounded-2xl border border-white/10 bg-[#1e293b] px-4 py-2.5 text-sm font-extrabold text-white outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400/40",
-      className
-    )}
-    {...props}
-  />
-);
-
-const Divider = () => <div className="h-px bg-white/10 my-4" />;
-
-/* -------------------------------- Chart Frame (fix width(-1)/height(-1)) -------------------------------- */
-
-const ChartFrame: React.FC<{ height?: number; children: (size: { w: number; h: number }) => React.ReactNode }> = ({
-  height = 280,
-  children,
-}) => {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [size, setSize] = useState({ w: 0, h: height });
+const EnhancedChartFrame: React.FC<{
+  children: (dimensions: { width: number; height: number }) => React.ReactNode;
+  height?: number;
+  title?: string;
+  className?: string;
+}> = ({ children, height = 320, title, className }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height });
 
   useEffect(() => {
     if (!ref.current) return;
-    const el = ref.current;
 
-    const ro = new ResizeObserver(() => {
-      const r = el.getBoundingClientRect();
-      setSize({ w: Math.max(0, Math.floor(r.width)), h: Math.max(0, Math.floor(r.height)) });
-    });
-    ro.observe(el);
-
-    // first measurement
-    const r = el.getBoundingClientRect();
-    setSize({ w: Math.max(0, Math.floor(r.width)), h: Math.max(0, Math.floor(r.height)) });
-
-    return () => ro.disconnect();
-  }, []);
-
-  return (
-    <div ref={ref} className="w-full min-w-0" style={{ minHeight: height, height }}>
-      {size.w > 0 && size.h > 0 ? children(size) : <div className="h-full grid place-items-center text-white/45 text-sm font-bold">Chart betöltés…</div>}
-    </div>
-  );
-};
-
-/* -------------------------------- Modals -------------------------------- */
-
-const ModalShell: React.FC<{
-  title: React.ReactNode;
-  onClose: () => void;
-  children: React.ReactNode;
-  footer?: React.ReactNode;
-}> = ({ title, onClose, children, footer }) => (
-  <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-    <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 10, scale: 0.98 }}
-      className="w-full max-w-xl rounded-[28px] overflow-hidden border border-white/10 bg-[#0b1220] shadow-[0_30px_120px_-60px_rgba(0,0,0,1)]"
-    >
-      <div className="px-6 py-5 flex items-center justify-between border-b border-white/10 bg-white/4">
-        <div className="text-lg font-black text-white">{title}</div>
-        <button onClick={onClose} className="p-2 rounded-2xl border border-white/10 bg-white/6 hover:bg-white/10 transition">
-          <X size={18} className="text-white" />
-        </button>
-      </div>
-      <div className="px-6 py-5 max-h-[72vh] overflow-y-auto">{children}</div>
-      {footer && <div className="px-6 py-5 border-t border-white/10 bg-white/4">{footer}</div>}
-    </motion.div>
-  </div>
-);
-
-const ConfirmModal: React.FC<{
-  title: string | React.ReactNode;
-  description: string | React.ReactNode;
-  confirmText?: string;
-  onCancel: () => void;
-  onConfirm: () => void;
-}> = ({ title, description, confirmText, onCancel, onConfirm }) => {
-  const { t } = useLanguage();
-  return (
-    <ModalShell
-      title={
-        <span className="inline-flex items-center gap-2">
-          <AlertTriangle size={18} className="text-rose-300" /> {title}
-        </span>
+    const updateDimensions = () => {
+      if (ref.current) {
+        const rect = ref.current.getBoundingClientRect();
+        setDimensions({
+          width: Math.max(0, Math.floor(rect.width)),
+          height: Math.max(0, Math.floor(rect.height)),
+        });
       }
-      onClose={onCancel}
-      footer={
-        <div className="flex gap-3">
-          <Button className="flex-1" onClick={onCancel} variant="secondary">
-            {t('common.cancel')}
-          </Button>
-          <Button className="flex-1" onClick={onConfirm} variant="danger">
-            {confirmText || t('common.delete')}
-          </Button>
-        </div>
-      }
-    >
-      <div className="text-sm font-bold text-white/75">{description}</div>
-    </ModalShell>
-  );
-};
-
-/* -------------------------------- Categories -------------------------------- */
-
-const useCategories = (t: (k: string) => string) => {
-  // High contrast palette: visible on dark backgrounds
-  const CATEGORIES: Record<CategoryKey, CategoryDef> = useMemo(
-    () => ({
-      software: { label: t("budget.software") || "Software", color: "#60a5fa", bg: "rgba(96,165,250,0.14)", border: "rgba(96,165,250,0.25)" },
-      marketing: { label: t("budget.marketing") || "Marketing", color: "#c084fc", bg: "rgba(192,132,252,0.14)", border: "rgba(192,132,252,0.25)" },
-      office: { label: t("budget.office") || "Office", color: "#22d3ee", bg: "rgba(34,211,238,0.12)", border: "rgba(34,211,238,0.22)" },
-      travel: { label: t("budget.travel") || "Travel", color: "#fbbf24", bg: "rgba(251,191,36,0.12)", border: "rgba(251,191,36,0.22)" },
-      service: { label: t("budget.service") || "Service", color: "#34d399", bg: "rgba(52,211,153,0.12)", border: "rgba(52,211,153,0.22)" },
-      freelance: { label: t("budget.freelance") || "Freelance", color: "#38bdf8", bg: "rgba(56,189,248,0.12)", border: "rgba(56,189,248,0.22)" },
-      other: { label: t("budget.other") || "Other", color: "#a8b3cf", bg: "rgba(168,179,207,0.10)", border: "rgba(168,179,207,0.20)" },
-    }),
-    [t]
-  );
-  return CATEGORIES;
-};
-
-/* -------------------------------- Currency + formatting -------------------------------- */
-
-function fallbackMoneyParse(s: string): number {
-  // if parseMoneyInput doesn't exist
-  const n = Number(String(s).replace(",", ".").replace(/[^\d.-]/g, ""));
-  return Number.isFinite(n) ? n : 0;
-}
-
-function safeParseMoney(s: string): number {
-  try {
-    // use existing util if present
-    if (typeof parseMoneyInput === "function") {
-      const v = parseMoneyInput(s);
-      return Number.isFinite(v) ? v : 0;
-    }
-  } catch { }
-  return fallbackMoneyParse(s);
-}
-
-/* -------------------------------- Data adapter (useData optional) -------------------------------- */
-
-type DataAPI = {
-  transactions: Transaction[];
-  addTransaction?: (t: any) => any;
-  updateTransaction?: (id: string, patch: any) => any;
-  deleteTransaction?: (id: string) => any;
-  deleteTransactions?: (ids: string[]) => any;
-};
-
-function useDataApi(): DataAPI {
-  try {
-    const ctx = useData() as any;
-    if (ctx && Array.isArray(ctx.transactions)) return ctx;
-  } catch { }
-  return { transactions: [] };
-}
-
-/* -------------------------------- Main Hook: ledger-first engine -------------------------------- */
-
-function useBudgetEngine() {
-  // language/t fallback (if your context missing, default HU)
-  let t = (k: string) => k;
-  let language = "hu";
-  try {
-    const L = useLanguage() as any;
-    if (L?.t) t = L.t;
-    if (L?.language) language = L.language;
-  } catch { }
-
-  const dataApi = useDataApi();
-  const CATEGORIES = useCategories(t);
-
-  const [localTx, setLocalTx] = useState<Transaction[]>([]);
-  const [currency, setCurrency] = useState<string>("USD");
-  const [balanceMode, setBalanceMode] = useState<BalanceMode>("realizedOnly");
-
-  // Merge: if dataApi has tx use it, else local
-  const sourceTx = Array.isArray(dataApi.transactions) && dataApi.transactions.length > 0 ? dataApi.transactions : localTx;
-
-  // Ensure currency rates load but never crash
-  useEffect(() => {
-    try {
-      const maybe = CurrencyService?.fetchRealTimeRates?.();
-      Promise.resolve(maybe).catch(() => { });
-    } catch { }
-  }, []);
-
-  // Intl format cache
-  const fmtCache = useRef<Map<string, Intl.NumberFormat>>(new Map());
-  useEffect(() => {
-    fmtCache.current.clear();
-  }, [language]);
-
-  const getFormatter = useCallback(
-    (ccy: string) => {
-      const loc = language === "hu" ? "hu-HU" : "en-US";
-      const key = `${loc}-${ccy}`;
-      if (!fmtCache.current.has(key)) {
-        fmtCache.current.set(
-          key,
-          new Intl.NumberFormat(loc, {
-            style: "currency",
-            currency: ccy,
-            maximumFractionDigits: 2,
-          })
-        );
-      }
-      return fmtCache.current.get(key)!;
-    },
-    [language]
-  );
-
-  const formatMoney = useCallback(
-    (amount: number, ccy?: string) => getFormatter(ccy || currency).format(Number.isFinite(amount) ? amount : 0),
-    [currency, getFormatter]
-  );
-
-  const formatDate = useCallback(
-    (ymd: string) => {
-      const dt = parseYMD(ymd);
-      if (!dt) return "—";
-      const loc = language === "hu" ? "hu-HU" : "en-US";
-      return new Intl.DateTimeFormat(loc, { year: "numeric", month: "short", day: "numeric" }).format(dt);
-    },
-    [language]
-  );
-
-  const safeConvert = useCallback((amount: number, from: string, to: string) => {
-    if (!Number.isFinite(amount) || amount === 0) return 0;
-    if (!from || !to || from === to) return amount;
-    try {
-      const v = CurrencyService.convert(amount, from, to);
-      return Number.isFinite(v) ? v : 0;
-    } catch {
-      return 0;
-    }
-  }, []);
-
-  // --------- Ledger sorting: createdAt first (instant visibility) ----------
-  const ledger = useMemo(() => {
-    return [...sourceTx].sort((a, b) => b.createdAtISO.localeCompare(a.createdAtISO));
-  }, [sourceTx]);
-
-  // --------- Balance inclusion logic ----------
-  const todayYMD = toYMDLocal(new Date());
-
-  const affectsBalanceNow = useCallback(
-    (tx: Transaction) => {
-      if (balanceMode === "includeScheduled") return !tx.isMaster; // include future occurrences too if you create them; masters never
-      // realizedOnly: only effectiveDate <= today and not master
-      if (tx.isMaster) return false;
-      return tx.effectiveDateYMD <= todayYMD;
-    },
-    [balanceMode, todayYMD]
-  );
-
-  const balanceStats = useMemo(() => {
-    let income = 0;
-    let expense = 0;
-    let balance = 0;
-
-    for (const tx of sourceTx) {
-      if (!affectsBalanceNow(tx)) continue;
-      const v = tx.currency === currency ? tx.amount : safeConvert(tx.amount, tx.currency, currency);
-      balance += v;
-      if (v >= 0) income += v;
-      else expense += Math.abs(v);
-    }
-    return { income, expense, balance };
-  }, [sourceTx, affectsBalanceNow, currency, safeConvert]);
-
-  // --------- Monthly cashflow chart (realized vs scheduled) ----------
-  const cashFlowData = useMemo(() => {
-    const now = new Date();
-    const buckets: Array<{ monthIndex: number; name: string; income: number; expense: number }> = [];
-    // Enhanced months array with date ranges for easier projection checks
-    const months: Array<{ y: number; m: number; startDate: Date; endDate: Date }> = [];
-
-    // Window: Realized (-11..0), Scheduled (-2..+9)
-    const startOffset = balanceMode === "includeScheduled" ? -2 : -11;
-
-    for (let i = 0; i < 12; i++) {
-      const offset = startOffset + i;
-      const dt = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-      const y = dt.getFullYear();
-      const m = dt.getMonth();
-      const startDate = new Date(y, m, 1);
-      const endDate = new Date(y, m + 1, 0); // last day of month
-      months.push({ y, m, startDate, endDate });
-    }
-
-    const labelsHU = ["Jan", "Feb", "Már", "Ápr", "Máj", "Jún", "Júl", "Aug", "Sze", "Okt", "Nov", "Dec"];
-    const labelsEN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const labels = language === "hu" ? labelsHU : labelsEN;
-
-    for (let i = 0; i < 12; i++) buckets.push({ monthIndex: i, name: labels[months[i].m], income: 0, expense: 0 });
-
-    // 1. Regular Transactions
-    for (const tx of sourceTx) {
-      if (tx.isMaster) continue;
-
-      // realizedOnly: strict date filter. includeScheduled: allows all non-masters from source
-      if (balanceMode === 'realizedOnly' && tx.effectiveDateYMD > todayYMD) continue;
-
-      const dt = parseYMD(tx.effectiveDateYMD);
-      if (!dt) continue;
-
-      // Check which bucket this falls into
-      const idx = months.findIndex((mm) => dt >= mm.startDate && dt <= mm.endDate);
-
-      if (idx !== -1) {
-        const v = tx.currency === currency ? tx.amount : safeConvert(tx.amount, tx.currency, currency);
-        if (v >= 0) buckets[idx].income += v;
-        else buckets[idx].expense += Math.abs(v);
-      }
-    }
-
-    // 2. Projected Occurrences from Masters (only if includeScheduled)
-    if (balanceMode === "includeScheduled") {
-      const windowStart = months[0].startDate;
-      const windowEnd = months[11].endDate;
-
-      for (const tx of sourceTx) {
-        if (!tx.isMaster) continue;
-
-        const ruleStart = parseYMD(tx.effectiveDateYMD);
-        if (!ruleStart) continue;
-
-        // Projection loop
-        let current = new Date(ruleStart);
-        // optimization: if start is far in future beyond window, skip
-        if (current > windowEnd) continue;
-
-        // "catch up" if rule started way back, but only for simple periods to avoid massive loops?
-        // For now, simple iteration. Safety break to prevent infinite loops.
-        let safety = 0;
-
-        // If current is before windowStart, we might need to fast-forward for performance,
-        // but for daily/weekly/monthly simple iteration is usually fine for a few years.
-        // Let's iterate until we hit windowEnd.
-
-        while (current <= windowEnd && safety < 2000) {
-          safety++;
-
-          // Should we book this occurrence?
-          if (current >= windowStart) {
-            const idx = months.findIndex(mm => current >= mm.startDate && current <= mm.endDate);
-            if (idx !== -1) {
-              const v = tx.currency === currency ? tx.amount : safeConvert(tx.amount, tx.currency, currency);
-              if (v >= 0) buckets[idx].income += v;
-              else buckets[idx].expense += Math.abs(v);
-            }
-          }
-
-          // Advance
-          switch (tx.period) {
-            case "daily": current.setDate(current.getDate() + 1); break;
-            case "weekly": current.setDate(current.getDate() + 7); break;
-            case "monthly": current.setMonth(current.getMonth() + 1); break;
-            case "yearly": current.setFullYear(current.getFullYear() + 1); break;
-            case "oneTime": current = new Date(windowEnd.getTime() + 1000); break; // break
-            default: current = new Date(windowEnd.getTime() + 1000); break;
-          }
-        }
-      }
-    }
-
-    return buckets;
-  }, [sourceTx, currency, language, safeConvert, todayYMD, balanceMode]);
-
-  // --------- Category totals (realized now) ----------
-  const categoryTotals = useMemo(() => {
-    const totals: Record<CategoryKey, number> = {
-      software: 0,
-      marketing: 0,
-      office: 0,
-      travel: 0,
-      service: 0,
-      freelance: 0,
-      other: 0,
     };
 
-    for (const tx of sourceTx) {
-      if (!affectsBalanceNow(tx)) continue;
-      if (tx.amount >= 0) continue; // expenses only
-      const v = tx.currency === currency ? Math.abs(tx.amount) : Math.abs(safeConvert(tx.amount, tx.currency, currency));
-      totals[tx.category] = (totals[tx.category] || 0) + v;
+    const observer = new ResizeObserver(updateDimensions);
+    observer.observe(ref.current);
+    updateDimensions();
+
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <GlassCard className={className}>
+      {title && (
+        <div className="px-6 pt-5 pb-3 border-b border-white/10">
+          <h3 className="text-lg font-black text-white">{title}</h3>
+        </div>
+      )}
+      <div ref={ref} style={{ height }} className="relative">
+        {dimensions.width > 0 && dimensions.height > 0 ? (
+          children(dimensions)
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-white/40">
+              <Loader2 className="animate-spin mx-auto mb-2" size={24} />
+              <p className="text-sm font-medium">Chart loading...</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </GlassCard>
+  );
+};
+
+const CustomTooltip: React.FC<any> = ({ active, payload, label, currency }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-[#1e293b]/95 backdrop-blur-sm border border-white/10 rounded-2xl p-4 shadow-2xl">
+        <p className="text-sm font-bold text-white/80 mb-2">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center justify-between gap-4 mb-1 last:mb-0">
+            <div className="flex items-center gap-2">
+              <div
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-sm font-medium text-white/70">
+                {entry.dataKey}
+              </span>
+            </div>
+            <span className="text-sm font-bold text-white">
+              {formatCurrency(entry.value, currency, "en-US")}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
+/* -------------------------------- Enhanced Budget Engine -------------------------------- */
+
+const useEnhancedBudgetEngine = () => {
+  // Language context
+  const { t, language } = useLanguage();
+
+  // Data context
+  const dataContext = useData();
+
+  // State
+  const [localTransactions, setLocalTransactions] = useState<Transaction[]>([]);
+  const [currency, setCurrency] = useState("USD");
+  const [balanceMode, setBalanceMode] = useState<BalanceMode>("realizedOnly");
+  const [viewMode, setViewMode] = useState<ViewMode>("cards");
+  const [activeChart, setActiveChart] = useState<ChartType>("area");
+  const [budgetGoals, setBudgetGoals] = useState<BudgetGoal[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([
+    {
+      id: "1",
+      title: t?.('notifications.welcome') || "Welcome to Budget Pro!",
+      message: t?.('notifications.getStarted') || "Start by adding your first transaction",
+      type: "info",
+      timestamp: new Date().toISOString(),
+      read: false,
+    },
+  ]);
+
+  // Categories with enhanced data
+  const categories = useMemo<Record<CategoryKey, CategoryDef>>(() => ({
+    software: {
+      label: t?.('categories.software') || "Software",
+      color: "#60a5fa",
+      bg: "rgba(96,165,250,0.15)",
+      border: "rgba(96,165,250,0.3)",
+      icon: <Zap size={16} />
+    },
+    marketing: {
+      label: t?.('categories.marketing') || "Marketing",
+      color: "#c084fc",
+      bg: "rgba(192,132,252,0.15)",
+      border: "rgba(192,132,252,0.3)",
+      icon: <Target size={16} />
+    },
+    office: {
+      label: t?.('categories.office') || "Office",
+      color: "#22d3ee",
+      bg: "rgba(34,211,238,0.15)",
+      border: "rgba(34,211,238,0.3)",
+      icon: <FileText size={16} />
+    },
+    travel: {
+      label: t?.('categories.travel') || "Travel",
+      color: "#fbbf24",
+      bg: "rgba(251,191,36,0.15)",
+      border: "rgba(251,191,36,0.3)",
+      icon: <Calendar size={16} />
+    },
+    service: {
+      label: t?.('categories.service') || "Service",
+      color: "#34d399",
+      bg: "rgba(52,211,153,0.15)",
+      border: "rgba(52,211,153,0.3)",
+      icon: <Settings size={16} />
+    },
+    freelance: {
+      label: t?.('categories.freelance') || "Freelance",
+      color: "#38bdf8",
+      bg: "rgba(56,189,248,0.15)",
+      border: "rgba(56,189,248,0.3)",
+      icon: <TrendingUp size={16} />
+    },
+    food: {
+      label: t?.('categories.food') || "Food",
+      color: "#fb7185",
+      bg: "rgba(251,113,133,0.15)",
+      border: "rgba(251,113,133,0.3)",
+      icon: <TagIcon size={16} />
+    },
+    transport: {
+      label: t?.('categories.transport') || "Transport",
+      color: "#f97316",
+      bg: "rgba(249,115,22,0.15)",
+      border: "rgba(249,115,22,0.3)",
+      icon: <ArrowRightLeft size={16} />
+    },
+    entertainment: {
+      label: t?.('categories.entertainment') || "Entertainment",
+      color: "#8b5cf6",
+      bg: "rgba(139,92,246,0.15)",
+      border: "rgba(139,92,246,0.3)",
+      icon: <Sparkles size={16} />
+    },
+    health: {
+      label: t?.('categories.health') || "Health",
+      color: "#10b981",
+      bg: "rgba(16,185,129,0.15)",
+      border: "rgba(16,185,129,0.3)",
+      icon: <Bell size={16} />
+    },
+    education: {
+      label: t?.('categories.education') || "Education",
+      color: "#6366f1",
+      bg: "rgba(99,102,241,0.15)",
+      border: "rgba(99,102,241,0.3)",
+      icon: <History size={16} />
+    },
+    shopping: {
+      label: t?.('categories.shopping') || "Shopping",
+      color: "#ec4899",
+      bg: "rgba(236,72,153,0.15)",
+      border: "rgba(236,72,153,0.3)",
+      icon: <ShoppingBagIcon size={16} />
+    },
+    investment: {
+      label: t?.('categories.investment') || "Investment",
+      color: "#14b8a6",
+      bg: "rgba(20,184,166,0.15)",
+      border: "rgba(20,184,166,0.3)",
+      icon: <TrendingUp size={16} />
+    },
+    other: {
+      label: t?.('categories.other') || "Other",
+      color: "#94a3b8",
+      bg: "rgba(148,163,184,0.15)",
+      border: "rgba(148,163,184,0.3)",
+      icon: <MoreVertical size={16} />
+    },
+  }), [t]);
+
+  // Merge transactions from context and local state
+  const transactions = useMemo(() => {
+    const ctxTx = dataContext?.transactions || [];
+
+    // Map global transactions to local enhanced format
+    const mappedGlobalTx: Transaction[] = ctxTx.map(t => {
+      // Safe conversion for date
+      let dateYMD = "";
+      if (t.effectiveDateYMD) {
+        dateYMD = t.effectiveDateYMD;
+      } else if (typeof t.date === 'string') {
+        dateYMD = t.date.substring(0, 10); // Simple ISO YYYY-MM-DD extract
+      } else if (t.date instanceof Date) {
+        dateYMD = toYMDLocal(t.date);
+      } else {
+        dateYMD = toYMDLocal(new Date()); // Fallback
+      }
+
+      // Safe creation date
+      const createdStr = t.createdAtISO || new Date().toISOString();
+
+      // Type mapping (subscriptions become expenses in this view)
+      const txType: TransactionType = (t.type === 'income') ? 'income' : 'expense';
+
+      return {
+        id: t.id,
+        description: t.description,
+        amount: t.amount,
+        currency: t.currency || 'USD',
+        category: t.category as CategoryKey, // Fallback handled in UI
+        effectiveDateYMD: dateYMD,
+        time: t.time,
+        type: txType,
+        period: (t.period || 'oneTime') as TransactionPeriod,
+        isMaster: t.kind === 'master',
+        tags: t.tags || [],
+        notes: t.notes,
+        status: t.status || 'completed',
+        priority: t.priority || 'medium',
+        createdAtISO: createdStr,
+        attachmentUrl: t.attachmentUrl,
+        location: t.location,
+        reminderId: t.reminderId,
+        // Compats
+        date: t.date,
+        kind: t.kind,
+        recurring: !!t.recurring
+      };
+    });
+
+    return [...mappedGlobalTx, ...localTransactions];
+  }, [dataContext?.transactions, localTransactions]);
+
+  // Today's date
+  const todayYMD = useMemo(() => toYMDLocal(new Date()), []);
+
+  // Balance calculations
+  // --- INTEGRATED ANALYTICS ENGINE (PhD Refactor) ---
+  const {
+    totalIncome,
+    totalExpense,
+    balance,
+    categoryTotals,
+    projectionData
+  } = useBudgetAnalytics(
+    transactions as any,
+    currency,
+    (amount, from, to) => CurrencyService.convert(amount, from, to),
+    1
+  );
+
+  // Map hook data to view requirements
+  const balanceStats = useMemo(() => ({
+    income: totalIncome,
+    expense: totalExpense,
+    balance: balance,
+    pendingIncome: 0,
+    pendingExpense: 0
+  }), [totalIncome, totalExpense, balance]);
+
+  const analytics = useMemo(() => {
+    const mappedCategories: Record<CategoryKey, { total: number; count: number }> = {} as any;
+    Object.keys(categories).forEach(k => {
+      mappedCategories[k as CategoryKey] = { total: 0, count: 0 };
+    });
+
+    if (categoryTotals) {
+      Object.entries(categoryTotals).forEach(([cat, total]) => {
+        const key = cat as CategoryKey;
+        if (mappedCategories[key]) {
+          mappedCategories[key].total = total;
+          mappedCategories[key].count = 0;
+        }
+      });
     }
-    return totals;
-  }, [sourceTx, affectsBalanceNow, currency, safeConvert]);
 
-  // --------- API wrappers: optimistic + safe ----------
-  const addTx = useCallback(
-    (tx: Transaction) => {
-      // optimistic UI
-      setLocalTx((prev) => [tx, ...prev]);
+    return {
+      monthlyData: [],
+      categoryBreakdown: mappedCategories,
+      weeklyTrend: [],
+      topTransactions: [] as Transaction[],
+      totalSavings: totalIncome - totalExpense,
+      avgTransactionValue: 0,
+      transactionCount: transactions.length
+    };
+  }, [categoryTotals, totalIncome, totalExpense, categories, transactions]);
 
-      // push to external store if exists
-      try {
-        if (typeof dataApi.addTransaction === "function") dataApi.addTransaction(tx);
-      } catch { }
-    },
-    [dataApi]
-  );
+  const monthNames = useMemo(() => [
+    t('months.january') || 'Jan', t('months.february') || 'Feb', t('months.march') || 'Mar', t('months.april') || 'Apr',
+    t('months.may') || 'May', t('months.june') || 'Jun', t('months.july') || 'Jul', t('months.august') || 'Aug',
+    t('months.september') || 'Sep', t('months.october') || 'Oct', t('months.november') || 'Nov', t('months.december') || 'Dec'
+  ], [t]);
 
-  const updateTx = useCallback(
-    (id: string, patch: TransactionPatch) => {
-      setLocalTx((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
-      try {
-        if (typeof dataApi.updateTransaction === "function") dataApi.updateTransaction(id, patch);
-      } catch { }
-    },
-    [dataApi]
-  );
+  // Map projection data
+  const cashFlowProjection = useMemo(() => {
+    return projectionData.map((p) => {
+      let name = "";
+      if (p.monthIndex !== null && p.monthIndex !== undefined) {
+        const yStr = String(p.year).slice(2);
+        name = `${monthNames[p.monthIndex]} '${yStr}`;
+      } else {
+        name = String(p.year);
+      }
+      return {
+        month: name,
+        income: p.income,
+        expense: p.expense,
+        balance: p.balance
+      };
+    });
+  }, [projectionData, monthNames]);
 
-  const deleteOne = useCallback(
-    (id: string) => {
-      setLocalTx((prev) => prev.filter((t) => t.id !== id));
-      try {
-        if (typeof dataApi.deleteTransactions === "function") dataApi.deleteTransactions([id]);
-        else if (typeof dataApi.deleteTransaction === "function") dataApi.deleteTransaction(id);
-      } catch { }
-    },
-    [dataApi]
-  );
+  // Export functionality
+  const exportData = useCallback((format: 'json' | 'csv' | 'pdf') => {
+    const data = {
+      transactions: transactions.map(tx => ({
+        ...tx,
+        amount: formatCurrency(tx.amount, tx.currency, language),
+      })),
+      analytics,
+      balanceStats,
+      exportDate: new Date().toISOString(),
+    };
 
-  const deleteMany = useCallback(
-    (ids: string[]) => {
-      const set = new Set(ids);
-      setLocalTx((prev) => prev.filter((t) => !set.has(t.id)));
-      try {
-        if (typeof dataApi.deleteTransactions === "function") dataApi.deleteTransactions(ids);
-        else if (typeof dataApi.deleteTransaction === "function") ids.forEach((id) => dataApi.deleteTransaction?.(id));
-      } catch { }
-    },
-    [dataApi]
-  );
+    if (format === 'json') {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `budget-export-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    // Add CSV and PDF export logic here
+  }, [transactions, analytics, balanceStats, language]);
+
+  // Import functionality
+  const importData = useCallback((data: any) => {
+    // Validate and import data
+    if (data.transactions && Array.isArray(data.transactions)) {
+      setLocalTransactions(prev => [...prev, ...data.transactions]);
+    }
+  }, []);
+
+  // Add notification
+  const addNotification = useCallback((notification: Omit<Notification, 'id'>) => {
+    const newNotification = {
+      ...notification,
+      id: uid(),
+    };
+    setNotifications(prev => [newNotification, ...prev]);
+  }, []);
+
+  // Mark notification as read
+  const markAsRead = useCallback((id: string) => {
+    setNotifications(prev =>
+      prev.map(notif =>
+        notif.id === id ? { ...notif, read: true } : notif
+      )
+    );
+  }, []);
+
+  // Clear all notifications
+  const clearNotifications = useCallback(() => {
+    setNotifications([]);
+  }, []);
+
+  // Add transaction with enhanced features
+  const addTransaction = useCallback((transaction: Omit<Transaction, 'id' | 'createdAtISO'>) => {
+    const newTransaction: Transaction = {
+      ...transaction,
+      id: uid(),
+      createdAtISO: new Date().toISOString(),
+    };
+
+    setLocalTransactions(prev => [newTransaction, ...prev]);
+
+    // Add notification for large transactions
+    if (Math.abs(transaction.amount) > 5000) {
+      addNotification({
+        title: t?.('notifications.largeTransaction') || "Large Transaction Added",
+        message: `${transaction.description} - ${formatCurrency(Math.abs(transaction.amount), transaction.currency, language)}`,
+        type: transaction.amount > 0 ? "success" : "warning",
+        timestamp: new Date().toISOString(),
+        read: false,
+      });
+    }
+
+    return newTransaction;
+  }, [addNotification, t, language]);
+
+  // Update transaction
+  const updateTransaction = useCallback((id: string, updates: TransactionPatch) => {
+    setLocalTransactions(prev =>
+      prev.map(tx =>
+        tx.id === id ? { ...tx, ...updates } : tx
+      )
+    );
+  }, []);
+
+  // Delete transaction
+  const deleteTransaction = useCallback((id: string) => {
+    setLocalTransactions(prev => prev.filter(tx => tx.id !== id));
+  }, []);
+
+  // Bulk delete
+  const deleteTransactions = useCallback((ids: string[]) => {
+    setLocalTransactions(prev => prev.filter(tx => !ids.includes(tx.id)));
+  }, []);
+
+  // Add budget goal
+  const addBudgetGoal = useCallback((goal: Omit<BudgetGoal, 'id'>) => {
+    const newGoal: BudgetGoal = {
+      ...goal,
+      id: uid(),
+    };
+    setBudgetGoals(prev => [...prev, newGoal]);
+    return newGoal;
+  }, []);
+
+  // Update budget goal
+  const updateBudgetGoal = useCallback((id: string, updates: Partial<BudgetGoal>) => {
+    setBudgetGoals(prev =>
+      prev.map(goal =>
+        goal.id === id ? { ...goal, ...updates } : goal
+      )
+    );
+  }, []);
 
   return {
-    t,
-    language,
-    CATEGORIES,
+    // State
     currency,
     setCurrency,
     balanceMode,
     setBalanceMode,
-    formatMoney,
-    formatDate,
-    safeConvert,
-    ledger,
-    sourceTx,
-    balanceStats,
-    cashFlowData,
-    categoryTotals,
-    addTx,
-    updateTx,
-    deleteOne,
-    deleteMany,
+    viewMode,
+    setViewMode,
+    activeChart,
+    setActiveChart,
+    budgetGoals,
+    setBudgetGoals,
+    notifications,
+
+    // Data
+    transactions,
+    categories,
     todayYMD,
+
+    // Stats
+    balanceStats,
+    analytics,
+    cashFlowProjection,
+
+    // Actions
+    addTransaction,
+    updateTransaction,
+    deleteTransaction,
+    deleteTransactions,
+    addBudgetGoal,
+    updateBudgetGoal,
+    addNotification,
+    markAsRead,
+    clearNotifications,
+    exportData,
+    importData,
+
+    // Utils
+    formatCurrency: (amount: number, curr?: string) =>
+      formatCurrency(amount, curr || currency, language),
+    formatDate: (ymd: string) => {
+      const date = parseYMD(ymd);
+      if (!date) return "—";
+      return new Intl.DateTimeFormat(language === "hu" ? "hu-HU" : "en-US", {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      }).format(date);
+    },
+
+    // Language
+    t: t || ((key: string) => key),
+    language,
   };
-}
+};
 
-/* -------------------------------- Transaction Modal -------------------------------- */
+/* -------------------------------- Enhanced Modals -------------------------------- */
 
-function getPeriodLabel(p: TransactionPeriod, t: (k: string) => string) {
-  return t(`budget.period.${p}`) || p;
-}
-
-const TransactionModal: React.FC<{
+const EnhancedTransactionModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   mode: "create" | "edit";
-  txType: TransactionType;
-  engine: ReturnType<typeof useBudgetEngine>;
-  editingTx?: Transaction | null;
-}> = ({ isOpen, onClose, mode, txType, engine, editingTx }) => {
-  const { t } = useLanguage();
-  const { CATEGORIES } = engine;
-  const today = toYMDLocal(new Date());
+  transaction?: Transaction;
+  engine: ReturnType<typeof useEnhancedBudgetEngine>;
+}> = ({ isOpen, onClose, mode, transaction, engine }) => {
+  const { t, categories, todayYMD } = engine;
 
-  const [desc, setDesc] = useState("");
-  const [amount, setAmount] = useState("");
-  const [ccy, setCcy] = useState(engine.currency);
-  const [cat, setCat] = useState<CategoryKey>("other");
-  const [dateYMD, setDateYMD] = useState(today);
-  const [period, setPeriod] = useState<TransactionPeriod>("oneTime");
-  const [notes, setNotes] = useState("");
-  const [addFirstOccurrenceNow, setAddFirstOccurrenceNow] = useState(true);
-  const [time, setTime] = useState("");
+  const [form, setForm] = useState({
+    description: "",
+    amount: "",
+    currency: engine.currency,
+    category: "other" as CategoryKey,
+    date: todayYMD,
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    type: "expense" as TransactionType,
+    period: "oneTime" as TransactionPeriod,
+    tags: [] as string[],
+    notes: "",
+    priority: "medium" as PriorityLevel,
+  });
+
+  const [tagInput, setTagInput] = useState("");
 
   useEffect(() => {
-    if (!isOpen) return;
-    if (mode === "edit" && editingTx) {
-      setDesc(editingTx.description);
-      setAmount(String(Math.abs(editingTx.amount)));
-      setCcy(editingTx.currency);
-      setCat(editingTx.category);
-      setDateYMD(editingTx.effectiveDateYMD);
-      setPeriod(editingTx.period);
-      setNotes(editingTx.notes ?? "");
-      setTime(editingTx.time ?? "");
-      setAddFirstOccurrenceNow(true);
-    } else {
-      setDesc("");
-      setAmount("");
-      setCcy(engine.currency);
-      setCat("other");
-      setDateYMD(today);
-      setPeriod("oneTime");
-      setNotes("");
-      const now = new Date();
-      const currentHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      setTime(currentHHMM);
-      setAddFirstOccurrenceNow(true);
-    }
-  }, [isOpen, mode, editingTx, today, engine.currency]);
-
-  const title =
-    mode === "edit"
-      ? txType === "income"
-        ? t('budget.modal.title.editIncome')
-        : t('budget.modal.title.editExpense')
-      : txType === "income"
-        ? t('budget.modal.title.newIncome')
-        : t('budget.modal.title.newExpense');
-
-  const save = () => {
-    const a = safeParseMoney(amount);
-    if (!desc.trim()) return alert(t('budget.modal.alert.desc'));
-    if (!Number.isFinite(a) || a <= 0) return alert(t('budget.modal.alert.amount'));
-    if (!parseYMD(dateYMD)) return alert(t('budget.modal.alert.date'));
-
-    const signed = txType === "income" ? Math.abs(a) : -Math.abs(a);
-    const nowISO = new Date().toISOString();
-
-    if (mode === "edit" && editingTx) {
-      engine.updateTx(editingTx.id, {
-        description: desc.trim(),
-        amount: signed,
-        currency: ccy,
-        category: cat,
-        effectiveDateYMD: dateYMD,
-        period,
-        isMaster: editingTx.isMaster,
-        notes: notes.trim() || undefined,
-        time: time.trim() || undefined,
+    if (mode === "edit" && transaction) {
+      setForm({
+        description: transaction.description,
+        amount: Math.abs(transaction.amount).toString(),
+        currency: transaction.currency,
+        category: transaction.category,
+        date: transaction.effectiveDateYMD,
+        time: transaction.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        type: transaction.type,
+        period: transaction.period,
+        tags: transaction.tags || [],
+        notes: transaction.notes || "",
+        priority: transaction.priority || "medium",
       });
-      onClose();
-      return;
-    }
-
-    const isRecurring = period !== "oneTime";
-
-    if (!isRecurring) {
-      const tx: Transaction = {
-        id: uid(),
-        createdAtISO: nowISO,
-        effectiveDateYMD: dateYMD,
-        description: desc.trim(),
-        type: txType,
-        amount: signed,
-        currency: ccy,
-        category: cat,
-        period,
-        isMaster: false,
-        notes: notes.trim() || undefined,
-        time: time.trim() || undefined,
-      };
-      engine.addTx(tx);
-      onClose();
-      return;
-    }
-
-    // Recurring creation logic:
-    // - ALWAYS visible immediately: create a Master (isMaster=true)
-    // - Optionally also add a first booked occurrence NOW (isMaster=false) so balance changes instantly if desired
-    const master: Transaction = {
-      id: uid(),
-      createdAtISO: nowISO,
-      effectiveDateYMD: dateYMD, // "rule start"
-      description: desc.trim(),
-      type: txType,
-      amount: signed,
-      currency: ccy,
-      category: cat,
-      period,
-      isMaster: true,
-      notes: notes.trim() || undefined,
-      time: time.trim() || undefined,
-    };
-    engine.addTx(master);
-
-    if (addFirstOccurrenceNow) {
-      const occurrence: Transaction = {
-        id: uid(),
-        createdAtISO: new Date(Date.now() + 1).toISOString(), // keep it just after master in ordering
-        effectiveDateYMD: dateYMD,
-        description: `${desc.trim()} ${t('budget.modal.firstOcc')}`,
-        type: txType,
-        amount: signed,
-        currency: ccy,
-        category: cat,
+    } else {
+      setForm({
+        description: "",
+        amount: "",
+        currency: engine.currency,
+        category: "other",
+        date: todayYMD,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        type: "expense",
         period: "oneTime",
-        isMaster: false,
-        notes: notes.trim() || undefined,
-        time: time.trim() || undefined,
-      };
-      engine.addTx(occurrence);
+        tags: [],
+        notes: "",
+        priority: "medium",
+      });
+    }
+  }, [mode, transaction, engine.currency, todayYMD]);
+
+  const handleSubmit = () => {
+    const amount = parseFloat(form.amount);
+    if (!form.description.trim() || isNaN(amount) || amount <= 0) {
+      engine.addNotification({
+        title: t('notifications.validationError'),
+        message: t('notifications.pleaseCheckFields'),
+        type: "error",
+        timestamp: new Date().toISOString(),
+        read: false,
+      });
+      return;
+    }
+
+    const transactionData = {
+      description: form.description.trim(),
+      amount: form.type === "income" ? Math.abs(amount) : -Math.abs(amount),
+      currency: form.currency,
+      category: form.category,
+      effectiveDateYMD: form.date,
+      time: form.time,
+      type: form.type,
+      period: form.period,
+      tags: form.tags,
+      notes: form.notes.trim() || undefined,
+      priority: form.priority,
+      isMaster: false,
+      status: "completed" as TransactionStatus,
+      // Fix for new Type requirement
+      date: form.date,
+      kind: 'history' as const, // Default for manual entry
+      recurring: false
+    };
+
+    if (mode === "edit" && transaction) {
+      engine.updateTransaction(transaction.id, transactionData);
+    } else {
+      engine.addTransaction(transactionData);
     }
 
     onClose();
   };
 
-  if (!isOpen) return null;
-
-  return (
-    <ModalShell
-      title={
-        <span className="inline-flex items-center gap-2">
-          {txType === "income" ? <TrendingUp size={18} className="text-emerald-300" /> : <Plus size={18} className="text-blue-200" />}
-          {title}
-        </span>
-      }
-      onClose={onClose}
-      footer={
-        <div className="flex flex-col gap-3">
-          {period !== "oneTime" && mode === "create" && (
-            <label className="flex items-center gap-2 text-sm font-bold text-white/75">
-              <input type="checkbox" checked={addFirstOccurrenceNow} onChange={(e) => setAddFirstOccurrenceNow(e.target.checked)} />
-              {t('budget.modal.checkbox.firstOcc')}
-            </label>
-          )}
-          <Button variant="primary" className="w-full py-3" onClick={save} leftIcon={<Check size={16} />}>
-            {t('common.save')}
-          </Button>
-        </div>
-      }
-    >
-      <div className="space-y-4">
-        <div className="rounded-[26px] border border-white/10 bg-white/6 p-4">
-          <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('budget.modal.amount')}</div>
-          <div className="mt-2 flex items-center gap-2">
-            <Input inputMode="decimal" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} className="text-lg font-black" />
-            <Select className="w-40" value={ccy} onChange={(e) => setCcy(e.target.value)}>
-              {AVAILABLE_CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="mt-2 text-xs font-bold text-white/45">{t('budget.modal.tip.amount')}</div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('budget.modal.description')}</div>
-          <Input placeholder={t('budget.modal.placeholder.desc')} value={desc} onChange={(e) => setDesc(e.target.value)} />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('budget.modal.category')}</div>
-            <Select value={cat} onChange={(e) => setCat(e.target.value as CategoryKey)}>
-              {Object.entries(CATEGORIES).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('budget.modal.date')} & {t('budget.time.optional')}</div>
-            <div className="flex gap-2">
-              <Input type="date" value={dateYMD} onChange={(e) => setDateYMD(e.target.value)} />
-              <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-32" />
-            </div>
-            <div className="text-[11px] font-bold text-white/45">
-              {t('budget.modal.tip.date')}
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('budget.modal.period')}</div>
-          <div className="flex flex-wrap gap-2">
-            {(["oneTime", "daily", "weekly", "monthly", "yearly"] as TransactionPeriod[]).map((p) => {
-              const active = period === p;
-              return (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={cx(
-                    "px-3 py-2 rounded-2xl border text-sm font-black transition",
-                    active ? "bg-blue-500/18 border-blue-400/25 text-blue-100" : "bg-white/4 border-white/10 text-white/75 hover:bg-white/8"
-                  )}
-                >
-                  {getPeriodLabel(p, t)}
-                </button>
-              );
-            })}
-          </div>
-          {period !== "oneTime" && (
-            <div className="rounded-2xl border border-purple-400/20 bg-purple-500/10 p-3 text-sm font-bold text-purple-100/90 inline-flex items-center gap-2">
-              <Repeat size={16} /> {t('budget.modal.recurringInfo')}
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('budget.modal.notes')}</div>
-          <Input placeholder={t('budget.modal.placeholder.notes')} value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </div>
-      </div>
-    </ModalShell>
-  );
-};
-
-/* -------------------------------- Currency Converter Modal -------------------------------- */
-
-const CurrencyConverterModal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  engine: ReturnType<typeof useBudgetEngine>;
-}> = ({ isOpen, onClose, engine }) => {
-  const { t } = useLanguage();
-  const [from, setFrom] = useState(engine.currency);
-  const [to, setTo] = useState("EUR");
-  const [amount, setAmount] = useState("100");
-  const [loading, setLoading] = useState(false);
-  const [stamp, setStamp] = useState("");
-
-  useEffect(() => {
-    if (!isOpen) return;
-    setFrom(engine.currency);
-  }, [isOpen, engine.currency]);
-
-  const parsed = useMemo(() => safeParseMoney(amount), [amount]);
-  const converted = useMemo(() => engine.safeConvert(parsed, from, to), [parsed, from, to, engine.safeConvert]);
-  const rate = useMemo(() => engine.safeConvert(1, from, to), [from, to, engine.safeConvert]);
-
-  const refresh = async () => {
-    setLoading(true);
-    try {
-      const maybe = CurrencyService?.fetchRealTimeRates?.();
-      await Promise.resolve(maybe);
-      setStamp(new Date().toLocaleString(engine.language === "hu" ? "hu-HU" : "en-US"));
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
+  const addTag = () => {
+    if (tagInput.trim() && !form.tags.includes(tagInput.trim())) {
+      setForm(prev => ({ ...prev, tags: [...prev.tags, tagInput.trim()] }));
+      setTagInput("");
     }
   };
 
-  useEffect(() => {
-    if (!isOpen) return;
-    refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  const removeTag = (tag: string) => {
+    setForm(prev => ({ ...prev, tags: prev.tags.filter(t => t !== tag) }));
+  };
 
   if (!isOpen) return null;
 
   return (
-    <ModalShell
-      title={
-        <span className="inline-flex items-center gap-2">
-          <RefreshCcw size={18} className="text-blue-200" /> {t('currency.converter.title')}
-        </span>
-      }
-      onClose={onClose}
-      footer={
-        <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-          <div className="text-xs font-bold text-white/55">{stamp ? `Frissítve: ${stamp}` : "Frissítés… / nincs timestamp"}</div>
-          <Button onClick={refresh} leftIcon={loading ? <Loader2 className="animate-spin" size={16} /> : <RefreshCcw size={16} />} variant="secondary">
-            Árfolyam frissítés
-          </Button>
-        </div>
-      }
-    >
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-3 items-end">
-          <div className="space-y-2">
-            <div className="text-xs font-black uppercase tracking-wide text-white/60">From</div>
-            <Select value={from} onChange={(e) => setFrom(e.target.value)}>
-              {AVAILABLE_CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <div className="flex justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="w-full max-w-2xl rounded-3xl bg-gradient-to-b from-gray-900 to-gray-950 border border-white/10 shadow-2xl overflow-hidden"
+      >
+        <div className="p-6 border-b border-white/10">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-black text-white">
+              {mode === "edit"
+                ? t('transactions.editTransaction')
+                : t('transactions.newTransaction')}
+            </h2>
             <button
-              onClick={() => {
-                setFrom(to);
-                setTo(from);
-              }}
-              className="mt-6 sm:mt-0 p-3 rounded-2xl border border-white/10 bg-white/6 hover:bg-white/10 transition"
-              aria-label="Swap"
-              title="Swap"
+              onClick={onClose}
+              className="p-2 rounded-xl hover:bg-white/10 transition-colors"
             >
-              <ArrowRightLeft size={18} className="text-white" />
+              <X size={20} className="text-white/60" />
             </button>
           </div>
-
-          <div className="space-y-2">
-            <div className="text-xs font-black uppercase tracking-wide text-white/60">To</div>
-            <Select value={to} onChange={(e) => setTo(e.target.value)}>
-              {AVAILABLE_CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code}
-                </option>
-              ))}
-            </Select>
-          </div>
         </div>
 
-        <Divider />
+        <div className="p-6 max-h-[70vh] overflow-y-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-bold text-white/80 mb-2">
+                  {t('transactions.description')}
+                </label>
+                <AnimatedInput
+                  value={form.description}
+                  onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder={t('transactions.descriptionPlaceholder')}
+                />
+              </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('currency.amount')}</div>
-            <Input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" />
-            <div className="text-xs font-bold text-white/55">
-              1 {from} ≈ <span className="text-white font-black">{engine.formatMoney(rate, to)}</span>
+              <div>
+                <label className="block text-sm font-bold text-white/80 mb-2">
+                  {t('transactions.amount')}
+                </label>
+                <div className="flex gap-3">
+                  <AnimatedInput
+                    type="number"
+                    value={form.amount}
+                    onChange={(e) => setForm(prev => ({ ...prev, amount: e.target.value }))}
+                    placeholder="0.00"
+                    className="flex-1"
+                  />
+                  <select
+                    value={form.currency}
+                    onChange={(e) => setForm(prev => ({ ...prev, currency: e.target.value }))}
+                    className="px-4 py-3 rounded-2xl border-2 border-white/20 bg-white/[0.06] text-white font-bold outline-none"
+                  >
+                    {AVAILABLE_CURRENCIES.map((c) => (
+                      <option key={c.code} value={c.code}>{c.code}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-white/80 mb-2">
+                  {t('transactions.category')}
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {Object.entries(categories).slice(0, 6).map(([key, cat]) => (
+                    <button
+                      key={key}
+                      onClick={() => setForm(prev => ({ ...prev, category: key as CategoryKey }))}
+                      className={`p-3 rounded-2xl border-2 transition-all ${form.category === key
+                        ? 'border-white/40 bg-white/10'
+                        : 'border-white/10 hover:border-white/20'
+                        }`}
+                    >
+                      <div className="flex flex-col items-center gap-1">
+                        <div style={{ color: cat.color }}>{cat.icon}</div>
+                        <span className="text-xs font-bold text-white/80">{cat.label}</span>
+                      </div>
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => {
+                      // Show more categories
+                    }}
+                    className="p-3 rounded-2xl border-2 border-white/10 hover:border-white/20 transition-all"
+                  >
+                    <div className="flex flex-col items-center gap-1">
+                      <MoreVertical size={16} className="text-white/60" />
+                      <span className="text-xs font-bold text-white/60">More</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-bold text-white/80 mb-2">
+                  {t('transactions.dateTime')}
+                </label>
+                <div className="flex gap-3">
+                  <AnimatedInput
+                    type="date"
+                    value={form.date}
+                    onChange={(e) => setForm(prev => ({ ...prev, date: e.target.value }))}
+                    className="flex-1"
+                  />
+                  <AnimatedInput
+                    type="time"
+                    value={form.time}
+                    onChange={(e) => setForm(prev => ({ ...prev, time: e.target.value }))}
+                    className="w-32"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-white/80 mb-2">
+                  {t('transactions.type')}
+                </label>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setForm(prev => ({ ...prev, type: "income" }))}
+                    className={`flex-1 p-3 rounded-2xl border-2 transition-all ${form.type === "income"
+                      ? 'border-emerald-400/50 bg-emerald-500/10 text-emerald-100'
+                      : 'border-white/10 hover:border-white/20'
+                      }`}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <TrendingUp size={16} />
+                      <span className="font-bold">{t('transactions.income')}</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setForm(prev => ({ ...prev, type: "expense" }))}
+                    className={`flex-1 p-3 rounded-2xl border-2 transition-all ${form.type === "expense"
+                      ? 'border-rose-400/50 bg-rose-500/10 text-rose-100'
+                      : 'border-white/10 hover:border-white/20'
+                      }`}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <TrendingDown size={16} />
+                      <span className="font-bold">{t('transactions.expense')}</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-white/80 mb-2">
+                  {t('transactions.tags')}
+                </label>
+                <div className="flex gap-2 mb-2">
+                  <AnimatedInput
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && addTag()}
+                    placeholder={t('transactions.addTag')}
+                    className="flex-1"
+                  />
+                  <GradientButton
+                    onClick={addTag}
+                    variant="secondary"
+                    size="lg"
+                  >
+                    <Plus size={16} />
+                  </GradientButton>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {form.tags.map(tag => (
+                    <Tag
+                      key={tag}
+                      label={tag}
+                      removable
+                      onRemove={() => removeTag(tag)}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-[26px] border border-white/10 bg-white/6 p-4">
-            <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('currency.result')}</div>
-            <div className="mt-2 text-2xl font-black text-white tabular-nums">{engine.formatMoney(converted, to)}</div>
-            <div className="mt-1 text-xs font-bold text-white/45">
-              {engine.formatMoney(parsed, from)} → {engine.formatMoney(converted, to)}
+          {/* Additional Fields */}
+          <div className="mt-6 space-y-6">
+            <div>
+              <label className="block text-sm font-bold text-white/80 mb-2">
+                {t('transactions.notes')}
+              </label>
+              <textarea
+                value={form.notes}
+                onChange={(e) => setForm(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder={t('transactions.notesPlaceholder')}
+                className="w-full h-24 px-4 py-3 rounded-2xl border-2 border-white/20 bg-white/[0.06] text-white font-semibold placeholder:text-white/40 outline-none focus:border-blue-400/60 resize-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-bold text-white/80 mb-2">
+                  {t('transactions.period')}
+                </label>
+                <select
+                  value={form.period}
+                  onChange={(e) => setForm(prev => ({ ...prev, period: e.target.value as TransactionPeriod }))}
+                  className="w-full px-4 py-3 rounded-2xl border-2 border-white/20 bg-white/[0.06] text-white font-bold outline-none"
+                >
+                  <option value="oneTime">{t('period.oneTime')}</option>
+                  <option value="daily">{t('period.daily')}</option>
+                  <option value="weekly">{t('period.weekly')}</option>
+                  <option value="monthly">{t('period.monthly')}</option>
+                  <option value="yearly">{t('period.yearly')}</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-white/80 mb-2">
+                  {t('transactions.priority')}
+                </label>
+                <select
+                  value={form.priority}
+                  onChange={(e) => setForm(prev => ({ ...prev, priority: e.target.value as PriorityLevel }))}
+                  className="w-full px-4 py-3 rounded-2xl border-2 border-white/20 bg-white/[0.06] text-white font-bold outline-none"
+                >
+                  <option value="low">{t('priority.low')}</option>
+                  <option value="medium">{t('priority.medium')}</option>
+                  <option value="high">{t('priority.high')}</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </ModalShell>
+
+        <div className="p-6 border-t border-white/10">
+          <div className="flex gap-3">
+            <GradientButton
+              onClick={onClose}
+              variant="ghost"
+              fullWidth
+            >
+              {t('common.cancel')}
+            </GradientButton>
+            <GradientButton
+              onClick={handleSubmit}
+              variant="primary"
+              fullWidth
+              leftIcon={<Check size={16} />}
+            >
+              {mode === 'edit' ? t('common.update') : t('common.save')}
+            </GradientButton>
+          </div>
+        </div>
+      </motion.div>
+    </div>
   );
 };
 
-/* -------------------------------- Ledger Row -------------------------------- */
+/* -------------------------------- Main Enhanced Component -------------------------------- */
 
-const CategoryBadge: React.FC<{ def: CategoryDef }> = ({ def }) => (
-  <span className="px-2.5 py-1 rounded-xl text-[11px] font-extrabold border" style={{ background: def.bg, borderColor: def.border, color: def.color }}>
-    {def.label}
-  </span>
-);
+const EnhancedBudgetView: React.FC = () => {
+  const engine = useEnhancedBudgetEngine();
+  const { t, balanceStats, analytics, cashFlowProjection, notifications } = engine;
 
-const LedgerRow: React.FC<{
-  tx: Transaction;
-  selected: boolean;
-  onToggle: (id: string) => void;
-  onEdit: (tx: Transaction) => void;
-  onDelete: (id: string) => void;
-  engine: ReturnType<typeof useBudgetEngine>;
-}> = React.memo(({ tx, selected, onToggle, onEdit, onDelete, engine }) => {
-  const { t } = useLanguage();
-  const isIncome = tx.type === "income";
-  const amountAbs = Math.abs(tx.amount);
+  const [activeTab, setActiveTab] = useState<"dashboard" | "transactions" | "analytics" | "goals" | "settings">("dashboard");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
 
-  const affectsNow =
-    tx.isMaster ? false : (engine.balanceMode === "includeScheduled" ? true : tx.effectiveDateYMD <= engine.todayYMD);
-
-  return (
-    <div
-      className={cx(
-        "group flex items-center justify-between gap-3 px-4 py-4 border-l-4 transition cursor-pointer",
-        selected ? "bg-blue-500/10 border-l-blue-400/60" : "border-l-transparent hover:bg-white/6 hover:border-l-white/15"
-      )}
-      onClick={() => onEdit(tx)}
-      role="button"
-      tabIndex={0}
-    >
-      <div className="flex items-center gap-3 min-w-0">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle(tx.id);
-          }}
-          className={cx(
-            "p-2 rounded-2xl border transition",
-            selected ? "bg-blue-500/20 border-blue-400/30 text-blue-100" : "bg-white/6 border-white/10 text-white/55 hover:bg-white/10"
-          )}
-          aria-label="Select"
-        >
-          {selected ? <CheckSquare size={18} /> : <Square size={18} />}
-        </button>
-
-        <div className={cx("p-2 rounded-2xl border", isIncome ? "bg-emerald-500/10 border-emerald-400/20" : "bg-rose-500/10 border-rose-400/20")}>
-          {isIncome ? <ArrowUpRight size={18} className="text-emerald-200" /> : <ArrowDownRight size={18} className="text-rose-200" />}
-        </div>
-
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2 min-w-0">
-            <div className="font-black text-white truncate">{tx.description}</div>
-            {tx.isMaster && (
-              <Chip tone="purple">
-                <Repeat size={12} /> {t('budget.ledger.template')}
-              </Chip>
-            )}
-            {!tx.isMaster && tx.effectiveDateYMD > engine.todayYMD && (
-              <Chip tone="blue">
-                <CalendarClock size={12} /> {t('budget.ledger.scheduled')}
-              </Chip>
-            )}
-            {!tx.isMaster && affectsNow && (
-              <Chip tone="green">
-                <Sparkles size={12} /> {t('budget.ledger.booked')}
-              </Chip>
-            )}
-          </div>
-
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-bold text-white/60">
-            <CategoryBadge def={engine.CATEGORIES[tx.category]} />
-            <span className="text-white/25">•</span>
-            <span>{t('budget.ledger.effect')}: {engine.formatDate(tx.effectiveDateYMD)}</span>
-            <span className="text-white/25">•</span>
-            <Chip tone="neutral">{getPeriodLabel(tx.period, t)}</Chip>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3 shrink-0">
-        <div className={cx("text-right font-black tabular-nums", isIncome ? "text-emerald-200" : "text-white")}>
-          {isIncome ? "+" : "−"}
-          {engine.formatMoney(amountAbs, tx.currency)}
-        </div>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(tx.id);
-          }}
-          className="opacity-0 group-hover:opacity-100 transition p-2 rounded-2xl border border-white/10 bg-white/6 hover:bg-rose-500/15"
-          aria-label="Delete"
-          title={t('common.delete')}
-        >
-          <Trash2 size={18} className="text-rose-200" />
-        </button>
-      </div>
-    </div>
+  const unreadNotifications = useMemo(
+    () => notifications.filter(n => !n.read).length,
+    [notifications]
   );
-});
 
-/* -------------------------------- Main Component -------------------------------- */
-
-const BudgetViewPro: React.FC = () => {
-  const { t } = useLanguage();
-  const engine = useBudgetEngine();
-
-  const [tab, setTab] = useState<"overview" | "ledger" | "planning">("overview");
-  const [search, setSearch] = useState("");
-  const [catFilter, setCatFilter] = useState<CategoryKey | "all">("all");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [page, setPage] = useState(1);
-  const ITEMS_PER_PAGE = 50;
-
-  // modals
-  const [showConverter, setShowConverter] = useState(false);
-  const [showTxModal, setShowTxModal] = useState(false);
-  const [txModalType, setTxModalType] = useState<TransactionType>("expense");
-  const [txModalMode, setTxModalMode] = useState<"create" | "edit">("create");
-  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
-
-  // delete confirms
-  const [confirm, setConfirm] = useState<null | { kind: "selected" | "one"; id?: string }>(null);
-
-  const openCreate = (type: TransactionType) => {
-    setTxModalType(type);
-    setTxModalMode("create");
-    setEditingTx(null);
-    setShowTxModal(true);
-  };
-
-  const openEdit = (tx: Transaction) => {
-    setTxModalType(tx.type);
-    setTxModalMode("edit");
-    setEditingTx(tx);
-    setShowTxModal(true);
-  };
-
-  const toggleSel = (id: string) => {
-    setSelected((prev) => {
-      const n = new Set(prev);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
-      return n;
-    });
-  };
-
-  const clearSel = () => setSelected(new Set());
-
-  // Filters
-  const filteredLedger = useMemo(() => {
-    let list = engine.ledger;
-
-    const st = search.trim();
-    if (st) {
-      const lower = st.toLowerCase();
-      const digits = normalizeDigits(st);
-      const hasDigits = /\d/.test(digits);
-
-      list = list.filter((tx) => {
-        const d = tx.description.toLowerCase();
-        const a = normalizeDigits(String(tx.amount));
-        return d.includes(lower) || (hasDigits && a.includes(digits));
-      });
-    }
-
-    if (catFilter !== "all") list = list.filter((tx) => tx.category === catFilter);
-
-    return list;
-  }, [engine.ledger, search, catFilter]);
-
-  useEffect(() => {
-    setPage(1);
-    clearSel();
-  }, [search, catFilter, tab]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredLedger.length / ITEMS_PER_PAGE));
-  const paginated = useMemo(() => filteredLedger.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE), [filteredLedger, page]);
-
-  // Overview cards
-  const { balance, income, expense } = engine.balanceStats;
-
-  const categoryData = useMemo(() => {
-    const entries = Object.entries(engine.categoryTotals) as Array<[CategoryKey, number]>;
-    return entries
-      .map(([k, v]) => ({
-        key: k,
-        name: engine.CATEGORIES[k].label,
-        value: Number(v) || 0,
-        color: engine.CATEGORIES[k].color,
-      }))
-      .filter((x) => x.value > 0)
-      .sort((a, b) => b.value - a.value);
-  }, [engine.categoryTotals, engine.CATEGORIES]);
-
-  const deleteSelected = () => {
-    engine.deleteMany(Array.from(selected));
-    clearSel();
-  };
+  // Quick actions
+  const quickActions = [
+    { label: t('quickActions.addExpense'), icon: <Plus />, color: "rose", action: () => setShowTransactionModal(true) },
+    { label: t('quickActions.addIncome'), icon: <TrendingUp />, color: "emerald", action: () => setShowTransactionModal(true) },
+    { label: t('quickActions.setGoal'), icon: <Target />, color: "purple", action: () => setActiveTab("goals") },
+    { label: t('quickActions.export'), icon: <Download />, color: "blue", action: () => engine.exportData('json') },
+  ];
 
   return (
-    <div className="min-h-screen w-full bg-[#070b14] text-white">
-      {/* Background glow */}
-      <div className="pointer-events-none fixed inset-0 opacity-70">
-        <div className="absolute -top-40 -left-40 w-[520px] h-[520px] rounded-full bg-blue-500/20 blur-[120px]" />
-        <div className="absolute top-40 -right-40 w-[520px] h-[520px] rounded-full bg-purple-500/20 blur-[120px]" />
-        <div className="absolute bottom-0 left-1/4 w-[720px] h-[720px] rounded-full bg-emerald-500/10 blur-[140px]" />
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-white">
+      {/* Animated Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 -right-40 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
       </div>
 
-      <div className="relative max-w-7xl mx-auto p-5 space-y-4">
+      <div className="relative z-10 max-w-7xl mx-auto p-4 md:p-6">
         {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 grid place-items-center shadow-[0_18px_60px_-30px_rgba(16,185,129,1)]">
-              <Wallet size={18} className="text-white" />
+        <header className="mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-[0_8px_32px_rgba(59,130,246,0.3)]">
+                <Wallet size={24} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-black bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
+                  {t('app.title') || "Budget Pro"}
+                </h1>
+                <p className="text-white/60 font-medium">
+                  {t('app.subtitle') || "Advanced financial management"}
+                </p>
+              </div>
+              <div className="hidden md:flex items-center gap-2">
+                <span className="px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/30 text-sm font-bold">
+                  PREMIUM
+                </span>
+              </div>
             </div>
-            <div>
-              <div className="text-2xl font-black">{t('budget.title')}</div>
-              <div className="text-sm font-bold text-white/55">{t('budget.subtitle')}</div>
-            </div>
-            <Chip tone="blue">PRO</Chip>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Select className="w-40" value={engine.currency} onChange={(e) => engine.setCurrency(e.target.value)}>
-              {AVAILABLE_CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code}
-                </option>
-              ))}
-            </Select>
+            <div className="flex items-center gap-3">
+              {/* Currency Selector */}
+              <select
+                value={engine.currency}
+                onChange={(e) => engine.setCurrency(e.target.value)}
+                className="px-4 py-2.5 rounded-2xl border border-white/20 bg-white/5 text-white font-bold outline-none"
+              >
+                {AVAILABLE_CURRENCIES.map(c => (
+                  <option key={c.code} value={c.code}>{c.code}</option>
+                ))}
+              </select>
 
-            <Button variant="secondary" onClick={() => setShowConverter(true)} leftIcon={<RefreshCcw size={16} />}>
-              {t('currency.converter')}
-            </Button>
-
-            <Button variant="secondary" onClick={() => openCreate("income")} leftIcon={<TrendingUp size={16} />}>
-              {t('budget.modal.createIncome')}
-            </Button>
-
-            <Button variant="primary" onClick={() => openCreate("expense")} leftIcon={<Plus size={16} />}>
-              {t('budget.modal.createExpense')}
-            </Button>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex items-center gap-2 border-b border-white/10">
-          {[
-            { key: "overview", label: t('budget.tab.overview') },
-            { key: "ledger", label: t('budget.tab.ledger') },
-            { key: "planning", label: t('budget.tab.planning') },
-          ].map((x) => {
-            const active = tab === (x.key as any);
-            return (
+              {/* Notifications */}
               <button
-                key={x.key}
-                onClick={() => setTab(x.key as any)}
-                className={cx(
-                  "relative px-4 py-3 text-sm font-black transition",
-                  active ? "text-blue-200" : "text-white/55 hover:text-white"
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative p-2.5 rounded-2xl border border-white/20 bg-white/5 hover:bg-white/10 transition-colors"
+              >
+                <Bell size={20} className="text-white" />
+                {unreadNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-500 text-xs font-bold flex items-center justify-center">
+                    {unreadNotifications}
+                  </span>
                 )}
-              >
-                {x.label}
-                {active && <div className="absolute left-0 right-0 -bottom-[1px] h-[3px] bg-blue-400 rounded-t-full" />}
               </button>
-            );
-          })}
-        </div>
 
-        {/* Content */}
-        {tab === "overview" && (
-          <>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Balance card */}
-              <GlassCard
-                title={t('budget.balance')}
-                right={
-                  <Select
-                    className="w-56 text-xs"
-                    value={engine.balanceMode}
-                    onChange={(e) => engine.setBalanceMode(e.target.value as BalanceMode)}
-                  >
-                    <option value="realizedOnly">{t('budget.balanceMode.realizedOnly')}</option>
-                    <option value="includeScheduled">{t('budget.balanceMode.includeScheduled')}</option>
-                  </Select>
-                }
+              {/* Quick Add */}
+              <GradientButton
+                onClick={() => setShowTransactionModal(true)}
+                leftIcon={<Plus size={16} />}
               >
-                <div className="text-4xl font-black tabular-nums">{engine.formatMoney(balance)}</div>
-                <div className="mt-1 text-sm font-bold text-white/55">
-                  {t('budget.tip.balance')}
-                </div>
+                {t('transactions.add')}
+              </GradientButton>
+            </div>
+          </div>
 
-                <Divider />
+          {/* Navigation Tabs */}
+          <nav className="flex flex-wrap gap-2 border-b border-white/10 pb-2">
+            {[
+              { id: "dashboard", label: t('tabs.dashboard'), icon: <BarChart3 size={16} /> },
+              { id: "transactions", label: t('tabs.transactions'), icon: <FileText size={16} /> },
+              { id: "analytics", label: t('tabs.analytics'), icon: <PieChartIcon size={16} /> },
+              { id: "goals", label: t('tabs.goals'), icon: <Target size={16} /> },
+              { id: "settings", label: t('tabs.settings'), icon: <Settings size={16} /> },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all ${activeTab === tab.id
+                  ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-white border border-blue-400/30'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </header>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-[22px] border border-emerald-400/20 bg-emerald-500/10 p-4">
-                    <div className="text-xs font-black uppercase tracking-wide text-emerald-200/80">{t('budget.modal.income')}</div>
-                    <div className="mt-2 text-xl font-black text-emerald-200 tabular-nums">{engine.formatMoney(income)}</div>
-                  </div>
+        {/* Main Content */}
+        <main>
+          {activeTab === "dashboard" && (
+            <div className="space-y-6">
+              {/* Quick Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard
+                  title={t('stats.balance')}
+                  value={engine.formatCurrency(balanceStats.balance)}
+                  change={5.2}
+                  icon={<Wallet size={20} />}
+                  color="blue"
+                  trend="up"
+                />
+                <StatCard
+                  title={t('stats.income')}
+                  value={engine.formatCurrency(balanceStats.income)}
+                  change={12.5}
+                  icon={<TrendingUp size={20} />}
+                  color="green"
+                  trend="up"
+                />
+                <StatCard
+                  title={t('stats.expenses')}
+                  value={engine.formatCurrency(balanceStats.expense)}
+                  change={-3.2}
+                  icon={<TrendingDown size={20} />}
+                  color="red"
+                  trend="down"
+                />
+                <StatCard
+                  title={t('stats.savings')}
+                  value={engine.formatCurrency(analytics.totalSavings)}
+                  change={8.7}
+                  icon={<Star size={20} />}
+                  color="purple"
+                  trend="up"
+                />
+              </div>
 
-                  <div className="rounded-[22px] border border-rose-400/20 bg-rose-500/10 p-4">
-                    <div className="text-xs font-black uppercase tracking-wide text-rose-200/80">{t('budget.modal.expense')}</div>
-                    <div className="mt-2 text-xl font-black text-rose-200 tabular-nums">{engine.formatMoney(expense)}</div>
-                  </div>
-                </div>
-              </GlassCard>
+              {/* Charts Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Cash Flow Chart */}
+                <EnhancedChartFrame
+                  title={t('charts.cashFlow')}
+                  height={400}
+                >
+                  {({ width, height }) => (
+                    <ResponsiveContainer width={width} height={height}>
+                      <ComposedChart data={cashFlowProjection}>
+                        <defs>
+                          <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                        <XAxis
+                          dataKey="month"
+                          stroke="rgba(255,255,255,0.4)"
+                          tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 12 }}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          stroke="rgba(255,255,255,0.4)"
+                          tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 12 }}
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(value) => `${value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}`}
+                        />
+                        <RechartsTooltip content={<CustomTooltip currency={engine.currency} />} />
+                        <Legend iconType="circle" />
 
-              {/* Cashflow */}
-              <GlassCard title={engine.balanceMode === "includeScheduled" ? t('budget.chart.cashFlow.projected') : t('budget.chart.cashFlow.realized')}>
-                <ChartFrame height={300}>
-                  {() => (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={engine.cashFlowData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "rgba(255,255,255,0.6)" }} dy={10} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "rgba(255,255,255,0.6)" }} />
-                        <Tooltip />
-                        <Area type="monotone" dataKey="income" stroke="#34d399" fill="#34d399" fillOpacity={0.18} />
-                        <Area type="monotone" dataKey="expense" stroke="#fb7185" fill="#fb7185" fillOpacity={0.14} />
-                      </AreaChart>
+                        <Bar dataKey="income" name={t('stats.income')} fill="#10b981" radius={[4, 4, 0, 0]} barSize={8} fillOpacity={0.8} />
+                        <Bar dataKey="expense" name={t('stats.expenses')} fill="#f87171" radius={[4, 4, 0, 0]} barSize={8} fillOpacity={0.8} />
+
+                        <Area
+                          type="monotone"
+                          dataKey="balance"
+                          name={t('stats.balance')}
+                          stroke="#8b5cf6"
+                          strokeWidth={3}
+                          fill="url(#colorBalance)"
+                        />
+                      </ComposedChart>
                     </ResponsiveContainer>
                   )}
-                </ChartFrame>
-              </GlassCard>
+                </EnhancedChartFrame>
 
-              {/* Categories */}
-              <GlassCard title={t('budget.chart.categories')}>
-                <ChartFrame height={300}>
-                  {() =>
-                    categoryData.length ? (
-                      <ResponsiveContainer width="100%" height="100%">
+                {/* Category Breakdown */}
+                <EnhancedChartFrame
+                  title={t('charts.categoryBreakdown')}
+                  height={400}
+                >
+                  {({ width, height }) => {
+                    const data = Object.entries(analytics.categoryBreakdown)
+                      .filter(([_, value]) => value.total > 0)
+                      .map(([category, value]) => ({
+                        name: engine.categories[category as CategoryKey]?.label || category,
+                        value: value.total,
+                        color: engine.categories[category as CategoryKey]?.color || '#94a3b8',
+                      }))
+                      .sort((a, b) => b.value - a.value)
+                      .slice(0, 8);
+
+                    return data.length > 0 ? (
+                      <ResponsiveContainer width={width} height={height}>
                         <RechartsPieChart>
-                          <Pie data={categoryData} cx="50%" cy="50%" innerRadius={72} outerRadius={100} paddingAngle={4} dataKey="value">
-                            {categoryData.map((entry) => (
-                              <Cell key={entry.key} fill={entry.color} />
+                          <Pie
+                            data={data}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={100}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {data.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
-                          <Tooltip />
+                          <RechartsTooltip content={<CustomTooltip currency={engine.currency} />} />
+                          <Legend />
                         </RechartsPieChart>
                       </ResponsiveContainer>
                     ) : (
-                      <div className="h-full grid place-items-center text-white/45 text-sm font-bold">{t('common.noData')}</div>
-                    )
-                  }
-                </ChartFrame>
-
-                {categoryData.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {categoryData.slice(0, 5).map((c) => (
-                      <div key={c.key} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/4 px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full" style={{ background: c.color }} />
-                          <div className="text-xs font-black text-white/80">{c.name}</div>
-                        </div>
-                        <div className="text-xs font-black tabular-nums">{engine.formatMoney(c.value)}</div>
+                      <div className="flex items-center justify-center h-full">
+                        <p className="text-white/40 text-sm font-medium">No data available</p>
                       </div>
-                    ))}
+                    );
+                  }}
+                </EnhancedChartFrame>
+              </div>
+
+              {/* Quick Actions & Recent Transactions */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Quick Actions */}
+                <GlassCard>
+                  <div className="p-6">
+                    <h3 className="text-lg font-black text-white mb-4">{t('quickActions.title')}</h3>
+                    <div className="space-y-3">
+                      {quickActions.map((action, index) => (
+                        <button
+                          key={index}
+                          onClick={action.action}
+                          className="w-full flex items-center gap-3 p-3 rounded-2xl border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all group"
+                        >
+                          <div className={`p-2 rounded-xl bg-${action.color}-500/10 border border-${action.color}-400/20 group-hover:scale-110 transition-transform`}>
+                            <div style={{ color: `var(--color-${action.color}-400)` }}>
+                              {action.icon}
+                            </div>
+                          </div>
+                          <span className="font-bold text-white/80 group-hover:text-white">
+                            {action.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                )}
-              </GlassCard>
+                </GlassCard>
+
+                {/* Recent Transactions */}
+                <GlassCard className="lg:col-span-2">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-black text-white">{t('transactions.recent')}</h3>
+                      <button
+                        onClick={() => setActiveTab("transactions")}
+                        className="text-sm font-bold text-blue-400 hover:text-blue-300"
+                      >
+                        {t('common.viewAll')}
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {analytics.topTransactions.slice(0, 5).map((tx) => (
+                        <div
+                          key={tx.id}
+                          className="flex items-center justify-between p-3 rounded-2xl border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all cursor-pointer"
+                          onClick={() => {
+                            setEditingTransaction(tx);
+                            setShowTransactionModal(true);
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-xl ${tx.type === "income"
+                              ? "bg-emerald-500/10 border border-emerald-400/20"
+                              : "bg-rose-500/10 border border-rose-400/20"
+                              }`}>
+                              {tx.type === "income" ?
+                                <TrendingUp size={16} className="text-emerald-300" /> :
+                                <TrendingDown size={16} className="text-rose-300" />
+                              }
+                            </div>
+                            <div>
+                              <p className="font-bold text-white">{tx.description}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Tag label={engine.categories[tx.category].label} color={engine.categories[tx.category].color} />
+                                <span className="text-xs text-white/40">{engine.formatDate(tx.effectiveDateYMD)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className={`font-black ${tx.type === "income" ? "text-emerald-300" : "text-rose-300"
+                            }`}>
+                            {tx.type === "income" ? "+" : "-"}{engine.formatCurrency(Math.abs(tx.amount), tx.currency)}
+                          </div>
+                        </div>
+                      ))}
+                      {analytics.topTransactions.length === 0 && (
+                        <div className="text-center py-8 text-white/40">
+                          <p className="text-sm font-medium">No transactions yet</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </GlassCard>
+              </div>
             </div>
+          )}
 
-            <GlassCard title={t('budget.ledger.title')} className="mt-4">
-              <div className="rounded-[26px] border border-white/10 overflow-hidden bg-white/4">
-                {engine.ledger.length === 0 ? (
-                  <div className="p-10 text-center text-white/45 text-sm font-bold">{t('common.noData')}</div>
-                ) : (
-                  engine.ledger.slice(0, 5).map(tx => (
-                    <LedgerRow
-                      key={tx.id}
-                      tx={tx}
-                      selected={selected.has(tx.id)}
-                      onToggle={toggleSel}
-                      onEdit={(x) => openEdit(x)}
-                      onDelete={(id) => setConfirm({ kind: "one", id })}
-                      engine={engine}
+          {activeTab === "transactions" && (
+            <div className="space-y-6">
+              {/* Transactions Toolbar */}
+              <GlassCard>
+                <div className="p-4 flex flex-col md:flex-row items-center gap-4">
+                  <div className="relative flex-1 w-full">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={16} />
+                    <input
+                      type="text"
+                      placeholder={t('transactions.descriptionPlaceholder') || "Search transactions..."}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-white font-medium outline-none focus:border-blue-500/50 transition-colors"
                     />
-                  ))
-                )}
-                {engine.ledger.length > 5 && (
-                  <div className="p-4 border-t border-white/10 bg-white/4 text-center">
-                    <Button variant="ghost" onClick={() => setTab("ledger")} leftIcon={<ArrowRightLeft size={16} />}>
-                      Összes tranzakció megtekintése
-                    </Button>
                   </div>
-                )}
-              </div>
-            </GlassCard>
-          </>
-        )}
-
-        {tab === "ledger" && (
-          <GlassCard
-            title="Legutóbbi tranzakciók (ledger)"
-            right={
-              <div className="flex items-center gap-2">
-                <Chip tone="neutral">Mindig azonnal látszik</Chip>
-                <Chip tone="blue">Balansz: {engine.balanceMode === "realizedOnly" ? "realized" : "scheduled is"}</Chip>
-              </div>
-            }
-          >
-            {/* controls */}
-            <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
-              <div className="relative w-full lg:max-w-sm">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" size={18} />
-                <Input className="pl-11" placeholder="Keresés (leírás / összeg)..." value={search} onChange={(e) => setSearch(e.target.value)} />
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="w-64">
-                  <Select value={catFilter} onChange={(e) => setCatFilter(e.target.value as any)}>
-                    <option value="all">Összes kategória</option>
-                    {Object.entries(engine.CATEGORIES).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v.label}
-                      </option>
-                    ))}
-                  </Select>
+                  <div className="flex items-center gap-2 w-full md:w-auto">
+                    <GradientButton
+                      onClick={() => { setEditingTransaction(null); setShowTransactionModal(true); }}
+                      leftIcon={<Plus size={16} />}
+                    >
+                      {t('transactions.newTransaction')}
+                    </GradientButton>
+                  </div>
                 </div>
+              </GlassCard>
 
-                {selected.size > 0 && (
-                  <>
-                    <Chip tone="blue">{selected.size} {t('common.selected')}</Chip>
-                    <Button variant="secondary" onClick={clearSel} leftIcon={<X size={16} />}>
-                      {t('common.clearSelection')}
-                    </Button>
-                    <Button variant="danger" onClick={() => setConfirm({ kind: "selected" })} leftIcon={<Trash2 size={16} />}>
-                      {t('common.delete')}
-                    </Button>
-                  </>
+              {/* Transactions List */}
+              <div className="space-y-3">
+                {engine.transactions
+                  .filter(tx => tx.description.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .sort((a, b) => new Date(b.effectiveDateYMD).getTime() - new Date(a.effectiveDateYMD).getTime())
+                  .map(tx => (
+                    <GlassCard key={tx.id} className="hover:border-white/20 transition-colors group cursor-pointer">
+                      <div className="p-4 flex items-center justify-between" onClick={() => { setEditingTransaction(tx); setShowTransactionModal(true); }}>
+                        <div className="flex items-center gap-4">
+                          <div className={`p-3 rounded-2xl ${tx.type === 'income' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                            {engine.categories[tx.category as CategoryKey]?.icon || <TagIcon size={20} />}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-white text-lg">{tx.description}</h4>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded border bg-white/5 border-white/10 text-white/80`}>
+                                {engine.categories[tx.category as CategoryKey]?.label || tx.category}
+                              </span>
+                              <span className="text-xs text-white/40 font-medium">
+                                {engine.formatDate(tx.effectiveDateYMD)} {tx.time ? `• ${tx.time}` : ''}
+                              </span>
+                              {tx.status === 'pending' && (
+                                <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                                  PENDING
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-6">
+                          <div className="text-right">
+                            <span className={`block font-black text-xl ${tx.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                              {tx.type === 'income' ? '+' : '-'}{engine.formatCurrency(Math.abs(tx.amount), tx.currency)}
+                            </span>
+                            {tx.tags && tx.tags.length > 0 && (
+                              <div className="flex gap-1 justify-end mt-1">
+                                {tx.tags.slice(0, 2).map(tag => (
+                                  <span key={tag} className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-white/40">#{tag}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); if (confirm(t('budget.delete.confirmOne'))) engine.deleteTransaction(tx.id); }}
+                            className="p-2 hover:bg-rose-500/20 rounded-lg text-white/40 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </div>
+                    </GlassCard>
+                  ))}
+
+                {engine.transactions.length === 0 && (
+                  <div className="text-center py-12">
+                    <p className="text-white/40 font-medium">{t('budget.noTransactions')}</p>
+                  </div>
                 )}
-
-                <Button variant="ghost" onClick={() => openCreate("expense")} leftIcon={<Plus size={16} />}>
-                  {t('budget.modal.createExpense')}
-                </Button>
               </div>
             </div>
+          )}
 
-            <Divider />
+          {activeTab === "analytics" && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <EnhancedChartFrame title={t('charts.cashFlow')} height={400}>
+                  {({ width, height }) => (
+                    <ResponsiveContainer width={width} height={height}>
+                      <BarChart data={analytics.monthlyData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                        <XAxis dataKey="month" stroke="rgba(255,255,255,0.4)" tick={{ fill: 'rgba(255,255,255,0.6)' }} />
+                        <YAxis stroke="rgba(255,255,255,0.4)" tick={{ fill: 'rgba(255,255,255,0.6)' }} />
+                        <RechartsTooltip content={<CustomTooltip currency={engine.currency} />} />
+                        <Legend />
+                        <Bar dataKey="income" name={t('stats.income')} fill="#10b981" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="expense" name={t('stats.expenses')} fill="#f87171" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </EnhancedChartFrame>
 
-            {/* list */}
-            <div className="rounded-[26px] border border-white/10 overflow-hidden bg-white/4">
-              <div className="max-h-[680px] overflow-y-auto">
-                {paginated.length === 0 ? (
-                  <div className="p-12 text-center text-white/45 text-sm font-bold">{t('common.noData')}</div>
-                ) : (
-                  paginated.map((tx) => (
-                    <LedgerRow
-                      key={tx.id}
-                      tx={tx}
-                      selected={selected.has(tx.id)}
-                      onToggle={toggleSel}
-                      onEdit={(x) => {
-                        // ha már van kijelölés, kattintás inkább toggle (pro UX)
-                        if (selected.size > 0) toggleSel(x.id);
-                        else openEdit(x);
-                      }}
-                      onDelete={(id) => setConfirm({ kind: "one", id })}
-                      engine={engine}
-                    />
-                  ))
-                )}
+                <EnhancedChartFrame title={t('charts.categoryBreakdown')} height={400}>
+                  {({ width, height }) => (
+                    <ResponsiveContainer width={width} height={height}>
+                      <RadarChart data={Object.entries(analytics.categoryBreakdown).slice(0, 6).map(([k, v]) => ({ subject: engine.categories[k as CategoryKey]?.label || k, A: v.total, fullMark: 100 }))}>
+                        <PolarGrid stroke="rgba(255,255,255,0.1)" />
+                        <PolarAngleAxis dataKey="subject" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} />
+                        <PolarRadiusAxis angle={30} stroke="rgba(255,255,255,0.1)" />
+                        <Radar name="Expenses" dataKey="A" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
+                        <RechartsTooltip />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  )}
+                </EnhancedChartFrame>
               </div>
+            </div>
+          )}
 
-              {/* pagination */}
-              {totalPages > 1 && (
-                <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-white/10 bg-white/4">
-                  <div className="text-xs font-black text-white/55">
-                    {t('common.page')} {page} / {totalPages} — {t('common.total')} {filteredLedger.length}
+          {activeTab === "goals" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {engine.budgetGoals && engine.budgetGoals.length > 0 ? engine.budgetGoals.map(goal => (
+                <GlassCard key={goal.id}>
+                  <div className="p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className={`p-3 rounded-xl bg-purple-500/10 text-purple-400`}>
+                        {engine.categories[goal.category as CategoryKey]?.icon || <Target size={20} />}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-white/40 font-bold uppercase tracking-wider">Target</p>
+                        <p className="text-lg font-black text-white">{engine.formatCurrency(goal.targetAmount)}</p>
+                      </div>
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-1">{goal.name}</h3>
+                    <p className="text-sm text-white/60 mb-4">{t('tabs.goals')} • {engine.categories[goal.category as CategoryKey]?.label}</p>
+
+                    <div className="relative h-2 bg-white/10 rounded-full overflow-hidden mb-2">
+                      <div
+                        className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-1000"
+                        style={{ width: `${Math.min((goal.currentAmount / goal.targetAmount) * 100, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs font-medium text-white/40">
+                      <span>{Math.round((goal.currentAmount / goal.targetAmount) * 100)}%</span>
+                      <span>{engine.formatCurrency(goal.currentAmount)}</span>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="secondary" onClick={() => setPage(1)} disabled={page === 1} leftIcon={<ChevronsLeft size={16} />}>
-                      {t('common.first')}
-                    </Button>
-                    <Button variant="secondary" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} leftIcon={<ChevronLeft size={16} />}>
-                      {t('common.prev')}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={page === totalPages}
-                      leftIcon={<ChevronRight size={16} />}
-                    >
-                      {t('common.next')}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => setPage(totalPages)}
-                      disabled={page === totalPages}
-                      leftIcon={<ChevronsRight size={16} />}
-                    >
-                      {t('common.last')}
-                    </Button>
-                  </div>
+                </GlassCard>
+              )) : (
+                <div className="col-span-full py-12 text-center border-2 border-dashed border-white/10 rounded-3xl">
+                  <Target size={48} className="mx-auto text-white/20 mb-4" />
+                  <h3 className="text-xl font-bold text-white mb-2">No goals set</h3>
+                  <p className="text-white/60 mb-6">Set financial goals to track your progress.</p>
+                  <GradientButton onClick={() => { /* Placeholder for add goal */ }}>
+                    {t('quickActions.setGoal')}
+                  </GradientButton>
                 </div>
               )}
             </div>
-          </GlassCard>
-        )}
+          )}
 
-        {tab === "planning" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <GlassCard title={t('budget.planning.helpTitle')}>
-              <div className="text-sm font-bold text-white/70 leading-relaxed">
-                {t('budget.planning.description')}
-                <div className="mt-3 space-y-2">
-                  <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
-                    <div className="font-black text-white">{t('budget.planning.master')}</div>
-                    <div className="text-xs font-bold text-white/55">{t('budget.planning.masterDesc')}</div>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
-                    <div className="font-black text-white">{t('budget.planning.scheduled')}</div>
-                    <div className="text-xs font-bold text-white/55">{t('budget.planning.scheduledDesc')}</div>
-                  </div>
-                </div>
-              </div>
-            </GlassCard>
+          {activeTab === "settings" && (
+            <GlassCard>
+              <div className="p-8">
+                <h2 className="text-2xl font-black text-white mb-6">{t('tabs.settings')}</h2>
 
-            <GlassCard title={t('budget.planning.quickFilter')}>
-              <div className="text-sm font-bold text-white/70">
-                {t('budget.planning.master')}:
-                <div className="mt-3 rounded-[26px] border border-white/10 bg-white/4 overflow-hidden">
-                  <div className="max-h-[360px] overflow-y-auto">
-                    {engine.ledger.filter((x) => x.isMaster).length === 0 ? (
-                      <div className="p-10 text-center text-white/45 text-sm font-bold">{t('budget.planning.noTemplates')}</div>
-                    ) : (
-                      engine.ledger
-                        .filter((x) => x.isMaster)
-                        .slice(0, 50)
-                        .map((tx) => (
-                          <div
-                            key={tx.id}
-                            className="px-4 py-4 border-b border-white/10 hover:bg-white/6 transition cursor-pointer"
-                            onClick={() => openEdit(tx)}
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="font-black truncate">{tx.description}</div>
-                                <div className="mt-1 text-xs font-bold text-white/55 flex items-center gap-2">
-                                  <CategoryBadge def={engine.CATEGORIES[tx.category]} />
-                                  <Chip tone="purple">
-                                    <Repeat size={12} /> {getPeriodLabel(tx.period, t)}
-                                  </Chip>
-                                  <span className="text-white/25">•</span>
-                                  <span>{t('budget.planning.start')}: {engine.formatDate(tx.effectiveDateYMD)}</span>
-                                </div>
-                              </div>
-                              <div className="font-black tabular-nums text-white/85">{engine.formatMoney(Math.abs(tx.amount), tx.currency)}</div>
-                            </div>
-                          </div>
-                        ))
-                    )}
-                  </div>
-                </div>
-              </div>
-            </GlassCard>
-
-            <GlassCard title={`${t('budget.planning.upcoming')} ${t('budget.planning.upcomingSub')}`}>
-              <div className="rounded-[26px] border border-white/10 bg-white/4 overflow-hidden">
-                <div className="max-h-[360px] overflow-y-auto">
-                  {(() => {
-                    const scheduled = engine.ledger.filter((x) => !x.isMaster && x.effectiveDateYMD > engine.todayYMD);
-                    const masters = engine.ledger.filter((x) => x.isMaster);
-
-                    // Combine them. For Masters, calculate next occurrence date relative to today
-                    const combined = scheduled.map((x) => ({ ...x, _displayDate: x.effectiveDateYMD, _isProj: false }));
-
-                    for (const m of masters) {
-                      let dt = parseYMD(m.effectiveDateYMD);
-                      const today = parseYMD(engine.todayYMD);
-
-                      if (dt && today) {
-                        // Fast forward to next future date
-                        let safety = 0;
-                        while (dt <= today && safety < 1000) {
-                          safety++;
-                          switch (m.period) {
-                            case "daily": dt.setDate(dt.getDate() + 1); break;
-                            case "weekly": dt.setDate(dt.getDate() + 7); break;
-                            case "monthly": dt.setMonth(dt.getMonth() + 1); break;
-                            case "yearly": dt.setFullYear(dt.getFullYear() + 1); break;
-                            case "oneTime": dt = new Date(today.getTime() + 86400000); break; // force exit
-                          }
-                        }
-                        combined.push({ ...m, _displayDate: toYMDLocal(dt), _isProj: true });
-                      }
-                    }
-
-                    const sorted = combined.sort((a, b) => a._displayDate.localeCompare(b._displayDate)).slice(0, 50);
-
-                    if (sorted.length === 0) {
-                      return <div className="p-10 text-center text-white/45 text-sm font-bold">{t('budget.planning.noUpcoming')}</div>;
-                    }
-
-                    return sorted.map((tx) => (
-                      <div
-                        key={tx.id + (tx._isProj ? "_proj" : "")}
-                        className="px-4 py-4 border-b border-white/10 hover:bg-white/6 transition cursor-pointer"
-                        onClick={() => openEdit(tx)}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="font-black truncate">{tx.description}</div>
-                            <div className="mt-1 text-xs font-bold text-white/55 flex items-center gap-2">
-                              <Chip tone={tx._isProj ? "purple" : "blue"}>
-                                {tx._isProj ? <Repeat size={12} /> : <CalendarClock size={12} />} {engine.formatDate(tx._displayDate)}
-                              </Chip>
-                              <CategoryBadge def={engine.CATEGORIES[tx.category]} />
-                            </div>
-                          </div>
-                          <div className="font-black tabular-nums text-white/85">{engine.formatMoney(Math.abs(tx.amount), tx.currency)}</div>
-                        </div>
+                <div className="space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <label className="block text-sm font-bold text-white/60 mb-2 uppercase tracking-wider">Start Calculation From</label>
+                      <div className="flex gap-2 p-1 bg-white/5 rounded-xl border border-white/10">
+                        <button
+                          onClick={() => engine.setBalanceMode('realizedOnly')}
+                          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${engine.balanceMode === 'realizedOnly' ? 'bg-blue-500 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
+                        >
+                          Realized Only
+                        </button>
+                        <button
+                          onClick={() => engine.setBalanceMode('includeScheduled')}
+                          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${engine.balanceMode === 'includeScheduled' ? 'bg-purple-500 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
+                        >
+                          Include Scheduled
+                        </button>
                       </div>
-                    ));
-                  })()}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-bold text-white/60 mb-2 uppercase tracking-wider">Currency</label>
+                      <select
+                        value={engine.currency}
+                        onChange={(e) => engine.setCurrency(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/10 bg-white/5 text-white font-bold outline-none focus:border-blue-500/50"
+                      >
+                        {AVAILABLE_CURRENCIES.map(c => (
+                          <option key={c.code} value={c.code} className="bg-gray-900">{c.code} - {c.symbol}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="pt-8 border-t border-white/10">
+                    <h3 className="text-lg font-bold text-white mb-4">Data Management</h3>
+                    <div className="flex gap-4">
+                      <button
+                        onClick={() => engine.exportData('json')}
+                        className="flex items-center gap-2 px-6 py-3 rounded-xl border border-white/10 hover:bg-white/5 font-bold transition-colors"
+                      >
+                        <Download size={18} />
+                        Export Data
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </GlassCard>
-          </div>
-        )}
+          )}
+        </main>
       </div>
 
       {/* Modals */}
       <AnimatePresence>
-        {showTxModal && (
-          <TransactionModal
-            isOpen={showTxModal}
-            onClose={() => setShowTxModal(false)}
-            mode={txModalMode}
-            txType={txModalType}
+        {showTransactionModal && (
+          <EnhancedTransactionModal
+            isOpen={showTransactionModal}
+            onClose={() => {
+              setShowTransactionModal(false);
+              setEditingTransaction(null);
+            }}
+            mode={editingTransaction ? "edit" : "create"}
+            transaction={editingTransaction || undefined}
             engine={engine}
-            editingTx={editingTx}
           />
         )}
       </AnimatePresence>
 
+      {/* Notifications Panel */}
       <AnimatePresence>
-        {showConverter && <CurrencyConverterModal isOpen={showConverter} onClose={() => setShowConverter(false)} engine={engine} />}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {confirm && (
-          <ConfirmModal
-            title={t('budget.delete.confirmTitle')}
-            description={
-              confirm.kind === "selected"
-                ? t('budget.delete.confirmSelected')
-                : t('budget.delete.confirmOne')
-            }
-            onCancel={() => setConfirm(null)}
-            onConfirm={() => {
-              if (confirm.kind === "selected") deleteSelected();
-              if (confirm.kind === "one" && confirm.id) engine.deleteOne(confirm.id);
-              setConfirm(null);
-            }}
-          />
+        {showNotifications && (
+          <motion.div
+            initial={{ opacity: 0, x: 300 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 300 }}
+            className="fixed right-6 top-20 w-96 max-h-[80vh] bg-gradient-to-b from-gray-900 to-gray-950 rounded-3xl border border-white/10 shadow-2xl overflow-hidden z-50"
+          >
+            <div className="p-4 border-b border-white/10">
+              <div className="flex items-center justify-between">
+                <h3 className="font-black text-white">Notifications</h3>
+                <button
+                  onClick={() => engine.clearNotifications()}
+                  className="text-sm font-bold text-rose-400 hover:text-rose-300"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto">
+              {notifications.map(notif => (
+                <div
+                  key={notif.id}
+                  className={`p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!notif.read ? "bg-blue-500/5" : ""
+                    }`}
+                  onClick={() => engine.markAsRead(notif.id)}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-xl ${notif.type === "success" ? "bg-emerald-500/10" :
+                      notif.type === "warning" ? "bg-amber-500/10" :
+                        notif.type === "error" ? "bg-rose-500/10" :
+                          "bg-blue-500/10"
+                      }`}>
+                      <BellRing size={16} className={
+                        notif.type === "success" ? "text-emerald-400" :
+                          notif.type === "warning" ? "text-amber-400" :
+                            notif.type === "error" ? "text-rose-400" :
+                              "text-blue-400"
+                      } />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="font-bold text-white">{notif.title}</p>
+                        <span className="text-xs text-white/40">
+                          {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-sm text-white/60 mt-1">{notif.message}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {notifications.length === 0 && (
+                <div className="p-8 text-center">
+                  <Bell size={24} className="text-white/20 mx-auto mb-2" />
+                  <p className="text-white/40 text-sm">No notifications</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
   );
 };
 
-export default BudgetViewPro;
+export default EnhancedBudgetView;
