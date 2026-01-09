@@ -19,17 +19,20 @@ import {
     Trash2,
     Calendar as CalendarIcon,
     Hash,
-    Activity
+    Activity,
+    Award,
+    Trophy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 /**
  * =====================================================================================
- * HABIT STUDIO PRO (V4)
- * - Weekly + Monthly goals
- * - Binary vs Count tracking
- * - Strict i18n compliance
+ * HABIT STUDIO PRO (V5) - 66 DAY CHALLENGE EDITION
+ * - 66 Day Habit Formation Tracking
+ * - Automatic "Mastered" state
+ * - Manual Override (Force Formed / Resume)
+ * - Pro Edit Modal
  * =====================================================================================
  */
 
@@ -63,24 +66,20 @@ type Habit = {
     history: Record<string, HabitDayLog>;
     createdAt: string;
     archived?: boolean;
-    mastery: number; // 0-100
+    mastery: number; // 0-100 (manual mastery)
+    formed?: boolean; // NEW: 66-day challenge completion
     order?: number;
 };
 
-type PersistedV4 =
-    | { version: 4; habits: Habit[]; updatedAt: number }
-    | Habit[]; // legacy
-
-/* ---------------------------------- Consts ---------------------------------- */
-
 const STORAGE_KEY = 'habit-studio-v3-data';
+const FORMATION_DAYS = 66;
 
-const EMOJIS = ['💪', '📚', '🏃', '🧘', '💧', '🥗', '😴', '✍️', '🎯', '🧠', '🎨', '🎵', '🌱', '☀️', '💻', '💸'];
+const EMOJIS = ['💪', '📚', '🏃', '🧘', '💧', '🥗', '😴', '✍️', '🎯', '🧠', '🎨', '🎵', '🌱', '☀️', '💻', '💸', '🏆', '🔥'];
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#6366F1'];
 
-const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+/* ------------------------------ Utils ------------------------------ */
 
-/* ------------------------------ Date Utilities ------------------------------ */
+const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 
 function toLocalISODate(d: Date) {
     const y = d.getFullYear();
@@ -135,74 +134,14 @@ function formatMonthYear(date: Date, locale: string) {
     return date.toLocaleString(locale, { month: 'long', year: 'numeric' });
 }
 
-function formatShort(date: Date, locale: string) {
-    return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
-}
-
-function formatWeekRange(weekAnchor: Date, locale: string) {
-    const s = startOfWeekMonday(weekAnchor);
-    const e = endOfWeekMonday(weekAnchor);
-    const sFmt = formatShort(s, locale);
-    const eFmt = formatShort(e, locale);
-    const y = e.getFullYear() !== s.getFullYear() ? ` ${e.getFullYear()}` : '';
-    return `${sFmt} – ${eFmt}${y}`;
-}
-
-/* ------------------------------ Logic ------------------------------ */
-
 function logIsCompletedForGoal(goal: HabitGoal, log?: HabitDayLog) {
     if (!log) return false;
-    return log.count >= 1; // Simplification: any activity counts as "done" for streak, but specific targets apply for progress
+    return log.count >= 1;
 }
 
-function countInRange(h: Habit, fromISO: string, toISO: string) {
-    const from = parseISODateLocal(fromISO);
-    const to = parseISODateLocal(toISO);
-    let sum = 0;
-    for (let d = new Date(from); d <= to; d = addDays(d, 1)) {
-        const log = h.history[toLocalISODate(d)];
-        if (log) sum += clamp(log.count || 0, 0, 9999);
-    }
-    return sum;
-}
-
-function binaryDaysCompletedInRange(h: Habit, fromISO: string, toISO: string) {
-    const from = parseISODateLocal(fromISO);
-    const to = parseISODateLocal(toISO);
-    let doneDays = 0;
-    for (let d = new Date(from); d <= to; d = addDays(d, 1)) {
-        const log = h.history[toLocalISODate(d)];
-        if (logIsCompletedForGoal(h.goal, log)) doneDays += 1;
-    }
-    return doneDays;
-}
-
-function progressForPeriod(h: Habit, anchorDate: Date) {
-    const { goal } = h;
-    const period = goal.period;
-    const target = clamp(goal.target, 1, 9999);
-
-    if (period === 'daily') {
-        const iso = toLocalISODate(anchorDate);
-        const count = h.history[iso]?.count || 0;
-        const done = goal.mode === 'binary' ? (count >= 1 ? 1 : 0) : count;
-        return { done, target };
-    }
-
-    let from: string, to: string;
-    if (period === 'weekly') {
-        from = toLocalISODate(startOfWeekMonday(anchorDate));
-        to = toLocalISODate(endOfWeekMonday(anchorDate));
-    } else {
-        from = toLocalISODate(startOfMonth(anchorDate));
-        to = toLocalISODate(endOfMonth(anchorDate));
-    }
-
-    const done = goal.mode === 'binary'
-        ? binaryDaysCompletedInRange(h, from, to)
-        : countInRange(h, from, to);
-
-    return { done, target };
+// Calculate total days completed (lifelong)
+function getTotalCompletedDays(h: Habit) {
+    return Object.values(h.history).filter(log => logIsCompletedForGoal(h.goal, log)).length;
 }
 
 function getDailyStreak(h: Habit, todayISO: string) {
@@ -254,16 +193,17 @@ function normalizeHabit(anyHabit: any): Habit {
         history,
         createdAt: anyHabit?.createdAt ?? new Date().toISOString(),
         archived: !!anyHabit?.archived,
+        formed: !!anyHabit?.formed,
         mastery: clamp(Number(anyHabit?.mastery ?? 0), 0, 100),
         order: anyHabit?.order
     };
 }
 
-/* ------------------------------ Components ------------------------------ */
-
 function cn(...classes: (string | undefined | null | false)[]) {
     return classes.filter(Boolean).join(' ');
 }
+
+/* ------------------------------ Components ------------------------------ */
 
 type ModalProps = { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode; };
 
@@ -288,14 +228,14 @@ function Modal({ open, onClose, title, children, footer }: ModalProps) {
                         exit={{ scale: 0.95, opacity: 0, y: 20 }}
                         className="relative bg-white dark:bg-gray-900 w-full max-w-lg rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 overflow-hidden"
                     >
-                        <div className="p-5 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                        <div className="p-5 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-gray-900">
                             <h3 className="text-xl font-bold text-gray-900 dark:text-white">{title}</h3>
                             <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl">
                                 <X className="w-5 h-5 text-gray-500" />
                             </button>
                         </div>
                         <div className="p-5 max-h-[70vh] overflow-y-auto">{children}</div>
-                        {footer && <div className="p-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">{footer}</div>}
+                        {footer && <div className="p-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">{footer}</div>}
                     </motion.div>
                 </div>
             )}
@@ -309,33 +249,30 @@ export default function HabitView() {
     const { t, language } = useLanguage();
     const locale = language === 'hu' ? 'hu-HU' : 'en-US';
 
-    // State
     const [habits, setHabits] = useState<Habit[]>([]);
     const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
     const [weekAnchor, setWeekAnchor] = useState(new Date());
     const [monthAnchor, setMonthAnchor] = useState(new Date());
 
-    // Filters
     const [query, setQuery] = useState('');
     const [showArchived, setShowArchived] = useState(false);
     const [sortBy, setSortBy] = useState<'order' | 'name' | 'streak'>('order');
 
-    // Form
+    // Add/Edit State
     const [showAdd, setShowAdd] = useState(false);
-    const [newName, setNewName] = useState('');
-    const [newDesc, setNewDesc] = useState('');
-    const [newEmoji, setNewEmoji] = useState(EMOJIS[0]);
-    const [newColor, setNewColor] = useState(COLORS[0]);
-    const [newPeriod, setNewPeriod] = useState<GoalPeriod>('daily');
-    const [newMode, setNewMode] = useState<GoalMode>('binary');
-    const [newTarget, setNewTarget] = useState(1);
+    const [editHabit, setEditHabit] = useState<Habit | null>(null);
 
-    // Edit
-    const [editId, setEditId] = useState<string | null>(null);
+    // Draft State (for both Add and Edit)
+    const [draftName, setDraftName] = useState('');
+    const [draftDesc, setDraftDesc] = useState('');
+    const [draftEmoji, setDraftEmoji] = useState(EMOJIS[0]);
+    const [draftColor, setDraftColor] = useState(COLORS[0]);
+    const [draftPeriod, setDraftPeriod] = useState<GoalPeriod>('daily');
+    const [draftMode, setDraftMode] = useState<GoalMode>('binary');
+    const [draftTarget, setDraftTarget] = useState(1);
+    const [draftMastery, setDraftMastery] = useState(0);
 
-    // Day Modal
     const [dayISO, setDayISO] = useState<string | null>(null);
-
     const todayISO = toLocalISODate(new Date());
 
     useEffect(() => {
@@ -351,7 +288,7 @@ export default function HabitView() {
 
     const saveHabits = (list: Habit[]) => {
         setHabits(list);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 4, habits: list, updatedAt: Date.now() }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 5, habits: list, updatedAt: Date.now() }));
     };
 
     const visibleHabits = useMemo(() => {
@@ -365,22 +302,66 @@ export default function HabitView() {
         });
     }, [habits, showArchived, query, sortBy, todayISO]);
 
-    const addHabit = () => {
-        if (!newName.trim()) return;
-        const h: Habit = {
-            id: Date.now().toString(),
-            name: newName.trim(),
-            description: newDesc.trim() || undefined,
-            emoji: newEmoji,
-            color: newColor,
-            goal: { period: newPeriod, mode: newMode, target: newTarget },
-            history: {},
-            createdAt: new Date().toISOString(),
-            mastery: 0,
-            order: habits.length
+    // Open Edit Modal
+    const openEdit = (h: Habit) => {
+        setEditHabit(h);
+        setDraftName(h.name);
+        setDraftDesc(h.description || '');
+        setDraftEmoji(h.emoji);
+        setDraftColor(h.color);
+        setDraftPeriod(h.goal.period);
+        setDraftMode(h.goal.mode);
+        setDraftTarget(h.goal.target);
+        setDraftMastery(h.mastery);
+        setShowAdd(true);
+    };
+
+    // Open Add Modal
+    const openAdd = () => {
+        setEditHabit(null);
+        setDraftName('');
+        setDraftDesc('');
+        setDraftEmoji(EMOJIS[0]);
+        setDraftColor(COLORS[0]);
+        setDraftPeriod('daily');
+        setDraftMode('binary');
+        setDraftTarget(1);
+        setDraftMastery(0);
+        setShowAdd(true);
+    };
+
+    const handleSave = () => {
+        if (!draftName.trim()) return;
+
+        // Construct Habit
+        const newHabitPartial: Partial<Habit> = {
+            name: draftName.trim(),
+            description: draftDesc.trim() || undefined,
+            emoji: draftEmoji,
+            color: draftColor,
+            goal: { period: draftPeriod, mode: draftMode, target: draftTarget },
+            mastery: draftMastery
         };
-        saveHabits([...habits, h]);
-        setNewName(''); setNewDesc(''); setShowAdd(false);
+
+        let nextHabits = [...habits];
+
+        if (editHabit) {
+            // Update existing
+            nextHabits = nextHabits.map(h => h.id === editHabit.id ? { ...h, ...newHabitPartial } : h);
+        } else {
+            // Create new
+            const h: Habit = {
+                id: Date.now().toString(),
+                createdAt: new Date().toISOString(),
+                history: {},
+                order: habits.length,
+                ...newHabitPartial as any
+            };
+            nextHabits.push(h);
+        }
+
+        saveHabits(nextHabits);
+        setShowAdd(false);
     };
 
     const updateEntry = (id: string, date: string, delta: number) => {
@@ -388,29 +369,29 @@ export default function HabitView() {
             if (h.id !== id) return h;
 
             const prev = h.history[date] || { date, count: 0, completed: false };
+            let newHistory = { ...h.history };
+            let updatedEntry = prev;
 
-            // Binary logic: toggle
             if (h.goal.mode === 'binary') {
                 const newCompleted = !prev.completed;
-                return {
-                    ...h,
-                    history: {
-                        ...h.history,
-                        [date]: { ...prev, completed: newCompleted, count: newCompleted ? 1 : 0 }
-                    }
-                };
+                updatedEntry = { ...prev, completed: newCompleted, count: newCompleted ? 1 : 0 };
+            } else {
+                const newCount = Math.max(0, prev.count + delta);
+                updatedEntry = { ...prev, count: newCount, completed: newCount >= 1 };
             }
 
-            // Count logic
-            const newCount = Math.max(0, prev.count + delta);
-            return {
-                ...h,
-                history: {
-                    ...h.history,
-                    [date]: { ...prev, count: newCount, completed: newCount >= 1 }
-                }
-            };
+            newHistory[date] = updatedEntry;
+
+            // Auto 66-day Logic
+            const totalCompleted = Object.values(newHistory).filter(l => logIsCompletedForGoal(h.goal, l)).length;
+            const formed = h.formed || (totalCompleted >= FORMATION_DAYS);
+
+            return { ...h, history: newHistory, formed };
         }));
+    };
+
+    const toggleFormedStatus = (id: string) => {
+        saveHabits(habits.map(h => h.id === id ? { ...h, formed: !h.formed } : h));
     };
 
     const renderCalendar = () => {
@@ -502,7 +483,7 @@ export default function HabitView() {
                         <button onClick={() => setShowArchived(!showArchived)} className={cn("px-4 py-2 rounded-xl border text-sm font-bold flex gap-2 items-center", showArchived ? "bg-gray-900 text-white" : "bg-white text-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-800")}>
                             <Archive size={16} /> {showArchived ? t('habits.filter.showActive') : t('habits.filter.showArchived')}
                         </button>
-                        <button onClick={() => setShowAdd(true)} className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-bold flex gap-2 items-center shadow-lg shadow-blue-500/20 hover:bg-blue-700">
+                        <button onClick={openAdd} className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-bold flex gap-2 items-center shadow-lg shadow-blue-500/20 hover:bg-blue-700">
                             <Plus size={16} /> {t('habits.actions.add')}
                         </button>
                     </div>
@@ -512,35 +493,57 @@ export default function HabitView() {
                     <div className="grid gap-4">
                         {visibleHabits.map(h => {
                             const streak = getDailyStreak(h, todayISO);
-                            const progress = progressForPeriod(h, weekAnchor); // Show weekly progress on card
+                            const daysCompleted = getTotalCompletedDays(h);
+                            const daysLeft = Math.max(0, FORMATION_DAYS - daysCompleted);
+                            const formationProgress = Math.min(100, (daysCompleted / FORMATION_DAYS) * 100);
 
                             return (
                                 <motion.div layout key={h.id} className="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
                                     <div className="flex items-start gap-4">
-                                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0" style={{ backgroundColor: `${h.color}15`, color: h.color }}>
-                                            {h.emoji}
+                                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0 relative overflow-hidden" style={{ backgroundColor: `${h.color}15`, color: h.color }}>
+                                            {h.formed && (
+                                                <div className="absolute inset-0 flex items-center justify-center bg-yellow-400/20 dark:bg-yellow-400/10">
+                                                    <Trophy className="w-8 h-8 text-yellow-500 animate-pulse" />
+                                                </div>
+                                            )}
+                                            {!h.formed && <>{h.emoji}</>}
                                         </div>
 
                                         <div className="flex-1 min-w-0">
                                             <div className="flex justify-between items-start">
                                                 <div>
-                                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate">{h.name}</h3>
-                                                    <div className="flex gap-2 mt-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate">{h.name}</h3>
+                                                        {h.formed && <span className="text-[10px] uppercase font-black bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 px-2 py-0.5 rounded-full flex items-center gap-1"><Award size={12} /> {t('habits.status.mastered')}</span>}
+                                                    </div>
+                                                    <div className="flex gap-2 mt-1 flex-wrap">
                                                         <span className="text-xs font-bold px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                                                            {t(`habits.goal.${h.goal.period}`)} • {h.goal.target} {h.goal.mode === 'count' ? '' : '/ ' + (h.goal.period === 'daily' ? 1 : 7)}
+                                                            {t(`habits.goal.${h.goal.period}`)} • {h.goal.target}
                                                         </span>
                                                         {streak > 0 && (
                                                             <span className="text-xs font-bold px-2 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 flex items-center gap-1">
                                                                 <Flame size={12} /> {streak}
                                                             </span>
                                                         )}
+                                                        {!h.formed && (
+                                                            <span className="text-xs font-bold px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400" title={`${daysCompleted}/${FORMATION_DAYS}`}>
+                                                                {t('habits.challenge.badge')}: {daysCompleted}/{FORMATION_DAYS}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2">
-                                                    <button onClick={() => setEditId(h.id)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl"><Pencil size={18} /></button>
+                                                    <button onClick={() => openEdit(h)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl"><Pencil size={18} /></button>
                                                     <button onClick={() => saveHabits(habits.filter(x => x.id !== h.id))} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl"><Trash2 size={18} /></button>
                                                 </div>
                                             </div>
+
+                                            {/* 66-Day Progress Bar */}
+                                            {!h.formed && (
+                                                <div className="mt-3 w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-gradient-to-r from-blue-400 to-indigo-500 transition-all duration-500" style={{ width: `${formationProgress}%` }} />
+                                                </div>
+                                            )}
 
                                             {/* Weekly Strip */}
                                             <div className="mt-4 grid grid-cols-7 gap-2">
@@ -580,20 +583,26 @@ export default function HabitView() {
                     </div>
                 )}
 
-                {/* Add Modal */}
-                <Modal open={showAdd} onClose={() => setShowAdd(false)} title={t('habits.actions.add')} footer={
-                    <div className="flex gap-3">
-                        <button onClick={() => setShowAdd(false)} className="flex-1 py-3 font-bold rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700">{t('habits.actions.cancel')}</button>
-                        <button onClick={addHabit} className="flex-1 py-3 font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700">{t('habits.actions.add')}</button>
-                    </div>
-                }>
+                {/* ADD / EDIT Modal */}
+                <Modal
+                    open={showAdd}
+                    onClose={() => setShowAdd(false)}
+                    title={editHabit ? t('habits.edit') : t('habits.actions.add')}
+                    footer={
+                        <div className="flex gap-3">
+                            <button onClick={() => setShowAdd(false)} className="flex-1 py-3 font-bold rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700">{t('habits.actions.cancel')}</button>
+                            <button onClick={handleSave} className="flex-1 py-3 font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700">{t('habits.actions.save')}</button>
+                        </div>
+                    }>
                     <div className="space-y-4">
-                        <input value={newName} onChange={e => setNewName(e.target.value)} placeholder={t('habits.fields.namePh')} className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-800 font-bold text-lg outline-none focus:border-blue-500" />
+                        {/* Form Fields */}
+                        <input value={draftName} onChange={e => setDraftName(e.target.value)} placeholder={t('habits.fields.namePh')} className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-800 font-bold text-lg outline-none focus:border-blue-500" />
+                        <textarea value={draftDesc} onChange={e => setDraftDesc(e.target.value)} placeholder={t('habits.fields.descPh')} className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-800 font-medium text-sm outline-none focus:border-blue-500 min-h-[80px]" />
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="text-xs font-bold text-gray-500 mb-1 block">{t('habits.goal.period')}</label>
-                                <select value={newPeriod} onChange={e => setNewPeriod(e.target.value as any)} className="w-full p-2 rounded-xl bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-800 outline-none">
+                                <select value={draftPeriod} onChange={e => setDraftPeriod(e.target.value as any)} className="w-full p-2 rounded-xl bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-800 outline-none">
                                     <option value="daily">{t('habits.goal.daily')}</option>
                                     <option value="weekly">{t('habits.goal.weekly')}</option>
                                     <option value="monthly">{t('habits.goal.monthly')}</option>
@@ -601,7 +610,7 @@ export default function HabitView() {
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-gray-500 mb-1 block">{t('habits.goal.mode')}</label>
-                                <select value={newMode} onChange={e => setNewMode(e.target.value as any)} className="w-full p-2 rounded-xl bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-800 outline-none">
+                                <select value={draftMode} onChange={e => setDraftMode(e.target.value as any)} className="w-full p-2 rounded-xl bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-800 outline-none">
                                     <option value="binary">{t('habits.goal.binary')}</option>
                                     <option value="count">{t('habits.goal.count')}</option>
                                 </select>
@@ -610,20 +619,37 @@ export default function HabitView() {
 
                         <div>
                             <label className="text-xs font-bold text-gray-500 mb-1 block">{t('habits.goal.target')}</label>
-                            <input type="number" min="1" value={newTarget} onChange={e => setNewTarget(Number(e.target.value))} className="w-full p-2 rounded-xl bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-800 font-bold" />
+                            <input type="number" min="1" value={draftTarget} onChange={e => setDraftTarget(Number(e.target.value))} className="w-full p-2 rounded-xl bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-800 font-bold" />
                         </div>
 
                         <div className="grid grid-cols-8 gap-2">
                             {EMOJIS.map(e => (
-                                <button key={e} onClick={() => setNewEmoji(e)} className={cn("aspect-square rounded-xl flex items-center justify-center text-xl hover:bg-gray-100 dark:hover:bg-gray-800 border", newEmoji === e ? "border-blue-500 bg-blue-50" : "border-transparent")}>{e}</button>
+                                <button key={e} onClick={() => setDraftEmoji(e)} className={cn("aspect-square rounded-xl flex items-center justify-center text-xl hover:bg-gray-100 dark:hover:bg-gray-800 border", draftEmoji === e ? "border-blue-500 bg-blue-50" : "border-transparent")}>{e}</button>
                             ))}
                         </div>
 
                         <div className="flex gap-2 justify-center">
                             {COLORS.map(c => (
-                                <button key={c} onClick={() => setNewColor(c)} className={cn("w-8 h-8 rounded-full border-2", newColor === c ? "border-black dark:border-white scale-110" : "border-transparent")} style={{ backgroundColor: c }} />
+                                <button key={c} onClick={() => setDraftColor(c)} className={cn("w-8 h-8 rounded-full border-2", draftColor === c ? "border-black dark:border-white scale-110" : "border-transparent")} style={{ backgroundColor: c }} />
                             ))}
                         </div>
+
+                        {/* Manual Override for Edit Mode */}
+                        {editHabit && (
+                            <div className="pt-4 border-t border-gray-100 dark:border-gray-800 mt-4">
+                                <label className="text-xs font-bold text-gray-500 mb-2 block">{t('habits.challenge.title')}</label>
+                                <button
+                                    onClick={() => toggleFormedStatus(editHabit.id)}
+                                    className={cn("w-full py-2 rounded-xl border text-sm font-bold flex gap-2 items-center justify-center", editHabit.formed ? "bg-white border-gray-200 text-gray-700" : "bg-yellow-50 border-yellow-200 text-yellow-700")}
+                                >
+                                    {editHabit.formed ? (
+                                        <><RotateCcw size={14} /> {t('habits.actions.resume')}</>
+                                    ) : (
+                                        <><Award size={14} /> {t('habits.actions.markFormed')}</>
+                                    )}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </Modal>
 
@@ -638,7 +664,7 @@ export default function HabitView() {
                                         <span className="text-xl">{h.emoji}</span>
                                         <div>
                                             <div className="font-bold text-sm">{h.name}</div>
-                                            <div className="text-xs text-gray-500">{t(`habits.goal.${h.goal.mode}`)}: {log.count}</div>
+                                            <div className="text-xs text-gray-500">{h.goal.mode === 'binary' ? t('habits.goal.binary') : `${t('habits.goal.count')}: ${log.count}`}</div>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
