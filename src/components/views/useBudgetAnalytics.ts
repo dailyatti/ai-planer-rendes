@@ -252,27 +252,37 @@ export const useBudgetAnalytics = (
     }, [transactions, currency, safeConvert]);
 
     // PURE: Returns month/year indices, not translated names
+    // Now includes BOTH history items AND master transaction occurrences for each month
     const cashFlowData = useMemo(() => {
         const now = new Date();
         const monthsData: { monthIndex: number; year: number; income: number; expense: number }[] = [];
-        // Zero guard handled at top, so here we know we have data, but double check
         if (!transactions) return [];
 
         for (let i = 5; i >= 0; i--) {
             const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
             const m = mDate.getMonth();
             const y = mDate.getFullYear();
+            const monthStart = new Date(y, m, 1);
+            const monthEnd = new Date(y, m + 1, 0, 23, 59, 59);
 
             let inc = 0, exp = 0;
-            transactions
-                .filter(tr => !isMaster(tr))
-                .forEach(tr => {
+
+            transactions.forEach(tr => {
+                const amt = absToView(tr.amount, ensureCurrency(tr.currency));
+
+                if (isMaster(tr)) {
+                    // For master transactions, calculate occurrences in this specific month
+                    const hits = calculateOccurrences(tr, monthStart, monthEnd);
+                    if (tr.type === 'income') inc += (amt * hits); else exp += (amt * hits);
+                } else {
+                    // For history/standalone items, check if date falls in this month
                     const dt = toDateSafe(tr.date);
                     if (dt && dt.getMonth() === m && dt.getFullYear() === y) {
-                        const amt = absToView(tr.amount, ensureCurrency(tr.currency));
                         if (tr.type === 'income') inc += amt; else exp += amt;
                     }
-                });
+                }
+            });
+
             monthsData.push({ monthIndex: m, year: y, income: inc, expense: exp });
         }
         return monthsData;

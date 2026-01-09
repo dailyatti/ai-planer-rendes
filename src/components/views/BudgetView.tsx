@@ -55,8 +55,7 @@ import {
   TrendingDown,
   DollarSign,
   Zap,
-  ChevronDown,
-  ChevronUp,
+
   Star,
   History,
   FileText,
@@ -342,7 +341,7 @@ const StatCard: React.FC<{
   icon: React.ReactNode;
   color: "blue" | "green" | "red" | "purple" | "yellow";
   trend?: "up" | "down" | "neutral";
-}> = ({ title, value, change, icon, color, trend }) => {
+}> = ({ title, value, icon, color }) => {
   const colors = {
     blue: "from-blue-500/20 to-blue-600/20",
     green: "from-emerald-500/20 to-emerald-600/20",
@@ -358,18 +357,7 @@ const StatCard: React.FC<{
           <div>
             <p className="text-sm font-bold text-white/60 mb-2">{title}</p>
             <p className="text-2xl font-black text-white">{value}</p>
-            {change !== undefined && (
-              <div className="flex items-center gap-1 mt-2">
-                <span className={`text-sm font-bold ${trend === "up" ? "text-emerald-300" :
-                  trend === "down" ? "text-rose-300" :
-                    "text-white/60"
-                  }`}>
-                  {trend === "up" ? "+" : ""}{change}%
-                </span>
-                {trend === "up" ? <ChevronUp size={16} /> :
-                  trend === "down" ? <ChevronDown size={16} /> : null}
-              </div>
-            )}
+
           </div>
           <div className={`p-3 rounded-2xl bg-gradient-to-br ${colors[color]}`}>
             {icon}
@@ -1427,34 +1415,26 @@ const EnhancedBudgetView: React.FC = () => {
                 <StatCard
                   title={t('stats.balance')}
                   value={engine.formatCurrency(balanceStats.balance)}
-                  change={5.2}
                   icon={<Wallet size={20} />}
                   color="blue"
-                  trend="up"
                 />
                 <StatCard
                   title={t('stats.income')}
                   value={engine.formatCurrency(balanceStats.income)}
-                  change={12.5}
                   icon={<TrendingUp size={20} />}
                   color="green"
-                  trend="up"
                 />
                 <StatCard
                   title={t('stats.expenses')}
                   value={engine.formatCurrency(balanceStats.expense)}
-                  change={-3.2}
                   icon={<TrendingDown size={20} />}
                   color="red"
-                  trend="down"
                 />
                 <StatCard
                   title={t('stats.savings')}
                   value={engine.formatCurrency(analytics.totalSavings)}
-                  change={8.7}
                   icon={<Star size={20} />}
                   color="purple"
-                  trend="up"
                 />
               </div>
 
