@@ -69,6 +69,7 @@ export type Transaction = {
   category: CategoryKey;
   period: TransactionPeriod;
   isMaster: boolean;             // "template/master" for recurring
+  time?: string;                 // "HH:MM", optional
   notes?: string;
 };
 
@@ -718,6 +719,7 @@ const TransactionModal: React.FC<{
   const [period, setPeriod] = useState<TransactionPeriod>("oneTime");
   const [notes, setNotes] = useState("");
   const [addFirstOccurrenceNow, setAddFirstOccurrenceNow] = useState(true);
+  const [time, setTime] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -729,6 +731,7 @@ const TransactionModal: React.FC<{
       setDateYMD(editingTx.effectiveDateYMD);
       setPeriod(editingTx.period);
       setNotes(editingTx.notes ?? "");
+      setTime(editingTx.time ?? "");
       setAddFirstOccurrenceNow(true);
     } else {
       setDesc("");
@@ -738,6 +741,7 @@ const TransactionModal: React.FC<{
       setDateYMD(today);
       setPeriod("oneTime");
       setNotes("");
+      setTime("");
       setAddFirstOccurrenceNow(true);
     }
   }, [isOpen, mode, editingTx, today, engine.currency]);
@@ -770,6 +774,7 @@ const TransactionModal: React.FC<{
         period,
         isMaster: editingTx.isMaster,
         notes: notes.trim() || undefined,
+        time: time.trim() || undefined,
       });
       onClose();
       return;
@@ -790,6 +795,7 @@ const TransactionModal: React.FC<{
         period,
         isMaster: false,
         notes: notes.trim() || undefined,
+        time: time.trim() || undefined,
       };
       engine.addTx(tx);
       onClose();
@@ -811,6 +817,7 @@ const TransactionModal: React.FC<{
       period,
       isMaster: true,
       notes: notes.trim() || undefined,
+      time: time.trim() || undefined,
     };
     engine.addTx(master);
 
@@ -827,6 +834,7 @@ const TransactionModal: React.FC<{
         period: "oneTime",
         isMaster: false,
         notes: notes.trim() || undefined,
+        time: time.trim() || undefined,
       };
       engine.addTx(occurrence);
     }
@@ -893,8 +901,11 @@ const TransactionModal: React.FC<{
           </div>
 
           <div className="space-y-2">
-            <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('budget.modal.date')}</div>
-            <Input type="date" value={dateYMD} onChange={(e) => setDateYMD(e.target.value)} />
+            <div className="text-xs font-black uppercase tracking-wide text-white/60">{t('budget.modal.date')} & {t('budget.time.optional')}</div>
+            <div className="flex gap-2">
+              <Input type="date" value={dateYMD} onChange={(e) => setDateYMD(e.target.value)} />
+              <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-32" />
+            </div>
             <div className="text-[11px] font-bold text-white/45">
               {t('budget.modal.tip.date')}
             </div>
