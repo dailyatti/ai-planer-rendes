@@ -47,6 +47,65 @@ interface Translations {
 const translations: Translations = {
 
 
+  // Navigation & Branding
+  'nav.cherryCodedPlanner': {
+    en: 'Cherry Coded Planner',
+    hu: 'Cherry Coded Planner',
+    ro: 'Cherry Coded Planner',
+    sk: 'Cherry Coded Planner',
+    hr: 'Cherry Coded Planner',
+    de: 'Cherry Coded Planner',
+    fr: 'Cherry Coded Planner',
+    es: 'Cherry Coded Planner',
+    it: 'Cherry Coded Planner',
+    pl: 'Cherry Coded Planner',
+    cn: 'Cherry Coded Planner',
+    jp: 'Cherry Coded Planner',
+    pt: 'Cherry Coded Planner',
+    tr: 'Cherry Coded Planner',
+    ar: 'Cherry Coded Planner',
+    ru: 'Cherry Coded Planner',
+    hi: 'Cherry Coded Planner',
+    bn: 'Cherry Coded Planner',
+    ur: 'Cherry Coded Planner',
+    th: 'Cherry Coded Planner',
+    id: 'Cherry Coded Planner',
+    ko: 'Cherry Coded Planner'
+  },
+  'nav.digitalPlannerPro': {
+    en: 'Digital Planner Pro',
+    hu: 'Digitális Tervező Pro',
+    ro: 'Planificator Digital Pro',
+    sk: 'Digitálny Plánovač Pro',
+    hr: 'Digitalni Planer Pro',
+    de: 'Digitaler Planer Pro',
+    fr: 'Planificateur Digital Pro',
+    es: 'Planificador Digital Pro',
+    it: 'Pianificatore Digitale Pro',
+    pl: 'Cyfrowy Planer Pro',
+    cn: '数字规划师专业版',
+    jp: 'デジタルプランナープロ',
+    pt: 'Planejador Digital Pro',
+    tr: 'Dijital Planlayıcı Pro',
+    ar: 'المخطط الرقمي برو',
+    ru: 'Цифровой Планировщик Про',
+    hi: 'डिजिटल प्लानर प्रो',
+    bn: 'ডিজিটাল প্ল্যানার প্রো',
+    ur: 'ڈیجیٹل منصوبہ ساز پرو',
+    th: 'นักวางแผนดิจิทัลโปร',
+    id: 'Perencana Digital Pro',
+    ko: '디지털 플래너 프로'
+  },
+
+  // Currency Converter
+  'currency.converterTitle': { en: 'Currency Converter', hu: 'Valutaváltó' },
+  'currency.amount': { en: 'Amount', hu: 'Összeg' },
+  'currency.from': { en: 'From', hu: 'Erről' },
+  'currency.to': { en: 'To', hu: 'Erre' },
+  'currency.liveRates': { en: 'Live Rates (API)', hu: 'Élő Árfolyamok (API)' },
+  'currency.manualRates': { en: 'Manual Rates', hu: 'Kézi Árfolyamok' },
+  'currency.refresh': { en: 'Refresh', hu: 'Frissítés' },
+
   // Invoicing View
   'invoicing.title': {
     en: 'Invoicing & Clients', ko: 'Invoicing & Clients',

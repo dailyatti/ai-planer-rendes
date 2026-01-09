@@ -4,12 +4,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CurrencyService } from '../../services/CurrencyService';
 import { AVAILABLE_CURRENCIES } from '../../constants/currencyData';
 
+import { useLanguage } from '../../contexts/LanguageContext';
+
 interface CurrencyConverterModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
 const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({ isOpen, onClose }) => {
+    const { t } = useLanguage();
     const [amount, setAmount] = useState<number>(1);
     const [fromCurrency, setFromCurrency] = useState<string>('USD');
     const [toCurrency, setToCurrency] = useState<string>('HUF');
@@ -57,7 +60,7 @@ const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({ isOpen,
                         <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400">
                             <Calculator size={20} />
                         </div>
-                        <h2 className="text-xl font-bold text-white">Currency Converter</h2>
+                        <h2 className="text-xl font-bold text-white">{t('currency.converterTitle') || 'Currency Converter'}</h2>
                     </div>
                     <button
                         onClick={onClose}
@@ -70,7 +73,7 @@ const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({ isOpen,
                 <div className="p-6 space-y-6">
                     {/* Amount Input */}
                     <div>
-                        <label className="block text-sm font-bold text-white/80 mb-2">Amount</label>
+                        <label className="block text-sm font-bold text-white/80 mb-2">{t('currency.amount') || 'Amount'}</label>
                         <input
                             type="number"
                             value={amount}
@@ -83,7 +86,7 @@ const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({ isOpen,
                     {/* Currencies */}
                     <div className="grid grid-cols-[1fr,auto,1fr] gap-4 items-center">
                         <div>
-                            <label className="block text-sm font-bold text-white/60 mb-2">From</label>
+                            <label className="block text-sm font-bold text-white/60 mb-2">{t('currency.from') || 'From'}</label>
                             <select
                                 value={fromCurrency}
                                 onChange={(e) => setFromCurrency(e.target.value)}
@@ -109,7 +112,7 @@ const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({ isOpen,
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold text-white/60 mb-2">To</label>
+                            <label className="block text-sm font-bold text-white/60 mb-2">{t('currency.to') || 'To'}</label>
                             <select
                                 value={toCurrency}
                                 onChange={(e) => setToCurrency(e.target.value)}
@@ -148,7 +151,7 @@ const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({ isOpen,
                                 onChange={(e) => setUseLiveRates(e.target.checked)}
                             />
                             <span className="text-sm font-bold text-white/80">
-                                {useLiveRates ? "Live Rates (API)" : "Manual Rates"}
+                                {useLiveRates ? (t('currency.liveRates') || "Live Rates (API)") : (t('currency.manualRates') || "Manual Rates")}
                             </span>
                         </label>
 
@@ -159,7 +162,7 @@ const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({ isOpen,
                                 className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-bold text-white transition-colors disabled:opacity-50"
                             >
                                 <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
-                                Refresh
+                                {t('currency.refresh') || 'Refresh'}
                             </button>
                         )}
                     </div>

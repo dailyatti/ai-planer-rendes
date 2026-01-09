@@ -466,16 +466,31 @@ const useEnhancedBudgetEngine = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [activeChart, setActiveChart] = useState<ChartType>("area");
   const [budgetGoals, setBudgetGoals] = useState<BudgetGoal[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: "1",
-      title: t?.('notifications.welcome') || "Welcome to Budget Pro!",
-      message: t?.('notifications.getStarted') || "Start by adding your first transaction",
-      type: "info",
-      timestamp: new Date().toISOString(),
-      read: false,
-    },
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>(() => {
+    const saved = localStorage.getItem('budget_notifications');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (error) {
+        console.error('Failed to parse notifications:', error);
+      }
+    }
+    return [
+      {
+        id: "1",
+        title: t?.('notifications.welcome') || "Welcome to Budget Pro!",
+        message: t?.('notifications.getStarted') || "Start by adding your first transaction",
+        type: "info",
+        timestamp: new Date().toISOString(),
+        read: false,
+      },
+    ];
+  });
+
+  // Persist notifications
+  useEffect(() => {
+    localStorage.setItem('budget_notifications', JSON.stringify(notifications));
+  }, [notifications]);
 
   // Categories with enhanced data
   const categories = useMemo<Record<CategoryKey, CategoryDef>>(() => ({

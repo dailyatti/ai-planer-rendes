@@ -188,7 +188,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onC
             <div className="rounded-lg bg-white/20 p-2">
               <Heart size={16} />
             </div>
-            <span className="flex-1">Cherry Coded Planner</span>
+            <span className="flex-1">{t('nav.cherryCodedPlanner')}</span>
             <ExternalLink size={16} className="opacity-70 group-hover:opacity-100" />
           </a>
         </div>
@@ -215,7 +215,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onC
           {/* Version Info */}
           <div className="p-3 rounded-xl bg-gradient-to-br from-primary-500/5 to-secondary-500/5 dark:from-primary-500/10 dark:to-secondary-500/10">
             <p className="text-xs font-semibold text-gray-900 dark:text-white">
-              Digital Planner Pro
+              {t('nav.digitalPlannerPro')}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               v1.1.15 • {t('nav.tagline')}
