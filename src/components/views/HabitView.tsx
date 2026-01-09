@@ -28,7 +28,8 @@ import { useLanguage } from '../../contexts/LanguageContext';
 
 /**
  * =====================================================================================
- * HABIT STUDIO PRO (V5) - 66 DAY CHALLENGE EDITION
+ * HABIT STUDIO PRO (V5.1) - WEEK NAVIGATION
+ * - Added Week Navigation (Prev/Next/Today)
  * - 66 Day Habit Formation Tracking
  * - Automatic "Mastered" state
  * - Manual Override (Force Formed / Resume)
@@ -132,6 +133,19 @@ function daysInMonthGrid(monthDate: Date) {
 
 function formatMonthYear(date: Date, locale: string) {
     return date.toLocaleString(locale, { month: 'long', year: 'numeric' });
+}
+
+function formatShort(date: Date, locale: string) {
+    return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+}
+
+function formatWeekRange(weekAnchor: Date, locale: string) {
+    const s = startOfWeekMonday(weekAnchor);
+    const e = endOfWeekMonday(weekAnchor);
+    const sFmt = formatShort(s, locale);
+    const eFmt = formatShort(e, locale);
+    const y = e.getFullYear() !== s.getFullYear() ? ` ${e.getFullYear()}` : '';
+    return `${sFmt} – ${eFmt}${y}`;
 }
 
 function logIsCompletedForGoal(goal: HabitGoal, log?: HabitDayLog) {
@@ -488,6 +502,24 @@ export default function HabitView() {
                         </button>
                     </div>
                 </div>
+
+                {/* NEW: Week Navigation (Only in List Mode) */}
+                {viewMode === 'list' && (
+                    <div className="flex items-center justify-between bg-white dark:bg-gray-900 p-2 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                        <button onClick={() => setWeekAnchor(d => addDays(d, -7))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors">
+                            <ChevronLeft size={20} className="text-gray-500" />
+                        </button>
+                        <div className="flex flex-col items-center">
+                            <span className="font-bold text-gray-900 dark:text-white">{formatWeekRange(weekAnchor, locale)}</span>
+                            <button onClick={() => setWeekAnchor(new Date())} className="text-xs font-bold text-blue-500 hover:text-blue-600">
+                                {t('habits.progress.today')}
+                            </button>
+                        </div>
+                        <button onClick={() => setWeekAnchor(d => addDays(d, 7))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors">
+                            <ChevronRight size={20} className="text-gray-500" />
+                        </button>
+                    </div>
+                )}
 
                 {viewMode === 'calendar' ? renderCalendar() : (
                     <div className="grid gap-4">
