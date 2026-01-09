@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   XAxis,
@@ -119,7 +119,7 @@ type CategoryDef = {
   color: string;
   bg: string;
   border: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 };
 
 type BudgetGoal = {
@@ -147,7 +147,10 @@ type Notification = {
 
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(" ");
 
-const uid = () => crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+const uid = () => {
+  const c = typeof crypto !== 'undefined' ? crypto : undefined;
+  return c?.randomUUID ? c.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
 
 // Date utilities
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -355,7 +358,7 @@ const StatCard: React.FC<{
 /* -------------------------------- Enhanced Chart Components -------------------------------- */
 
 const EnhancedChartFrame: React.FC<{
-  children: (dimensions: { width: number; height: number }) => React.ReactNode;
+  children: (dimensions: { width: number; height: number }) => ReactNode;
   height?: number;
   title?: string;
   className?: string;
@@ -376,12 +379,17 @@ const EnhancedChartFrame: React.FC<{
       }
     };
 
+    if (typeof ResizeObserver === 'undefined') {
+      updateDimensions();
+      return;
+    }
+
     const observer = new ResizeObserver(updateDimensions);
     observer.observe(ref.current);
     updateDimensions();
 
     return () => observer.disconnect();
-  }, []);
+  }, [height]);
 
   return (
     <GlassCard className={className}>
@@ -450,7 +458,8 @@ const useEnhancedBudgetEngine = () => {
   const [activeChart, setActiveChart] = useState<ChartType>("area");
   const [budgetGoals, setBudgetGoals] = useState<BudgetGoal[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>(() => {
-    const saved = localStorage.getItem('budget_notifications');
+    if (typeof window === 'undefined') return [];
+    const saved = window.localStorage.getItem('budget_notifications');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -678,9 +687,14 @@ const useEnhancedBudgetEngine = () => {
       monthlyData: [],
       categoryBreakdown: mappedCategories,
       weeklyTrend: [],
-      topTransactions: [] as Transaction[],
+      topTransactions: [...transactions]
+        .sort((a, b) => {
+          const dateA = a.effectiveDateYMD ? parseYMD(a.effectiveDateYMD) : new Date(0);
+          const dateB = b.effectiveDateYMD ? parseYMD(b.effectiveDateYMD) : new Date(0);
+          return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
+        }),
       totalSavings: totalIncome - totalExpense,
-      avgTransactionValue: 0,
+      avgTransactionValue: transactions.length > 0 ? (totalIncome + totalExpense) / transactions.length : 0,
       transactionCount: transactions.length
     };
   }, [categoryTotals, totalIncome, totalExpense, categories, transactions]);
@@ -1188,7 +1202,12 @@ const EnhancedTransactionModal: React.FC<{
                   <AnimatedInput
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && addTag()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addTag();
+                      }
+                    }}
                     placeholder={t('transactions.addTag')}
                     className="flex-1"
                   />
@@ -1508,11 +1527,14 @@ const EnhancedBudgetView: React.FC = () => {
                   {({ width, height }) => {
                     const data = Object.entries(analytics.categoryBreakdown)
                       .filter(([_, value]) => value.total > 0)
-                      .map(([category, value]) => ({
-                        name: engine.categories[category as CategoryKey]?.label || category,
-                        value: value.total,
-                        color: engine.categories[category as CategoryKey]?.color || '#94a3b8',
-                      }))
+                      .map(([category, value]) => {
+                        const catDef = engine.categories[category as CategoryKey] || engine.categories.other;
+                        return {
+                          name: catDef.label,
+                          value: value.total,
+                          color: catDef.color,
+                        };
+                      })
                       .sort((a, b) => b.value - a.value)
                       .slice(0, 8);
 
@@ -1552,22 +1574,32 @@ const EnhancedBudgetView: React.FC = () => {
                   <div className="p-6">
                     <h3 className="text-lg font-black text-white mb-4">{t('quickActions.title')}</h3>
                     <div className="space-y-3">
-                      {quickActions.map((action, index) => (
-                        <button
-                          key={index}
-                          onClick={action.action}
-                          className="w-full flex items-center gap-3 p-3 rounded-2xl border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all group"
-                        >
-                          <div className={`p-2 rounded-xl bg-${action.color}-500/10 border border-${action.color}-400/20 group-hover:scale-110 transition-transform`}>
-                            <div style={{ color: `var(--color-${action.color}-400)` }}>
-                              {action.icon}
+                      {quickActions.map((action, index) => {
+                        const colorMap: Record<string, { bg: string, border: string, text: string }> = {
+                          rose: { bg: 'bg-rose-500/10', border: 'border-rose-400/20', text: 'text-rose-400' },
+                          emerald: { bg: 'bg-emerald-500/10', border: 'border-emerald-400/20', text: 'text-emerald-400' },
+                          purple: { bg: 'bg-purple-500/10', border: 'border-purple-400/20', text: 'text-purple-400' },
+                          blue: { bg: 'bg-blue-500/10', border: 'border-blue-400/20', text: 'text-blue-400' },
+                        };
+                        const style = colorMap[action.color] || colorMap.blue;
+
+                        return (
+                          <button
+                            key={index}
+                            onClick={action.action}
+                            className="w-full flex items-center gap-3 p-3 rounded-2xl border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all group"
+                          >
+                            <div className={`p-2 rounded-xl ${style.bg} border ${style.border} group-hover:scale-110 transition-transform`}>
+                              <div className={style.text}>
+                                {action.icon}
+                              </div>
                             </div>
-                          </div>
-                          <span className="font-bold text-white/80 group-hover:text-white">
-                            {action.label}
-                          </span>
-                        </button>
-                      ))}
+                            <span className="font-bold text-white/80 group-hover:text-white">
+                              {action.label}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </GlassCard>
@@ -1607,7 +1639,10 @@ const EnhancedBudgetView: React.FC = () => {
                             <div>
                               <p className="font-bold text-white">{tx.description}</p>
                               <div className="flex items-center gap-2 mt-1">
-                                <Tag label={engine.categories[tx.category].label} color={engine.categories[tx.category].color} />
+                                <Tag
+                                  label={engine.categories[tx.category]?.label || engine.categories.other.label}
+                                  color={engine.categories[tx.category]?.color || engine.categories.other.color}
+                                />
                                 <span className="text-xs text-white/40">{engine.formatDate(tx.effectiveDateYMD)}</span>
                               </div>
                             </div>
