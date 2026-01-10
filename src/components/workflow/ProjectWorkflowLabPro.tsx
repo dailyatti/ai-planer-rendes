@@ -30,12 +30,20 @@ import {
     CheckCircle2,
     AlertTriangle,
     Undo2,
+    CheckSquare,
+    Flag,
+    GitBranch,
+    Globe,
+    Video,
+    Megaphone,
+    StickyNote,
 } from "lucide-react";
 
 // Optional: if you have this context, keep it.
 // If not, remove these two lines and the useLanguage usage below,
 // and replace t(...) with the fallbackT(...) helper.
 import { useLanguage } from "../../contexts/LanguageContext";
+import styles from "./WorkflowCanvas.module.css";
 
 /* =========================
    Types
@@ -44,7 +52,7 @@ import { useLanguage } from "../../contexts/LanguageContext";
 type LangCode = "hu" | "en" | "de" | (string & {});
 type WorkflowStatus = "todo" | "doing" | "blocked" | "done";
 type WorkflowPriority = "low" | "medium" | "high";
-type WorkflowNodeType = "step" | "milestone" | "resource";
+type WorkflowNodeType = 'task' | 'step' | 'milestone' | 'decision' | 'platform' | 'media' | 'promotion' | 'note' | 'resource';
 type I18nText = Record<string, string>;
 
 type WorkflowChecklistItem = { id: string; text: string; done: boolean };
@@ -72,6 +80,14 @@ type WorkflowNode = {
 
     isDeleted?: boolean;
     deletedAt?: number;
+
+    // Nesting / Grouping (n8n style)
+    parentId?: string;
+    isGroup?: boolean;
+    groupW?: number;
+    groupH?: number;
+    collapsed?: boolean;
+    groupColor?: string;
 };
 
 type WorkflowEdge = {
@@ -130,8 +146,8 @@ const WORKFLOW_SCHEMA_VERSION = 1 as const;
 const LS_KEY_WF = "planner_projectWorkflows_v1";
 const LS_KEY_TPL = "planner_workflowTemplates_v1";
 
-const NODE_W = 340;
-const NODE_H = 140;
+const NODE_W = 192; // 12rem
+const NODE_H = 56;  // 3.5rem
 
 const uid = () => Math.random().toString(36).slice(2, 10) + "_" + Date.now().toString(36);
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -1076,7 +1092,8 @@ export default function ProjectWorkflowLabPro() {
     };
 
     // Node drag
-    const dragState = useRef<{ id: string; start: { x: number; y: number }; orig: { x: number; y: number } } | null>(null);
+    // Node drag
+    const dragState = useRef<{ id: string; start: { x: number; y: number }; orig: { x: number; y: number }; childOrigs?: Record<string, { x: number; y: number }> } | null>(null);
 
     const onNodePointerDown = (e: React.PointerEvent, id: string) => {
         e.stopPropagation();
@@ -1099,7 +1116,15 @@ export default function ProjectWorkflowLabPro() {
         const node = draft.nodes.find((n) => n.id === id);
         if (!node) return;
 
-        dragState.current = { id, start: world, orig: { ...node.position } };
+        // Capture children positions if group
+        const childOrigs: Record<string, { x: number; y: number }> = {};
+        if (node.isGroup) {
+            draft.nodes.filter((n) => n.parentId === id).forEach((child) => {
+                childOrigs[child.id] = { ...child.position };
+            });
+        }
+
+        dragState.current = { id, start: world, orig: { ...node.position }, childOrigs };
 
         const move = (ev: PointerEvent) => {
             if (!dragState.current || !stageRef.current) return;
@@ -1112,25 +1137,85 @@ export default function ProjectWorkflowLabPro() {
             // fast local update (no undo per move)
             setDraft((prev) => {
                 if (!prev) return prev;
-                const nextNodes = prev.nodes.map((n) =>
-                    n.id === id ? { ...n, position: { x: dragState.current!.orig.x + dx, y: dragState.current!.orig.y + dy } } : n
-                );
+                const nextNodes = prev.nodes.map((n) => {
+                    if (n.id === id) {
+                        return { ...n, position: { x: dragState.current!.orig.x + dx, y: dragState.current!.orig.y + dy } };
+                    }
+                    // Move child if tracked
+                    if (dragState.current?.childOrigs?.[n.id]) {
+                        const orig = dragState.current.childOrigs[n.id];
+                        return { ...n, position: { x: orig.x + dx, y: orig.y + dy } };
+                    }
+                    return n;
+                });
                 return { ...prev, nodes: nextNodes };
             });
         };
 
-        const up = () => {
+        const up = (ev: PointerEvent) => {
             window.removeEventListener("pointermove", move);
             window.removeEventListener("pointerup", up);
 
             const st = dragState.current;
             dragState.current = null;
-            if (!st) return;
+            if (!st || !stageRef.current) return;
+
+            // Recalculate delta
+            const rect2 = stageRef.current.getBoundingClientRect();
+            const w2 = screenToWorld({ x: ev.clientX, y: ev.clientY }, rect2, viewport);
+            const dx = w2.x - st.start.x;
+            const dy = w2.y - st.start.y;
 
             setDraft((prev) => {
                 if (!prev) return prev;
                 const now = Date.now();
-                const nextNodes = prev.nodes.map((n) => (n.id === st.id ? { ...n, updatedAt: now } : n));
+
+                // Check for nesting (drop on another node)
+                const rect = stageRef.current!.getBoundingClientRect();
+                const nodeRect = {
+                    x: dragState.current!.orig.x + dx,
+                    y: dragState.current!.orig.y + dy,
+                    w: NODE_W,
+                    h: NODE_H
+                };
+
+                // Simple collision detection for nesting (center point)
+                const centerX = nodeRect.x + NODE_W / 2;
+                const centerY = nodeRect.y + NODE_H / 2;
+
+                let newParentId: string | undefined = undefined;
+
+                // Find target node (excluding self and children)
+                const targetNode = prev.nodes.find(n =>
+                    n.id !== st.id &&
+                    centerX >= n.position.x && centerX <= n.position.x + NODE_W &&
+                    centerY >= n.position.y && centerY <= n.position.y + NODE_H &&
+                    n.type !== 'note' // Don't nest into notes usually, unless group
+                );
+
+                if (targetNode) {
+                    newParentId = targetNode.id;
+                    // Optional: Auto-convert target to group if needed
+                }
+
+                const nextNodes = prev.nodes.map((n) => {
+                    if (n.id === st.id) {
+                        // Update position
+                        let pos = { x: dragState.current!.orig.x + dx, y: dragState.current!.orig.y + dy };
+
+                        // If we are nesting, we might want to adjust position relative to parent?
+                        // For now, keep absolute position, but logic might need to render relative.
+                        // The existing renderer uses absolute coordinates.
+
+                        return { ...n, position: pos, inputTime: now, parentId: newParentId, updatedAt: now };
+                    }
+                    // If target node became a group, update it?
+                    if (n.id === newParentId && !n.isGroup) {
+                        // return { ...n, isGroup: true }; // logic to enable group visualization
+                    }
+                    return n;
+                });
+
                 const committed = { ...prev, nodes: nextNodes, updatedAt: now };
                 persistDraft(committed, { immediate: false, recordUndo: true });
                 return committed;
@@ -1499,75 +1584,53 @@ export default function ProjectWorkflowLabPro() {
                                                 setSelectedNodeId(node.id);
                                                 setSelectedEdgeId(null);
                                             }}
-                                            style={{ left: node.position.x, top: node.position.y, width: NODE_W }}
-                                            className={[
-                                                "absolute rounded-3xl border backdrop-blur-xl shadow-2xl overflow-hidden",
-                                                "bg-gradient-to-br",
-                                                meta.gradient,
-                                                meta.glow,
-                                                "ring-2",
-                                                meta.ring,
-                                                selected ? "border-white/40 ring-white/30 scale-105" : "border-white/10",
-                                                linkFromThis ? "outline outline-4 outline-blue-400/60" : "",
-                                                "transition-all duration-200 hover:scale-[1.02] cursor-pointer"
-                                            ].join(" ")}
-                                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                                            animate={{ opacity: 1, scale: selected ? 1.05 : 1, y: 0 }}
-                                            transition={{ duration: 0.3, type: "spring", stiffness: 300 }}
+                                            style={{ left: node.position.x, top: node.position.y, width: NODE_W, height: NODE_H }}
+                                            className={`${styles.node} ${selected ? styles.nodeSelected : ""} ${linkFromThis ? "ring-2 ring-blue-400" : ""}`}
+                                            initial={{ opacity: 0, scale: 0.9 }}
+                                            animate={{ opacity: 1, scale: selected ? 1.05 : 1 }}
+                                            transition={{ duration: 0.1 }}
                                         >
-                                            {/* Top gradient overlay */}
-                                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                                            {/* Left Icon */}
+                                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center border border-gray-100 shadow-sm">
+                                                {(() => {
+                                                    switch (node.type) {
+                                                        case 'milestone': return <Flag className="w-5 h-5 text-emerald-500" />;
+                                                        case 'decision': return <GitBranch className="w-5 h-5 text-amber-500" />;
+                                                        case 'platform': return <Globe className="w-5 h-5 text-purple-500" />;
+                                                        case 'media': return <Video className="w-5 h-5 text-pink-500" />;
+                                                        case 'promotion': return <Megaphone className="w-5 h-5 text-red-500" />;
+                                                        case 'note': return <StickyNote className="w-5 h-5 text-gray-500" />;
+                                                        default: return <CheckSquare className="w-5 h-5 text-blue-500" />;
+                                                    }
+                                                })()}
+                                            </div>
 
-                                            <div className="p-5 flex flex-col gap-4 relative">
-                                                {/* Header Row */}
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="text-base font-bold text-white mb-1 leading-tight">
-                                                            {safeText(node.title, draft.language, "Untitled")}
-                                                        </div>
-                                                        <div className="text-xs text-white/70 line-clamp-2 leading-relaxed">
-                                                            {safeText(node.description, draft.language, "") || t("workflow.step.noDesc", "Nincs leírás")}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                                                        <div className={[
-                                                            "text-[10px] font-semibold px-3 py-1.5 rounded-full",
-                                                            "border backdrop-blur-sm",
-                                                            meta.badge
-                                                        ].join(" ")}>
-                                                            {t(meta.key, node.status).toUpperCase()}
-                                                        </div>
-                                                        {node.status === "done" && (
-                                                            <CheckCircle2 className="w-5 h-5 text-emerald-300 drop-shadow-lg" />
-                                                        )}
-                                                    </div>
+                                            {/* Content */}
+                                            <div className="flex-1 min-w-0 flex flex-col justify-center overflow-hidden">
+                                                <div className="text-sm font-semibold text-gray-800 truncate leading-tight">
+                                                    {safeText(node.title, draft.language, "Untitled")}
                                                 </div>
-
-                                                {/* Footer Row */}
-                                                <div className="flex items-center justify-between text-xs">
-                                                    <div className="flex items-center gap-2 text-white/60">
-                                                        <div className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 font-medium">
-                                                            {t(PRIORITY_META[node.priority].key, node.priority)}
-                                                        </div>
-                                                        {node.dueDateISO && (
-                                                            <div className="text-white/50">
-                                                                {node.dueDateISO}
-                                                            </div>
-                                                        )}
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <div className={`w-2 h-2 rounded-full ${node.status === 'done' ? 'bg-emerald-500' :
+                                                        node.status === 'doing' ? 'bg-blue-500' :
+                                                            node.status === 'blocked' ? 'bg-red-500' : 'bg-gray-300'
+                                                        }`} />
+                                                    <div className="text-[10px] text-gray-500 truncate uppercase tracking-wide">
+                                                        {t(STATUS_META[node.status]?.key ?? "status", node.status)}
                                                     </div>
-
-                                                    {/* connector */}
-                                                    <button
-                                                        data-role="connector"
-                                                        title={t("workflow.connector", "Húzd ide az összekötést")}
-                                                        onPointerDown={(e) => onConnectorDown(e, node.id)}
-                                                        className="w-8 h-8 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 hover:scale-110 flex items-center justify-center transition-all duration-200 group"
-                                                    >
-                                                        <Link2 className="w-4 h-4 text-white/80 group-hover:text-white" />
-                                                    </button>
                                                 </div>
                                             </div>
+
+                                            {/* Output Connector */}
+                                            <div
+                                                data-role="connector"
+                                                onPointerDown={(e) => onConnectorDown(e, node.id)}
+                                                className="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-gray-300 bg-white hover:bg-blue-500 hover:border-blue-600 transition-colors shadow-sm cursor-crosshair z-20"
+                                                title={t("workflow.connector", "Húzd ide az összekötést")}
+                                            />
+                                            {/* Input Connector Visual (non-interactive) */}
+                                            <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-gray-300 bg-white shadow-sm z-10 pointer-events-none" />
+
                                         </motion.div>
                                     );
                                 })}

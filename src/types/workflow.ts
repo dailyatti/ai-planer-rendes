@@ -43,6 +43,13 @@ export interface WorkflowNode {
     data?: Record<string, any>;    // Extra data for node-specific info
     width?: number;                // Node width (auto if not set)
     height?: number;               // Node height (auto if not set)
+    // Nesting / Grouping fields
+    parentId?: string;             // ID of the parent group node (if any)
+    isGroup?: boolean;             // True if this node is a container group
+    groupWidth?: number;           // Width when expanded as a group
+    groupHeight?: number;          // Height when expanded as a group
+    collapsed?: boolean;           // Whether the group is collapsed
+    groupColor?: string;           // Background color for the group frame
 }
 
 // Workflow template - reusable blueprint
