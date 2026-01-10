@@ -15,6 +15,7 @@ import HabitView from './views/HabitView';
 import SettingsView from './views/SettingsView';
 import InvoicingView from './views/InvoicingView';
 import IntegrationsView from './views/IntegrationsView';
+import WorkflowView from './views/WorkflowView';
 
 interface MainContentProps {
   activeView: ViewType;
@@ -52,6 +53,8 @@ const MainContent: React.FC<MainContentProps> = ({ activeView }) => {
         return <HabitView />;
       case 'integrations':
         return <IntegrationsView />;
+      case 'workflow':
+        return <WorkflowView />;
       case 'settings':
         return <SettingsView />;
       default:

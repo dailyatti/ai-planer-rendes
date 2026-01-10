@@ -394,9 +394,8 @@ const translations: Translations = {
 
 
   // Goals Extras
-  'goals.target': { en: 'Target', hu: 'Cél', ro: 'Țintă', sk: 'Cieľ', hr: 'Cilj', de: 'Ziel', fr: 'Cible', es: 'Objetivo', it: 'Obiettivo', pl: 'Cel', cn: '目标', jp: '目標', pt: 'Alvo', tr: 'Hedef', ar: 'الهدف', ru: 'Цель', hi: 'लक्ष्य', bn: 'লক্ষ্য', ur: 'ہدف', th: 'เป้าหมาย', id: 'Target', ko: 'Target' },
+  'goals.target': { en: 'Target', hu: 'Cél', ro: 'Țintă', sk: 'Cieľ', hr: 'Cilj', de: 'Ziel', fr: 'Cible', es: 'Objetivo', it: 'Obiettivo', pl: 'Cel', cn: '目标', jp: '目標', pt: 'Alvo', tr: 'Hedef', ar: 'الهدف', ru: 'Цель', hi: 'लक्ष्य', bn: 'লক্ষ্য', ur: 'هدف', th: 'เป้าหมาย', id: 'Target', ko: 'Target' },
   'goals.noGoals': { en: 'No goals set', hu: 'Nincsenek célok', ro: 'Fără obiective', sk: 'Žiadne ciele', hr: 'Nema ciljeva', de: 'Keine Ziele gesetzt', fr: 'Aucun objectif défini', es: 'Sin objetivos', it: 'Nessun obiettivo', pl: 'Brak celów', cn: '未设定目标', jp: '目標設定なし', pt: 'Sem metas', tr: 'Hedef belirlenmedi', ar: 'لم يتم تحديد أهداف', ru: 'Цели не заданы', hi: 'कोई लक्ष्य निर्धारित नहीं', bn: 'কোন লক্ষ্য নেই', ur: 'کوئی مقصد مقرر نہیں', th: 'ไม่ได้ตั้งเป้าหมาย', id: 'Tidak ada tujuan', ko: 'No goals set' },
-  'goals.subtitle': { en: 'Set financial goals to track your progress.', hu: 'Állíts be pénzügyi célokat a haladás követéséhez.', ro: 'Setați obiective financiare pentru a urmări progresul.', sk: 'Nastavte finančné ciele na sledovanie pokroku.', hr: 'Postavite financijske ciljeve za praćenje napretka.', de: 'Setzen Sie finanzielle Ziele, um Ihren Fortschritt zu verfolgen.', fr: 'Définissez des objectifs financiers pour suivre vos progrès.', es: 'Establece metas financieras para seguir tu progreso.', it: 'Imposta obiettivi finanziari per tracciare i tuoi progressi.', pl: 'Ustaw cele finansowe, aby śledzić postępy.', cn: '设定财务目标以跟踪进度。', jp: '進捗を追跡するために財務目標を設定します。', pt: 'Defina metas financeiras para acompanhar seu progresso.', tr: 'İlerlemenizi izlemek için finansal hedefler belirleyin.', ar: 'حدد أهدافًا مالية لتتبع تقدمك.', ru: 'Установите фин. цели для отслеживания прогресса.', hi: 'अपनी प्रगति को ट्रैक करने के लिए वित्तीय लक्ष्य निर्धारित करें।', bn: 'আপনার অগ্রগতি ট্র্যাক করতে আর্থিক লক্ষ্য সেট করুন।', ur: 'اپنی پیشرفت کو ٹریک کرنے کے لیے مالی اہداف مقرر کریں۔', th: 'ตั้งเป้าหมายทางการเงินเพื่อติดตามความคืบหน้าของคุณ', id: 'Tetapkan tujuan keuangan untuk melacak kemajuan Anda.', ko: 'Set financial goals to track your progress.' },
   // Common Pagination & Selection
   'common.selected': { en: 'selected', hu: 'kijelölve', ro: 'selectat', sk: 'vybrané', hr: 'odabrano', de: 'ausgewählt', fr: 'sélectionné', es: 'seleccionado', it: 'selezionato', pl: 'wybrano', cn: '已选择', jp: '選択済み', pt: 'selecionado', tr: 'seçildi', ar: 'محدد', ru: 'выбрано', hi: 'चयनित', bn: 'নির্বাচিত', ur: 'منتخب', th: 'เลือกแล้ว', id: 'dipilih', ko: 'selected' },
   'common.clearSelection': { en: 'Clear selection', hu: 'Kijelölés törlése', ro: 'Șterge selecția', sk: 'Zrušiť výber', hr: 'Očisti odabir', de: 'Auswahl aufheben', fr: 'Effacer sélection', es: 'Borrar selección', it: 'Cancella selezione', pl: 'Wyczyść zaznaczenie', cn: '清除选择', jp: '選択をクリア', pt: 'Limpar seleção', tr: 'Seçimi Temizle', ar: 'مسح التحديد', ru: 'Очистить выбор', hi: 'चयन साफ़ करें', bn: 'নির্বাচন পরিষ্কার করুন', ur: 'انتخاب صاف کریں', th: 'ล้างการเลือก', id: 'Hapus pilihan', ko: 'Clear selection' },
@@ -712,7 +711,6 @@ const translations: Translations = {
   'daily.taskPlaceholder': { en: 'What needs to be done?', hu: 'Mi a teendő?', ro: 'Ce trebuie făcut?', sk: 'Čo treba urobiť?', hr: 'Što treba učiniti?', de: 'Was ist zu tun?', fr: 'Que faut-il faire?', es: '¿Qué hay que hacer?', it: 'Cosa c\'è da fare?', pl: 'Co jest do zrobienia?', cn: '需要做什么？', jp: '何をすべきですか？', pt: 'O que precisa ser feito?', tr: 'Neler yapılması gerekiyor?', ar: 'ما الذي ينبغي فعله؟', ru: 'Что нужно сделать?', hi: 'क्या किया जाना है?', bn: 'কি করতে হবে?', ur: 'کیا کرنے کی ضرورت ہے؟', th: 'ต้องทำอะไรบ้าง?', id: 'Apa yang perlu dilakukan?' },
   'daily.descriptionPlaceholder': { en: 'Add more details...', hu: 'További részletek...', ro: 'Adăugați detalii...', sk: 'Pridať podrobnosti...', hr: 'Dodaj detalje...', de: 'Details hinzufügen...', fr: 'Ajouter des détails...', es: 'Añadir detalles...', it: 'Aggiungi dettagli...', pl: 'Dodaj szczegóły...', cn: '添加更多细节...', jp: '詳細を追加...', pt: 'Adicionar detalhes...', tr: 'Daha fazla detay ekle...', ar: 'أضf المزيد من التفاصيل...', ru: 'Добавить детали...', hi: 'और विवरण जोड़ें...', bn: 'আরও বিস্তারিত যোগ করুন...', ur: 'مزید تفصیلات شامل کریں...', th: 'เพิ่มรายละเอียดเพิ่มเติม...', id: 'Tambahkan rincian...' },
   'daily.taskTitle': { en: 'Task Title', hu: 'Feladat címe', ro: 'Titlu Sarcină', sk: 'Názov Úlohy', hr: 'Naslov zadatka', de: 'Aufgabentitel', fr: 'Titre de la tâche', es: 'Título de la tarea', it: 'Titolo attività', pl: 'Tytuł zadania', cn: '任务标题', jp: 'タスクのタイトル', pt: 'Título da tarefa', tr: 'Görev Başlığı', ar: 'عنوان المهمة', ru: 'Заголовок задачи', hi: 'कार्य शीर्षक', bn: 'কাজের শিরোনাম', ur: 'کام کا عنوان', th: 'ชื่อเรื่องงาน', id: 'Judul Tugas' },
-  'habits.fields.description': { en: 'Description', hu: 'Leírás', ro: 'Descriere' },
 
   // 66-Day Challenge
   'habits.challenge.title': { en: 'Habit Formation', hu: 'Szokáskialakítás' },
@@ -1154,7 +1152,82 @@ const translations: Translations = {
   'days.short.thursday': { en: 'Thu', ko: 'Thu', hu: 'Cs', ro: 'J', sk: 'Št', hr: 'Thu', de: 'Do', fr: 'Jeu', es: 'Jue', it: 'Gio', pl: 'Czw', cn: '四', jp: '木', pt: 'Thu', tr: 'Per', ar: 'خ', ru: 'Чт', hi: 'गुरु', bn: 'Thu', ur: 'Thu', th: 'Thu', id: 'Thu' },
   'days.short.friday': { en: 'Fri', ko: 'Fri', hu: 'P', ro: 'Vi', sk: 'Pi', hr: 'Fri', de: 'Fr', fr: 'Ven', es: 'Vie', it: 'Ven', pl: 'Pt', cn: '五', jp: '金', pt: 'Fri', tr: 'Cum', ar: 'ج', ru: 'Пт', hi: 'शुक्र', bn: 'Fri', ur: 'Fri', th: 'Fri', id: 'Fri' },
   'days.short.saturday': { en: 'Sat', ko: 'Sat', hu: 'Szo', ro: 'Sâ', sk: 'So', hr: 'Sat', de: 'Sa', fr: 'Sam', es: 'Sáb', it: 'Sab', pl: 'So', cn: '六', jp: '土', pt: 'Sat', tr: 'Cmt', ar: 'س', ru: 'Сб', hi: 'शनि', bn: 'Sat', ur: 'Sat', th: 'Sat', id: 'Sat' },
-  'days.short.sunday': { en: 'Sun', ko: 'Sun', hu: 'V', ro: 'Du', sk: 'Ne', hr: 'Sun', de: 'So', fr: 'Dim', es: 'Dom', it: 'Dom', pl: 'Nd', cn: '日', jp: '日', pt: 'Sun', tr: 'Paz', ar: 'ن', ru: 'Вс', hi: 'रवि', bn: 'Sun', ur: 'Sun', th: 'Sun', id: 'Sun' }
+  'days.short.sunday': { en: 'Sun', ko: 'Sun', hu: 'V', ro: 'Du', sk: 'Ne', hr: 'Sun', de: 'So', fr: 'Dim', es: 'Dom', it: 'Dom', pl: 'Nd', cn: '日', jp: '日', pt: 'Sun', tr: 'Paz', ar: 'ن', ru: 'Вс', hi: 'रवि', bn: 'Sun', ur: 'Sun', th: 'Sun', id: 'Sun' },
+
+  // Workflow / Project Planner
+  'nav.projectWorkflows': {
+    en: 'Project Workflows',
+    hu: 'Projekt Tervező',
+    ro: 'Fluxuri de Proiect',
+    sk: 'Projektové Pracovné Postupy',
+    hr: 'Projektni Tijekovi',
+    de: 'Projekt-Workflows',
+    fr: 'Flux de Projet',
+    es: 'Flujos de Proyecto',
+    it: 'Flussi di Progetto',
+    pl: 'Przepływy Projektów',
+    cn: '项目工作流',
+    jp: 'プロジェクトワークフロー',
+    pt: 'Fluxos de Projeto',
+    tr: 'Proje İş Akışları',
+    ar: 'سير عمل المشروع',
+    ru: 'Рабочие Процессы',
+    hi: 'प्रोजेक्ट वर्कफ्लो',
+    bn: 'প্রকল্প ওয়ার্কফ্লো',
+    ur: 'پروجیکٹ ورک فلو',
+    th: 'เวิร์กโฟลว์โปรเจกต์',
+    id: 'Alur Kerja Proyek',
+    ko: '프로젝트 워크플로우'
+  },
+  'workflow.title': {
+    en: 'Project Workflows',
+    hu: 'Projekt Tervező',
+    de: 'Projekt-Workflows',
+    fr: 'Flux de Projet',
+    es: 'Flujos de Proyecto'
+  },
+  'workflow.subtitle': {
+    en: 'Plan and track your projects step by step',
+    hu: 'Tervezd és kövesd projektjeidet lépésről lépésre',
+    de: 'Planen und verfolgen Sie Ihre Projekte Schritt für Schritt',
+    fr: 'Planifiez et suivez vos projets étape par étape',
+    es: 'Planifica y sigue tus proyectos paso a paso'
+  },
+  'workflow.newProject': { en: 'New Project', hu: 'Új Projekt', de: 'Neues Projekt', fr: 'Nouveau Projet', es: 'Nuevo Proyecto' },
+  'workflow.templates': { en: 'Templates', hu: 'Sablonok', de: 'Vorlagen', fr: 'Modèles', es: 'Plantillas' },
+  'workflow.projectName': { en: 'Project Name', hu: 'Projekt Neve', de: 'Projektname', fr: 'Nom du Projet', es: 'Nombre del Proyecto' },
+  'workflow.projectNamePlaceholder': { en: 'e.g. My New Product Launch', hu: 'Pl. Új Termék Bevezetése', de: 'z.B. Mein neuer Produktstart', fr: 'ex. Mon nouveau lancement de produit', es: 'ej. Mi Nuevo Lanzamiento de Producto' },
+  'workflow.chooseTemplate': { en: 'Choose Template', hu: 'Sablon Választása', de: 'Vorlage wählen', fr: 'Choisir un modèle', es: 'Elegir Plantilla' },
+  'workflow.create': { en: 'Create Project', hu: 'Projekt Létrehozása', de: 'Projekt erstellen', fr: 'Créer le Projet', es: 'Crear Proyecto' },
+  'workflow.confirmDelete': { en: 'Delete this workflow?', hu: 'Törlöd ezt a workflow-t?', de: 'Diesen Workflow löschen?', fr: 'Supprimer ce workflow?', es: '¿Eliminar este flujo de trabajo?' },
+  'workflow.noProjects': { en: 'No projects yet', hu: 'Még nincs projekt', de: 'Noch keine Projekte', fr: 'Pas encore de projets', es: 'Sin proyectos aún' },
+  'workflow.selectProject': { en: 'Select a project', hu: 'Válassz projektet', de: 'Projekt auswählen', fr: 'Sélectionner un projet', es: 'Seleccionar un proyecto' },
+  'workflow.selectProjectDesc': { en: 'Choose a project from the sidebar or create a new one', hu: 'Válassz projektet az oldalsávból vagy hozz létre újat', de: 'Wählen Sie ein Projekt aus der Seitenleiste oder erstellen Sie ein neues', fr: 'Choisissez un projet dans la barre latérale ou créez-en un nouveau', es: 'Elige un proyecto de la barra lateral o crea uno nuevo' },
+  'workflow.node.task': { en: 'Task', hu: 'Feladat', de: 'Aufgabe', fr: 'Tâche', es: 'Tarea' },
+  'workflow.node.milestone': { en: 'Milestone', hu: 'Mérföldkő', de: 'Meilenstein', fr: 'Jalon', es: 'Hito' },
+  'workflow.node.decision': { en: 'Decision', hu: 'Döntés', de: 'Entscheidung', fr: 'Décision', es: 'Decisión' },
+  'workflow.node.platform': { en: 'Platform', hu: 'Platform', de: 'Plattform', fr: 'Plateforme', es: 'Plataforma' },
+  'workflow.node.media': { en: 'Media', hu: 'Média', de: 'Medien', fr: 'Média', es: 'Medios' },
+  'workflow.node.promotion': { en: 'Promotion', hu: 'Promóció', de: 'Werbung', fr: 'Promotion', es: 'Promoción' },
+  'workflow.node.note': { en: 'Note', hu: 'Jegyzet', de: 'Notiz', fr: 'Note', es: 'Nota' },
+  'workflow.status.pending': { en: 'Pending', hu: 'Függőben', de: 'Ausstehend', fr: 'En attente', es: 'Pendiente' },
+  'workflow.status.planning': { en: 'Planning', hu: 'Tervezés', de: 'Planung', fr: 'Planification', es: 'Planificación' },
+  'workflow.status.active': { en: 'Active', hu: 'Aktív', de: 'Aktiv', fr: 'Actif', es: 'Activo' },
+  'workflow.status.completed': { en: 'Completed', hu: 'Befejezve', de: 'Abgeschlossen', fr: 'Terminé', es: 'Completado' },
+  'workflow.status.skipped': { en: 'Skipped', hu: 'Kihagyva', de: 'Übersprungen', fr: 'Ignoré', es: 'Omitido' },
+  'workflow.status.inProgress': { en: 'In Progress', hu: 'Folyamatban', de: 'In Bearbeitung', fr: 'En cours', es: 'En Progreso' },
+  'workflow.status.archived': { en: 'Archived', hu: 'Archivált', de: 'Archiviert', fr: 'Archivé', es: 'Archivado' },
+  'workflow.searchPlaceholder': { en: 'Search projects...', hu: 'Projektek keresése...', de: 'Projekte suchen...', fr: 'Rechercher des projets...', es: 'Buscar proyectos...' },
+  'workflow.addNode': { en: 'Add Elements', hu: 'Elemek Hozzáadása', de: 'Elemente hinzufügen', fr: 'Ajouter des éléments', es: 'Añadir elementos' },
+  'workflow.useTemplate': { en: 'Use Template', hu: 'Sablon Használata', de: 'Vorlage verwenden', fr: 'Utiliser le modèle', es: 'Usar Plantilla' },
+  'workflow.cancel': { en: 'Cancel', hu: 'Mégse', de: 'Abbrechen', fr: 'Annuler', es: 'Cancelar' },
+  'workflow.backToDashboard': { en: 'Back to Dashboard', hu: 'Vissza a Vezérlőpultra', de: 'Zurück zum Dashboard', fr: 'Retour au tableau de bord', es: 'Volver al panel' },
+
+  'workflow.category.product-launch': { en: 'Product Launch', hu: 'Termékbevezetés', de: 'Produkteinführung', fr: 'Lancement de produit', es: 'Lanzamiento de producto' },
+  'workflow.category.social-media': { en: 'Social Media', hu: 'Közösségi Média', de: 'Soziale Medien', fr: 'Réseaux sociaux', es: 'Redes sociales' },
+  'workflow.category.content-creation': { en: 'Content Creation', hu: 'Tartalomgyártás', de: 'Inhaltserstellung', fr: 'Création de contenu', es: 'Creación de contenido' },
+  'workflow.category.marketing': { en: 'Marketing', hu: 'Marketing', de: 'Marketing', fr: 'Marketing', es: 'Marketing' },
+  'workflow.category.custom': { en: 'Custom', hu: 'Egyedi', de: 'Benutzerdefiniert', fr: 'Personnalisé', es: 'Personalizado' }
 };
 
 interface LanguageContextType {

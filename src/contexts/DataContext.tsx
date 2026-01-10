@@ -1,8 +1,10 @@
 // DataContext.tsx – provides application-wide state and financial calculations
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { Note, Goal, PlanItem, Drawing, Subscription, BudgetSettings, Transaction, TransactionPatch, Invoice, Client, CompanyProfile } from '../types/planner';
+import { ProjectWorkflow, WorkflowTemplate } from '../types/workflow';
 import { StorageService } from '../services/StorageService';
 import { FinancialEngine } from '../utils/FinancialEngine';
+import { BUILTIN_TEMPLATES } from '../data/workflowTemplates';
 
 interface DataContextType {
   notes: Note[];
@@ -15,6 +17,9 @@ interface DataContextType {
   invoices: Invoice[];
   clients: Client[];
   companyProfiles: CompanyProfile[];
+  // Workflow data
+  workflows: ProjectWorkflow[];
+  workflowTemplates: WorkflowTemplate[];
   // Financial helpers
   financialStats: any;
   computeProjection: (months: number) => number[];
@@ -49,6 +54,12 @@ interface DataContextType {
   addCompanyProfile: (profile: Omit<CompanyProfile, 'id' | 'createdAt'>) => void;
   updateCompanyProfile: (id: string, updates: Partial<CompanyProfile>) => void;
   deleteCompanyProfile: (id: string) => void;
+  // Workflow operations
+  addWorkflow: (workflow: Omit<ProjectWorkflow, 'id' | 'createdAt' | 'updatedAt'>) => ProjectWorkflow;
+  updateWorkflow: (id: string, updates: Partial<ProjectWorkflow>) => void;
+  deleteWorkflow: (id: string) => void;
+  addWorkflowTemplate: (template: Omit<WorkflowTemplate, 'id' | 'createdAt'>) => void;
+  deleteWorkflowTemplate: (id: string) => void;
   clearAllData: () => void;
 }
 
@@ -79,6 +90,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     warningThreshold: 80,
   });
   const [companyProfiles, setCompanyProfiles] = useState<CompanyProfile[]>([]);
+  const [workflows, setWorkflows] = useState<ProjectWorkflow[]>([]);
+  const [workflowTemplates, setWorkflowTemplates] = useState<WorkflowTemplate[]>(BUILTIN_TEMPLATES);
   const [financialStats, setFinancialStats] = useState<any>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [recurringTick, setRecurringTick] = useState(0);
@@ -243,6 +256,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const s = new Set(savedSkips);
           setSkips(s);
           skipsRef.current = s;
+        }
+
+        // Load workflows
+        const savedWorkflows = StorageService.get<ProjectWorkflow[]>('workflows', []);
+        if (savedWorkflows) {
+          setWorkflows(savedWorkflows.map(w => ({
+            ...w,
+            createdAt: new Date(w.createdAt),
+            updatedAt: new Date(w.updatedAt)
+          })));
+        }
+
+        // Load custom templates (merge with built-in)
+        const savedCustomTemplates = StorageService.get<WorkflowTemplate[]>('workflow-templates', []);
+        if (savedCustomTemplates && savedCustomTemplates.length > 0) {
+          setWorkflowTemplates([
+            ...BUILTIN_TEMPLATES,
+            ...savedCustomTemplates.map(t => ({
+              ...t,
+              createdAt: new Date(t.createdAt)
+            }))
+          ]);
         }
 
       } catch (e) {
@@ -437,6 +472,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { if (isInitialized) StorageService.set('budget-settings', budgetSettings); }, [budgetSettings, isInitialized]);
   useEffect(() => { if (isInitialized) StorageService.set('company-profiles', companyProfiles); }, [companyProfiles, isInitialized]);
   useEffect(() => { if (isInitialized) StorageService.set('recurring-skips', Array.from(skips)); }, [skips, isInitialized]);
+  useEffect(() => { if (isInitialized) StorageService.set('workflows', workflows); }, [workflows, isInitialized]);
+  useEffect(() => {
+    if (isInitialized) {
+      // Only save custom templates (non-builtin)
+      const customTemplates = workflowTemplates.filter(t => !t.isBuiltIn);
+      StorageService.set('workflow-templates', customTemplates);
+    }
+  }, [workflowTemplates, isInitialized]);
 
   const addNote = (note: Omit<Note, 'id' | 'createdAt'>) => setNotes(prev => [...prev, { ...note, id: newId(), createdAt: new Date() }]);
   const updateNote = (id: string, updates: Partial<Note>) => setNotes(prev => prev.map(n => (n.id === id ? { ...n, ...updates } : n)));
@@ -593,6 +636,38 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateCompanyProfile = (id: string, updates: Partial<CompanyProfile>) => setCompanyProfiles(prev => prev.map(p => (p.id === id ? { ...p, ...updates } : p)));
   const deleteCompanyProfile = (id: string) => setCompanyProfiles(prev => prev.filter(p => p.id !== id));
 
+  // Workflow CRUD Operations
+  const addWorkflow = (workflow: Omit<ProjectWorkflow, 'id' | 'createdAt' | 'updatedAt'>): ProjectWorkflow => {
+    const now = new Date();
+    const newWorkflow: ProjectWorkflow = {
+      ...workflow,
+      id: newId(),
+      createdAt: now,
+      updatedAt: now
+    };
+    setWorkflows(prev => [...prev, newWorkflow]);
+    return newWorkflow;
+  };
+
+  const updateWorkflow = (id: string, updates: Partial<ProjectWorkflow>) => {
+    setWorkflows(prev => prev.map(w =>
+      w.id === id
+        ? { ...w, ...updates, updatedAt: new Date() }
+        : w
+    ));
+  };
+
+  const deleteWorkflow = (id: string) => setWorkflows(prev => prev.filter(w => w.id !== id));
+
+  const addWorkflowTemplate = (template: Omit<WorkflowTemplate, 'id' | 'createdAt'>) => {
+    setWorkflowTemplates(prev => [...prev, { ...template, id: newId(), createdAt: new Date() }]);
+  };
+
+  const deleteWorkflowTemplate = (id: string) => {
+    // Only allow deleting non-builtin templates
+    setWorkflowTemplates(prev => prev.filter(t => t.id !== id || t.isBuiltIn));
+  };
+
   const clearAllData = () => {
     setNotes([]);
     setGoals([]);
@@ -608,6 +683,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSkipsAndRef(new Set());
     setRecurringTick(0);
     pendingDeletionsRef.current = { skips: new Set(), trigger: false };
+    setWorkflows([]);
+    setWorkflowTemplates(BUILTIN_TEMPLATES);
 
     StorageService.clear();
   };
@@ -658,6 +735,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addCompanyProfile,
         updateCompanyProfile,
         deleteCompanyProfile,
+        // Workflow
+        workflows,
+        workflowTemplates,
+        addWorkflow,
+        updateWorkflow,
+        deleteWorkflow,
+        addWorkflowTemplate,
+        deleteWorkflowTemplate,
         clearAllData,
       }}
     >
