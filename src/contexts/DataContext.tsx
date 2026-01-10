@@ -1,5 +1,5 @@
 // DataContext.tsx – provides application-wide state and financial calculations
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { Note, Goal, PlanItem, Drawing, Subscription, BudgetSettings, Transaction, TransactionPatch, Invoice, Client, CompanyProfile } from '../types/planner';
 import { StorageService } from '../services/StorageService';
 import { FinancialEngine } from '../utils/FinancialEngine';
@@ -81,9 +81,57 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [companyProfiles, setCompanyProfiles] = useState<CompanyProfile[]>([]);
   const [financialStats, setFinancialStats] = useState<any>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [recurringTick, setRecurringTick] = useState(0);
+  const [skips, setSkips] = useState<Set<string>>(new Set());
+
+  // Mirror ref for skips to allow recurring engine access without dependency spam
+  const skipsRef = useRef<Set<string>>(new Set());
+
+  // Helper to keep skips and skipsRef strictly in sync
+  const setSkipsAndRef = (value: Set<string> | ((prev: Set<string>) => Set<string>)) => {
+    setSkips(prev => {
+      const next = typeof value === 'function' ? value(prev) : value;
+      skipsRef.current = next;
+      return next;
+    });
+  };
+
+  const triggerRecurring = () => setRecurringTick(t => t + 1);
+
+  // Helper for local YMD parsing (drift-proof)
+  const parseYMDLocal = (ymd: string): Date => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd);
+    if (!m) return new Date(ymd); // Fallback to standard
+    const y = Number(m[1]);
+    const mo = Number(m[2]) - 1;
+    const d = Number(m[3]);
+    // Set to noon to avoid drift to previous/next day during zone transitions
+    return new Date(y, mo, d, 12, 0, 0, 0);
+  };
+
+  const isYMD = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+
+  // Robust date normalizer that respects strict YMD but falls back safely
+  const normalizeDate = (raw: any): Date => {
+    if (raw instanceof Date) return raw;
+    if (typeof raw === 'string') return isYMD(raw) ? parseYMDLocal(raw) : new Date(raw);
+    return new Date(raw);
+  };
 
   // FIX #4: Guard ref to prevent infinite loops when transactions is in dependency
-  const processingRecurringRef = React.useRef(false);
+  const processingRecurringRef = useRef(false);
+
+  // FIX #5: Ref Queue for side effects from inside state updaters
+  // This allows us to strictly identify what was deleted in the updater (prev state)
+  // and schedule side effects (skips, triggers) for the effect phase, avoiding stale state or race conditions.
+  const pendingDeletionsRef = useRef<{ skips: Set<string>, trigger: boolean }>({ skips: new Set(), trigger: false });
+
+  // Bank-Grade ID Generator (avoid substr and collisions)
+  const newId = () => {
+    const c = globalThis.crypto as Crypto | undefined;
+    if (c && 'randomUUID' in c) return (c as any).randomUUID();
+    return Math.random().toString(36).slice(2, 11);
+  };
 
   // Helper functions within DataProvider context
   const endOfToday = () => {
@@ -134,7 +182,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const savedPlans = StorageService.get<PlanItem[]>('plans', []);
         if (savedPlans) setPlans(savedPlans.map(p => ({
           ...p,
-          date: new Date(p.date),
+          date: normalizeDate(p.date), // Strict YMD enforce
           startTime: p.startTime ? new Date(p.startTime) : undefined,
           endTime: p.endTime ? new Date(p.endTime) : undefined
         })));
@@ -147,12 +195,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const savedTransactions = StorageService.get<Transaction[]>('transactions', []);
         if (savedTransactions) {
-          setTransactions(savedTransactions.map(t => ({
-            ...t,
-            date: new Date(t.date),
-            // Consistency Fix: Ensure all recurring transactions have kind='master'
-            kind: (t.recurring && t.period !== 'oneTime' && !t.kind) ? 'master' : t.kind
-          })));
+          setTransactions(savedTransactions.map(t => {
+            const date = normalizeDate((t as any).date);
+            return {
+              ...t,
+              date,
+              // Consistency Fix: Ensure all recurring transactions have kind='master'
+              kind: (t.recurring && t.period !== 'oneTime' && !t.kind) ? 'master' : t.kind
+            } as Transaction;
+          }));
         }
 
         const savedInvoices = StorageService.get<Invoice[]>('invoices', []);
@@ -187,6 +238,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (savedSettings) setBudgetSettings(savedSettings);
 
+        const savedSkips = StorageService.get<string[]>('recurring-skips', []);
+        if (savedSkips) {
+          const s = new Set(savedSkips);
+          setSkips(s);
+          skipsRef.current = s;
+        }
+
       } catch (e) {
         console.error('Error loading data from StorageService:', e);
       } finally {
@@ -197,19 +255,70 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Update financial stats when relevant data changes
+  // FIX: Added dependency on budgetSettings.currency so stats update on currency change
+  // Note: computeProjection/Runway are still created every render below, but we will fix that next.
+  // Actually, we will fix computeProjection memoization now too.
+
+  // Financial helper functions - Memoized to prevent consumer re-renders
+  const computeProjection = useCallback((months: number) => {
+    // Return array of projected balances for next N months
+    const baseCurrency = budgetSettings.currency || 'USD';
+    const report = FinancialEngine.getFinancialReport(transactions, baseCurrency);
+
+    const currentBalance = report.currentBalance;
+    const monthlyNet = report.monthlyNet;
+    const rate = report.avgInterestRate;
+
+    const projectionArr = [];
+    for (let i = 1; i <= months; i++) {
+      projectionArr.push(FinancialEngine.calculateFutureBalance(currentBalance, monthlyNet, i, rate));
+    }
+    return projectionArr;
+  }, [transactions, budgetSettings.currency]);
+
+  const computeRunway = useCallback((): number | null => {
+    const baseCurrency = budgetSettings.currency || 'USD';
+    const report = FinancialEngine.getFinancialReport(transactions, baseCurrency);
+    return report.runway;
+  }, [transactions, budgetSettings.currency]);
+
+  const getFinancialSummary = useCallback((targetCurrency: string = 'USD') => {
+    const revenue = FinancialEngine.calculateTotalRevenue(invoices, targetCurrency);
+    const paid = FinancialEngine.calculatePaid(invoices, targetCurrency);
+
+    const pending = invoices
+      .filter(i => i.status === 'sent')
+      .reduce((sum, i) => sum + FinancialEngine.convert(i.total, i.currency || 'USD', targetCurrency), 0);
+
+    const overdue = invoices
+      .filter(i => i.status === 'overdue')
+      .reduce((sum, i) => sum + FinancialEngine.convert(i.total, i.currency || 'USD', targetCurrency), 0);
+
+    return { revenue, paid, pending, overdue };
+  }, [invoices]);
+
+  // Effect to update the 'financialStats' state for consumers who use it directly
   useEffect(() => {
     if (!isInitialized) return;
     const projection = computeProjection(12);
     const runway = computeRunway();
     setFinancialStats({ projection, runway });
-  }, [transactions, invoices, isInitialized]);
+  }, [computeProjection, computeRunway, isInitialized]);
+
 
   // Recurring Processing Effect
+  // OPTIMIZATION: Removed 'skips' from dependency, uses 'skipsRef' to prevent double-firing.
   useEffect(() => {
     if (!isInitialized) return;
     if (processingRecurringRef.current) return;
 
     processingRecurringRef.current = true;
+
+    // Helper for local YMD (consistent with engine)
+    const toYMDLocal = (d: Date) => {
+      const pad2 = (n: number) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    };
 
     try {
       setTransactions(prev => {
@@ -248,18 +357,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           // Catch-up: create history for each occurrence up to today
           while (currentDate.getTime() <= now.getTime() && iterations < MAX_CATCHUP) {
-            const dayKey = new Date(currentDate).toISOString().slice(0, 10);
+            // FIX: Use LOCAL YMD for history ID to avoid UTC drift duplicity
+            const dayKey = toYMDLocal(currentDate);
             const historyId = `${master.id}_${dayKey}`;
 
-            if (!existingIds.has(historyId)) {
-              existingIds.add(historyId);
+            // Check if exists (using set for O(1)) and NOT skipped (from REF)
+            // Using skipsRef.current ensures we see latest skips without triggering effect re-run
+            if (!existingIds.has(historyId) && !skipsRef.current.has(historyId)) {
+              existingIds.add(historyId); // <--- Add immediately to prevent duplicate generation in same loop
               newHistory.push({
                 ...master,
                 id: historyId,
                 originId: master.id,
                 kind: 'history',
                 date: new Date(currentDate),
+                effectiveDateYMD: dayKey, // Explicit sync for engine alignment
                 recurring: false,
+                createdAtISO: new Date().toISOString(),
               });
               changed = true;
             }
@@ -270,7 +384,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             iterations++;
           }
 
-          // IMPORTANT FIX: master.date must advance even if no new history was created
+          // advance master.date to next future occurrence
           if (new Date(master.date).getTime() !== new Date(nextDate).getTime()) {
             changed = true;
           }
@@ -284,62 +398,34 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       processingRecurringRef.current = false;
     }
-  }, [isInitialized, transactions]); // Reactive: runs when transactions change, relies on logic convergence to stop loops
+  }, [isInitialized, recurringTick]); // Triggered ONLY by tick or init, NOT by skips change
 
-  // Financial helper functions
-  const computeProjection = (months: number) => {
-    // Return array of projected balances for next N months
-    const baseCurrency = budgetSettings.currency || 'USD';
-    const report = FinancialEngine.getFinancialReport(transactions, baseCurrency);
 
-    // We can reuse the logic from FinancialEngine to generate month-by-month array
-    // Since getFinancialReport gives snapshots, we'll manually generate the array for the chart
-    const currentBalance = report.currentBalance;
-    const monthlyNet = report.monthlyNet;
-    const rate = report.avgInterestRate;
+  // Side Effect Processor for Deletions
+  useEffect(() => {
+    const pending = pendingDeletionsRef.current;
+    if (!pending.trigger && pending.skips.size === 0) return;
 
-    const projectionArr = [];
-    for (let i = 1; i <= months; i++) {
-      projectionArr.push(FinancialEngine.calculateFutureBalance(currentBalance, monthlyNet, i, rate));
+    // Reset EARLY (very important for re-entrancy / Concurrent Mode)
+    pendingDeletionsRef.current = { skips: new Set(), trigger: false };
+
+    // Apply skips if any
+    if (pending.skips.size > 0) {
+      setSkipsAndRef(prev => {
+        const next = new Set(prev);
+        pending.skips.forEach(id => next.add(id));
+        return next;
+      });
     }
-    return projectionArr;
-  };
 
-  const computeRunway = (): number | null => {
-    const baseCurrency = budgetSettings.currency || 'USD';
-    const report = FinancialEngine.getFinancialReport(transactions, baseCurrency);
-    return report.runway;
-  };
+    // Trigger recurring if needed
+    if (pending.trigger) {
+      triggerRecurring();
+    }
+  }, [transactions]); // Safe to depend on transactions as queue is populated by deletion updaters
 
-  // PhD Level Financial Summary
-  const getFinancialSummary = (targetCurrency: string = 'USD') => {
-    const revenue = FinancialEngine.calculateTotalRevenue(invoices, targetCurrency);
-    const paid = FinancialEngine.calculatePaid(invoices, targetCurrency);
 
-    const pending = invoices
-      .filter(i => i.status === 'sent')
-      .reduce((sum, i) => sum + FinancialEngine.convert(i.total, i.currency || 'USD', targetCurrency), 0);
-
-    const overdue = invoices
-      .filter(i => i.status === 'overdue')
-      .reduce((sum, i) => sum + FinancialEngine.convert(i.total, i.currency || 'USD', targetCurrency), 0);
-
-    return { revenue, paid, pending, overdue };
-  };
-
-  // CRUD implementations (refactored to use StorageService effect listeners would be overkill, so we construct syncs elsewhere or rely on simple effects? 
-  // Actually, standard practice in this file was useEffect to save? 
-  // Wait, I missed the save effects in the previous ViewFile!
-  // The logic in previous DataContext.tsx seemed to only HAVE load logic. 
-  // Let me check if there were SAVE effects.
-  // The provided code in Step 352 ONLY showed LOADING. 
-  // If there are no save effects, data is never saved!
-  // I must Check if I missed them or if they need to be added.
-  // Assuming they are standard useEffects below... I will add them if they are missing or view file to check.
-
-  // Let's add the save effects now to be safe and "Professional".
-
-  // Persist Data Effects
+  // Persist Data Effects (unchanged)
   useEffect(() => { if (isInitialized) StorageService.set('notes', notes); }, [notes, isInitialized]);
   useEffect(() => { if (isInitialized) StorageService.set('goals', goals); }, [goals, isInitialized]);
   useEffect(() => { if (isInitialized) StorageService.set('plans', plans); }, [plans, isInitialized]);
@@ -350,51 +436,68 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { if (isInitialized) StorageService.set('clients', clients); }, [clients, isInitialized]);
   useEffect(() => { if (isInitialized) StorageService.set('budget-settings', budgetSettings); }, [budgetSettings, isInitialized]);
   useEffect(() => { if (isInitialized) StorageService.set('company-profiles', companyProfiles); }, [companyProfiles, isInitialized]);
+  useEffect(() => { if (isInitialized) StorageService.set('recurring-skips', Array.from(skips)); }, [skips, isInitialized]);
 
-  const addNote = (note: Omit<Note, 'id' | 'createdAt'>) => setNotes(prev => [...prev, { ...note, id: Math.random().toString(36).substr(2, 9), createdAt: new Date() }]);
+  const addNote = (note: Omit<Note, 'id' | 'createdAt'>) => setNotes(prev => [...prev, { ...note, id: newId(), createdAt: new Date() }]);
   const updateNote = (id: string, updates: Partial<Note>) => setNotes(prev => prev.map(n => (n.id === id ? { ...n, ...updates } : n)));
   const deleteNote = (id: string) => setNotes(prev => prev.filter(n => n.id !== id));
 
-  const addGoal = (goal: Omit<Goal, 'id' | 'createdAt'>) => setGoals(prev => [...prev, { ...goal, id: Math.random().toString(36).substr(2, 9), createdAt: new Date() }]);
+  const addGoal = (goal: Omit<Goal, 'id' | 'createdAt'>) => setGoals(prev => [...prev, { ...goal, id: newId(), createdAt: new Date() }]);
   const updateGoal = (id: string, updates: Partial<Goal>) => setGoals(prev => prev.map(g => (g.id === id ? { ...g, ...updates } : g)));
   const deleteGoal = (id: string) => setGoals(prev => prev.filter(g => g.id !== id));
 
-  const addPlan = (plan: Omit<PlanItem, 'id'>) => setPlans(prev => [...prev, { ...plan, id: Math.random().toString(36).substr(2, 9) }]);
+  const addPlan = (plan: Omit<PlanItem, 'id'>) => setPlans(prev => [...prev, { ...plan, id: newId() }]);
   const updatePlan = (id: string, updates: Partial<PlanItem>) => setPlans(prev => prev.map(p => (p.id === id ? { ...p, ...updates } : p)));
   const deletePlan = (id: string) => setPlans(prev => prev.filter(p => p.id !== id));
 
-  const addDrawing = (drawing: Omit<Drawing, 'id' | 'createdAt'>) => setDrawings(prev => [...prev, { ...drawing, id: Math.random().toString(36).substr(2, 9), createdAt: new Date() }]);
+  const addDrawing = (drawing: Omit<Drawing, 'id' | 'createdAt'>) => setDrawings(prev => [...prev, { ...drawing, id: newId(), createdAt: new Date() }]);
   const deleteDrawing = (id: string) => setDrawings(prev => prev.filter(d => d.id !== id));
 
-  const addSubscription = (sub: Omit<Subscription, 'id' | 'createdAt'>) => setSubscriptions(prev => [...prev, { ...sub, id: Math.random().toString(36).substr(2, 9), createdAt: new Date() }]);
+  const addSubscription = (sub: Omit<Subscription, 'id' | 'createdAt'>) => setSubscriptions(prev => [...prev, { ...sub, id: newId(), createdAt: new Date() }]);
   const updateSubscription = (id: string, updates: Partial<Subscription>) => setSubscriptions(prev => prev.map(s => (s.id === id ? { ...s, ...updates } : s)));
   const deleteSubscription = (id: string) => setSubscriptions(prev => prev.filter(s => s.id !== id));
 
   const updateBudgetSettings = (settings: Partial<BudgetSettings>) => setBudgetSettings(prev => ({ ...prev, ...settings }));
 
   const addTransaction = (tx: Omit<Transaction, 'id'>) => {
+    let shouldTrigger = false;
     setTransactions(prev => {
-      const id = Math.random().toString(36).substr(2, 9);
+      const id = newId();
+
+      const date = normalizeDate((tx as any).date);
+
       const isRecurring = (tx as any).recurring && (tx as any).period !== 'oneTime';
       // Auto-set kind='master' if recurring
       const kind = isRecurring ? ('master' as const) : (tx as any).kind;
-      return [...prev, { ...tx, id, kind }];
+
+      if (isRecurring) shouldTrigger = true;
+      return [...prev, { ...tx, id, kind, date } as Transaction];
     });
+    if (shouldTrigger) triggerRecurring();
   };
 
   const updateTransaction = (id: string, updates: TransactionPatch) => {
+    let shouldTrigger = false;
+
     setTransactions(prev =>
       prev.map(t => {
         if (t.id !== id) return t;
 
-        // Merge logic with explicit key deletion for nulls
+        const wasMaster = isMasterTx(t);
         const merged = { ...t, ...updates };
+
+        // Normalize date on update if provided
+        if ('date' in updates) {
+          const raw: any = (updates as any).date;
+          if (raw) {
+            (merged as any).date = normalizeDate(raw);
+          }
+        }
 
         // 1. Handle 'kind' deletion
         if ('kind' in updates && (updates.kind === null || updates.kind === undefined)) {
           delete (merged as any).kind;
-        } else if (isMasterTx(t) && updates.kind === undefined) {
-          // If kind wasn't sent but it WAS a master, preserve it (standard merge behavior)
+        } else if (wasMaster && updates.kind === undefined) {
           (merged as any).kind = 'master';
         }
 
@@ -403,9 +506,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           delete (merged as any).interestRate; // Cleanly remove empty rates
         }
 
+        // trigger only if it impacts recurring logic
+        const impactsRecurring =
+          wasMaster ||
+          ('recurring' in updates) ||
+          ('period' in updates) ||
+          ('date' in updates) ||
+          ('kind' in updates);
+
+        if (impactsRecurring) shouldTrigger = true;
+
         return merged as Transaction;
       })
     );
+    if (shouldTrigger) triggerRecurring();
   };
 
   const deleteTransaction = (id: string) => {
@@ -416,9 +530,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const target = prev.find(t => t.id === id);
       if (!target) return prev;
 
+      // Side Effect Queueing (Strictly Safe)
       if (isMasterTx(target)) {
+        pendingDeletionsRef.current.trigger = true;
         // delete master + all history generated from it
         return prev.filter(t => t.id !== id && (t as any).originId !== id);
+      }
+
+      // If deleting a history item, queue it for skipping
+      if ((target as any).kind === 'history') {
+        pendingDeletionsRef.current.skips.add(target.id);
       }
 
       // delete single/history
@@ -434,10 +555,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!prev || !Array.isArray(prev)) return [];
 
       const idsSet = new Set(ids);
-      // Identify masters to delete children efficiently
+      // Identify masters inside the updater for strict accuracy
       const mastersToDelete = new Set(
         prev.filter(t => t && idsSet.has(t.id) && isMasterTx(t)).map(t => t.id)
       );
+
+      if (mastersToDelete.size > 0) {
+        pendingDeletionsRef.current.trigger = true;
+      }
+
+      // Identify history items being deleted
+      const historyItems = prev.filter(t => t && idsSet.has(t.id) && (t as any).kind === 'history');
+      if (historyItems.length > 0) {
+        historyItems.forEach(h => pendingDeletionsRef.current.skips.add(h.id));
+      }
 
       return prev.filter(t => {
         if (!t) return false;
@@ -458,7 +589,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateClient = (id: string, updates: Partial<Client>) => setClients(prev => prev.map(c => (c.id === id ? { ...c, ...updates } : c)));
   const deleteClient = (id: string) => setClients(prev => prev.filter(c => c.id !== id));
 
-  const addCompanyProfile = (profile: Omit<CompanyProfile, 'id' | 'createdAt'>) => setCompanyProfiles(prev => [...prev, { ...profile, id: Math.random().toString(36).substr(2, 9), createdAt: new Date() }]);
+  const addCompanyProfile = (profile: Omit<CompanyProfile, 'id' | 'createdAt'>) => setCompanyProfiles(prev => [...prev, { ...profile, id: newId(), createdAt: new Date() }]);
   const updateCompanyProfile = (id: string, updates: Partial<CompanyProfile>) => setCompanyProfiles(prev => prev.map(p => (p.id === id ? { ...p, ...updates } : p)));
   const deleteCompanyProfile = (id: string) => setCompanyProfiles(prev => prev.filter(p => p.id !== id));
 
@@ -473,6 +604,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setClients([]);
     setCompanyProfiles([]);
     setBudgetSettings({ monthlyBudget: 0, currency: 'USD', notifications: true, warningThreshold: 80 });
+
+    setSkipsAndRef(new Set());
+    setRecurringTick(0);
+    pendingDeletionsRef.current = { skips: new Set(), trigger: false };
+
     StorageService.clear();
   };
 

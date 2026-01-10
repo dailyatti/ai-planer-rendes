@@ -147,10 +147,7 @@ type Notification = {
 
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(" ");
 
-const uid = () => {
-  const c = typeof crypto !== 'undefined' ? crypto : undefined;
-  return c?.randomUUID ? c.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-};
+const tmpId = () => `tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 // Date utilities
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -471,25 +468,28 @@ const useEnhancedBudgetEngine = () => {
   const [budgetGoals, setBudgetGoals] = useState<BudgetGoal[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>(() => {
     if (typeof window === 'undefined') return [];
-    const saved = window.localStorage.getItem('budget_notifications');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (error) {
-        console.error('Failed to parse notifications:', error);
-      }
+    try {
+      const saved = window.localStorage.getItem('budget_notifications');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
     }
-    return [
-      {
-        id: "1",
-        title: t?.('notifications.welcome') || "Welcome to Budget Pro!",
-        message: t?.('notifications.getStarted') || "Start by adding your first transaction",
-        type: "info",
-        timestamp: new Date().toISOString(),
-        read: false,
-      },
-    ];
   });
+
+  // Welcome notification effect to avoid t dependency on init
+  useEffect(() => {
+    if (notifications.length > 0) return;
+    const welcomeId = `welcome-${Date.now()}`;
+    setNotifications([{
+      id: welcomeId,
+      title: t?.('notifications.welcome') || "Welcome to Budget Pro!",
+      message: t?.('notifications.getStarted') || "Start by adding your first transaction",
+      type: "info",
+      timestamp: new Date().toISOString(),
+      read: false,
+    }]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t]);
 
   // Persist notifications
   useEffect(() => {
@@ -602,57 +602,64 @@ const useEnhancedBudgetEngine = () => {
   }), [t]);
 
   // Merge transactions from context and local state
-  // Merge transactions from context and local state
   // FIX: Using DataContext as single source of truth
   const transactions = dataContext?.transactions || [];
 
   // Filter/transform for UI consumption (safe dates & type mapping)
+
+  const safeCategory = useCallback((c: any): CategoryKey =>
+    (c && typeof c === "string" && c in categories ? c : "other") as CategoryKey, [categories]);
+
+  const safeYMD = useCallback((s: any): string => {
+    if (typeof s === "string") {
+      const ymd = s.slice(0, 10);
+      return parseYMD(ymd) ? ymd : todayYMD;
+    }
+
+    if (s instanceof Date && !Number.isNaN(s.getTime())) {
+      return toYMDLocal(s);
+    }
+
+    // Support if Date was serialized to object with toISOString
+    if (s && typeof s === "object" && typeof (s as any).toISOString === "function") {
+      const iso = (s as any).toISOString();
+      const ymd = String(iso).slice(0, 10);
+      return parseYMD(ymd) ? ymd : todayYMD;
+    }
+
+    return todayYMD;
+  }, [todayYMD]);
+
+  // Robust Normalization for UI
   const uiTransactions = useMemo(() => {
-    return transactions.map(t => {
-      // Safe conversion for date
-      let dateYMD = "";
-      if (t.effectiveDateYMD) {
-        dateYMD = t.effectiveDateYMD;
-      } else if (typeof t.date === 'string') {
-        dateYMD = t.date.substring(0, 10);
-      } else if (t.date instanceof Date) {
-        dateYMD = toYMDLocal(t.date);
-      } else {
-        dateYMD = toYMDLocal(new Date());
-      }
-
-      // Safe creation date
-      const createdStr = t.createdAtISO || new Date().toISOString();
-
-      // Type mapping
-      const txType: TransactionType = (t.type === 'income') ? 'income' : 'expense';
-
+    return (transactions ?? []).map((t: any) => {
+      const effectiveDateYMD = safeYMD(t.effectiveDateYMD ?? t.date);
       return {
-        id: t.id,
-        description: t.description,
-        amount: t.amount,
-        currency: t.currency || 'USD',
-        category: (t.category || "other") as CategoryKey,
-        effectiveDateYMD: dateYMD,
+        id: String(t.id ?? tmpId()),
+        createdAtISO: String(t.createdAtISO ?? new Date().toISOString()),
+        effectiveDateYMD,
+        description: String(t.description ?? ""),
+        type: t.type === "income" ? "income" : "expense",
+        amount: Number(t.amount ?? 0),
+        currency: String(t.currency ?? "USD"),
+        category: safeCategory(t.category),
+        period: (t.period ?? "oneTime") as TransactionPeriod,
+        isMaster: Boolean(t.kind === "master" || t.isMaster),
         time: t.time,
-        type: txType,
-        period: (t.period || 'oneTime') as TransactionPeriod,
-        isMaster: t.kind === 'master',
-        tags: t.tags || [],
         notes: t.notes,
-        status: t.status || 'completed',
-        priority: t.priority || 'medium',
-        createdAtISO: createdStr,
+        tags: Array.isArray(t.tags) ? t.tags : [],
+        status: (t.status ?? "completed") as TransactionStatus,
+        priority: (t.priority ?? "medium") as PriorityLevel,
         attachmentUrl: t.attachmentUrl,
         location: t.location,
         reminderId: t.reminderId,
-        // Compats
-        date: t.date,
+        // Compat fields
+        date: t.date ?? effectiveDateYMD,
         kind: t.kind,
-        recurring: !!t.recurring
+        recurring: Boolean(t.recurring),
       } as Transaction;
     });
-  }, [transactions]);
+  }, [transactions, safeCategory, safeYMD]);
 
   // Balance calculations using filtered transactions based on balanceMode
   const visibleTransactions = useMemo(() => {
@@ -690,38 +697,6 @@ const useEnhancedBudgetEngine = () => {
     pendingIncome: 0,
     pendingExpense: 0
   }), [totalIncome, totalExpense, balance]);
-
-  const analytics = useMemo(() => {
-    const mappedCategories: Record<CategoryKey, { total: number; count: number }> = {} as any;
-    Object.keys(categories).forEach(k => {
-      mappedCategories[k as CategoryKey] = { total: 0, count: 0 };
-    });
-
-    if (categoryTotals) {
-      Object.entries(categoryTotals).forEach(([cat, total]) => {
-        const key = cat as CategoryKey;
-        if (mappedCategories[key]) {
-          mappedCategories[key].total = total;
-          mappedCategories[key].count = 0;
-        }
-      });
-    }
-
-    return {
-      monthlyData: [],
-      categoryBreakdown: mappedCategories,
-      weeklyTrend: [],
-      topTransactions: [...uiTransactions]
-        .sort((a, b) => {
-          const dateA = a.effectiveDateYMD ? parseYMD(a.effectiveDateYMD) : new Date(0);
-          const dateB = b.effectiveDateYMD ? parseYMD(b.effectiveDateYMD) : new Date(0);
-          return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
-        }),
-      totalSavings: totalIncome - totalExpense,
-      avgTransactionValue: uiTransactions.length > 0 ? (totalIncome + totalExpense) / uiTransactions.length : 0,
-      transactionCount: uiTransactions.length
-    };
-  }, [categoryTotals, totalIncome, totalExpense, categories, uiTransactions]);
 
   const monthNames = useMemo(() => [
     t('months.january') || 'Jan', t('months.february') || 'Feb', t('months.march') || 'Mar', t('months.april') || 'Apr',
@@ -779,8 +754,41 @@ const useEnhancedBudgetEngine = () => {
     return result;
   }, [projectionData, cashFlowData, monthNames, balance]);
 
+  const analytics = useMemo(() => {
+    const mappedCategories: Record<CategoryKey, { total: number; count: number }> = {} as any;
+    Object.keys(categories).forEach(k => {
+      mappedCategories[k as CategoryKey] = { total: 0, count: 0 };
+    });
+
+    if (categoryTotals) {
+      Object.entries(categoryTotals).forEach(([cat, total]) => {
+        const key = cat as CategoryKey;
+        if (mappedCategories[key]) {
+          mappedCategories[key].total = total;
+          mappedCategories[key].count = 0;
+        }
+      });
+    }
+
+    return {
+      monthlyData: cashFlowProjection, // <--- FIXED: Now using the unified projection
+      categoryBreakdown: mappedCategories,
+      weeklyTrend: [],
+      topTransactions: [...uiTransactions]
+        .sort((a, b) => {
+          const dateA = a.effectiveDateYMD ? parseYMD(a.effectiveDateYMD) : new Date(0);
+          const dateB = b.effectiveDateYMD ? parseYMD(b.effectiveDateYMD) : new Date(0);
+          return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
+        }),
+      totalSavings: totalIncome - totalExpense,
+      avgTransactionValue: uiTransactions.length > 0 ? (totalIncome + totalExpense) / uiTransactions.length : 0,
+      transactionCount: uiTransactions.length
+    };
+  }, [categoryTotals, totalIncome, totalExpense, categories, uiTransactions, cashFlowProjection]);
+
   // Export functionality
   const exportData = useCallback((format: 'json' | 'csv' | 'pdf') => {
+    // FIX: Usage of uiTransactions ensures we have safe fields and respect the current valid list.
     const data = {
       transactions: uiTransactions.map(tx => ({
         ...tx,
@@ -798,27 +806,55 @@ const useEnhancedBudgetEngine = () => {
       a.href = url;
       a.download = `budget-export-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
+      a.click();
+      URL.revokeObjectURL(url);
+    } else if (format === 'csv') {
+      const headers = [
+        "id", "createdAtISO", "effectiveDateYMD", "time", "description", "type", "amount", "currency", "category", "period", "status", "priority", "tags", "notes"
+      ];
+
+      const rows = uiTransactions.map(tx => ([
+        tx.id,
+        tx.createdAtISO,
+        tx.effectiveDateYMD,
+        tx.time ?? "",
+        (tx.description ?? "").replace(/"/g, '""'),
+        tx.type,
+        String(tx.amount),
+        tx.currency,
+        tx.category,
+        tx.period,
+        tx.status,
+        tx.priority,
+        (tx.tags ?? []).join("|"),
+        (tx.notes ?? "").replace(/"/g, '""'),
+      ]));
+
+      const csv = [
+        headers.join(","),
+        ...rows.map(r => r.map(v => `"${String(v)}"`).join(",")),
+      ].join("\n");
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `budget-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
       URL.revokeObjectURL(url);
     }
-    // Add CSV and PDF export logic here
-  }, [transactions, analytics, balanceStats, language]);
+    // Add PDF export logic here
+  }, [uiTransactions, analytics, balanceStats, language]);
 
-  // Import functionality
-  // Import functionality
-  const importData = useCallback((data: any) => {
-    // Validate and import data
-    if (data.transactions && Array.isArray(data.transactions)) {
-      data.transactions.forEach((tx: Transaction) => {
-        dataContext?.addTransaction?.(tx);
-      });
-    }
-  }, [dataContext]);
+
 
   // Add notification
-  const addNotification = useCallback((notification: Omit<Notification, 'id'>) => {
-    const newNotification = {
+  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
+    const newNotification: Notification = {
+      timestamp: new Date().toISOString(),
+      read: false,
       ...notification,
-      id: uid(),
+      id: tmpId(),
     };
     setNotifications(prev => [newNotification, ...prev]);
   }, []);
@@ -837,21 +873,55 @@ const useEnhancedBudgetEngine = () => {
     setNotifications([]);
   }, []);
 
+  // Import functionality - SAFE
+  const importData = useCallback((jsonData: any) => {
+    try {
+      if (!jsonData || !jsonData.transactions || !Array.isArray(jsonData.transactions)) {
+        addNotification({
+          title: t('import.error'),
+          message: t('import.invalidFormat'),
+          type: "error"
+        });
+        return;
+      }
+
+      // Safe import loop
+      let importedCount = 0;
+      for (const raw of jsonData.transactions) {
+        // Strip sensitive/system fields to prevent collisions
+        const { id, createdAtISO, ...rest } = raw ?? {};
+
+        if (dataContext?.addTransaction) {
+          dataContext.addTransaction({
+            ...rest,
+            createdAtISO: new Date().toISOString(), // Fresh timestamp
+          } as any);
+          importedCount++;
+        }
+      }
+
+      if (importedCount > 0) {
+        addNotification({
+          title: t('import.success'),
+          message: `${t('import.imported')} (${importedCount})`,
+          type: "success"
+        });
+      }
+    } catch (error) {
+      console.error("Import failed", error);
+    }
+  }, [dataContext, t, addNotification]);
+
   // Add transaction with enhanced features
   const addTransaction = useCallback((transaction: Omit<Transaction, 'id' | 'createdAtISO'>) => {
-    const newTransaction: Transaction = {
+    const payload = {
       ...transaction,
-      id: uid(),
       createdAtISO: new Date().toISOString(),
     };
 
     // Use DataContext instead of local state
     if (dataContext?.addTransaction) {
-      dataContext.addTransaction({
-        ...newTransaction,
-        // Ensure proper types for Omit<Transaction, 'id'> which matches what addTransaction expects largely
-        // but verify interface match. DataContext expects Omit<Transaction, 'id'>
-      });
+      dataContext.addTransaction(payload as any);
     }
 
     // Add notification for large transactions
@@ -860,13 +930,9 @@ const useEnhancedBudgetEngine = () => {
         title: t?.('notifications.largeTransaction') || "Large Transaction Added",
         message: `${transaction.description} - ${formatCurrency(Math.abs(transaction.amount), transaction.currency, language)}`,
         type: transaction.amount > 0 ? "success" : "warning",
-        timestamp: new Date().toISOString(),
-        read: false,
       });
     }
-
-    return newTransaction;
-  }, [addNotification, t, language]);
+  }, [addNotification, t, language, dataContext]);
 
   // Update transaction
   const updateTransaction = useCallback((id: string, updates: TransactionPatch) => {
@@ -893,7 +959,7 @@ const useEnhancedBudgetEngine = () => {
   const addBudgetGoal = useCallback((goal: Omit<BudgetGoal, 'id'>) => {
     const newGoal: BudgetGoal = {
       ...goal,
-      id: uid(),
+      id: tmpId(),
     };
     setBudgetGoals(prev => [...prev, newGoal]);
     return newGoal;
@@ -923,7 +989,9 @@ const useEnhancedBudgetEngine = () => {
     notifications,
 
     // Data
-    transactions,
+    transactions: uiTransactions, // Expose normalized transactions as secondary source if needed, but prefer uiTransactions
+    uiTransactions,            // <--- NEW: Normalized Safe Transactions
+    visibleTransactions,       // <--- NEW: Filtered by balance mode
     categories,
     todayYMD,
 
@@ -1032,8 +1100,6 @@ const EnhancedTransactionModal: React.FC<{
         title: t('notifications.validationError') || 'Validation Error',
         message: t('notifications.pleaseCheckFields') || 'Please fill all required fields',
         type: "error",
-        timestamp: new Date().toISOString(),
-        read: false,
       });
       return;
     }
@@ -1359,7 +1425,6 @@ const EnhancedBudgetView: React.FC = () => {
 
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [showConverterModal, setShowConverterModal] = useState(false);
-  const [showGoalModal, setShowGoalModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -1392,12 +1457,6 @@ const EnhancedBudgetView: React.FC = () => {
         setEditingTransaction(null);
         setShowTransactionModal(true);
       }
-    },
-    {
-      label: t('quickActions.addGoal'),
-      icon: <Target size={18} />,
-      color: "blue",
-      action: () => setShowGoalModal(true)
     },
     {
       label: t('quickActions.export'),
@@ -1574,7 +1633,7 @@ const EnhancedBudgetView: React.FC = () => {
                           axisLine={false}
                           tickFormatter={(value) => `${value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}`}
                         />
-                        <RechartsTooltip content={<CustomTooltip currency={engine.currency} />} />
+                        <RechartsTooltip content={<CustomTooltip currency={engine.currency} language={engine.language} />} />
                         <Legend iconType="circle" />
 
                         <Bar dataKey="income" name={t('stats.income')} fill="#10b981" radius={[4, 4, 0, 0]} barSize={8} fillOpacity={0.8} />
@@ -1628,7 +1687,7 @@ const EnhancedBudgetView: React.FC = () => {
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
-                          <RechartsTooltip content={<CustomTooltip currency={engine.currency} />} />
+                          <RechartsTooltip content={<CustomTooltip currency={engine.currency} language={engine.language} />} />
                           <Legend />
                         </RechartsPieChart>
                       </ResponsiveContainer>
@@ -1767,9 +1826,14 @@ const EnhancedBudgetView: React.FC = () => {
 
               {/* Transactions List */}
               <div className="space-y-3">
-                {engine.transactions
-                  .filter(tx => tx.description.toLowerCase().includes(searchQuery.toLowerCase()))
-                  .sort((a, b) => new Date(b.effectiveDateYMD).getTime() - new Date(a.effectiveDateYMD).getTime())
+                {engine.uiTransactions
+                  .filter(tx => (tx.description || "").toLowerCase().includes(searchQuery.toLowerCase()))
+                  .sort((a, b) => {
+                    // Safe date comparison using effectiveDateYMD string
+                    const dateA = a.effectiveDateYMD ? a.effectiveDateYMD : "1970-01-01";
+                    const dateB = b.effectiveDateYMD ? b.effectiveDateYMD : "1970-01-01";
+                    return dateB.localeCompare(dateA);
+                  })
                   .map(tx => (
                     <GlassCard key={tx.id} className="hover:border-white/20 transition-colors group cursor-pointer">
                       <div className="p-4 flex items-center justify-between" onClick={() => { setEditingTransaction(tx); setShowTransactionModal(true); }}>
@@ -1818,7 +1882,7 @@ const EnhancedBudgetView: React.FC = () => {
                     </GlassCard>
                   ))}
 
-                {engine.transactions.length === 0 && (
+                {engine.uiTransactions.length === 0 && (
                   <div className="text-center py-12">
                     <p className="text-white/40 font-medium">{t('budget.noTransactions')}</p>
                   </div>
