@@ -130,8 +130,8 @@ const WORKFLOW_SCHEMA_VERSION = 1 as const;
 const LS_KEY_WF = "planner_projectWorkflows_v1";
 const LS_KEY_TPL = "planner_workflowTemplates_v1";
 
-const NODE_W = 280;
-const NODE_H = 86;
+const NODE_W = 340;
+const NODE_H = 140;
 
 const uid = () => Math.random().toString(36).slice(2, 10) + "_" + Date.now().toString(36);
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -697,11 +697,35 @@ function saveJSON(key: string, value: any) {
    UI meta
 ========================= */
 
-const STATUS_META: Record<WorkflowStatus, { key: string; badge: string; ring: string }> = {
-    todo: { key: "workflow.status.todo", badge: "bg-white/5 text-white/70", ring: "ring-white/10" },
-    doing: { key: "workflow.status.doing", badge: "bg-blue-600/20 text-blue-200", ring: "ring-blue-400/30" },
-    blocked: { key: "workflow.status.blocked", badge: "bg-amber-600/20 text-amber-200", ring: "ring-amber-400/30" },
-    done: { key: "workflow.status.done", badge: "bg-emerald-600/20 text-emerald-200", ring: "ring-emerald-400/30" },
+const STATUS_META: Record<WorkflowStatus, { key: string; badge: string; ring: string; gradient: string; glow: string }> = {
+    todo: {
+        key: "workflow.status.todo",
+        badge: "bg-gradient-to-r from-gray-600/20 to-gray-500/20 text-gray-300",
+        ring: "ring-gray-400/20",
+        gradient: "from-gray-900/60 via-gray-800/40 to-gray-900/60",
+        glow: "shadow-gray-900/50"
+    },
+    doing: {
+        key: "workflow.status.doing",
+        badge: "bg-gradient-to-r from-blue-500/30 to-cyan-500/30 text-blue-200",
+        ring: "ring-blue-400/40",
+        gradient: "from-blue-900/60 via-blue-800/40 to-cyan-900/60",
+        glow: "shadow-blue-500/30"
+    },
+    blocked: {
+        key: "workflow.status.blocked",
+        badge: "bg-gradient-to-r from-amber-500/30 to-orange-500/30 text-amber-200",
+        ring: "ring-amber-400/40",
+        gradient: "from-amber-900/60 via-orange-800/40 to-amber-900/60",
+        glow: "shadow-amber-500/30"
+    },
+    done: {
+        key: "workflow.status.done",
+        badge: "bg-gradient-to-r from-emerald-500/30 to-green-500/30 text-emerald-200",
+        ring: "ring-emerald-400/40",
+        gradient: "from-emerald-900/60 via-green-800/40 to-emerald-900/60",
+        glow: "shadow-emerald-500/30"
+    },
 };
 
 const PRIORITY_META: Record<WorkflowPriority, { key: string }> = {
@@ -1229,7 +1253,18 @@ export default function ProjectWorkflowLabPro() {
     };
 
     return (
-        <div className="h-full w-full flex flex-col bg-gradient-to-b from-[#070a12] to-[#050510] text-white">
+        <div className="h-full w-full flex flex-col relative overflow-hidden bg-[#0a0614] text-white">
+            {/* Animated Background */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-900/10 via-blue-900/10 to-fuchsia-900/10" />
+                <div className="absolute inset-0" style={{
+                    backgroundImage: `radial-gradient(circle at 2px 2px, rgba(255,255,255,0.03) 1px, transparent 0)`,
+                    backgroundSize: '40px 40px'
+                }} />
+                {/* Gradient orbs */}
+                <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse" />
+                <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+            </div>
             {/* Top bar */}
             <div className="px-4 py-3 flex items-center justify-between border-b border-white/10">
                 <div className="flex items-center gap-3 min-w-0">
@@ -1290,21 +1325,21 @@ export default function ProjectWorkflowLabPro() {
                 </div>
             </div>
 
-            <div className="flex-1 min-h-0 grid grid-cols-12">
+            <div className="flex-1 min-h-0 grid grid-cols-12 relative">
                 {/* Left */}
-                <div className="col-span-3 border-r border-white/10 p-3 min-h-0 flex flex-col gap-3">
+                <div className="col-span-3 border-r border-white/5 p-4 min-h-0 flex flex-col gap-4 relative z-10 bg-gradient-to-br from-white/[0.02] to-transparent backdrop-blur-sm">
                     <div className="flex items-center gap-2">
                         <div className="relative flex-1">
-                            <Search className="w-4 h-4 absolute left-3 top-2.5 text-white/50" />
+                            <Search className="w-4 h-4 absolute left-3 top-3 text-white/50" />
                             <input
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
                                 placeholder={t("common.search", "Keresés")}
-                                className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/5 border border-white/10 outline-none focus:border-white/20"
+                                className="w-full pl-10 pr-3 py-2.5 rounded-2xl bg-white/5 border border-white/10 outline-none focus:border-fuchsia-500/50 focus:bg-white/10 transition-all"
                             />
                         </div>
-                        <button onClick={createEmptyProject} className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10" title="New project">
-                            <FolderPlus className="w-4 h-4" />
+                        <button onClick={createEmptyProject} className="px-3 py-2.5 rounded-2xl bg-gradient-to-r from-fuchsia-600/20 to-purple-600/20 border border-fuchsia-500/30 hover:from-fuchsia-600/30 hover:to-purple-600/30 transition-all" title="New project">
+                            <FolderPlus className="w-5 h-5" />
                         </button>
                     </div>
 
@@ -1320,12 +1355,15 @@ export default function ProjectWorkflowLabPro() {
                                     setLinkFrom(null);
                                 }}
                                 className={[
-                                    "w-full text-left px-3 py-2 rounded-xl border transition",
-                                    p.id === activeId ? "bg-white/10 border-white/20" : "bg-white/5 border-white/10 hover:bg-white/10",
+                                    "w-full text-left px-4 py-3 rounded-2xl border transition-all duration-200",
+                                    "backdrop-blur-sm",
+                                    p.id === activeId
+                                        ? "bg-gradient-to-r from-fuchsia-600/20 to-purple-600/20 border-fuchsia-500/40 shadow-lg shadow-fuchsia-900/20"
+                                        : "bg-white/[0.03] border-white/10 hover:bg-white/[0.06] hover:border-white/20",
                                 ].join(" ")}
                             >
-                                <div className="font-medium text-sm truncate">{p.name}</div>
-                                <div className="text-xs text-white/60">{new Date(p.updatedAt).toLocaleString()}</div>
+                                <div className="font-semibold text-sm truncate text-white">{p.name}</div>
+                                <div className="text-xs text-white/50 mt-0.5">{new Date(p.updatedAt).toLocaleString()}</div>
                             </button>
                         ))}
                     </div>
@@ -1348,45 +1386,47 @@ export default function ProjectWorkflowLabPro() {
                 {/* Canvas */}
                 <div className="col-span-6 relative min-h-0">
                     {/* Canvas controls */}
-                    <div className="absolute left-3 top-3 z-20 flex items-center gap-2">
+                    <div className="absolute left-4 top-4 z-20 flex items-center gap-2">
                         <button
                             disabled={!draft}
                             onClick={addNode}
-                            className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                            className="px-4 py-2.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shadow-xl transition-all duration-200"
                         >
-                            <Plus className="w-4 h-4" />
-                            <span className="text-sm">{t("workflow.addStep", "Lépés")}</span>
+                            <Plus className="w-5 h-5" />
+                            <span className="text-sm font-semibold">{t("workflow.addStep", "Lépés")}</span>
                         </button>
 
                         <button
                             disabled={!selectedNodeId}
                             onClick={toggleLinkMode}
                             className={[
-                                "px-3 py-2 rounded-xl border flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed",
-                                linkFrom ? "bg-blue-600/20 border-blue-400/30" : "bg-white/5 border-white/10 hover:bg-white/10",
+                                "px-4 py-2.5 rounded-2xl border backdrop-blur-md flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-xl transition-all duration-200",
+                                linkFrom
+                                    ? "bg-gradient-to-r from-blue-500/30 to-cyan-500/30 border-blue-400/40 hover:from-blue-500/40 hover:to-cyan-500/40"
+                                    : "bg-white/10 border-white/20 hover:bg-white/15 hover:scale-105",
                             ].join(" ")}
                             title={t("workflow.link.hint", "Link mód: válassz node-ot, majd kattints cél node-ra")}
                         >
-                            <Link2 className="w-4 h-4" />
-                            <span className="text-sm">{linkFrom ? t("workflow.link.on", "Link: ON") : t("workflow.link", "Összekötés")}</span>
+                            <Link2 className="w-5 h-5" />
+                            <span className="text-sm font-semibold">{linkFrom ? t("workflow.link.on", "Link: ON") : t("workflow.link", "Összekötés")}</span>
                         </button>
 
                         <button
                             disabled={!draft}
                             onClick={doAutoLayout}
-                            className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-40 flex items-center gap-2"
+                            className="px-4 py-2.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 hover:scale-105 disabled:opacity-40 flex items-center gap-2 shadow-xl transition-all duration-200"
                             title={t("workflow.autolayout", "Auto-layout")}
                         >
-                            <LayoutGrid className="w-4 h-4" />
-                            <span className="text-sm">{t("workflow.autolayout", "Rendezés")}</span>
+                            <LayoutGrid className="w-5 h-5" />
+                            <span className="text-sm font-semibold">{t("workflow.autolayout", "Rendezés")}</span>
                         </button>
 
-                        <button onClick={fitToView} className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10">
-                            <span className="text-sm">{t("workflow.fit", "Fit")}</span>
+                        <button onClick={fitToView} className="px-4 py-2.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 hover:scale-105 shadow-xl transition-all duration-200">
+                            <span className="text-sm font-semibold">{t("workflow.fit", "Fit")}</span>
                         </button>
 
-                        <button onClick={resetView} className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10">
-                            <span className="text-sm">{t("workflow.resetView", "Reset")}</span>
+                        <button onClick={resetView} className="px-4 py-2.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 hover:scale-105 shadow-xl transition-all duration-200">
+                            <span className="text-sm font-semibold">{t("workflow.resetView", "Reset")}</span>
                         </button>
                     </div>
 
@@ -1461,47 +1501,72 @@ export default function ProjectWorkflowLabPro() {
                                             }}
                                             style={{ left: node.position.x, top: node.position.y, width: NODE_W }}
                                             className={[
-                                                "absolute rounded-2xl border bg-white/[0.06] backdrop-blur-md shadow-[0_10px_40px_rgba(0,0,0,0.35)]",
-                                                "ring-1",
+                                                "absolute rounded-3xl border backdrop-blur-xl shadow-2xl overflow-hidden",
+                                                "bg-gradient-to-br",
+                                                meta.gradient,
+                                                meta.glow,
+                                                "ring-2",
                                                 meta.ring,
-                                                selected ? "border-white/25 ring-white/25" : "border-white/10",
-                                                linkFromThis ? "outline outline-2 outline-blue-400/60" : "",
+                                                selected ? "border-white/40 ring-white/30 scale-105" : "border-white/10",
+                                                linkFromThis ? "outline outline-4 outline-blue-400/60" : "",
+                                                "transition-all duration-200 hover:scale-[1.02] cursor-pointer"
                                             ].join(" ")}
-                                            initial={{ opacity: 0, scale: 0.985 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            transition={{ duration: 0.16 }}
+                                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                                            animate={{ opacity: 1, scale: selected ? 1.05 : 1, y: 0 }}
+                                            transition={{ duration: 0.3, type: "spring", stiffness: 300 }}
                                         >
-                                            <div className="p-3 flex items-start justify-between gap-2">
-                                                <div className="min-w-0">
-                                                    <div className="text-sm font-semibold truncate">{safeText(node.title, draft.language, "Untitled")}</div>
-                                                    <div className="text-xs text-white/60 line-clamp-2">
-                                                        {safeText(node.description, draft.language, "") || t("workflow.step.noDesc", "Nincs leírás")}
+                                            {/* Top gradient overlay */}
+                                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
+                                            <div className="p-5 flex flex-col gap-4 relative">
+                                                {/* Header Row */}
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-base font-bold text-white mb-1 leading-tight">
+                                                            {safeText(node.title, draft.language, "Untitled")}
+                                                        </div>
+                                                        <div className="text-xs text-white/70 line-clamp-2 leading-relaxed">
+                                                            {safeText(node.description, draft.language, "") || t("workflow.step.noDesc", "Nincs leírás")}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                                                        <div className={[
+                                                            "text-[10px] font-semibold px-3 py-1.5 rounded-full",
+                                                            "border backdrop-blur-sm",
+                                                            meta.badge
+                                                        ].join(" ")}>
+                                                            {t(meta.key, node.status).toUpperCase()}
+                                                        </div>
+                                                        {node.status === "done" && (
+                                                            <CheckCircle2 className="w-5 h-5 text-emerald-300 drop-shadow-lg" />
+                                                        )}
                                                     </div>
                                                 </div>
 
-                                                <div className="flex flex-col items-end gap-2">
-                                                    <div className={["text-[11px] px-2 py-1 rounded-full border border-white/10", meta.badge].join(" ")}>
-                                                        {t(meta.key, node.status)}
+                                                {/* Footer Row */}
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <div className="flex items-center gap-2 text-white/60">
+                                                        <div className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 font-medium">
+                                                            {t(PRIORITY_META[node.priority].key, node.priority)}
+                                                        </div>
+                                                        {node.dueDateISO && (
+                                                            <div className="text-white/50">
+                                                                {node.dueDateISO}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    {node.status === "done" && <CheckCircle2 className="w-4 h-4 text-emerald-300" />}
-                                                </div>
-                                            </div>
 
-                                            <div className="px-3 pb-3 flex items-center justify-between text-xs text-white/60">
-                                                <div className="truncate">
-                                                    {t(PRIORITY_META[node.priority].key, node.priority)}
-                                                    {node.dueDateISO ? ` • ${node.dueDateISO}` : ""}
+                                                    {/* connector */}
+                                                    <button
+                                                        data-role="connector"
+                                                        title={t("workflow.connector", "Húzd ide az összekötést")}
+                                                        onPointerDown={(e) => onConnectorDown(e, node.id)}
+                                                        className="w-8 h-8 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 hover:scale-110 flex items-center justify-center transition-all duration-200 group"
+                                                    >
+                                                        <Link2 className="w-4 h-4 text-white/80 group-hover:text-white" />
+                                                    </button>
                                                 </div>
-
-                                                {/* connector */}
-                                                <button
-                                                    data-role="connector"
-                                                    title={t("workflow.connector", "Húzd ide az összekötést")}
-                                                    onPointerDown={(e) => onConnectorDown(e, node.id)}
-                                                    className="w-7 h-7 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center"
-                                                >
-                                                    <Link2 className="w-4 h-4 text-white/70" />
-                                                </button>
                                             </div>
                                         </motion.div>
                                     );
