@@ -6,7 +6,7 @@
 import React from 'react';
 import {
     CheckSquare, Flag, GitBranch, Globe, Video, Megaphone, StickyNote,
-    CheckCircle2, Clock, PlayCircle, SkipForward, GripVertical
+    CheckCircle, Clock, Play, SkipForward, Grip
 } from 'lucide-react';
 import { WorkflowNode as WorkflowNodeType, WorkflowNodeType as NodeType } from '../../types/workflow';
 
@@ -43,8 +43,8 @@ const NODE_COLORS: Record<NodeType, { bg: string; border: string; iconBg: string
 // Status colors and icons
 const STATUS_CONFIG: Record<WorkflowNodeType['status'], { color: string; icon: React.ElementType; label: string }> = {
     pending: { color: 'text-gray-400', icon: Clock, label: 'Pending' },
-    'in-progress': { color: 'text-blue-400', icon: PlayCircle, label: 'In Progress' },
-    completed: { color: 'text-emerald-400', icon: CheckCircle2, label: 'Completed' },
+    'in-progress': { color: 'text-blue-400', icon: Play, label: 'In Progress' },
+    completed: { color: 'text-emerald-400', icon: CheckCircle, label: 'Completed' },
     skipped: { color: 'text-gray-300', icon: SkipForward, label: 'Skipped' }
 };
 
@@ -55,10 +55,10 @@ const WorkflowNodeComponent: React.FC<WorkflowNodeProps> = ({
     onStatusChange,
     onDragStart
 }) => {
-    const Icon = NODE_ICONS[node.type];
+    const Icon = NODE_ICONS[node.type] || CheckSquare;
     const colors = NODE_COLORS[node.type];
     const statusConfig = STATUS_CONFIG[node.status];
-    const StatusIcon = statusConfig.icon;
+    const StatusIcon = statusConfig?.icon || Clock;
 
     const handleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -109,7 +109,7 @@ const WorkflowNodeComponent: React.FC<WorkflowNodeProps> = ({
             >
                 {/* Drag handle */}
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <GripVertical size={14} className="text-gray-400" />
+                    <Grip size={14} className="text-gray-400" />
                 </div>
 
                 {/* Header with icon and title */}
