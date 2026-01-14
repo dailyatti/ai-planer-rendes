@@ -806,7 +806,6 @@ const useEnhancedBudgetEngine = () => {
       a.href = url;
       a.download = `budget-export-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
-      a.click();
       URL.revokeObjectURL(url);
     } else if (format === 'csv') {
       const headers = [

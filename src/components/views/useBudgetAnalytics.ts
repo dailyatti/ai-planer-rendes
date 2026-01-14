@@ -272,7 +272,12 @@ export const useBudgetAnalytics = (
 
                 if (isMaster(tr)) {
                     // For master transactions, calculate occurrences in this specific month
-                    const hits = calculateOccurrences(tr, monthStart, monthEnd);
+                    // FIX: Prevent double-counting by only projecting FUTURE occurrences for masters
+                    // (Past occurrences are covered by instantiated history items)
+                    const effectiveStart = new Date(Math.max(monthStart.getTime(), new Date().getTime()));
+
+                    // If effective start is past month end, this returns 0, which is correct (fully realized)
+                    const hits = calculateOccurrences(tr, effectiveStart, monthEnd);
                     if (tr.type === 'income') inc += (amt * hits); else exp += (amt * hits);
                 } else {
                     // For history/standalone items, check if date falls in this month
