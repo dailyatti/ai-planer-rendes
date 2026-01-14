@@ -375,14 +375,17 @@ const GoalsView: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Quick Progress Actions */}
-                    <div className="flex gap-2 mb-4">
+                    {/* Quick Progress Actions - ENHANCED */}
+                    <div className="flex flex-wrap gap-3 mb-4">
                       <button
                         onClick={() => updateGoal(goal.id, { progress: Math.max(0, goal.progress - 10) })}
-                        className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200"
+                        className="group flex items-center gap-2 px-5 py-2.5 text-sm font-bold bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-xl shadow-lg shadow-rose-500/25 hover:shadow-rose-500/40 hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                         disabled={goal.progress <= 0}
                       >
-                        -10%
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                        </svg>
+                        <span>-10%</span>
                       </button>
                       <button
                         onClick={() => {
@@ -392,10 +395,13 @@ const GoalsView: React.FC = () => {
                               goal.status;
                           updateGoal(goal.id, { progress: newProgress, status: newStatus });
                         }}
-                        className="px-3 py-1 text-sm bg-teal-100 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 rounded-lg hover:bg-teal-200 dark:hover:bg-teal-900/30 transition-colors duration-200"
+                        className="group flex items-center gap-2 px-5 py-2.5 text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                         disabled={goal.progress >= 100}
                       >
-                        +10%
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>+10%</span>
                       </button>
                       <button
                         onClick={() => {
@@ -405,17 +411,19 @@ const GoalsView: React.FC = () => {
                               goal.status;
                           updateGoal(goal.id, { progress: newProgress, status: newStatus });
                         }}
-                        className="px-3 py-1 text-sm bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-lg hover:bg-orange-200 dark:hover:bg-orange-900/30 transition-colors duration-200"
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                         disabled={goal.progress <= 0}
                       >
-                        Back -10%
+                        <RotateCcw size={14} />
+                        <span>Back -10%</span>
                       </button>
                       {goal.progress < 100 && goal.status !== 'completed' && (
                         <button
                           onClick={() => updateGoal(goal.id, { progress: 100, status: 'completed' })}
-                          className="px-3 py-1 text-sm bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/30 transition-colors duration-200"
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-105 active:scale-95 transition-all duration-200"
                         >
-                          Complete
+                          <CheckCircle size={14} />
+                          <span>Complete</span>
                         </button>
                       )}
                     </div>

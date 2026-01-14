@@ -251,13 +251,16 @@ const WeeklyView: React.FC = () => {
           return (
             <div
               key={day.toISOString()}
-              className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 transition-all duration-200 hover:shadow-xl ${isToday ? 'ring-2 ring-purple-500' : ''
+              className={`relative bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg p-4 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] border border-gray-200/50 dark:border-gray-700/50 ${isToday ? 'ring-2 ring-purple-500 shadow-purple-500/20' : ''
                 }`}
             >
+              {isToday && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full animate-pulse shadow-lg shadow-purple-500/50" />
+              )}
               <div className="mb-4">
                 <div className={`text-center ${isToday ? 'text-purple-600 dark:text-purple-400' : 'text-gray-900 dark:text-white'}`}>
                   <div className="text-sm font-medium mb-1">{dayNames[index]}</div>
-                  <div className={`text-2xl font-bold ${isToday ? 'bg-purple-100 dark:bg-purple-900/20 rounded-full w-10 h-10 flex items-center justify-center mx-auto' : ''}`}>
+                  <div className={`text-2xl font-bold ${isToday ? 'bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-full w-12 h-12 flex items-center justify-center mx-auto shadow-lg shadow-purple-500/30' : ''}`}>
                     {day.getDate()}
                   </div>
                 </div>
@@ -275,7 +278,7 @@ const WeeklyView: React.FC = () => {
                 {dayPlans.slice(0, 3).map((plan) => (
                   <div
                     key={plan.id}
-                    className="p-2 rounded-lg bg-gray-50 dark:bg-gray-700 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer group"
+                    className="p-2.5 rounded-xl bg-gray-50/80 dark:bg-gray-700/80 border border-gray-200/30 dark:border-gray-600/30 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-600 hover:border-purple-300 dark:hover:border-purple-600 cursor-pointer group"
                     onClick={(e) => handleEditPlan(plan, e)}
                   >
                     <div className="flex items-center gap-2 mb-1">
@@ -301,7 +304,7 @@ const WeeklyView: React.FC = () => {
                         </button>
                       </div>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded ${getPriorityColor(plan.priority)}`}>
+                    <span className={`text-xs px-2 py-1 rounded-lg ${getPriorityColor(plan.priority)}`}>
                       {plan.priority === 'high' ? 'H' : plan.priority === 'medium' ? 'M' : 'L'}
                     </span>
                   </div>
@@ -320,10 +323,10 @@ const WeeklyView: React.FC = () => {
                   setEditingPlan(null);
                   setShowAddForm(true);
                 }}
-                className="w-full p-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 hover:border-purple-500 hover:text-purple-500 dark:hover:text-purple-400 transition-all duration-200 flex items-center justify-center gap-2"
+                className="w-full p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-500 dark:text-gray-400 hover:border-purple-500 hover:text-purple-500 dark:hover:text-purple-400 hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-all duration-300 flex items-center justify-center gap-2 group"
               >
-                <Plus size={16} />
-                <span className="text-sm">{t('weekly.addTask')}</span>
+                <Plus size={18} className="group-hover:scale-110 transition-transform" />
+                <span className="text-sm font-medium">{t('weekly.addTask')}</span>
               </button>
             </div>
           );
