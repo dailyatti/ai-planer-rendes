@@ -403,20 +403,7 @@ const GoalsView: React.FC = () => {
                         </svg>
                         <span>+10%</span>
                       </button>
-                      <button
-                        onClick={() => {
-                          const newProgress = Math.max(0, goal.progress - 10);
-                          const newStatus = newProgress === 0 ? 'not-started' :
-                            newProgress < 100 && goal.status === 'completed' ? 'in-progress' :
-                              goal.status;
-                          updateGoal(goal.id, { progress: newProgress, status: newStatus });
-                        }}
-                        className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
-                        disabled={goal.progress <= 0}
-                      >
-                        <RotateCcw size={14} />
-                        <span>Back -10%</span>
-                      </button>
+
                       {goal.progress < 100 && goal.status !== 'completed' && (
                         <button
                           onClick={() => updateGoal(goal.id, { progress: 100, status: 'completed' })}
