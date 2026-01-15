@@ -23,6 +23,9 @@ interface FabricEvent {
   [key: string]: any;
 }
 
+// Helper type for Fabric events to avoid strict type/v6 conflicts
+type FabricIEvent = any;
+
 interface DrawingState {
   tool: Tool;
   strokeColor: string;
@@ -106,7 +109,7 @@ const DrawingView: React.FC = () => {
     const canvas = new fabric.Canvas(canvasRef.current, {
       isDrawingMode: false,
       selection: true,
-      backgroundColor: null, // Transparent to show grid/white bg behind
+      backgroundColor: 'transparent', // Transparent to show grid behind
       preserveObjectStacking: true,
       stopContextMenu: true,
       fireRightClick: true,
@@ -176,8 +179,9 @@ const DrawingView: React.FC = () => {
         fabricCanvas.freeDrawingBrush = brush;
         break;
       case 'eraser':
-        fabricCanvas.selection = true;
-        fabricCanvas.defaultCursor = 'not-allowed'; // Visual cue
+        fabricCanvas.selection = false; // Disable selection box for drag-erase
+        fabricCanvas.defaultCursor = 'cell'; // Better cursor for precision
+        fabricCanvas.hoverCursor = 'cell';
         break;
       default:
         // Shapes/Text handled on click/drag
@@ -211,6 +215,24 @@ const DrawingView: React.FC = () => {
     };
   }, [fabricCanvas]);
 
+  // --- Keyboard Deletion Support ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const activeObjects = fabricCanvas?.getActiveObjects();
+        if (activeObjects && activeObjects.length > 0) {
+          activeObjects.forEach(obj => fabricCanvas?.remove(obj));
+          fabricCanvas?.discardActiveObject();
+          fabricCanvas?.requestRenderAll();
+          saveToLocalStorage();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [fabricCanvas, saveToLocalStorage]);
+
   // --- Image Upload Logic (PhD Level) ---
   const handleImageUpload = (file: File) => {
     if (!file || !fabricCanvas) return;
@@ -218,8 +240,8 @@ const DrawingView: React.FC = () => {
     const reader = new FileReader();
     reader.onload = (f) => {
       const data = f.target?.result as string;
-      // Fixed: Use callback style for better compatibility if Promise is undefined
-      fabric.Image.fromURL(data, (img: any) => {
+      // Fixed: Fabric v6 uses Promise-based fromURL
+      fabric.Image.fromURL(data).then((img: any) => {
         // Smart scaling to fit screen
         if (img) {
           const maxWidth = fabricCanvas.width! * 0.5;
@@ -281,8 +303,18 @@ const DrawingView: React.FC = () => {
   useEffect(() => {
     if (!fabricCanvas) return;
 
-    const handleMouseDown = (opt: fabric.IEvent) => {
-      if (state.tool === 'select' || state.tool === 'pan' || state.tool === 'pen' || state.tool === 'marker' || state.tool === 'eraser' || state.tool === 'image') return;
+    const handleMouseDown = (opt: FabricIEvent) => {
+      if (state.tool === 'select' || state.tool === 'pan' || state.tool === 'pen' || state.tool === 'marker' || state.tool === 'image') return;
+
+      // Handle Eraser on Click (Single Delete)
+      if (state.tool === 'eraser') {
+        if (opt.target) {
+          fabricCanvas.remove(opt.target);
+          fabricCanvas.requestRenderAll();
+          // Saving is handled by object:removed event or manual save on mouse up
+        }
+        return;
+      }
 
       // If active tool is a shape, add it at cursor
       const pointer = fabricCanvas.getPointer(opt.e);
@@ -320,19 +352,48 @@ const DrawingView: React.FC = () => {
       }
     };
 
-    const handleClick = (opt: FabricEvent) => {
-      if (state.tool === 'eraser' && opt.target) {
-        fabricCanvas.remove(opt.target);
+    // --- Eraser Drag Logic ---
+    let isErasing = false;
+
+    const handleEraserDown = (opt: FabricIEvent) => {
+      if (state.tool === 'eraser') {
+        isErasing = true;
+        if (opt.target) {
+          fabricCanvas.remove(opt.target);
+          fabricCanvas.requestRenderAll();
+        }
+      }
+    };
+
+    const handleEraserMove = (opt: FabricIEvent) => {
+      if (state.tool === 'eraser' && isErasing) {
+        // Check for intersections or objects under cursor manually if target isn't triggering fast enough
+        // But 'target' in mouse:move usually works well for hovering
+        if (opt.target) {
+          fabricCanvas.remove(opt.target);
+          fabricCanvas.requestRenderAll();
+        }
+      }
+    };
+
+    const handleEraserUp = () => {
+      if (state.tool === 'eraser' && isErasing) {
+        isErasing = false;
         saveToLocalStorage();
       }
-    }
+    };
+
 
     fabricCanvas.on('mouse:down', handleMouseDown);
-    fabricCanvas.on('mouse:down', handleClick); // Eraser logic
+    fabricCanvas.on('mouse:down', handleEraserDown);
+    fabricCanvas.on('mouse:move', handleEraserMove);
+    fabricCanvas.on('mouse:up', handleEraserUp);
 
     return () => {
       fabricCanvas.off('mouse:down', handleMouseDown);
-      fabricCanvas.off('mouse:down', handleClick);
+      fabricCanvas.off('mouse:down', handleEraserDown);
+      fabricCanvas.off('mouse:move', handleEraserMove);
+      fabricCanvas.off('mouse:up', handleEraserUp);
     };
   }, [fabricCanvas, state.tool, state.fillColor, state.strokeColor, state.strokeWidth, saveToLocalStorage]);
 
@@ -341,7 +402,7 @@ const DrawingView: React.FC = () => {
   useEffect(() => {
     if (!fabricCanvas) return;
 
-    const handleWheel = (opt: FabricEvent) => {
+    const handleWheel = (opt: FabricIEvent) => {
       if (opt.e.ctrlKey || opt.e.metaKey) {
         // Zoom
         const delta = opt.e.deltaY;
@@ -370,7 +431,7 @@ const DrawingView: React.FC = () => {
     let lastPosX = 0;
     let lastPosY = 0;
 
-    const handleMouseDown = (opt: fabric.IEvent) => {
+    const handleMouseDown = (opt: FabricIEvent) => {
       const evt = opt.e;
       if (state.tool === 'pan' || evt.button === 1 || (evt.altKey)) {
         isDragging = true;
@@ -381,7 +442,7 @@ const DrawingView: React.FC = () => {
       }
     };
 
-    const handleMouseMove = (opt: FabricEvent) => {
+    const handleMouseMove = (opt: FabricIEvent) => {
       if (isDragging) {
         const e = opt.e;
         const vpt = fabricCanvas.viewportTransform;
