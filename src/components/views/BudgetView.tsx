@@ -79,7 +79,7 @@ type TransactionPeriod = "oneTime" | "daily" | "weekly" | "monthly" | "yearly";
 type TransactionStatus = "pending" | "completed" | "cancelled";
 type PriorityLevel = "low" | "medium" | "high";
 
-export type Transaction = {
+export type BudgetTransaction = {
   id: string;
   createdAtISO: string;
   effectiveDateYMD: string;
@@ -104,7 +104,7 @@ export type Transaction = {
   recurring?: boolean;
 };
 
-type TransactionPatch = Partial<Omit<Transaction, "id" | "createdAtISO">>;
+type TransactionPatch = Partial<Omit<BudgetTransaction, "id" | "createdAtISO">>;
 type BalanceMode = "realizedOnly" | "includeScheduled";
 type ViewMode = "cards" | "list" | "compact";
 type ChartType = "area" | "bar" | "radar";
@@ -423,12 +423,28 @@ const EnhancedChartFrame: React.FC<{
   );
 };
 
-const CustomTooltip: React.FC<any> = ({ active, payload, label, currency, language }) => {
+interface TooltipPayload {
+  name?: string;
+  dataKey?: string;
+  value?: number;
+  color?: string;
+  payload?: any;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayload[];
+  label?: string;
+  currency: string;
+  language: string;
+}
+
+const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label, currency, language }) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-[#1e293b]/95 backdrop-blur-sm border border-white/10 rounded-2xl p-4 shadow-2xl z-50">
         <p className="text-sm font-bold text-white/80 mb-2">{label}</p>
-        {payload.map((entry: any, index: number) => (
+        {payload.map((entry: TooltipPayload, index: number) => (
           <div key={index} className="flex items-center justify-between gap-4 mb-1 last:mb-0">
             <div className="flex items-center gap-2">
               <div
@@ -436,11 +452,11 @@ const CustomTooltip: React.FC<any> = ({ active, payload, label, currency, langua
                 style={{ backgroundColor: entry.color }}
               />
               <span className="text-sm font-medium text-white/70">
-                {entry.dataKey}
+                {entry.name || entry.dataKey}
               </span>
             </div>
             <span className="text-sm font-bold text-white">
-              {formatCurrency(entry.value, currency, language || "en-US")}
+              {formatCurrency(entry.value || 0, currency, language || "en-US")}
             </span>
           </div>
         ))}
@@ -657,7 +673,7 @@ const useEnhancedBudgetEngine = () => {
         date: t.date ?? effectiveDateYMD,
         kind: t.kind,
         recurring: Boolean(t.recurring),
-      } as Transaction;
+      } as BudgetTransaction;
     });
   }, [transactions, safeCategory, safeYMD]);
 
@@ -683,7 +699,7 @@ const useEnhancedBudgetEngine = () => {
     projectionData,
     cashFlowData
   } = useBudgetAnalytics(
-    visibleTransactions as any,
+    visibleTransactions as any[],
     currency,
     (amount, from, to) => CurrencyService.convert(amount, from, to),
     1
@@ -912,7 +928,7 @@ const useEnhancedBudgetEngine = () => {
   }, [dataContext, t, addNotification]);
 
   // Add transaction with enhanced features
-  const addTransaction = useCallback((transaction: Omit<Transaction, 'id' | 'createdAtISO'>) => {
+  const addTransaction = useCallback((transaction: Omit<BudgetTransaction, 'id' | 'createdAtISO'>) => {
     const payload = {
       ...transaction,
       createdAtISO: new Date().toISOString(),
@@ -1037,7 +1053,7 @@ const EnhancedTransactionModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   mode: "create" | "edit";
-  transaction?: Transaction;
+  transaction?: BudgetTransaction;
   engine: ReturnType<typeof useEnhancedBudgetEngine>;
   presetType?: TransactionType;
 }> = ({ isOpen, onClose, mode, transaction, engine, presetType = "expense" }) => {
@@ -1424,7 +1440,7 @@ const EnhancedBudgetView: React.FC = () => {
 
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [showConverterModal, setShowConverterModal] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<BudgetTransaction | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
 
   const unreadNotifications = useMemo(
@@ -1900,7 +1916,7 @@ const EnhancedBudgetView: React.FC = () => {
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                         <XAxis dataKey="month" stroke="rgba(255,255,255,0.4)" tick={{ fill: 'rgba(255,255,255,0.6)' }} />
                         <YAxis stroke="rgba(255,255,255,0.4)" tick={{ fill: 'rgba(255,255,255,0.6)' }} />
-                        <RechartsTooltip content={<CustomTooltip currency={engine.currency} />} />
+                        <RechartsTooltip content={<CustomTooltip currency={currency} language={language} />} />
                         <Legend />
                         <Bar dataKey="income" name={t('stats.income')} fill="#10b981" radius={[4, 4, 0, 0]} />
                         <Bar dataKey="expense" name={t('stats.expenses')} fill="#f87171" radius={[4, 4, 0, 0]} />
