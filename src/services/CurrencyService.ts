@@ -202,13 +202,14 @@ class CurrencyServiceClass {
     }
 
     /**
-     * Fetch exchange rates from free API (exchangerate.host)
-     * No API key required, 250 requests/month on free tier
+     * Fetch exchange rates from free API (Frankfurter)
+     * Completely free, open source, no API key required.
+     * Base currency: HUF (requested via ?from=HUF)
      */
     async fetchRatesFromAPI(): Promise<{ success: boolean; message: string }> {
         try {
-            // Using exchangerate.host - free, no key required
-            const response = await fetch('https://api.exchangerate.host/latest?base=HUF');
+            // Using frankfurter.app - reliable, free, open source
+            const response = await fetch('https://api.frankfurter.app/latest?from=HUF');
 
             if (!response.ok) {
                 return { success: false, message: `API hiba: ${response.status}` };
@@ -216,27 +217,27 @@ class CurrencyServiceClass {
 
             const data = await response.json();
 
-            if (!data.success && data.success !== undefined) {
-                return { success: false, message: 'API nem elérhető' };
-            }
+            // Frankfurter returns: amount: 1.0, base: "HUF", date: "YYYY-MM-DD", rates: { "USD": 0.0028, ... }
+            // Meaning 1 HUF = 0.0028 USD.
+            // We need: 1 USD = X HUF. So we calculate 1 / rate.
 
-            // exchangerate.host returns rates FROM base, we need rates TO base (inverted)
-            // data.rates = { EUR: 0.00258, USD: 0.00303, ... } means 1 HUF = 0.00258 EUR
-            // We need: 1 EUR = 387.6 HUF, so we invert
             const rates = data.rates;
             if (rates) {
+                let count = 0;
                 Object.entries(rates).forEach(([currency, rate]) => {
-                    if (typeof rate === 'number' && rate > 0 && currency !== 'HUF') {
-                        const invertedRate = 1 / rate; // 1 EUR = X HUF
+                    if (typeof rate === 'number' && rate > 0) {
+                        const invertedRate = 1 / rate; // 1 USD = 350 HUF
                         this.setRate(currency, invertedRate);
+                        count++;
                     }
                 });
-                return { success: true, message: `Árfolyamok frissítve: ${Object.keys(rates).length} pénznem` };
+                return { success: true, message: `Árfolyamok frissítve (Frankfurter): ${count} pénznem` };
             }
 
             return { success: false, message: 'Nincs adat az API válaszban' };
         } catch (error) {
             console.warn('CurrencyService: API fetch failed', error);
+            // Fallback to secondary API if needed, or just return failure to trigger AI
             return { success: false, message: error instanceof Error ? error.message : 'API hiba' };
         }
     }
