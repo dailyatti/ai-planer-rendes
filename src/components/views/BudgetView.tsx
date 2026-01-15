@@ -57,6 +57,9 @@ import { AVAILABLE_CURRENCIES } from "../../constants/currencyData";
 import { CurrencyService } from "../../services/CurrencyService";
 import { useBudgetAnalytics } from "./useBudgetAnalytics";
 import CurrencyConverterModal from "./CurrencyConverterModal";
+import { Transaction } from "../../types/planner";
+
+const EMPTY_ARRAY: Transaction[] = [];
 
 /* -------------------------------------------------------------------------------------------------
   ENHANCED PREMIUM REDESIGN WITH NEW FEATURES:
@@ -428,7 +431,7 @@ interface TooltipPayload {
   dataKey?: string;
   value?: number;
   color?: string;
-  payload?: any;
+  payload?: unknown;
 }
 
 interface CustomTooltipProps {
@@ -619,14 +622,15 @@ const useEnhancedBudgetEngine = () => {
 
   // Merge transactions from context and local state
   // FIX: Using DataContext as single source of truth
-  const transactions = dataContext?.transactions || [];
+  // Fix: Memoize transactions to prevent unstable reference warning
+  const transactions = useMemo(() => dataContext?.transactions || EMPTY_ARRAY, [dataContext]);
 
   // Filter/transform for UI consumption (safe dates & type mapping)
 
-  const safeCategory = useCallback((c: any): CategoryKey =>
+  const safeCategory = useCallback((c: unknown): CategoryKey =>
     (c && typeof c === "string" && c in categories ? c : "other") as CategoryKey, [categories]);
 
-  const safeYMD = useCallback((s: any): string => {
+  const safeYMD = useCallback((s: unknown): string => {
     if (typeof s === "string") {
       const ymd = s.slice(0, 10);
       return parseYMD(ymd) ? ymd : todayYMD;
@@ -637,8 +641,8 @@ const useEnhancedBudgetEngine = () => {
     }
 
     // Support if Date was serialized to object with toISOString
-    if (s && typeof s === "object" && typeof (s as any).toISOString === "function") {
-      const iso = (s as any).toISOString();
+    if (s && typeof s === "object" && "toISOString" in s && typeof (s as { toISOString: () => string }).toISOString === "function") {
+      const iso = (s as { toISOString: () => string }).toISOString();
       const ymd = String(iso).slice(0, 10);
       return parseYMD(ymd) ? ymd : todayYMD;
     }
@@ -648,31 +652,32 @@ const useEnhancedBudgetEngine = () => {
 
   // Robust Normalization for UI
   const uiTransactions = useMemo(() => {
-    return (transactions ?? []).map((t: any) => {
-      const effectiveDateYMD = safeYMD(t.effectiveDateYMD ?? t.date);
+    return (transactions ?? []).map((t: unknown) => {
+      const tx = t as Record<string, unknown>;
+      const effectiveDateYMD = safeYMD(tx.effectiveDateYMD ?? tx.date);
       return {
-        id: String(t.id ?? tmpId()),
-        createdAtISO: String(t.createdAtISO ?? new Date().toISOString()),
+        id: String(tx.id ?? tmpId()),
+        createdAtISO: String(tx.createdAtISO ?? new Date().toISOString()),
         effectiveDateYMD,
-        description: String(t.description ?? ""),
-        type: t.type === "income" ? "income" : "expense",
-        amount: Number(t.amount ?? 0),
-        currency: String(t.currency ?? "USD"),
-        category: safeCategory(t.category),
-        period: (t.period ?? "oneTime") as TransactionPeriod,
-        isMaster: Boolean(t.kind === "master" || t.isMaster),
-        time: t.time,
-        notes: t.notes,
-        tags: Array.isArray(t.tags) ? t.tags : [],
-        status: (t.status ?? "completed") as TransactionStatus,
-        priority: (t.priority ?? "medium") as PriorityLevel,
-        attachmentUrl: t.attachmentUrl,
-        location: t.location,
-        reminderId: t.reminderId,
+        description: String(tx.description ?? ""),
+        type: tx.type === "income" ? "income" : "expense",
+        amount: Number(tx.amount ?? 0),
+        currency: String(tx.currency ?? "USD"),
+        category: safeCategory(tx.category),
+        period: (tx.period ?? "oneTime") as TransactionPeriod,
+        isMaster: Boolean(tx.kind === "master" || tx.isMaster),
+        time: tx.time as string | undefined,
+        notes: tx.notes as string | undefined,
+        tags: Array.isArray(tx.tags) ? tx.tags as string[] : [],
+        status: (tx.status ?? "completed") as TransactionStatus,
+        priority: (tx.priority ?? "medium") as PriorityLevel,
+        attachmentUrl: tx.attachmentUrl as string | undefined,
+        location: tx.location as string | undefined,
+        reminderId: tx.reminderId as string | undefined,
         // Compat fields
-        date: t.date ?? effectiveDateYMD,
-        kind: t.kind,
-        recurring: Boolean(t.recurring),
+        date: (tx.date ?? effectiveDateYMD) as Date | string,
+        kind: tx.kind as 'master' | 'history' | undefined,
+        recurring: Boolean(tx.recurring),
       } as BudgetTransaction;
     });
   }, [transactions, safeCategory, safeYMD]);
@@ -699,7 +704,7 @@ const useEnhancedBudgetEngine = () => {
     projectionData,
     cashFlowData
   } = useBudgetAnalytics(
-    visibleTransactions as any[],
+    visibleTransactions as Transaction[],
     currency,
     (amount, from, to) => CurrencyService.convert(amount, from, to),
     1
@@ -771,7 +776,7 @@ const useEnhancedBudgetEngine = () => {
   }, [projectionData, cashFlowData, monthNames, balance]);
 
   const analytics = useMemo(() => {
-    const mappedCategories: Record<CategoryKey, { total: number; count: number }> = {} as any;
+    const mappedCategories = {} as Record<CategoryKey, { total: number; count: number }>;
     Object.keys(categories).forEach(k => {
       mappedCategories[k as CategoryKey] = { total: 0, count: 0 };
     });
@@ -889,9 +894,10 @@ const useEnhancedBudgetEngine = () => {
   }, []);
 
   // Import functionality - SAFE
-  const importData = useCallback((jsonData: any) => {
+  const importData = useCallback((jsonData: unknown) => {
     try {
-      if (!jsonData || !jsonData.transactions || !Array.isArray(jsonData.transactions)) {
+      const data = jsonData as { transactions: unknown[] };
+      if (!data || !data.transactions || !Array.isArray(data.transactions)) {
         addNotification({
           title: t('import.error'),
           message: t('import.invalidFormat'),
@@ -902,15 +908,16 @@ const useEnhancedBudgetEngine = () => {
 
       // Safe import loop
       let importedCount = 0;
-      for (const raw of jsonData.transactions) {
+      for (const raw of data.transactions) {
         // Strip sensitive/system fields to prevent collisions
-        const { id, createdAtISO, ...rest } = raw ?? {};
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id, createdAtISO, ...rest } = (raw as Record<string, unknown>) ?? {};
 
         if (dataContext?.addTransaction) {
           dataContext.addTransaction({
             ...rest,
             createdAtISO: new Date().toISOString(), // Fresh timestamp
-          } as any);
+          } as unknown as BudgetTransaction);
           importedCount++;
         }
       }
@@ -936,7 +943,7 @@ const useEnhancedBudgetEngine = () => {
 
     // Use DataContext instead of local state
     if (dataContext?.addTransaction) {
-      dataContext.addTransaction(payload as any);
+      dataContext.addTransaction(payload as unknown as BudgetTransaction);
     }
 
     // Add notification for large transactions
@@ -1430,7 +1437,7 @@ const EnhancedTransactionModal: React.FC<{
 
 const EnhancedBudgetView: React.FC = () => {
   const engine = useEnhancedBudgetEngine();
-  const { t, balanceStats, analytics, cashFlowProjection, notifications } = engine;
+  const { t, balanceStats, analytics, cashFlowProjection, notifications, currency, language } = engine;
 
   const [activeTab, setActiveTab] = useState<"dashboard" | "transactions" | "analytics" | "goals" | "settings">("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
@@ -1572,7 +1579,7 @@ const EnhancedBudgetView: React.FC = () => {
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id as "dashboard" | "transactions" | "analytics" | "goals" | "settings")}
                 className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all ${activeTab === tab.id
                   ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-white border border-blue-400/30'
                   : 'text-white/60 hover:text-white hover:bg-white/5'
@@ -1674,7 +1681,7 @@ const EnhancedBudgetView: React.FC = () => {
                 >
                   {({ width, height }) => {
                     const data = Object.entries(analytics.categoryBreakdown)
-                      .filter(([_, value]) => value.total > 0)
+                      .filter(([, value]) => value.total > 0)
                       .map(([category, value]) => {
                         const catDef = engine.categories[category as CategoryKey] || engine.categories.other;
                         return {

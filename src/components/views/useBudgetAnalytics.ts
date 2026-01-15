@@ -16,33 +16,9 @@ export const useBudgetAnalytics = (
     safeConvert: (amount: number, fromCurrency: string, toCurrency: string) => number,
     projectionYears: number = 1
 ) => {
-    // --- ZERO DATA GUARD ---
-    // If no transactions, strictly return 0/empty values to prevent stale UI
-    if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
-        // Return 12 months of zero data for charts
-        const zeroCashFlow = Array.from({ length: 12 }).map((_, i) => {
-            const d = new Date();
-            d.setMonth(d.getMonth() - i);
-            return { monthIndex: d.getMonth(), year: d.getFullYear(), income: 0, expense: 0 };
-        }).reverse();
 
-        return {
-            totalIncome: 0,
-            totalExpense: 0,
-            balance: 0,
-            averageMonthlyExpense: 0,
-            savingsRate: 0,
-            runwayMonths: 0,
-            monthlyCashFlow: 0,
-            categoryTotals: {},
-            cashFlowData: zeroCashFlow, // Non-empty array of zeros to keep chart rendered but flat
-            projectionData: [],
-            isMaster: (tr: Transaction) => tr.kind === 'master',
-            isFuture: () => false,
-            absToView: () => 0,
-            ensureCurrency: (c?: string) => c || 'USD',
-        };
-    }
+
+    // --- BASIC HELPERS ---
 
     // --- BASIC HELPERS ---
 
@@ -94,7 +70,7 @@ export const useBudgetAnalytics = (
      * PH-D LEVEL HIGH PERFORMANCE RECURRENCE ENGINE
      * Goal: O(1) performance for Daily/Weekly to prevent UI freezes on long projections.
      */
-    const calculateOccurrences = (tr: Transaction, start: Date, end: Date): number => {
+    const calculateOccurrences = useCallback((tr: Transaction, start: Date, end: Date): number => {
         // Standalone transactions always count as 1 if they fall in the window
         if (!tr.recurring || tr.period === 'oneTime') return 1;
 
@@ -147,7 +123,7 @@ export const useBudgetAnalytics = (
 
             case 'yearly': {
                 let count = 0;
-                let yearsToSkip = Math.max(0, junctionStart.getFullYear() - trDate.getFullYear() - 1);
+                const yearsToSkip = Math.max(0, junctionStart.getFullYear() - trDate.getFullYear() - 1);
 
                 let current = new Date(trDate);
                 current.setFullYear(trDate.getFullYear() + yearsToSkip);
@@ -165,7 +141,7 @@ export const useBudgetAnalytics = (
             }
             default: return 1;
         }
-    };
+    }, []); // Removed dependency on toDateSafe etc as they are defined inside/outside but not refs. Wait, addMonthsWithAnchor is const.
 
     const absToView = useCallback((amount: number, fromCurrency: string) => {
         const abs = Math.abs(amount);
@@ -213,13 +189,13 @@ export const useBudgetAnalytics = (
             });
             return total;
         },
-        [absToView, projectionYears]
+        [absToView, projectionYears, calculateOccurrences]
     );
 
     // --- MEMOIZED DATA SETS ---
 
     const { totalIncome, totalExpense, balance } = useMemo(() => {
-        if (!transactions || transactions.length === 0) {
+        if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
             return { totalIncome: 0, totalExpense: 0, balance: 0 };
         }
 
@@ -238,7 +214,7 @@ export const useBudgetAnalytics = (
     // PURE: Returns category keys, not translated labels
     const categoryTotals = useMemo(() => {
         const result: Record<string, number> = {};
-        if (!transactions) return result;
+        if (!transactions || !Array.isArray(transactions) || transactions.length === 0) return result;
 
         transactions
             .filter(tr => tr.type === 'expense' && !isMaster(tr))
@@ -254,9 +230,17 @@ export const useBudgetAnalytics = (
     // PURE: Returns month/year indices, not translated names
     // Now includes BOTH history items AND master transaction occurrences for each month
     const cashFlowData = useMemo(() => {
+        // Handle empty/invalid transactions by returning 12 months of zeros (matching previous "Zero Data Guard")
+        if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
+            return Array.from({ length: 12 }).map((_, i) => {
+                const d = new Date();
+                d.setMonth(d.getMonth() - i);
+                return { monthIndex: d.getMonth(), year: d.getFullYear(), income: 0, expense: 0 };
+            }).reverse();
+        }
+
         const now = new Date();
         const monthsData: { monthIndex: number; year: number; income: number; expense: number }[] = [];
-        if (!transactions) return [];
 
         for (let i = 5; i >= 0; i--) {
             const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -291,13 +275,13 @@ export const useBudgetAnalytics = (
             monthsData.push({ monthIndex: m, year: y, income: inc, expense: exp });
         }
         return monthsData;
-    }, [transactions, absToView]);
+    }, [transactions, absToView, calculateOccurrences]);
 
     // PURE: Returns year/month indices for labeling in the UI
     const projectionData = useMemo(() => {
         const now = new Date();
         const projData: { year: number; monthIndex: number | null; balance: number; income: number; expense: number }[] = [];
-        if (!transactions) return [];
+        if (!transactions || !Array.isArray(transactions) || transactions.length === 0) return [];
 
         let cumulativeBalance = balance;
         const isYearly = projectionYears > 3;
@@ -337,7 +321,7 @@ export const useBudgetAnalytics = (
             projData.push({ year, monthIndex, balance: cumulativeBalance, income: inc, expense: exp });
         }
         return projData;
-    }, [transactions, absToView, balance, projectionYears]);
+    }, [transactions, absToView, balance, projectionYears, calculateOccurrences]);
 
     const averageMonthlyExpense = useMemo(() => {
         if (!cashFlowData || cashFlowData.length === 0) return 0;

@@ -1,0 +1,228 @@
+
+> contentplanner-pro@1.3.0 lint
+> eslint .
+
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\App.tsx
+  39:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  83:60  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\VoiceAssistant.tsx
+   14:27  error  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+   88:23  error  '_lang' is assigned a value but never used   @typescript-eslint/no-unused-vars
+   94:12  error  'volume' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  108:31  error  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  264:25  error  Empty block statement                        no-empty
+  276:25  error  Empty block statement                        no-empty
+  283:25  error  Empty block statement                        no-empty
+  323:26  error  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  450:70  error  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  461:26  error  'err' is defined but never used              @typescript-eslint/no-unused-vars
+  469:69  error  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  514:57  error  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  530:58  error  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  533:69  error  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  537:49  error  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  642:38  error  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  654:34  error  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  709:21  error  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  763:21  error  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\common\ImportExportModal.tsx
+   27:9   error  'data' is never reassigned. Use 'const' instead  prefer-const
+   27:15  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  114:36  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  129:36  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  145:36  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  164:42  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  177:52  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  196:50  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  225:36  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  226:39  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  235:14  error  'error' is defined but never used                @typescript-eslint/no-unused-vars
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\BudgetView.tsx
+   431:13  error    Unexpected any. Specify a different type                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+   622:9   warning  The 'transactions' logical expression could make the dependencies of useMemo Hook (at line 678) change on every render. Move it inside the useMemo callback. Alternatively, wrap the initialization of 'transactions' in its own useMemo() Hook  react-hooks/exhaustive-deps
+   626:40  error    Unexpected any. Specify a different type                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+   629:35  error    Unexpected any. Specify a different type                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+   640:52  error    Unexpected any. Specify a different type                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+   641:25  error    Unexpected any. Specify a different type                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+   651:41  error    Unexpected any. Specify a different type                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+   702:28  error    Unexpected any. Specify a different type                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+   774:91  error    Unexpected any. Specify a different type                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+   862:6   warning  React Hook useCallback has an unnecessary dependency: 'language'. Either exclude it or remove the dependency array                                                                                                                               react-hooks/exhaustive-deps
+   892:45  error    Unexpected any. Specify a different type                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+   907:17  error    'id' is assigned a value but never used                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+   907:21  error    'createdAtISO' is assigned a value but never used                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+   913:16  error    Unexpected any. Specify a different type                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+   939:45  error    Unexpected any. Specify a different type                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+  1575:55  error    Unexpected any. Specify a different type                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+  1677:33  error    '_' is defined but never used                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\CurrencyConverterModal.tsx
+   3:18  error    'AnimatePresence' is defined but never used                                                                             @typescript-eslint/no-unused-vars
+  27:8   warning  React Hook useEffect has a missing dependency: 'calculateConversion'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\DailyView.tsx
+    2:62  error  'Clock' is defined but never used         @typescript-eslint/no-unused-vars
+  164:89  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\DrawingView.tsx
+   14:6    error    'ToolbarItem' is defined but never used                                                                                 @typescript-eslint/no-unused-vars
+   20:6    error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+   23:18   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+   61:20   error    'setGridSize' is assigned a value but never used                                                                        @typescript-eslint/no-unused-vars
+  169:9    error    Unexpected lexical declaration in case block                                                                            no-case-declarations
+  222:40   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  264:6    warning  React Hook useCallback has a missing dependency: 'handleImageUpload'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  302:51   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  302:153  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  305:53   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  305:75   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  308:55   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  308:90   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  311:68   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  311:154  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  352:76   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  622:72   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  630:89   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  738:23   warning  Unused eslint-disable directive (no problems were reported from 'no-eval')
+  778:22   error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\GoalsView.tsx
+  261:89  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\HabitView.tsx
+    1:17   error  'useCallback' is defined but never used                @typescript-eslint/no-unused-vars
+    1:50   error  'useRef' is defined but never used                     @typescript-eslint/no-unused-vars
+    5:5    error  'TrendingUp' is defined but never used                 @typescript-eslint/no-unused-vars
+    8:5    error  'Clock' is defined but never used                      @typescript-eslint/no-unused-vars
+   14:5    error  'SlidersHorizontal' is defined but never used          @typescript-eslint/no-unused-vars
+   18:5    error  'Save' is defined but never used                       @typescript-eslint/no-unused-vars
+   20:17   error  'CalendarIcon' is defined but never used               @typescript-eslint/no-unused-vars
+   21:5    error  'Hash' is defined but never used                       @typescript-eslint/no-unused-vars
+   22:5    error  'Activity' is defined but never used                   @typescript-eslint/no-unused-vars
+  176:35   error  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  273:20   error  'setSortBy' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  372:39   error  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  386:17   error  'newHistory' is never reassigned. Use 'const' instead  prefer-const
+  529:35   error  'daysLeft' is assigned a value but never used          @typescript-eslint/no-unused-vars
+  637:109  error  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  645:105  error  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\HourlyView.tsx
+  191:89  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\IntegrationsView.tsx
+  95:18  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\InvoicingView.tsx
+  209:8  warning  React Hook useMemo has an unnecessary dependency: 'invoices'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\PomodoroView.tsx
+   62:6   warning  React Hook useEffect has a missing dependency: 'handleTimerComplete'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  104:65  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\SettingsView.tsx
+   84:67  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  134:85  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  163:89  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  176:89  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  189:89  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  593:38  error  'err' is defined but never used           @typescript-eslint/no-unused-vars
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\StatisticsView.tsx
+   57:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   63:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   99:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  106:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\WeeklyView.tsx
+  216:89  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\useBudgetAnalytics.ts
+  150:21  error    'yearsToSkip' is never reassigned. Use 'const' instead                                                                                                                                         prefer-const
+  170:23  error    React Hook "useCallback" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  179:23  error    React Hook "useCallback" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  216:9   warning  React Hook useCallback has a missing dependency: 'calculateOccurrences'. Either include it or remove the dependency array                                                                      react-hooks/exhaustive-deps
+  221:52  error    React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  239:28  error    React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  256:26  error    React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  294:8   warning  React Hook useMemo has a missing dependency: 'calculateOccurrences'. Either include it or remove the dependency array                                                                          react-hooks/exhaustive-deps
+  297:28  error    React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  340:8   warning  React Hook useMemo has a missing dependency: 'calculateOccurrences'. Either include it or remove the dependency array                                                                          react-hooks/exhaustive-deps
+  342:35  error    React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  348:29  error    React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  354:25  error    React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  359:26  error    React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\contexts\DataContext.tsx
+   24:19  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+   68:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   95:56  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  128:31  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  145:46  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  183:48  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  212:46  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  290:6   warning  React Hook useEffect has a missing dependency: 'normalizeDate'. Either include it or remove the dependency array                react-hooks/exhaustive-deps
+  436:6   warning  React Hook useEffect has a missing dependency: 'advanceByPeriod'. Either include it or remove the dependency array              react-hooks/exhaustive-deps
+  510:41  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  512:34  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  512:59  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  514:63  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  534:22  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  534:40  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  536:24  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  542:29  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  544:22  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  549:29  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  580:54  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  584:22  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  611:76  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  621:19  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  621:62  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\contexts\LanguageContext.tsx
+    16:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  1293:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\contexts\SettingsContext.tsx
+  78:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\contexts\ThemeContext.tsx
+  10:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\hooks\useLocalStorage.ts
+  1:20  error  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\services\AIService.ts
+   30:11  error  'VoiceSessionOptions' is defined but never used  @typescript-eslint/no-unused-vars
+  199:25  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  214:19  error  'result' is assigned a value but never used      @typescript-eslint/no-unused-vars
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\services\CurrencyService.ts
+  199:18  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\services\DataTransferService.ts
+  13:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  67:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\types\planner.ts
+  187:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\types\workflow.ts
+  43:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\utils\FinancialEngine.ts
+  188:40  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  206:89  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  273:17  error  'amount' is never reassigned. Use 'const' instead  prefer-const
+  288:17  error  'amount' is never reassigned. Use 'const' instead  prefer-const
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\utils\InvoiceCalculator.ts
+  54:18  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 162 problems (145 errors, 17 warnings)
+  5 errors and 1 warning potentially fixable with the `--fix` option.
+

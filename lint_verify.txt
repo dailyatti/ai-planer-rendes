@@ -1,0 +1,23 @@
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\BudgetView.tsx
+  867:6   warning  React Hook useCallback has an unnecessary dependency: 'language'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+  913:21  error    '_id' is assigned a value but never used                                                                            @typescript-eslint/no-unused-vars
+  913:40  error    '_created' is assigned a value but never used                                                                       @typescript-eslint/no-unused-vars
+  919:16  error    Unexpected any. Specify a different type                                                                            @typescript-eslint/no-explicit-any
+  945:45  error    Unexpected any. Specify a different type                                                                            @typescript-eslint/no-explicit-any
+
+C:\Users\djatt\Downloads\contentplanner-pro-source\contentplanner-pro-download\src\components\views\useBudgetAnalytics.ts
+   99:34  error  React Hook "useCallback" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  172:23  error  React Hook "useCallback" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  181:23  error  React Hook "useCallback" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  223:52  error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  241:28  error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  258:26  error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  307:28  error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  352:35  error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  358:29  error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  364:25  error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  369:26  error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+
+✖ 16 problems (15 errors, 1 warning)
+
