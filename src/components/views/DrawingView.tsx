@@ -106,7 +106,7 @@ const DrawingView: React.FC = () => {
     const canvas = new fabric.Canvas(canvasRef.current, {
       isDrawingMode: false,
       selection: true,
-      backgroundColor: '#ffffff',
+      backgroundColor: null, // Transparent to show grid/white bg behind
       preserveObjectStacking: true,
       stopContextMenu: true,
       fireRightClick: true,
@@ -218,7 +218,8 @@ const DrawingView: React.FC = () => {
     const reader = new FileReader();
     reader.onload = (f) => {
       const data = f.target?.result as string;
-      fabric.Image.fromURL(data).then((img) => {
+      // Fixed: Use callback style for better compatibility if Promise is undefined
+      fabric.Image.fromURL(data, (img: any) => {
         // Smart scaling to fit screen
         if (img) {
           const maxWidth = fabricCanvas.width! * 0.5;
@@ -539,9 +540,10 @@ const DrawingView: React.FC = () => {
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
     >
-      {/* Main Canvas Container - Always white/light for drawing */}
-      <div ref={containerRef} className="flex-1 w-full h-full relative shadow-inner bg-white">
-        {/* Grid Paper Overlay - Kockás Füzet */}
+      {/* Main Canvas Container - Wrapper for layering */}
+      <div className="flex-1 w-full h-full relative shadow-inner bg-white">
+
+        {/* Grid Paper Overlay - Kockás Füzet (Resides BEHIND the canvas container) */}
         {showGrid && (
           <svg
             className="absolute inset-0 z-0 pointer-events-none"
@@ -557,7 +559,11 @@ const DrawingView: React.FC = () => {
             <rect width="100%" height="100%" fill="url(#grid)" />
           </svg>
         )}
-        <canvas ref={canvasRef} className="absolute inset-0 z-10" />
+
+        {/* Fabric Canvas Container - Isolated for React/Fabric safety */}
+        <div ref={containerRef} className="absolute inset-0 z-10">
+          <canvas ref={canvasRef} />
+        </div>
 
         {/* Drag Overlay */}
         {isDraggingFile && (
