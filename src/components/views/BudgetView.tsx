@@ -179,13 +179,7 @@ function formatCurrency(amount: number, currency: string, language: string): str
   return formatter.format(amount);
 }
 
-function getContrastColor(hexColor: string): string {
-  const r = parseInt(hexColor.slice(1, 3), 16);
-  const g = parseInt(hexColor.slice(3, 5), 16);
-  const b = parseInt(hexColor.slice(5, 7), 16);
-  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-  return brightness > 128 ? "#000000" : "#ffffff";
-}
+
 
 /* -------------------------------- Premium UI Components -------------------------------- */
 
@@ -199,12 +193,16 @@ const GlassCard: React.FC<{
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     className={cx(
-      "rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.02] backdrop-blur-xl",
-      "shadow-[0_8px_32px_rgba(0,0,0,0.36)]",
-      gradient && "bg-gradient-to-br from-blue-500/10 to-purple-500/10",
-      hoverEffect && "hover:shadow-[0_16px_64px_rgba(0,0,0,0.48)] hover:border-white/20 transition-all duration-300",
+      "rounded-[var(--radius-2xl)] border border-[rgba(var(--border-primary))] bg-[var(--glass-bg)] backdrop-blur-xl",
+      "shadow-[var(--glass-shadow)]",
+      gradient && "bg-gradient-to-br from-[rgb(var(--color-primary-500))]/10 to-[rgb(var(--color-secondary-500))]/10",
+      hoverEffect && "hover:shadow-[var(--shadow-premium)] hover:border-[rgba(var(--text-primary))]/20 transition-all duration-[var(--transition-premium)]",
       className
     )}
+    style={{
+      // fallback for safety
+      backgroundColor: 'var(--glass-bg)',
+    }}
   >
     {children}
   </motion.div>
@@ -230,16 +228,16 @@ const GradientButton: React.FC<
   children,
   ...props
 }) => {
-    const base = "inline-flex items-center justify-center gap-2 rounded-2xl font-bold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none";
+    const base = "inline-flex items-center justify-center gap-2 rounded-[var(--radius-xl)] font-bold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none";
 
     const variants = {
       primary: gradient
-        ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-[0_8px_32px_rgba(59,130,246,0.32)] hover:shadow-[0_12px_48px_rgba(59,130,246,0.48)]"
-        : "bg-blue-600 text-white shadow-lg hover:bg-blue-700",
-      secondary: "bg-white/10 text-white border border-white/20 hover:bg-white/20",
-      danger: "bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-[0_8px_32px_rgba(244,63,94,0.32)]",
-      success: "bg-gradient-to-r from-emerald-600 to-green-600 text-white",
-      ghost: "bg-transparent text-white/80 hover:text-white hover:bg-white/10",
+        ? "bg-[var(--gradient-primary)] text-white shadow-[var(--glow-primary)] hover:shadow-[0_12px_48px_rgba(67,97,238,0.48)] border-none"
+        : "bg-[rgb(var(--color-primary-600))] text-white shadow-lg hover:bg-[rgb(var(--color-primary-700))]",
+      secondary: "bg-[rgb(var(--surface-tertiary))] text-[rgb(var(--text-primary))] border border-[rgb(var(--border-primary))] hover:bg-[rgb(var(--surface-elevated))] hover:border-[rgba(var(--color-primary-500))]/30",
+      danger: "bg-[var(--gradient-danger)] text-white shadow-[0_8px_32px_rgba(244,63,94,0.32)]",
+      success: "bg-[var(--gradient-success)] text-white shadow-[var(--glow-success)]",
+      ghost: "bg-transparent text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] hover:bg-[rgb(var(--surface-tertiary))]",
     };
 
     const sizes = {
@@ -269,16 +267,16 @@ const AnimatedInput: React.FC<
 > = ({ label, error, success, className, ...props }) => (
   <div className="relative">
     {label && (
-      <label className="block mb-2 text-sm font-bold text-white/80">
+      <label className="block mb-2 text-sm font-bold text-[rgb(var(--text-secondary))]">
         {label}
       </label>
     )}
     <input
       className={cx(
-        "w-full rounded-2xl border-2 px-4 py-3 bg-white/[0.06] text-white font-semibold",
-        "placeholder:text-white/40 outline-none transition-all duration-200",
-        "focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/30",
-        error ? "border-rose-400/50" : success ? "border-emerald-400/50" : "border-white/20",
+        "w-full rounded-[var(--radius-xl)] border-2 px-4 py-3 bg-[rgb(var(--surface-elevated))] text-[rgb(var(--text-primary))] font-semibold",
+        "placeholder:text-[rgb(var(--text-tertiary))] outline-none transition-all duration-200",
+        "focus:border-[rgb(var(--color-primary-400))]/60 focus:ring-2 focus:ring-[rgb(var(--color-primary-400))]/30",
+        error ? "border-rose-400/50" : success ? "border-emerald-400/50" : "border-[rgb(var(--border-primary))]",
         className
       )}
       {...props}
@@ -287,7 +285,7 @@ const AnimatedInput: React.FC<
       <motion.p
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mt-2 text-xs text-rose-300 font-medium"
+        className="mt-2 text-xs text-rose-500 font-medium"
       >
         {error}
       </motion.p>
@@ -301,12 +299,15 @@ const Tag: React.FC<{
   removable?: boolean;
   onRemove?: () => void;
 }> = ({ label, color = "#3b82f6", removable = false, onRemove }) => (
+  // Ideally we map color to our theme palette, but for now we keep dynamic color support with opacity
   <span
     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold"
     style={{
       backgroundColor: `${color}20`,
-      color: getContrastColor(color),
-      border: `1px solid ${color}40`
+      color: color, // Use the color directly for text for better visibility in light mode
+      border: `1px solid ${color}40`,
+      // Add a tiny shadow for pop
+      boxShadow: `0 2px 4px ${color}15`
     }}
   >
     {label}
@@ -330,11 +331,11 @@ const StatCard: React.FC<{
   trend?: "up" | "down" | "neutral";
 }> = ({ title, value, icon, color }) => {
   const colors = {
-    blue: "from-blue-500/20 to-blue-600/20",
-    green: "from-emerald-500/20 to-emerald-600/20",
-    red: "from-rose-500/20 to-rose-600/20",
-    purple: "from-purple-500/20 to-purple-600/20",
-    yellow: "from-amber-500/20 to-amber-600/20",
+    blue: "from-blue-500/20 to-blue-600/20 text-blue-500",
+    green: "from-emerald-500/20 to-emerald-600/20 text-emerald-500",
+    red: "from-rose-500/20 to-rose-600/20 text-rose-500",
+    purple: "from-purple-500/20 to-purple-600/20 text-purple-500",
+    yellow: "from-amber-500/20 to-amber-600/20 text-amber-500",
   };
 
   return (
@@ -342,12 +343,15 @@ const StatCard: React.FC<{
       <div className="p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-sm font-bold text-white/60 mb-2">{title}</p>
-            <p className="text-2xl font-black text-white">{value}</p>
+            <p className="text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">{title}</p>
+            <p className="text-2xl font-black text-[rgb(var(--text-primary))]">{value}</p>
 
           </div>
-          <div className={`p-3 rounded-2xl bg-gradient-to-br ${colors[color]}`}>
-            {icon}
+          <div className={`p-3 rounded-2xl bg-gradient-to-br ${colors[color].split(" ").slice(0, 2).join(" ")}`}>
+            {/* Clone element to add class if it's a valid react element, otherwise just render */}
+            <div className={colors[color].split(" ")[2]}>
+              {icon}
+            </div>
           </div>
         </div>
       </div>
@@ -406,8 +410,8 @@ const EnhancedChartFrame: React.FC<{
   return (
     <GlassCard className={className}>
       {title && (
-        <div className="px-6 pt-5 pb-3 border-b border-white/10">
-          <h3 className="text-lg font-black text-white">{title}</h3>
+        <div className="px-6 pt-5 pb-3 border-b border-[rgba(var(--border-primary))]">
+          <h3 className="text-lg font-black text-[rgb(var(--text-primary))]">{title}</h3>
         </div>
       )}
       <div ref={ref} style={{ height }} className="relative overflow-hidden">
@@ -415,7 +419,7 @@ const EnhancedChartFrame: React.FC<{
           children(dimensions)
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-white/40">
+            <div className="text-[rgb(var(--text-tertiary))]">
               <Loader2 className="animate-spin mx-auto mb-2" size={24} />
               <p className="text-sm font-medium">Chart loading...</p>
             </div>
@@ -445,8 +449,8 @@ interface CustomTooltipProps {
 const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label, currency, language }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-[#1e293b]/95 backdrop-blur-sm border border-white/10 rounded-2xl p-4 shadow-2xl z-50">
-        <p className="text-sm font-bold text-white/80 mb-2">{label}</p>
+      <div className="bg-[rgb(var(--surface-elevated))]/95 backdrop-blur-sm border border-[rgb(var(--border-primary))] rounded-[var(--radius-xl)] p-4 shadow-2xl z-50">
+        <p className="text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">{label}</p>
         {payload.map((entry: TooltipPayload, index: number) => (
           <div key={index} className="flex items-center justify-between gap-4 mb-1 last:mb-0">
             <div className="flex items-center gap-2">
@@ -454,11 +458,11 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label, c
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: entry.color }}
               />
-              <span className="text-sm font-medium text-white/70">
+              <span className="text-sm font-medium text-[rgb(var(--text-secondary))]">
                 {entry.name || entry.dataKey}
               </span>
             </div>
-            <span className="text-sm font-bold text-white">
+            <span className="text-sm font-bold text-[rgb(var(--text-primary))]">
               {formatCurrency(entry.value || 0, currency, language || "en-US")}
             </span>
           </div>
@@ -1174,20 +1178,20 @@ const EnhancedTransactionModal: React.FC<{
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-2xl rounded-3xl bg-gradient-to-b from-gray-900 to-gray-950 border border-white/10 shadow-2xl overflow-hidden"
+        className="w-full max-w-2xl rounded-[var(--radius-3xl)] bg-[rgb(var(--surface-elevated))] border border-[rgb(var(--border-primary))] shadow-2xl overflow-hidden"
       >
-        <div className="p-6 border-b border-white/10">
+        <div className="p-6 border-b border-[rgb(var(--border-primary))]">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-black text-white">
+            <h2 className="text-2xl font-black text-[rgb(var(--text-primary))]">
               {mode === "edit"
                 ? t('transactions.editTransaction') || 'Edit Transaction'
                 : t('transactions.newTransaction') || 'New Transaction'}
             </h2>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl hover:bg-white/10 transition-colors"
+              className="p-2 rounded-[var(--radius-xl)] hover:bg-[rgb(var(--surface-tertiary))] transition-colors"
             >
-              <X size={20} className="text-white/60" />
+              <X size={20} className="text-[rgb(var(--text-secondary))]" />
             </button>
           </div>
         </div>
@@ -1197,7 +1201,7 @@ const EnhancedTransactionModal: React.FC<{
             {/* Left Column */}
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-bold text-white/80 mb-2">
+                <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
                   {t('transactions.description') || 'Description'}
                 </label>
                 <AnimatedInput
@@ -1208,7 +1212,7 @@ const EnhancedTransactionModal: React.FC<{
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-white/80 mb-2">
+                <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
                   {t('transactions.amount')}
                 </label>
                 <div className="flex gap-3">
@@ -1222,7 +1226,7 @@ const EnhancedTransactionModal: React.FC<{
                   <select
                     value={form.currency}
                     onChange={(e) => setForm(prev => ({ ...prev, currency: e.target.value }))}
-                    className="px-4 py-3 rounded-2xl border-2 border-white/20 bg-white/[0.06] text-white font-bold outline-none"
+                    className="px-4 py-3 rounded-[var(--radius-xl)] border-2 border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-elevated))] text-[rgb(var(--text-primary))] font-bold outline-none cursor-pointer"
                   >
                     {AVAILABLE_CURRENCIES.map((c) => (
                       <option key={c.code} value={c.code}>{c.code}</option>
@@ -1232,7 +1236,7 @@ const EnhancedTransactionModal: React.FC<{
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-white/80 mb-2">
+                <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
                   {t('transactions.category')}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -1240,14 +1244,14 @@ const EnhancedTransactionModal: React.FC<{
                     <button
                       key={key}
                       onClick={() => setForm(prev => ({ ...prev, category: key as CategoryKey }))}
-                      className={`p-3 rounded-2xl border-2 transition-all ${form.category === key
-                        ? 'border-white/40 bg-white/10'
-                        : 'border-white/10 hover:border-white/20'
+                      className={`p-3 rounded-[var(--radius-xl)] border-2 transition-all ${form.category === key
+                        ? 'border-[rgb(var(--color-primary-500))] bg-[rgb(var(--color-primary-500))]/10'
+                        : 'border-[rgb(var(--border-secondary))] hover:border-[rgb(var(--border-primary))]'
                         }`}
                     >
                       <div className="flex flex-col items-center gap-1">
                         <div style={{ color: cat.color }}>{cat.icon}</div>
-                        <span className="text-xs font-bold text-white/80">{cat.label}</span>
+                        <span className="text-xs font-bold text-[rgb(var(--text-secondary))]">{cat.label}</span>
                       </div>
                     </button>
                   ))}
@@ -1255,11 +1259,11 @@ const EnhancedTransactionModal: React.FC<{
                     onClick={() => {
                       // Show more categories
                     }}
-                    className="p-3 rounded-2xl border-2 border-white/10 hover:border-white/20 transition-all"
+                    className="p-3 rounded-[var(--radius-xl)] border-2 border-[rgb(var(--border-secondary))] hover:border-[rgb(var(--border-primary))] transition-all"
                   >
                     <div className="flex flex-col items-center gap-1">
-                      <MoreVertical size={16} className="text-white/60" />
-                      <span className="text-xs font-bold text-white/60">More</span>
+                      <MoreVertical size={16} className="text-[rgb(var(--text-tertiary))]" />
+                      <span className="text-xs font-bold text-[rgb(var(--text-tertiary))]">More</span>
                     </div>
                   </button>
                 </div>
@@ -1269,7 +1273,7 @@ const EnhancedTransactionModal: React.FC<{
             {/* Right Column */}
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-bold text-white/80 mb-2">
+                <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
                   {t('transactions.dateTime')}
                 </label>
                 <div className="flex gap-3">
@@ -1289,15 +1293,15 @@ const EnhancedTransactionModal: React.FC<{
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-white/80 mb-2">
+                <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
                   {t('transactions.type')}
                 </label>
                 <div className="flex gap-3">
                   <button
                     onClick={() => setForm(prev => ({ ...prev, type: "income" }))}
-                    className={`flex-1 p-3 rounded-2xl border-2 transition-all ${form.type === "income"
-                      ? 'border-emerald-400/50 bg-emerald-500/10 text-emerald-100'
-                      : 'border-white/10 hover:border-white/20'
+                    className={`flex-1 p-3 rounded-[var(--radius-xl)] border-2 transition-all ${form.type === "income"
+                      ? 'border-emerald-400/50 bg-emerald-500/10 text-emerald-500'
+                      : 'border-[rgb(var(--border-secondary))] hover:border-[rgb(var(--border-primary))] text-[rgb(var(--text-secondary))]'
                       }`}
                   >
                     <div className="flex items-center justify-center gap-2">
@@ -1307,9 +1311,9 @@ const EnhancedTransactionModal: React.FC<{
                   </button>
                   <button
                     onClick={() => setForm(prev => ({ ...prev, type: "expense" }))}
-                    className={`flex-1 p-3 rounded-2xl border-2 transition-all ${form.type === "expense"
-                      ? 'border-rose-400/50 bg-rose-500/10 text-rose-100'
-                      : 'border-white/10 hover:border-white/20'
+                    className={`flex-1 p-3 rounded-[var(--radius-xl)] border-2 transition-all ${form.type === "expense"
+                      ? 'border-rose-400/50 bg-rose-500/10 text-rose-500'
+                      : 'border-[rgb(var(--border-secondary))] hover:border-[rgb(var(--border-primary))] text-[rgb(var(--text-secondary))]'
                       }`}
                   >
                     <div className="flex items-center justify-center gap-2">
@@ -1321,7 +1325,7 @@ const EnhancedTransactionModal: React.FC<{
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-white/80 mb-2">
+                <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
                   {t('transactions.tags')}
                 </label>
                 <div className="flex gap-2 mb-2">
@@ -1362,26 +1366,26 @@ const EnhancedTransactionModal: React.FC<{
           {/* Additional Fields */}
           <div className="mt-6 space-y-6">
             <div>
-              <label className="block text-sm font-bold text-white/80 mb-2">
+              <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
                 {t('transactions.notes')}
               </label>
               <textarea
                 value={form.notes}
                 onChange={(e) => setForm(prev => ({ ...prev, notes: e.target.value }))}
                 placeholder={t('transactions.notesPlaceholder')}
-                className="w-full h-24 px-4 py-3 rounded-2xl border-2 border-white/20 bg-gray-800 text-white font-semibold placeholder:text-white/40 outline-none focus:border-blue-400/60 resize-none"
+                className="w-full h-24 px-4 py-3 rounded-[var(--radius-xl)] border-2 border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-elevated))] text-[rgb(var(--text-primary))] font-semibold placeholder:text-[rgb(var(--text-tertiary))] outline-none focus:border-[rgb(var(--color-primary-400))]/60 resize-none"
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-bold text-white/80 mb-2">
+                <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
                   {t('transactions.period')}
                 </label>
                 <select
                   value={form.period}
                   onChange={(e) => setForm(prev => ({ ...prev, period: e.target.value as TransactionPeriod }))}
-                  className="w-full px-4 py-3 rounded-2xl border-2 border-white/20 bg-white/[0.06] text-white font-bold outline-none"
+                  className="w-full px-4 py-3 rounded-[var(--radius-xl)] border-2 border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-elevated))] text-[rgb(var(--text-primary))] font-bold outline-none cursor-pointer"
                 >
                   <option value="oneTime">{t('period.oneTime')}</option>
                   <option value="daily">{t('period.daily')}</option>
@@ -1392,13 +1396,13 @@ const EnhancedTransactionModal: React.FC<{
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-white/80 mb-2">
+                <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
                   {t('transactions.priority')}
                 </label>
                 <select
                   value={form.priority}
                   onChange={(e) => setForm(prev => ({ ...prev, priority: e.target.value as PriorityLevel }))}
-                  className="w-full px-4 py-3 rounded-2xl border-2 border-white/20 bg-white/[0.06] text-white font-bold outline-none"
+                  className="w-full px-4 py-3 rounded-[var(--radius-xl)] border-2 border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-elevated))] text-[rgb(var(--text-primary))] font-bold outline-none cursor-pointer"
                 >
                   <option value="low">{t('priority.low')}</option>
                   <option value="medium">{t('priority.medium')}</option>
@@ -1409,7 +1413,7 @@ const EnhancedTransactionModal: React.FC<{
           </div>
         </div>
 
-        <div className="p-6 border-t border-white/10">
+        <div className="p-6 border-t border-[rgb(var(--border-primary))]">
           <div className="flex gap-3">
             <GradientButton
               onClick={onClose}
@@ -1489,12 +1493,12 @@ const EnhancedBudgetView: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-white">
+    <div className="min-h-screen bg-[rgb(var(--surface-primary))] text-[rgb(var(--text-primary))] transition-colors duration-[var(--transition-normal)]">
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 -right-40 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
+        <div className="absolute -top-40 -left-40 w-96 h-96 bg-[rgb(var(--color-primary-500))]/10 rounded-[var(--radius-full)] blur-3xl opacity-50 dark:opacity-20" />
+        <div className="absolute top-1/3 -right-40 w-96 h-96 bg-[rgb(var(--color-secondary-500))]/10 rounded-[var(--radius-full)] blur-3xl opacity-50 dark:opacity-20" />
+        <div className="absolute -bottom-40 left-1/4 w-96 h-96 bg-[rgb(var(--color-accent-500))]/10 rounded-[var(--radius-full)] blur-3xl opacity-50 dark:opacity-20" />
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto p-4 md:p-6">
@@ -1502,19 +1506,19 @@ const EnhancedBudgetView: React.FC = () => {
         <header className="mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-[0_8px_32px_rgba(59,130,246,0.3)]">
+              <div className="p-3 rounded-[var(--radius-xl)] bg-[var(--gradient-primary)] shadow-[var(--glow-primary)]">
                 <Wallet size={24} className="text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-black bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
+                <h1 className="text-3xl font-black bg-[var(--gradient-primary)] bg-clip-text text-transparent">
                   {t('app.title') || "Budget Pro"}
                 </h1>
-                <p className="text-white/60 font-medium">
+                <p className="text-[rgb(var(--text-secondary))] font-medium">
                   {t('app.subtitle') || "Advanced financial management"}
                 </p>
               </div>
               <div className="hidden md:flex items-center gap-2">
-                <span className="px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/30 text-sm font-bold">
+                <span className="px-3 py-1.5 rounded-full bg-[rgb(var(--color-primary-500))]/10 border border-[rgb(var(--color-primary-500))]/20 text-[rgb(var(--color-primary-600))] dark:text-[rgb(var(--color-primary-400))] text-sm font-bold">
                   PREMIUM
                 </span>
               </div>
@@ -1525,30 +1529,30 @@ const EnhancedBudgetView: React.FC = () => {
               <select
                 value={engine.currency}
                 onChange={(e) => engine.setCurrency(e.target.value)}
-                className="px-4 py-2.5 rounded-2xl border border-white/20 bg-white/5 text-white font-bold outline-none"
+                className="px-4 py-2.5 rounded-[var(--radius-xl)] border border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-elevated))] text-[rgb(var(--text-primary))] font-bold outline-none cursor-pointer"
               >
                 {AVAILABLE_CURRENCIES.map(c => (
-                  <option key={c.code} value={c.code} className="bg-gray-900 text-white">{c.code}</option>
+                  <option key={c.code} value={c.code} className="bg-[rgb(var(--surface-elevated))] text-[rgb(var(--text-primary))]">{c.code}</option>
                 ))}
               </select>
 
               {/* Currency Converter */}
               <button
                 onClick={() => setShowConverterModal(true)}
-                className="p-2.5 rounded-2xl border border-white/20 bg-white/5 hover:bg-white/10 transition-colors"
+                className="p-2.5 rounded-[var(--radius-xl)] border border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-elevated))] hover:bg-[rgb(var(--surface-tertiary))] transition-colors group"
                 title="Currency Converter"
               >
-                <RefreshCcw size={20} className="text-white" />
+                <RefreshCcw size={20} className="text-[rgb(var(--text-secondary))] group-hover:text-[rgb(var(--text-primary))]" />
               </button>
 
               {/* Notifications */}
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2.5 rounded-2xl border border-white/20 bg-white/5 hover:bg-white/10 transition-colors"
+                className="relative p-2.5 rounded-[var(--radius-xl)] border border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-elevated))] hover:bg-[rgb(var(--surface-tertiary))] transition-colors group"
               >
-                <Bell size={20} className="text-white" />
+                <Bell size={20} className="text-[rgb(var(--text-secondary))] group-hover:text-[rgb(var(--text-primary))]" />
                 {unreadNotifications > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-500 text-xs font-bold flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[var(--gradient-danger)] text-white text-xs font-bold flex items-center justify-center shadow-md">
                     {unreadNotifications}
                   </span>
                 )}
@@ -1569,7 +1573,7 @@ const EnhancedBudgetView: React.FC = () => {
           </div>
 
           {/* Navigation Tabs */}
-          <nav className="flex flex-wrap gap-2 border-b border-white/10 pb-2">
+          <nav className="flex flex-wrap gap-2 border-b border-[rgb(var(--border-primary))] pb-2">
             {[
               { id: "dashboard", label: t('tabs.dashboard') || 'Dashboard', icon: <BarChart3 size={16} /> },
               { id: "transactions", label: t('tabs.transactions') || 'Transactions', icon: <FileText size={16} /> },
@@ -1580,9 +1584,9 @@ const EnhancedBudgetView: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as "dashboard" | "transactions" | "analytics" | "goals" | "settings")}
-                className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all ${activeTab === tab.id
-                  ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-white border border-blue-400/30'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                className={`flex items-center gap-2 px-4 py-3 rounded-[var(--radius-xl)] font-bold transition-all ${activeTab === tab.id
+                  ? 'bg-[rgb(var(--color-primary-500))]/10 text-[rgb(var(--color-primary-600))] dark:text-[rgb(var(--color-primary-400))] border border-[rgb(var(--color-primary-500))]/20'
+                  : 'text-[rgb(var(--text-tertiary))] hover:text-[rgb(var(--text-primary))] hover:bg-[rgb(var(--surface-tertiary))]'
                   }`}
               >
                 {tab.icon}
@@ -1715,7 +1719,7 @@ const EnhancedBudgetView: React.FC = () => {
                       </ResponsiveContainer>
                     ) : (
                       <div className="flex items-center justify-center h-full">
-                        <p className="text-white/40 text-sm font-medium">No data available</p>
+                        <p className="text-[rgb(var(--text-tertiary))] text-sm font-medium">No data available</p>
                       </div>
                     );
                   }}
@@ -1727,14 +1731,14 @@ const EnhancedBudgetView: React.FC = () => {
                 {/* Quick Actions */}
                 <GlassCard>
                   <div className="p-6">
-                    <h3 className="text-lg font-black text-white mb-4">{t('quickActions.title')}</h3>
+                    <h3 className="text-lg font-black text-[rgb(var(--text-primary))] mb-4">{t('quickActions.title')}</h3>
                     <div className="space-y-3">
                       {quickActions.map((action, index) => {
                         const colorMap: Record<string, { bg: string, border: string, text: string }> = {
-                          rose: { bg: 'bg-rose-500/10', border: 'border-rose-400/20', text: 'text-rose-400' },
-                          emerald: { bg: 'bg-emerald-500/10', border: 'border-emerald-400/20', text: 'text-emerald-400' },
-                          purple: { bg: 'bg-purple-500/10', border: 'border-purple-400/20', text: 'text-purple-400' },
-                          blue: { bg: 'bg-blue-500/10', border: 'border-blue-400/20', text: 'text-blue-400' },
+                          rose: { bg: 'bg-rose-500/10', border: 'border-rose-400/20', text: 'text-rose-500' },
+                          emerald: { bg: 'bg-emerald-500/10', border: 'border-emerald-400/20', text: 'text-emerald-500' },
+                          purple: { bg: 'bg-purple-500/10', border: 'border-purple-400/20', text: 'text-purple-500' },
+                          blue: { bg: 'bg-blue-500/10', border: 'border-blue-400/20', text: 'text-blue-500' },
                         };
                         const style = colorMap[action.color] || colorMap.blue;
 
@@ -1742,14 +1746,14 @@ const EnhancedBudgetView: React.FC = () => {
                           <button
                             key={index}
                             onClick={action.action}
-                            className="w-full flex items-center gap-3 p-3 rounded-2xl border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all group"
+                            className="w-full flex items-center gap-3 p-3 rounded-[var(--radius-xl)] border border-[rgb(var(--border-primary))] hover:border-[rgb(var(--border-secondary))] hover:bg-[rgb(var(--surface-elevated))] transition-all group"
                           >
-                            <div className={`p-2 rounded-xl ${style.bg} border ${style.border} group-hover:scale-110 transition-transform`}>
+                            <div className={`p-2 rounded-[var(--radius-lg)] ${style.bg} border ${style.border} group-hover:scale-110 transition-transform`}>
                               <div className={style.text}>
                                 {action.icon}
                               </div>
                             </div>
-                            <span className="font-bold text-white/80 group-hover:text-white">
+                            <span className="font-bold text-[rgb(var(--text-secondary))] group-hover:text-[rgb(var(--text-primary))]">
                               {action.label}
                             </span>
                           </button>
@@ -1763,10 +1767,10 @@ const EnhancedBudgetView: React.FC = () => {
                 <GlassCard className="lg:col-span-2">
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-black text-white">{t('transactions.recent')}</h3>
+                      <h3 className="text-lg font-black text-[rgb(var(--text-primary))]">{t('transactions.recent')}</h3>
                       <button
                         onClick={() => setActiveTab("transactions")}
-                        className="text-sm font-bold text-blue-400 hover:text-blue-300"
+                        className="text-sm font-bold text-[rgb(var(--color-primary-500))] hover:text-[rgb(var(--color-primary-600))]"
                       >
                         {t('transactions.viewAll') || "View All"}
                       </button>
@@ -1775,41 +1779,41 @@ const EnhancedBudgetView: React.FC = () => {
                       {analytics.topTransactions.slice(0, 5).map((tx) => (
                         <div
                           key={tx.id}
-                          className="flex items-center justify-between p-3 rounded-2xl border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all cursor-pointer"
+                          className="flex items-center justify-between p-3 rounded-[var(--radius-xl)] border border-[rgb(var(--border-primary))] hover:border-[rgb(var(--border-secondary))] hover:bg-[rgb(var(--surface-elevated))] transition-all cursor-pointer"
                           onClick={() => {
                             setEditingTransaction(tx);
                             setShowTransactionModal(true);
                           }}
                         >
                           <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-xl ${tx.type === "income"
+                            <div className={`p-2 rounded-[var(--radius-lg)] ${tx.type === "income"
                               ? "bg-emerald-500/10 border border-emerald-400/20"
                               : "bg-rose-500/10 border border-rose-400/20"
                               }`}>
                               {tx.type === "income" ?
-                                <TrendingUp size={16} className="text-emerald-300" /> :
-                                <TrendingDown size={16} className="text-rose-300" />
+                                <TrendingUp size={16} className="text-emerald-500" /> :
+                                <TrendingDown size={16} className="text-rose-500" />
                               }
                             </div>
                             <div>
-                              <p className="font-bold text-white">{tx.description}</p>
+                              <p className="font-bold text-[rgb(var(--text-primary))]">{tx.description}</p>
                               <div className="flex items-center gap-2 mt-1">
                                 <Tag
                                   label={engine.categories[tx.category as CategoryKey]?.label || engine.categories.other.label}
                                   color={engine.categories[tx.category as CategoryKey]?.color || engine.categories.other.color}
                                 />
-                                <span className="text-xs text-white/40">{engine.formatDate(tx.effectiveDateYMD || "")}</span>
+                                <span className="text-xs text-[rgb(var(--text-tertiary))]">{engine.formatDate(tx.effectiveDateYMD || "")}</span>
                               </div>
                             </div>
                           </div>
-                          <div className={`font-black ${tx.type === "income" ? "text-emerald-300" : "text-rose-300"
+                          <div className={`font-black ${tx.type === "income" ? "text-emerald-500" : "text-rose-500"
                             }`}>
                             {tx.type === "income" ? "+" : "-"}{engine.formatCurrency(Math.abs(tx.amount), tx.currency)}
                           </div>
                         </div>
                       ))}
                       {analytics.topTransactions.length === 0 && (
-                        <div className="text-center py-8 text-white/40">
+                        <div className="text-center py-8 text-[rgb(var(--text-tertiary))]">
                           <p className="text-sm font-medium">{t('transactions.noTransactions') || "No transactions yet"}</p>
                         </div>
                       )}
@@ -1826,13 +1830,13 @@ const EnhancedBudgetView: React.FC = () => {
               <GlassCard>
                 <div className="p-4 flex flex-col md:flex-row items-center gap-4">
                   <div className="relative flex-1 w-full">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={16} />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[rgb(var(--text-tertiary))]" size={16} />
                     <input
                       type="text"
                       placeholder={t('transactions.searchPlaceholder') || "Search transactions..."}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-white font-medium outline-none focus:border-blue-500/50 transition-colors"
+                      className="w-full bg-[rgb(var(--surface-elevated))] border border-[rgb(var(--border-primary))] rounded-[var(--radius-xl)] py-2.5 pl-10 pr-4 text-[rgb(var(--text-primary))] font-medium outline-none focus:border-[rgb(var(--color-primary-500))]/50 transition-colors"
                     />
                   </div>
                   <div className="flex items-center gap-2 w-full md:w-auto">
@@ -1857,23 +1861,23 @@ const EnhancedBudgetView: React.FC = () => {
                     return dateB.localeCompare(dateA);
                   })
                   .map(tx => (
-                    <GlassCard key={tx.id} className="hover:border-white/20 transition-colors group cursor-pointer">
+                    <GlassCard key={tx.id} className="hover:border-[rgb(var(--border-secondary))] transition-colors group cursor-pointer">
                       <div className="p-4 flex items-center justify-between" onClick={() => { setEditingTransaction(tx); setShowTransactionModal(true); }}>
                         <div className="flex items-center gap-4">
-                          <div className={`p-3 rounded-2xl ${tx.type === 'income' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                          <div className={`p-3 rounded-[var(--radius-xl)] ${tx.type === 'income' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
                             {engine.categories[tx.category as CategoryKey]?.icon || <TagIcon size={20} />}
                           </div>
                           <div>
-                            <h4 className="font-bold text-white text-lg">{tx.description}</h4>
+                            <h4 className="font-bold text-[rgb(var(--text-primary))] text-lg">{tx.description}</h4>
                             <div className="flex items-center gap-2 mt-1">
-                              <span className={`text-xs font-bold px-2 py-0.5 rounded border bg-white/5 border-white/10 text-white/80`}>
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded border bg-[rgb(var(--surface-tertiary))] border-[rgb(var(--border-primary))] text-[rgb(var(--text-secondary))]`}>
                                 {engine.categories[tx.category as CategoryKey]?.label || tx.category}
                               </span>
-                              <span className="text-xs text-white/40 font-medium">
+                              <span className="text-xs text-[rgb(var(--text-tertiary))] font-medium">
                                 {engine.formatDate(tx.effectiveDateYMD)} {tx.time ? `• ${tx.time}` : ''}
                               </span>
                               {tx.status === 'pending' && (
-                                <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                                <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500">
                                   {(t('invoicing.pending') || "PENDING").toUpperCase()}
                                 </span>
                               )}
@@ -1882,20 +1886,20 @@ const EnhancedBudgetView: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-6">
                           <div className="text-right">
-                            <span className={`block font-black text-xl ${tx.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            <span className={`block font-black text-xl ${tx.type === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>
                               {tx.type === 'income' ? '+' : '-'}{engine.formatCurrency(Math.abs(tx.amount), tx.currency)}
                             </span>
                             {tx.tags && tx.tags.length > 0 && (
                               <div className="flex gap-1 justify-end mt-1">
                                 {tx.tags.slice(0, 2).map(tag => (
-                                  <span key={tag} className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-white/40">#{tag}</span>
+                                  <span key={tag} className="text-[10px] bg-[rgb(var(--surface-tertiary))] px-1.5 py-0.5 rounded text-[rgb(var(--text-tertiary))]">#{tag}</span>
                                 ))}
                               </div>
                             )}
                           </div>
                           <button
                             onClick={(e) => { e.stopPropagation(); if (confirm(t('budget.delete.confirmOne'))) engine.deleteTransaction(tx.id); }}
-                            className="p-2 hover:bg-rose-500/20 rounded-lg text-white/40 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100"
+                            className="p-2 hover:bg-rose-500/20 rounded-[var(--radius-lg)] text-[rgb(var(--text-tertiary))] hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
                           >
                             <Trash2 size={18} />
                           </button>
@@ -1906,7 +1910,7 @@ const EnhancedBudgetView: React.FC = () => {
 
                 {engine.uiTransactions.length === 0 && (
                   <div className="text-center py-12">
-                    <p className="text-white/40 font-medium">{t('budget.noTransactions')}</p>
+                    <p className="text-[rgb(var(--text-tertiary))] font-medium">{t('budget.noTransactions')}</p>
                   </div>
                 )}
               </div>
@@ -1920,9 +1924,9 @@ const EnhancedBudgetView: React.FC = () => {
                   {({ width, height }) => (
                     <ResponsiveContainer width={width} height={height}>
                       <BarChart data={analytics.monthlyData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                        <XAxis dataKey="month" stroke="rgba(255,255,255,0.4)" tick={{ fill: 'rgba(255,255,255,0.6)' }} />
-                        <YAxis stroke="rgba(255,255,255,0.4)" tick={{ fill: 'rgba(255,255,255,0.6)' }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(var(--border-primary), 0.3)" />
+                        <XAxis dataKey="month" stroke="rgb(var(--text-tertiary))" tick={{ fill: 'rgb(var(--text-secondary))' }} />
+                        <YAxis stroke="rgb(var(--text-tertiary))" tick={{ fill: 'rgb(var(--text-secondary))' }} />
                         <RechartsTooltip content={<CustomTooltip currency={currency} language={language} />} />
                         <Legend />
                         <Bar dataKey="income" name={t('stats.income')} fill="#10b981" radius={[4, 4, 0, 0]} />
@@ -1936,9 +1940,9 @@ const EnhancedBudgetView: React.FC = () => {
                   {({ width, height }) => (
                     <ResponsiveContainer width={width} height={height}>
                       <RadarChart data={Object.entries(analytics.categoryBreakdown).slice(0, 6).map(([k, v]) => ({ subject: engine.categories[k as CategoryKey]?.label || k, A: v.total, fullMark: 100 }))}>
-                        <PolarGrid stroke="rgba(255,255,255,0.1)" />
-                        <PolarAngleAxis dataKey="subject" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} />
-                        <PolarRadiusAxis angle={30} stroke="rgba(255,255,255,0.1)" />
+                        <PolarGrid stroke="rgba(var(--border-primary), 0.3)" />
+                        <PolarAngleAxis dataKey="subject" tick={{ fill: 'rgb(var(--text-secondary))', fontSize: 12 }} />
+                        <PolarRadiusAxis angle={30} stroke="rgba(var(--border-primary), 0.3)" />
                         <Radar name="Expenses" dataKey="A" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
                         <RechartsTooltip />
                       </RadarChart>
@@ -1955,33 +1959,33 @@ const EnhancedBudgetView: React.FC = () => {
                 <GlassCard key={goal.id}>
                   <div className="p-6">
                     <div className="flex justify-between items-start mb-4">
-                      <div className={`p-3 rounded-xl bg-purple-500/10 text-purple-400`}>
+                      <div className={`p-3 rounded-[var(--radius-xl)] bg-purple-500/10 text-purple-500`}>
                         {engine.categories[goal.category as CategoryKey]?.icon || <Target size={20} />}
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-white/40 font-bold uppercase tracking-wider">{t('goals.target') || "Target"}</p>
-                        <p className="text-lg font-black text-white">{engine.formatCurrency(goal.targetAmount)}</p>
+                        <p className="text-xs text-[rgb(var(--text-tertiary))] font-bold uppercase tracking-wider">{t('goals.target') || "Target"}</p>
+                        <p className="text-lg font-black text-[rgb(var(--text-primary))]">{engine.formatCurrency(goal.targetAmount)}</p>
                       </div>
                     </div>
-                    <h3 className="text-xl font-bold text-white mb-1">{goal.name}</h3>
-                    <span className="text-sm text-white/60 mb-4">{t('tabs.goals')} • {engine.categories[goal.category as CategoryKey]?.label}</span>
-                    <div className="relative h-2 bg-white/10 rounded-full overflow-hidden mb-2">
+                    <h3 className="text-xl font-bold text-[rgb(var(--text-primary))] mb-1">{goal.name}</h3>
+                    <span className="text-sm text-[rgb(var(--text-tertiary))] mb-4">{t('tabs.goals')} • {engine.categories[goal.category as CategoryKey]?.label}</span>
+                    <div className="relative h-2 bg-[rgb(var(--surface-tertiary))] rounded-full overflow-hidden mb-2">
                       <div
                         className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-1000"
                         style={{ width: `${Math.min((goal.currentAmount / goal.targetAmount) * 100, 100)}%` }}
                       />
                     </div>
-                    <div className="flex justify-between text-xs font-medium text-white/40">
+                    <div className="flex justify-between text-xs font-medium text-[rgb(var(--text-tertiary))]">
                       <span>{Math.round((goal.currentAmount / goal.targetAmount) * 100)}%</span>
                       <span>{engine.formatCurrency(goal.currentAmount)}</span>
                     </div>
                   </div>
                 </GlassCard>
               )) : (
-                <div className="col-span-full py-12 text-center border-2 border-dashed border-white/10 rounded-3xl">
-                  <Target size={48} className="mx-auto text-white/20 mb-4" />
-                  <h3 className="text-xl font-bold text-white mb-2">{t('goals.noGoals') || "No goals set"}</h3>
-                  <p className="text-white/60 mb-6">{t('goals.subtitle') || "Set financial goals to track your progress."}</p>
+                <div className="col-span-full py-12 text-center border-2 border-dashed border-[rgb(var(--border-primary))] rounded-[var(--radius-3xl)]">
+                  <Target size={48} className="mx-auto text-[rgb(var(--text-tertiary))] mb-4" />
+                  <h3 className="text-xl font-bold text-[rgb(var(--text-primary))] mb-2">{t('goals.noGoals') || "No goals set"}</h3>
+                  <p className="text-[rgb(var(--text-secondary))] mb-6">{t('goals.subtitle') || "Set financial goals to track your progress."}</p>
                   <GradientButton onClick={() => { /* Placeholder for add goal */ }}>
                     {t('quickActions.setGoal')}
                   </GradientButton>
@@ -1993,22 +1997,22 @@ const EnhancedBudgetView: React.FC = () => {
           {activeTab === "settings" && (
             <GlassCard>
               <div className="p-8">
-                <h2 className="text-2xl font-black text-white mb-6">{t('tabs.settings')}</h2>
+                <h2 className="text-2xl font-black text-[rgb(var(--text-primary))] mb-6">{t('tabs.settings')}</h2>
 
                 <div className="space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
-                      <label className="block text-sm font-bold text-white/60 mb-2 uppercase tracking-wider">{t('settings.startCalculation') || "Start Calculation From"}</label>
-                      <div className="flex gap-2 p-1 bg-white/5 rounded-xl border border-white/10">
+                      <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2 uppercase tracking-wider">{t('settings.startCalculation') || "Start Calculation From"}</label>
+                      <div className="flex gap-2 p-1 bg-[rgb(var(--surface-tertiary))] rounded-[var(--radius-xl)] border border-[rgb(var(--border-primary))]">
                         <button
                           onClick={() => engine.setBalanceMode('realizedOnly')}
-                          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${engine.balanceMode === 'realizedOnly' ? 'bg-blue-500 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
+                          className={`flex-1 py-2 rounded-[var(--radius-lg)] text-sm font-bold transition-all ${engine.balanceMode === 'realizedOnly' ? 'bg-blue-600 text-white shadow-lg' : 'text-[rgb(var(--text-tertiary))] hover:text-[rgb(var(--text-primary))]'}`}
                         >
                           {t('settings.realizedOnly') || "Realized Only"}
                         </button>
                         <button
                           onClick={() => engine.setBalanceMode('includeScheduled')}
-                          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${engine.balanceMode === 'includeScheduled' ? 'bg-purple-500 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
+                          className={`flex-1 py-2 rounded-[var(--radius-lg)] text-sm font-bold transition-all ${engine.balanceMode === 'includeScheduled' ? 'bg-purple-600 text-white shadow-lg' : 'text-[rgb(var(--text-tertiary))] hover:text-[rgb(var(--text-primary))]'}`}
                         >
                           {t('settings.includeScheduled') || "Include Scheduled"}
                         </button>
@@ -2016,25 +2020,25 @@ const EnhancedBudgetView: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-bold text-white/60 mb-2 uppercase tracking-wider">{t('settings.currency') || "Currency"}</label>
+                      <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2 uppercase tracking-wider">{t('settings.currency') || "Currency"}</label>
                       <select
                         value={engine.currency}
                         onChange={(e) => engine.setCurrency(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-white/10 bg-white/5 text-white font-bold outline-none focus:border-blue-500/50"
+                        className="w-full px-4 py-3 rounded-[var(--radius-xl)] border border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-elevated))] text-[rgb(var(--text-primary))] font-bold outline-none focus:border-[rgb(var(--color-primary-500))]/50"
                       >
                         {AVAILABLE_CURRENCIES.map(c => (
-                          <option key={c.code} value={c.code} className="bg-gray-900">{c.code} - {c.symbol}</option>
+                          <option key={c.code} value={c.code} className="bg-[rgb(var(--surface-elevated))] text-[rgb(var(--text-primary))]">{c.code} - {c.symbol}</option>
                         ))}
                       </select>
                     </div>
                   </div>
 
-                  <div className="pt-8 border-t border-white/10">
-                    <h3 className="text-lg font-bold text-white mb-4">{t('settings.dataManagement') || "Data Management"}</h3>
+                  <div className="pt-8 border-t border-[rgb(var(--border-primary))]">
+                    <h3 className="text-lg font-bold text-[rgb(var(--text-primary))] mb-4">{t('settings.dataManagement') || "Data Management"}</h3>
                     <div className="flex gap-4">
                       <button
                         onClick={() => engine.exportData('json')}
-                        className="flex items-center gap-2 px-6 py-3 rounded-xl border border-white/10 hover:bg-white/5 font-bold transition-colors"
+                        className="flex items-center gap-2 px-6 py-3 rounded-[var(--radius-xl)] border border-[rgb(var(--border-primary))] hover:bg-[rgb(var(--surface-tertiary))] font-bold text-[rgb(var(--text-primary))] transition-colors"
                       >
                         <Download size={18} />
                         {t('quickActions.export') || "Export Data"}
@@ -2086,22 +2090,22 @@ const EnhancedBudgetView: React.FC = () => {
               initial={{ opacity: 0, x: 300 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 300 }}
-              className="fixed right-6 top-20 w-96 max-h-[80vh] bg-gradient-to-b from-gray-900 to-gray-950 rounded-3xl border border-white/10 shadow-2xl overflow-hidden z-50"
+              className="fixed right-6 top-20 w-96 max-h-[80vh] bg-[rgb(var(--surface-elevated))] rounded-[var(--radius-3xl)] border border-[rgb(var(--border-primary))] shadow-2xl overflow-hidden z-50 backdrop-blur-xl"
             >
-              <div className="p-4 border-b border-white/10">
+              <div className="p-4 border-b border-[rgb(var(--border-primary))]">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setShowNotifications(false)}
-                      className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-white"
+                      className="p-2 rounded-[var(--radius-xl)] bg-[rgb(var(--surface-tertiary))] hover:bg-[rgb(var(--surface-secondary))] transition-colors text-[rgb(var(--text-primary))]"
                     >
                       <Bell size={18} />
                     </button>
-                    <h3 className="font-black text-white">{t('notifications.title') || "Notifications"}</h3>
+                    <h3 className="font-black text-[rgb(var(--text-primary))]">{t('notifications.title') || "Notifications"}</h3>
                   </div>
                   <button
                     onClick={() => engine.clearNotifications()}
-                    className="text-sm font-bold text-rose-400 hover:text-rose-300"
+                    className="text-sm font-bold text-rose-500 hover:text-rose-400"
                   >
                     {t('notifications.clearAll') || "Clear All"}
                   </button>
@@ -2111,39 +2115,39 @@ const EnhancedBudgetView: React.FC = () => {
                 {notifications.map(notif => (
                   <div
                     key={notif.id}
-                    className={`p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!notif.read ? "bg-blue-500/5" : ""
+                    className={`p-4 border-b border-[rgb(var(--border-primary))] hover:bg-[rgb(var(--surface-tertiary))] transition-colors cursor-pointer ${!notif.read ? "bg-[rgb(var(--color-primary-500))]/5" : ""
                       }`}
                     onClick={() => engine.markAsRead(notif.id)}
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`p-2 rounded-xl ${notif.type === "success" ? "bg-emerald-500/10" :
+                      <div className={`p-2 rounded-[var(--radius-xl)] ${notif.type === "success" ? "bg-emerald-500/10" :
                         notif.type === "warning" ? "bg-amber-500/10" :
                           notif.type === "error" ? "bg-rose-500/10" :
-                            "bg-blue-500/10"
+                            "bg-[rgb(var(--color-primary-500))]/10"
                         }`}>
                         <BellRing size={16} className={
-                          notif.type === "success" ? "text-emerald-400" :
-                            notif.type === "warning" ? "text-amber-400" :
-                              notif.type === "error" ? "text-rose-400" :
-                                "text-blue-400"
+                          notif.type === "success" ? "text-emerald-500" :
+                            notif.type === "warning" ? "text-amber-500" :
+                              notif.type === "error" ? "text-rose-500" :
+                                "text-[rgb(var(--color-primary-500))]"
                         } />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <p className="font-bold text-white">{notif.title}</p>
-                          <span className="text-xs text-white/40">
+                          <p className="font-bold text-[rgb(var(--text-primary))]">{notif.title}</p>
+                          <span className="text-xs text-[rgb(var(--text-tertiary))]">
                             {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                        <p className="text-sm text-white/60 mt-1">{notif.message}</p>
+                        <p className="text-sm text-[rgb(var(--text-secondary))] mt-1">{notif.message}</p>
                       </div>
                     </div>
                   </div>
                 ))}
                 {notifications.length === 0 && (
                   <div className="p-8 text-center">
-                    <Bell size={24} className="text-white/20 mx-auto mb-2" />
-                    <p className="text-white/40 text-sm">{t('notifications.empty') || "No notifications"}</p>
+                    <Bell size={24} className="text-[rgb(var(--text-tertiary))] mx-auto mb-2" />
+                    <p className="text-[rgb(var(--text-tertiary))] text-sm">{t('notifications.empty') || "No notifications"}</p>
                   </div>
                 )}
               </div>
