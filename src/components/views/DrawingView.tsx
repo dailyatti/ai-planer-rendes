@@ -4,7 +4,7 @@ import {
   Pencil, Square, Circle as CircleIcon, Triangle as TriangleIcon,
   Type, Image as ImageIcon, Eraser, MousePointer2,
   Undo2, Redo2, Trash2, Move, ZoomIn, ZoomOut,
-  Palette
+  Palette, Grid3X3, Calculator, Plus, X
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -55,6 +55,16 @@ const DrawingView: React.FC = () => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isLoading, setIsLoading] = useState(true);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+
+  // Grid Paper State
+  const [showGrid, setShowGrid] = useState(false);
+  const [gridSize, setGridSize] = useState(30); // 20=small, 30=medium, 40=large
+
+  // Calculator State
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [calcInput, setCalcInput] = useState('');
+  const [calcHistory, setCalcHistory] = useState<{ expr: string; result: string }[]>([]);
+
 
   // --- Persistence (Professional Level) ---
   const saveToLocalStorage = useCallback(() => {
@@ -529,8 +539,24 @@ const DrawingView: React.FC = () => {
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
     >
-      {/* Main Canvas Container */}
-      <div ref={containerRef} className="flex-1 w-full h-full relative shadow-inner">
+      {/* Main Canvas Container - Always white/light for drawing */}
+      <div ref={containerRef} className="flex-1 w-full h-full relative shadow-inner bg-white">
+        {/* Grid Paper Overlay - Kockás Füzet */}
+        {showGrid && (
+          <svg
+            className="absolute inset-0 z-0 pointer-events-none"
+            width="100%"
+            height="100%"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <defs>
+              <pattern id="grid" width={gridSize} height={gridSize} patternUnits="userSpaceOnUse">
+                <path d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`} fill="none" stroke="#93c5fd" strokeWidth="0.5" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid)" />
+          </svg>
+        )}
         <canvas ref={canvasRef} className="absolute inset-0 z-10" />
 
         {/* Drag Overlay */}
@@ -576,6 +602,9 @@ const DrawingView: React.FC = () => {
           { id: 'triangle', icon: TriangleIcon, label: 'Triangle' },
           { id: 'sep3', type: 'separator' },
           { id: 'eraser', icon: Eraser, label: 'Eraser' },
+          { id: 'sep4', type: 'separator' },
+          { id: 'grid', icon: Grid3X3, label: 'Grid Paper', action: () => setShowGrid(prev => !prev), isActive: showGrid },
+          { id: 'calculator', icon: Calculator, label: 'Calculator', action: () => setShowCalculator(prev => !prev), isActive: showCalculator },
         ].map((item, i) => {
           if (item.type === 'separator') return <div key={`sep-${i}`} className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />;
           return (
@@ -584,7 +613,7 @@ const DrawingView: React.FC = () => {
               onClick={() => item.action ? item.action() : setState(s => ({ ...s, tool: item.id as Tool }))}
               className={`
                 p-2.5 rounded-xl transition-all duration-300 group relative shrink-0
-                ${state.tool === item.id && !item.action
+                ${(state.tool === item.id && !item.action) || (item as any).isActive
                   ? 'bg-gradient-to-br from-primary-500/20 to-primary-600/20 text-primary-600 dark:text-primary-300 ring-1 ring-primary-500/30'
                   : 'text-gray-500 hover:bg-gray-100/50 dark:text-gray-400 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'}
               `}
@@ -592,7 +621,7 @@ const DrawingView: React.FC = () => {
             >
               {(() => {
                 const Icon = item.icon as React.ElementType;
-                return <Icon size={20} strokeWidth={state.tool === item.id ? 2.5 : 2} />;
+                return <Icon size={20} strokeWidth={(state.tool === item.id || (item as any).isActive) ? 2.5 : 2} />;
               })()}
               {/* Tooltip */}
               <span className="absolute top-full mt-3 left-1/2 -translate-x-1/2 px-2.5 py-1.5 bg-gray-900/95 dark:bg-black/95 text-white text-[10px] font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0 whitespace-nowrap pointer-events-none shadow-xl border border-white/10 z-50">
@@ -661,6 +690,117 @@ const DrawingView: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* --- Calculator Math Panel (Right Side) - Kockás Füzet Számolás --- */}
+      {showCalculator && (
+        <div className="absolute top-1/2 right-6 transform -translate-y-1/2 z-40 bg-white dark:bg-gray-800 backdrop-blur-2xl border border-gray-200 dark:border-gray-700 shadow-2xl shadow-black/10 rounded-2xl p-4 w-72 ring-1 ring-black/5 dark:ring-white/5 animate-fade-in-right">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Calculator size={18} className="text-primary-500" />
+              <span className="text-sm font-bold text-gray-800 dark:text-white">Számológép</span>
+            </div>
+            <button
+              onClick={() => setShowCalculator(false)}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Input Display */}
+          <input
+            type="text"
+            value={calcInput}
+            onChange={(e) => setCalcInput(e.target.value)}
+            placeholder="2 + 3 * 4"
+            className="w-full px-4 py-3 text-xl font-mono bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white text-right mb-3 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+          />
+
+          {/* Quick Number Buttons */}
+          <div className="grid grid-cols-4 gap-2 mb-3">
+            {['7', '8', '9', '÷', '4', '5', '6', '×', '1', '2', '3', '-', '0', '.', '=', '+'].map((btn) => (
+              <button
+                key={btn}
+                onClick={() => {
+                  if (btn === '=') {
+                    try {
+                      // Safe expression evaluation
+                      const expr = calcInput
+                        .replace(/×/g, '*')
+                        .replace(/÷/g, '/')
+                        .replace(/[^0-9+\-*/.() ]/g, '');
+                      // eslint-disable-next-line no-eval
+                      const result = String(eval(expr) || 0);
+                      setCalcHistory(prev => [...prev.slice(-9), { expr: calcInput, result }]);
+                      setCalcInput(result);
+                    } catch {
+                      setCalcInput('Hiba');
+                    }
+                  } else {
+                    setCalcInput(prev => prev + btn);
+                  }
+                }}
+                className={`p-3 rounded-xl font-bold text-lg transition-all hover:scale-105 active:scale-95 ${['÷', '×', '-', '+', '='].includes(btn)
+                  ? 'bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-md shadow-primary-500/20'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+              >
+                {btn}
+              </button>
+            ))}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 mb-3">
+            <button
+              onClick={() => setCalcInput('')}
+              className="flex-1 px-3 py-2 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl font-medium hover:bg-red-200 dark:hover:bg-red-900/40 transition-colors"
+            >
+              Törlés
+            </button>
+            <button
+              onClick={() => {
+                if (!fabricCanvas || !calcInput) return;
+                const text = new fabric.IText(calcInput, {
+                  left: fabricCanvas.width! / 2,
+                  top: fabricCanvas.height! / 2,
+                  fontSize: 32,
+                  fontFamily: 'monospace',
+                  fill: '#000000',
+                  originX: 'center',
+                  originY: 'center',
+                } as any);
+                fabricCanvas.add(text);
+                fabricCanvas.setActiveObject(text);
+                saveToLocalStorage();
+              }}
+              className="flex-1 px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-medium hover:shadow-lg transition-all flex items-center justify-center gap-2"
+            >
+              <Plus size={14} />
+              Rajzra
+            </button>
+          </div>
+
+          {/* History */}
+          {calcHistory.length > 0 && (
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Előzmények</span>
+              <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
+                {calcHistory.slice().reverse().map((h, i) => (
+                  <div
+                    key={i}
+                    onClick={() => setCalcInput(h.result)}
+                    className="flex justify-between text-xs p-2 bg-gray-50 dark:bg-gray-900/50 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <span className="text-gray-500">{h.expr}</span>
+                    <span className="text-gray-900 dark:text-white font-mono font-bold">{h.result}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* --- Zoom Controls (Bottom Right) --- */}
       <div className="absolute bottom-6 right-6 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-2xl shadow-black/10 rounded-2xl p-2 flex items-center gap-2 ring-1 ring-black/5 dark:ring-white/5">
