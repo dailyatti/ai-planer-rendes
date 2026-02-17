@@ -1,9 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Plus, StickyNote, Edit2, Trash2, Search, Tag, Link, Mic, MicOff, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Plus, StickyNote, Edit2, Trash2, Search, Tag, Link, Mic, MicOff, ArrowUp, ArrowRight, ArrowDown, Cpu, Globe, Loader2 } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import { Note, PriorityLevel } from '../../types/planner';
 import LinkifiedText from '../common/LinkifiedText';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useWhisperDictation } from '../../hooks/useWhisperDictation';
+
+type DictationEngine = 'whisper' | 'browser';
 
 const NotesView: React.FC = () => {
   const { notes, addNote, updateNote, deleteNote } = useData();
@@ -20,17 +23,47 @@ const NotesView: React.FC = () => {
     priority: 'medium' as PriorityLevel,
   });
 
-  // Dictation state
-  const [isRecording, setIsRecording] = useState(false);
-  const [dictationSupported, setDictationSupported] = useState(false);
+  // Dictation engine selection
+  const [dictationEngine, setDictationEngine] = useState<DictationEngine>('whisper');
+
+  // Browser Speech API state
+  const [isBrowserRecording, setIsBrowserRecording] = useState(false);
+  const [browserDictationSupported, setBrowserDictationSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
+
+  // Whisper dictation
+  const handleWhisperTranscript = useCallback((text: string) => {
+    setNewNote(prev => ({
+      ...prev,
+      content: prev.content + (prev.content && !prev.content.endsWith(' ') ? ' ' : '') + text,
+    }));
+  }, []);
+
+  const whisper = useWhisperDictation(handleWhisperTranscript);
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    setDictationSupported(!!SpeechRecognition);
-  }, []);
+    setBrowserDictationSupported(!!SpeechRecognition);
+    // If whisper not available, fall back to browser
+    if (!whisper.isAvailable) {
+      setDictationEngine('browser');
+    }
+  }, [whisper.isAvailable]);
 
-  const startDictation = () => {
+  // Derived state
+  const isRecording = dictationEngine === 'whisper'
+    ? whisper.status === 'recording'
+    : isBrowserRecording;
+
+  const isTranscribing = dictationEngine === 'whisper' && whisper.status === 'transcribing';
+  const isWhisperLoading = dictationEngine === 'whisper' && whisper.status === 'loading';
+
+  const dictationAvailable = dictationEngine === 'whisper'
+    ? whisper.isAvailable
+    : browserDictationSupported;
+
+  // Browser dictation functions
+  const startBrowserDictation = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) return;
 
@@ -58,12 +91,11 @@ const NotesView: React.FC = () => {
     };
 
     recognition.onerror = () => {
-      setIsRecording(false);
+      setIsBrowserRecording(false);
     };
 
     recognition.onend = () => {
-      setIsRecording(false);
-      // Clean up interim markers
+      setIsBrowserRecording(false);
       setNewNote(prev => ({
         ...prev,
         content: prev.content.replace(/\[.*?\]$/, '').trim()
@@ -72,24 +104,49 @@ const NotesView: React.FC = () => {
 
     recognitionRef.current = recognition;
     recognition.start();
-    setIsRecording(true);
+    setIsBrowserRecording(true);
   };
 
-  const stopDictation = () => {
+  const stopBrowserDictation = () => {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       recognitionRef.current = null;
     }
-    setIsRecording(false);
+    setIsBrowserRecording(false);
   };
 
-  const toggleDictation = () => {
-    if (isRecording) {
-      stopDictation();
+  // Unified dictation toggle
+  const toggleDictation = async () => {
+    if (dictationEngine === 'whisper') {
+      if (whisper.status === 'recording') {
+        whisper.stopRecording();
+      } else if (whisper.status === 'ready') {
+        await whisper.startRecording();
+      } else if (whisper.status === 'idle' || whisper.status === 'error') {
+        whisper.loadModel();
+      }
     } else {
-      startDictation();
+      if (isBrowserRecording) {
+        stopBrowserDictation();
+      } else {
+        startBrowserDictation();
+      }
     }
   };
+
+  const stopAllDictation = () => {
+    if (whisper.status === 'recording') whisper.stopRecording();
+    stopBrowserDictation();
+  };
+
+  // Auto-start recording after Whisper model loads
+  useEffect(() => {
+    if (whisper.status === 'ready' && dictationEngine === 'whisper' && showAddForm) {
+      // Model just loaded - auto-start recording
+      whisper.startRecording();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [whisper.status]);
 
   const allTags = Array.from(new Set(notes.flatMap(note => note.tags)));
 
@@ -117,7 +174,7 @@ const NotesView: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isRecording) stopDictation();
+    stopAllDictation();
 
     if (editingId) {
       updateNote(editingId, {
@@ -180,6 +237,23 @@ const NotesView: React.FC = () => {
       case 'low': return t('priority.low');
     }
   };
+
+  // Dictation button label
+  const getDictationLabel = () => {
+    if (dictationEngine === 'whisper') {
+      switch (whisper.status) {
+        case 'loading': return `${t('notes.whisperLoading') || 'Modell betöltés...'} ${whisper.loadProgress}%`;
+        case 'recording': return t('notes.stopDictation');
+        case 'transcribing': return t('notes.whisperTranscribing') || 'Feldolgozás...';
+        case 'error': return t('notes.whisperRetry') || 'Újrapróbálás';
+        case 'ready': return t('notes.startDictation');
+        default: return t('notes.whisperInit') || 'Whisper betöltése';
+      }
+    }
+    return isBrowserRecording ? t('notes.stopDictation') : t('notes.startDictation');
+  };
+
+  const isDictationBusy = isWhisperLoading || isTranscribing;
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -268,35 +342,112 @@ const NotesView: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     {t('notes.contentLabel')}
                   </label>
-                  {dictationSupported && (
-                    <button
-                      type="button"
-                      onClick={toggleDictation}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
-                        isRecording
-                          ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 animate-pulse border border-red-300 dark:border-red-700'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600'
-                      }`}
-                    >
-                      {isRecording ? <MicOff size={14} /> : <Mic size={14} />}
-                      {isRecording ? t('notes.stopDictation') : t('notes.startDictation')}
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {/* Engine switcher */}
+                    {whisper.isAvailable && browserDictationSupported && (
+                      <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => { stopAllDictation(); setDictationEngine('whisper'); }}
+                          title="Whisper AI (offline)"
+                          className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 ${
+                            dictationEngine === 'whisper'
+                              ? 'bg-purple-500 text-white shadow-sm'
+                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          }`}
+                        >
+                          <Cpu size={12} />
+                          AI
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { stopAllDictation(); setDictationEngine('browser'); }}
+                          title={t('notes.browserDictation') || 'Böngésző diktálás'}
+                          className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 ${
+                            dictationEngine === 'browser'
+                              ? 'bg-blue-500 text-white shadow-sm'
+                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          }`}
+                        >
+                          <Globe size={12} />
+                          Web
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Dictation button */}
+                    {dictationAvailable && (
+                      <button
+                        type="button"
+                        onClick={toggleDictation}
+                        disabled={isDictationBusy}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                          isRecording
+                            ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 animate-pulse border border-red-300 dark:border-red-700'
+                            : isDictationBusy
+                            ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-300 dark:border-purple-700 cursor-wait'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600'
+                        }`}
+                      >
+                        {isDictationBusy ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : isRecording ? (
+                          <MicOff size={14} />
+                        ) : (
+                          <Mic size={14} />
+                        )}
+                        {getDictationLabel()}
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {/* Whisper loading progress bar */}
+                {isWhisperLoading && (
+                  <div className="mb-2">
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div
+                        className="bg-purple-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${whisper.loadProgress}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                      {t('notes.whisperFirstLoad') || 'Whisper AI modell letöltése (csak első alkalommal)...'}
+                    </p>
+                  </div>
+                )}
+
                 <textarea
                   value={newNote.content}
                   onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
                   className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 ${
-                    isRecording ? 'border-red-400 dark:border-red-600 ring-2 ring-red-200 dark:ring-red-900/30' : 'border-gray-300 dark:border-gray-600'
+                    isRecording ? 'border-red-400 dark:border-red-600 ring-2 ring-red-200 dark:ring-red-900/30'
+                    : isTranscribing ? 'border-purple-400 dark:border-purple-600 ring-2 ring-purple-200 dark:ring-purple-900/30'
+                    : 'border-gray-300 dark:border-gray-600'
                   }`}
                   rows={8}
-                  placeholder={isRecording ? t('notes.dictationActive') : t('notes.contentPlaceholder')}
+                  placeholder={
+                    isRecording ? (t('notes.dictationActive') || 'Beszélj most...')
+                    : isTranscribing ? (t('notes.whisperTranscribing') || 'Feldolgozás...')
+                    : t('notes.contentPlaceholder')
+                  }
                   required
                 />
                 {isRecording && (
                   <div className="flex items-center gap-2 mt-1 text-xs text-red-600 dark:text-red-400">
                     <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                     {t('notes.recording')}
+                  </div>
+                )}
+                {isTranscribing && (
+                  <div className="flex items-center gap-2 mt-1 text-xs text-purple-600 dark:text-purple-400">
+                    <Loader2 size={12} className="animate-spin" />
+                    {t('notes.whisperTranscribing') || 'Whisper feldolgozza a hangot...'}
+                  </div>
+                )}
+                {whisper.error && dictationEngine === 'whisper' && (
+                  <div className="mt-1 text-xs text-red-600 dark:text-red-400">
+                    {whisper.error}
                   </div>
                 )}
               </div>
@@ -354,7 +505,7 @@ const NotesView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    if (isRecording) stopDictation();
+                    stopAllDictation();
                     setShowAddForm(false);
                     setEditingId(null);
                     setNewNote({ title: '', content: '', tags: [], priority: 'medium' });
