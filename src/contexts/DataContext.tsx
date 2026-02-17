@@ -187,10 +187,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loadData = () => {
       try {
         const savedNotes = StorageService.get<Note[]>('notes', []);
-        if (savedNotes) setNotes(savedNotes.map(n => ({ ...n, createdAt: new Date(n.createdAt) })));
+        if (savedNotes) setNotes(savedNotes.map(n => ({
+          ...n,
+          createdAt: new Date(n.createdAt),
+          priority: n.priority || 'medium',
+        })));
 
         const savedGoals = StorageService.get<Goal[]>('goals', []);
-        if (savedGoals) setGoals(savedGoals.map(g => ({ ...g, targetDate: new Date(g.targetDate), createdAt: new Date(g.createdAt) })));
+        if (savedGoals) setGoals(savedGoals.map(g => ({
+          ...g,
+          targetDate: g.targetDate ? new Date(g.targetDate) : undefined,
+          createdAt: new Date(g.createdAt),
+          priority: g.priority || 'medium',
+          exchange: g.exchange || undefined,
+        })));
 
         const savedPlans = StorageService.get<PlanItem[]>('plans', []);
         if (savedPlans) setPlans(savedPlans.map(p => ({

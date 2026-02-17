@@ -45,13 +45,16 @@ const PomodoroView: React.FC = () => {
     }
   }, [permission, requestPermission]);
 
+  const handleTimerCompleteRef = useRef(handleTimerComplete);
+  handleTimerCompleteRef.current = handleTimerComplete;
+
   useEffect(() => {
     if (isRunning && timeLeft > 0) {
       intervalRef.current = setInterval(() => {
         setTimeLeft((prev) => prev - 1);
       }, 1000);
     } else if (timeLeft === 0) {
-      handleTimerComplete();
+      handleTimerCompleteRef.current();
     }
 
     return () => {
@@ -116,6 +119,11 @@ const PomodoroView: React.FC = () => {
 
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 0.5);
+
+    // Close AudioContext after sound finishes to prevent memory leak
+    oscillator.onended = () => {
+      audioContext.close();
+    };
   };
 
   const switchMode = (newMode: PomodoroMode) => {

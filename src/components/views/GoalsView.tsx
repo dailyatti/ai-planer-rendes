@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, Target, Edit2, Trash2, Calendar, TrendingUp, CheckCircle, Play, Pause, RotateCcw } from 'lucide-react';
+import { Plus, Target, Edit2, Trash2, Calendar, TrendingUp, CheckCircle, Play, Pause, RotateCcw, Star, AlertTriangle, ArrowUp, ArrowRight, ArrowDown, Gift } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
-import { Goal } from '../../types/planner';
+import { Goal, PriorityLevel } from '../../types/planner';
 import LinkifiedText from '../common/LinkifiedText';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -11,18 +11,38 @@ const GoalsView: React.FC = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterPriority, setFilterPriority] = useState<string>('all');
   const [newGoal, setNewGoal] = useState({
     title: '',
     description: '',
     targetDate: '',
     progress: 0,
     status: 'not-started' as 'not-started' | 'in-progress' | 'paused' | 'completed',
+    priority: 'medium' as PriorityLevel,
+    exchange: '',
   });
 
+  const getPriorityOrder = (p?: PriorityLevel) => {
+    switch (p || 'medium') {
+      case 'high': return 0;
+      case 'medium': return 1;
+      case 'low': return 2;
+      default: return 1;
+    }
+  };
+
   const filteredGoals = goals.filter(goal => {
-    if (filterStatus === 'all') return true;
-    return goal.status === filterStatus;
-  }).sort((a, b) => new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime());
+    if (filterStatus !== 'all' && goal.status !== filterStatus) return false;
+    if (filterPriority !== 'all' && (goal.priority || 'medium') !== filterPriority) return false;
+    return true;
+  }).sort((a, b) => {
+    const pa = getPriorityOrder(a.priority);
+    const pb = getPriorityOrder(b.priority);
+    if (pa !== pb) return pa - pb;
+    const dateA = a.targetDate ? new Date(a.targetDate).getTime() : Infinity;
+    const dateB = b.targetDate ? new Date(b.targetDate).getTime() : Infinity;
+    return dateA - dateB;
+  });
 
   const goalStats = {
     total: goals.length,
@@ -37,26 +57,27 @@ const GoalsView: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (editingId) {
-      updateGoal(editingId, {
-        title: newGoal.title,
-        description: newGoal.description,
-        targetDate: new Date(newGoal.targetDate),
-        progress: newGoal.progress,
-        status: newGoal.status,
-      });
-      setEditingId(null);
-    } else {
-      addGoal({
-        title: newGoal.title,
-        description: newGoal.description,
-        targetDate: new Date(newGoal.targetDate),
-        progress: newGoal.progress,
-        status: newGoal.status,
-      });
+    const goalData: any = {
+      title: newGoal.title,
+      description: newGoal.description,
+      progress: newGoal.progress,
+      status: newGoal.status,
+      priority: newGoal.priority,
+      exchange: newGoal.exchange || undefined,
+    };
+
+    if (newGoal.targetDate) {
+      goalData.targetDate = new Date(newGoal.targetDate);
     }
 
-    setNewGoal({ title: '', description: '', targetDate: '', progress: 0, status: 'not-started' });
+    if (editingId) {
+      updateGoal(editingId, goalData);
+      setEditingId(null);
+    } else {
+      addGoal(goalData);
+    }
+
+    setNewGoal({ title: '', description: '', targetDate: '', progress: 0, status: 'not-started', priority: 'medium', exchange: '' });
     setShowAddForm(false);
   };
 
@@ -64,9 +85,11 @@ const GoalsView: React.FC = () => {
     setNewGoal({
       title: goal.title,
       description: goal.description,
-      targetDate: goal.targetDate.toISOString().split('T')[0],
+      targetDate: goal.targetDate ? new Date(goal.targetDate).toISOString().split('T')[0] : '',
       progress: goal.progress,
       status: goal.status,
+      priority: goal.priority || 'medium',
+      exchange: goal.exchange || '',
     });
     setEditingId(goal.id);
     setShowAddForm(true);
@@ -99,7 +122,32 @@ const GoalsView: React.FC = () => {
     }
   };
 
-  const getDaysUntilTarget = (targetDate: Date) => {
+  const getPriorityIcon = (priority?: PriorityLevel) => {
+    switch (priority || 'medium') {
+      case 'high': return <ArrowUp className="text-red-500" size={16} />;
+      case 'medium': return <ArrowRight className="text-orange-500" size={16} />;
+      case 'low': return <ArrowDown className="text-blue-400" size={16} />;
+    }
+  };
+
+  const getPriorityLabel = (priority?: PriorityLevel) => {
+    switch (priority || 'medium') {
+      case 'high': return t('priority.high');
+      case 'medium': return t('priority.medium');
+      case 'low': return t('priority.low');
+    }
+  };
+
+  const getPriorityBadgeClass = (priority?: PriorityLevel) => {
+    switch (priority || 'medium') {
+      case 'high': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400 border border-red-200 dark:border-red-800';
+      case 'medium': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400 border border-orange-200 dark:border-orange-800';
+      case 'low': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-200 dark:border-blue-800';
+    }
+  };
+
+  const getDaysUntilTarget = (targetDate?: Date) => {
+    if (!targetDate) return null;
     const today = new Date();
     const target = new Date(targetDate);
     const diffTime = target.getTime() - today.getTime();
@@ -173,8 +221,8 @@ const GoalsView: React.FC = () => {
           </div>
         </div>
 
-        {/* Filter */}
-        <div className="mb-6">
+        {/* Filters */}
+        <div className="flex flex-wrap gap-3 mb-6">
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -186,12 +234,23 @@ const GoalsView: React.FC = () => {
             <option value="paused">{t('goals.filterPaused')}</option>
             <option value="completed">{t('goals.filterCompleted')}</option>
           </select>
+
+          <select
+            value={filterPriority}
+            onChange={(e) => setFilterPriority(e.target.value)}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500"
+          >
+            <option value="all">{t('priority.all')}</option>
+            <option value="high">{t('priority.high')}</option>
+            <option value="medium">{t('priority.medium')}</option>
+            <option value="low">{t('priority.low')}</option>
+          </select>
         </div>
       </div>
 
       {showAddForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-2xl">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               {editingId ? t('goals.editGoal') : t('goals.createGoal')}
             </h3>
@@ -224,49 +283,100 @@ const GoalsView: React.FC = () => {
                 />
               </div>
 
+              {/* Priority */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('priority.label')}
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['high', 'medium', 'low'] as PriorityLevel[]).map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setNewGoal({ ...newGoal, priority: level })}
+                      className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border-2 transition-all duration-200 text-sm font-medium ${
+                        newGoal.priority === level
+                          ? level === 'high'
+                            ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                            : level === 'medium'
+                            ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400'
+                            : 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-400'
+                      }`}
+                    >
+                      {level === 'high' && <ArrowUp size={16} />}
+                      {level === 'medium' && <ArrowRight size={16} />}
+                      {level === 'low' && <ArrowDown size={16} />}
+                      {level === 'high' ? t('priority.high') : level === 'medium' ? t('priority.medium') : t('priority.low')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Target Date - Optional */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('goals.targetDate')}
+                  {t('goals.targetDate')} <span className="text-gray-400 font-normal">({t('common.optional')})</span>
                 </label>
                 <input
                   type="date"
                   value={newGoal.targetDate}
                   onChange={(e) => setNewGoal({ ...newGoal, targetDate: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500"
-                  required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {t('goals.progress')} (%)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={newGoal.progress}
-                    onChange={(e) => setNewGoal({ ...newGoal, progress: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500"
-                  />
+              {/* Progress with Slider */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('goals.progress')}: <span className="text-teal-600 dark:text-teal-400 font-bold">{newGoal.progress}%</span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={newGoal.progress}
+                  onChange={(e) => setNewGoal({ ...newGoal, progress: parseInt(e.target.value) })}
+                  className="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                />
+                <div className="flex justify-between text-xs text-gray-400 mt-1">
+                  <span>0%</span>
+                  <span>25%</span>
+                  <span>50%</span>
+                  <span>75%</span>
+                  <span>100%</span>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {t('goals.status')}
-                  </label>
-                  <select
-                    value={newGoal.status}
-                    onChange={(e) => setNewGoal({ ...newGoal, status: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500"
-                  >
-                    <option value="not-started">{t('goals.filterNotStarted')}</option>
-                    <option value="in-progress">{t('goals.filterInProgress')}</option>
-                    <option value="paused">{t('goals.filterPaused')}</option>
-                    <option value="completed">{t('goals.filterCompleted')}</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('goals.status')}
+                </label>
+                <select
+                  value={newGoal.status}
+                  onChange={(e) => setNewGoal({ ...newGoal, status: e.target.value as any })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500"
+                >
+                  <option value="not-started">{t('goals.filterNotStarted')}</option>
+                  <option value="in-progress">{t('goals.filterInProgress')}</option>
+                  <option value="paused">{t('goals.filterPaused')}</option>
+                  <option value="completed">{t('goals.filterCompleted')}</option>
+                </select>
+              </div>
+
+              {/* Exchange - Optional */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('goals.exchange')} <span className="text-gray-400 font-normal">({t('common.optional')})</span>
+                </label>
+                <textarea
+                  value={newGoal.exchange}
+                  onChange={(e) => setNewGoal({ ...newGoal, exchange: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500"
+                  rows={2}
+                  placeholder={t('goals.exchangePlaceholder')}
+                />
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -281,7 +391,7 @@ const GoalsView: React.FC = () => {
                   onClick={() => {
                     setShowAddForm(false);
                     setEditingId(null);
-                    setNewGoal({ title: '', description: '', targetDate: '', progress: 0, status: 'not-started' });
+                    setNewGoal({ title: '', description: '', targetDate: '', progress: 0, status: 'not-started', priority: 'medium', exchange: '' });
                   }}
                   className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
                 >
@@ -297,7 +407,7 @@ const GoalsView: React.FC = () => {
         <div className="text-center py-12">
           <Target className="mx-auto text-gray-400 dark:text-gray-500 mb-4" size={48} />
           <p className="text-gray-500 dark:text-gray-400 mb-4">
-            {filterStatus === 'all' ? t('goals.noGoalsDefined') : t('goals.noGoalsStatus')}
+            {filterStatus === 'all' && filterPriority === 'all' ? t('goals.noGoalsDefined') : t('goals.noGoalsStatus')}
           </p>
           <button
             onClick={() => setShowAddForm(true)}
@@ -310,7 +420,7 @@ const GoalsView: React.FC = () => {
         <div className="space-y-6">
           {filteredGoals.map((goal) => {
             const daysUntilTarget = getDaysUntilTarget(goal.targetDate);
-            const isOverdue = daysUntilTarget < 0 && goal.status !== 'completed';
+            const isOverdue = daysUntilTarget !== null && daysUntilTarget < 0 && goal.status !== 'completed';
 
             return (
               <div
@@ -319,11 +429,16 @@ const GoalsView: React.FC = () => {
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
                       {getStatusIcon(goal.status)}
                       <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                         {goal.title}
                       </h3>
+                      {/* Priority Badge */}
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${getPriorityBadgeClass(goal.priority)}`}>
+                        {getPriorityIcon(goal.priority)}
+                        {getPriorityLabel(goal.priority)}
+                      </span>
                     </div>
 
                     {goal.description && (
@@ -334,21 +449,32 @@ const GoalsView: React.FC = () => {
                     )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                      <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                        <Calendar size={16} />
-                        <span>
-                          Target: {new Date(goal.targetDate).toLocaleDateString('en-US')}
-                        </span>
-                      </div>
+                      {goal.targetDate ? (
+                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                          <Calendar size={16} />
+                          <span>
+                            {t('goals.target')}: {new Date(goal.targetDate).toLocaleDateString()}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500 italic">
+                          <Calendar size={16} />
+                          <span>{t('goals.noDeadline')}</span>
+                        </div>
+                      )}
 
-                      <div className="flex items-center gap-2 text-sm">
-                        <TrendingUp size={16} />
-                        <span className={isOverdue ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}>
-                          {daysUntilTarget > 0 ? `${daysUntilTarget} ${t('goals.daysLeft')}` :
-                            daysUntilTarget === 0 ? t('goals.dueToday') :
-                              `${Math.abs(daysUntilTarget)} ${t('goals.overdue')}`}
-                        </span>
-                      </div>
+                      {daysUntilTarget !== null ? (
+                        <div className="flex items-center gap-2 text-sm">
+                          <TrendingUp size={16} />
+                          <span className={isOverdue ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}>
+                            {daysUntilTarget > 0 ? `${daysUntilTarget} ${t('goals.daysLeft')}` :
+                              daysUntilTarget === 0 ? t('goals.dueToday') :
+                                `${Math.abs(daysUntilTarget)} ${t('goals.overdue')}`}
+                          </span>
+                        </div>
+                      ) : (
+                        <div />
+                      )}
 
                       <div className="flex items-center gap-2">
                         <span className={`text-sm px-3 py-1 rounded-full font-medium ${goal.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
@@ -360,6 +486,17 @@ const GoalsView: React.FC = () => {
                         </span>
                       </div>
                     </div>
+
+                    {/* Exchange Info */}
+                    {goal.exchange && (
+                      <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-800">
+                        <div className="flex items-center gap-2 text-sm font-medium text-purple-700 dark:text-purple-400 mb-1">
+                          <Gift size={14} />
+                          {t('goals.exchange')}
+                        </div>
+                        <p className="text-sm text-purple-600 dark:text-purple-300">{goal.exchange}</p>
+                      </div>
+                    )}
 
                     {/* Progress Bar */}
                     <div className="mb-4">
@@ -375,7 +512,7 @@ const GoalsView: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Quick Progress Actions - ENHANCED */}
+                    {/* Quick Progress Actions */}
                     <div className="flex flex-wrap gap-3 mb-4">
                       <button
                         onClick={() => updateGoal(goal.id, { progress: Math.max(0, goal.progress - 10) })}
@@ -410,7 +547,7 @@ const GoalsView: React.FC = () => {
                           className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-105 active:scale-95 transition-all duration-200"
                         >
                           <CheckCircle size={14} />
-                          <span>Complete</span>
+                          <span>{t('goals.complete')}</span>
                         </button>
                       )}
                     </div>

@@ -2,6 +2,8 @@ export type ViewType = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'n
 
 export type TransactionPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'oneTime';
 
+export type PriorityLevel = 'high' | 'medium' | 'low';
+
 export interface Note {
   id: string;
   title: string;
@@ -9,16 +11,19 @@ export interface Note {
   createdAt: Date;
   linkedPlans: string[];
   tags: string[];
+  priority?: PriorityLevel;
 }
 
 export interface Goal {
   id: string;
   title: string;
   description: string;
-  targetDate: Date;
+  targetDate?: Date;
   progress: number;
   status: 'not-started' | 'in-progress' | 'completed' | 'paused';
   createdAt: Date;
+  priority?: PriorityLevel;
+  exchange?: string;
 }
 
 export interface PlanItem {

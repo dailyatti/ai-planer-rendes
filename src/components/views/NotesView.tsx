@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Plus, StickyNote, Edit2, Trash2, Search, Tag, Link } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, StickyNote, Edit2, Trash2, Search, Tag, Link, Mic, MicOff, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
-import { Note } from '../../types/planner';
+import { Note, PriorityLevel } from '../../types/planner';
 import LinkifiedText from '../common/LinkifiedText';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -12,29 +12,119 @@ const NotesView: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState<string>('');
+  const [filterPriority, setFilterPriority] = useState<string>('all');
   const [newNote, setNewNote] = useState({
     title: '',
     content: '',
     tags: [] as string[],
+    priority: 'medium' as PriorityLevel,
   });
 
+  // Dictation state
+  const [isRecording, setIsRecording] = useState(false);
+  const [dictationSupported, setDictationSupported] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    setDictationSupported(!!SpeechRecognition);
+  }, []);
+
+  const startDictation = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = document.documentElement.lang || 'hu-HU';
+
+    let finalTranscript = '';
+
+    recognition.onresult = (event: any) => {
+      let interimTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + ' ';
+        } else {
+          interimTranscript = transcript;
+        }
+      }
+      setNewNote(prev => ({
+        ...prev,
+        content: prev.content.replace(/\[.*?\]$/, '') + finalTranscript + (interimTranscript ? `[${interimTranscript}]` : '')
+      }));
+    };
+
+    recognition.onerror = () => {
+      setIsRecording(false);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+      // Clean up interim markers
+      setNewNote(prev => ({
+        ...prev,
+        content: prev.content.replace(/\[.*?\]$/, '').trim()
+      }));
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsRecording(true);
+  };
+
+  const stopDictation = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setIsRecording(false);
+  };
+
+  const toggleDictation = () => {
+    if (isRecording) {
+      stopDictation();
+    } else {
+      startDictation();
+    }
+  };
+
   const allTags = Array.from(new Set(notes.flatMap(note => note.tags)));
+
+  const getPriorityOrder = (p?: PriorityLevel) => {
+    switch (p || 'medium') {
+      case 'high': return 0;
+      case 'medium': return 1;
+      case 'low': return 2;
+      default: return 1;
+    }
+  };
 
   const filteredNotes = notes.filter(note => {
     const matchesSearch = note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       note.content.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTag = !selectedTag || note.tags.includes(selectedTag);
-    return matchesSearch && matchesTag;
-  }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const matchesPriority = filterPriority === 'all' || (note.priority || 'medium') === filterPriority;
+    return matchesSearch && matchesTag && matchesPriority;
+  }).sort((a, b) => {
+    const pa = getPriorityOrder(a.priority);
+    const pb = getPriorityOrder(b.priority);
+    if (pa !== pb) return pa - pb;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isRecording) stopDictation();
 
     if (editingId) {
       updateNote(editingId, {
         title: newNote.title,
         content: newNote.content,
         tags: newNote.tags,
+        priority: newNote.priority,
       });
       setEditingId(null);
     } else {
@@ -43,10 +133,11 @@ const NotesView: React.FC = () => {
         content: newNote.content,
         tags: newNote.tags,
         linkedPlans: [],
+        priority: newNote.priority,
       });
     }
 
-    setNewNote({ title: '', content: '', tags: [] });
+    setNewNote({ title: '', content: '', tags: [], priority: 'medium' });
     setShowAddForm(false);
   };
 
@@ -55,6 +146,7 @@ const NotesView: React.FC = () => {
       title: note.title,
       content: note.content,
       tags: note.tags,
+      priority: note.priority || 'medium',
     });
     setEditingId(note.id);
     setShowAddForm(true);
@@ -63,6 +155,30 @@ const NotesView: React.FC = () => {
   const handleTagInput = (value: string) => {
     const tags = value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
     setNewNote({ ...newNote, tags });
+  };
+
+  const getPriorityIcon = (priority?: PriorityLevel) => {
+    switch (priority || 'medium') {
+      case 'high': return <ArrowUp className="text-red-500" size={14} />;
+      case 'medium': return <ArrowRight className="text-orange-500" size={14} />;
+      case 'low': return <ArrowDown className="text-blue-400" size={14} />;
+    }
+  };
+
+  const getPriorityBadgeClass = (priority?: PriorityLevel) => {
+    switch (priority || 'medium') {
+      case 'high': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
+      case 'medium': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
+      case 'low': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+    }
+  };
+
+  const getPriorityLabel = (priority?: PriorityLevel) => {
+    switch (priority || 'medium') {
+      case 'high': return t('priority.high');
+      case 'medium': return t('priority.medium');
+      case 'low': return t('priority.low');
+    }
   };
 
   return (
@@ -89,7 +205,7 @@ const NotesView: React.FC = () => {
         </div>
 
         {/* Search and Filter */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <div className="relative">
             <Search className="absolute left-3 top-3 text-gray-400" size={18} />
             <input
@@ -110,6 +226,17 @@ const NotesView: React.FC = () => {
             {allTags.map(tag => (
               <option key={tag} value={tag}>{tag}</option>
             ))}
+          </select>
+
+          <select
+            value={filterPriority}
+            onChange={(e) => setFilterPriority(e.target.value)}
+            className="px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+          >
+            <option value="all">{t('priority.all')}</option>
+            <option value="high">{t('priority.high')}</option>
+            <option value="medium">{t('priority.medium')}</option>
+            <option value="low">{t('priority.low')}</option>
           </select>
         </div>
       </div>
@@ -137,17 +264,71 @@ const NotesView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('notes.contentLabel')}
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('notes.contentLabel')}
+                  </label>
+                  {dictationSupported && (
+                    <button
+                      type="button"
+                      onClick={toggleDictation}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                        isRecording
+                          ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 animate-pulse border border-red-300 dark:border-red-700'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600'
+                      }`}
+                    >
+                      {isRecording ? <MicOff size={14} /> : <Mic size={14} />}
+                      {isRecording ? t('notes.stopDictation') : t('notes.startDictation')}
+                    </button>
+                  )}
+                </div>
                 <textarea
                   value={newNote.content}
                   onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500"
+                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 ${
+                    isRecording ? 'border-red-400 dark:border-red-600 ring-2 ring-red-200 dark:ring-red-900/30' : 'border-gray-300 dark:border-gray-600'
+                  }`}
                   rows={8}
-                  placeholder={t('notes.contentPlaceholder')}
+                  placeholder={isRecording ? t('notes.dictationActive') : t('notes.contentPlaceholder')}
                   required
                 />
+                {isRecording && (
+                  <div className="flex items-center gap-2 mt-1 text-xs text-red-600 dark:text-red-400">
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    {t('notes.recording')}
+                  </div>
+                )}
+              </div>
+
+              {/* Priority */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('priority.label')}
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['high', 'medium', 'low'] as PriorityLevel[]).map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setNewNote({ ...newNote, priority: level })}
+                      className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border-2 transition-all duration-200 text-sm font-medium ${
+                        newNote.priority === level
+                          ? level === 'high'
+                            ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                            : level === 'medium'
+                            ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400'
+                            : 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-400'
+                      }`}
+                    >
+                      {level === 'high' && <ArrowUp size={16} />}
+                      {level === 'medium' && <ArrowRight size={16} />}
+                      {level === 'low' && <ArrowDown size={16} />}
+                      {level === 'high' ? t('priority.high') : level === 'medium' ? t('priority.medium') : t('priority.low')}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
@@ -173,9 +354,10 @@ const NotesView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
+                    if (isRecording) stopDictation();
                     setShowAddForm(false);
                     setEditingId(null);
-                    setNewNote({ title: '', content: '', tags: [] });
+                    setNewNote({ title: '', content: '', tags: [], priority: 'medium' });
                   }}
                   className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
                 >
@@ -191,7 +373,7 @@ const NotesView: React.FC = () => {
         <div className="text-center py-12">
           <StickyNote className="mx-auto text-gray-400 dark:text-gray-500 mb-4" size={48} />
           <p className="text-gray-500 dark:text-gray-400 mb-4">
-            {searchTerm || selectedTag ? t('notes.noResults') : t('notes.noNotes')}
+            {searchTerm || selectedTag || filterPriority !== 'all' ? t('notes.noResults') : t('notes.noNotes')}
           </p>
           <button
             onClick={() => setShowAddForm(true)}
@@ -208,9 +390,18 @@ const NotesView: React.FC = () => {
               className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 transition-all duration-200 hover:shadow-xl border border-gray-200 dark:border-gray-700"
             >
               <div className="flex justify-between items-start mb-4">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white line-clamp-2">
-                  {note.title}
-                </h3>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white line-clamp-2">
+                      {note.title}
+                    </h3>
+                  </div>
+                  {/* Priority Badge */}
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${getPriorityBadgeClass(note.priority)}`}>
+                    {getPriorityIcon(note.priority)}
+                    {getPriorityLabel(note.priority)}
+                  </span>
+                </div>
                 <div className="flex gap-2 ml-2">
                   <button
                     onClick={() => handleEdit(note)}

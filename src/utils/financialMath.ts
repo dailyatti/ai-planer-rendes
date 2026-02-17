@@ -6,11 +6,18 @@ export class FinancialMathService {
     /** Linear regression on cash‑flow series */
     static linearRegression(x: number[], y: number[]) {
         const n = x.length;
+        if (n === 0) return { a: 0, b: 0, predict: (_xVal: number) => 0 };
         const sumX = x.reduce((a, b) => a + b, 0);
         const sumY = y.reduce((a, b) => a + b, 0);
         const sumXY = x.reduce((s, xi, i) => s + xi * y[i], 0);
         const sumXX = x.reduce((s, xi) => s + xi * xi, 0);
-        const a = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+        const denominator = n * sumXX - sumX * sumX;
+        if (denominator === 0) {
+            // All x values are identical; return flat line at mean y
+            const avgY = sumY / n;
+            return { a: 0, b: avgY, predict: (_xVal: number) => avgY };
+        }
+        const a = (n * sumXY - sumX * sumY) / denominator;
         const b = (sumY - a * sumX) / n;
         return { a, b, predict: (xVal: number) => a * xVal + b };
     }

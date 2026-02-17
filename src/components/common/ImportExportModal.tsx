@@ -117,7 +117,8 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
               title: note.title,
               content: note.content,
               tags: Array.isArray(note.tags) ? note.tags : [],
-              linkedPlans: Array.isArray(note.linkedPlans) ? note.linkedPlans : []
+              linkedPlans: Array.isArray(note.linkedPlans) ? note.linkedPlans : [],
+              priority: ['high', 'medium', 'low'].includes(note.priority) ? note.priority : 'medium'
             });
             importedCount++;
           }
@@ -127,13 +128,15 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
       // Import goals
       if (Array.isArray(importGoals)) {
         importGoals.forEach((goal: any) => {
-          if (goal.title && goal.targetDate) {
+          if (goal.title) {
             addGoal({
               title: goal.title,
               description: goal.description || '',
-              targetDate: new Date(goal.targetDate),
+              targetDate: goal.targetDate ? new Date(goal.targetDate) : undefined,
               progress: typeof goal.progress === 'number' ? goal.progress : 0,
-              status: ['not-started', 'in-progress', 'completed', 'paused'].includes(goal.status) ? goal.status : 'not-started'
+              status: ['not-started', 'in-progress', 'completed', 'paused'].includes(goal.status) ? goal.status : 'not-started',
+              priority: ['high', 'medium', 'low'].includes(goal.priority) ? goal.priority : 'medium',
+              exchange: goal.exchange || undefined
             });
             importedCount++;
           }

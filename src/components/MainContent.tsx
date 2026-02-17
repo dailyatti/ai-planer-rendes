@@ -63,7 +63,7 @@ const MainContent: React.FC<MainContentProps> = ({ activeView }) => {
 
   return (
     <main
-      className="flex-1 transition-all duration-300 md:ml-64 lg:ml-72"
+      className="flex-1 transition-all duration-300"
       style={{
         paddingTop: 'env(safe-area-inset-top)',
       }}
