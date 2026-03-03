@@ -59,7 +59,7 @@ const WeeklyView: React.FC = () => {
   const getPlansForDay = (date: Date) => {
     const dateStr = formatDate(date);
     return plans.filter(plan =>
-      formatDate(plan.date) === dateStr
+      plan.date && formatDate(plan.date) === dateStr
     );
   };
 

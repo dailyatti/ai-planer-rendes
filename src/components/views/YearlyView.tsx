@@ -23,6 +23,7 @@ const YearlyView: React.FC = () => {
 
   const getMonthData = (monthIndex: number) => {
     const monthPlans = plans.filter(plan => {
+      if (!plan.date) return false;
       const planDate = new Date(plan.date);
       return planDate.getFullYear() === currentYear && planDate.getMonth() === monthIndex;
     });
@@ -39,14 +40,15 @@ const YearlyView: React.FC = () => {
   };
 
   const yearlyGoals = goals.filter(goal => {
+    if (!goal.targetDate) return false;
     const targetYear = new Date(goal.targetDate).getFullYear();
     return targetYear === currentYear;
   });
 
   const yearlyStats = {
-    totalPlans: plans.filter(plan => new Date(plan.date).getFullYear() === currentYear).length,
+    totalPlans: plans.filter(plan => plan.date && new Date(plan.date).getFullYear() === currentYear).length,
     completedPlans: plans.filter(plan =>
-      new Date(plan.date).getFullYear() === currentYear && plan.completed
+      plan.date && new Date(plan.date).getFullYear() === currentYear && plan.completed
     ).length,
     activeGoals: yearlyGoals.filter(goal => goal.status === 'in-progress').length,
     completedGoals: yearlyGoals.filter(goal => goal.status === 'completed').length,
@@ -317,7 +319,7 @@ const YearlyView: React.FC = () => {
                         goal.status === 'paused' ? t('yearly.goals.status.paused') : t('yearly.goals.status.notStarted')}
                   </span>
                   <span className="text-gray-500 dark:text-gray-400">
-                    {new Date(goal.targetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {goal.targetDate ? new Date(goal.targetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : t('goals.noDate')}
                   </span>
                 </div>
               </div>

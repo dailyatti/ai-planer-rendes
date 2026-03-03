@@ -80,7 +80,7 @@ const MonthlyView: React.FC = () => {
   const getPlansForDay = (date: Date) => {
     const dateStr = formatDate(date);
     return plans.filter((plan: PlanItem) =>
-      formatDate(plan.date) === dateStr
+      plan.date && formatDate(plan.date) === dateStr
     );
   };
 

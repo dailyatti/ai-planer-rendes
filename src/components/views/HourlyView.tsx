@@ -28,7 +28,7 @@ const HourlyView: React.FC = () => {
   });
 
   const dayPlans = plans.filter(plan =>
-    plan.date.toISOString().split('T')[0] === selectedDateStr
+    plan.date && plan.date.toISOString().split('T')[0] === selectedDateStr
   ).sort((a, b) => {
     if (a.startTime && b.startTime) {
       return a.startTime.getTime() - b.startTime.getTime();
