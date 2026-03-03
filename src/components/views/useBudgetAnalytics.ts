@@ -199,14 +199,12 @@ export const useBudgetAnalytics = (
             return { totalIncome: 0, totalExpense: 0, balance: 0 };
         }
 
-        const projectedIncome = sumByType(transactions, 'income', true);
-        const projectedExpense = sumByType(transactions, 'expense', true);
         const realizedIncome = sumByType(transactions, 'income', false);
         const realizedExpense = sumByType(transactions, 'expense', false);
 
         return {
-            totalIncome: projectedIncome,
-            totalExpense: projectedExpense,
+            totalIncome: realizedIncome,
+            totalExpense: realizedExpense,
             balance: realizedIncome - realizedExpense,
         };
     }, [transactions, sumByType]);

@@ -256,10 +256,6 @@ const translations: Translations = {
   'period.monthly': { en: 'Monthly', hu: 'Havi', ro: 'Lunar', de: 'Monatlich' },
   'period.yearly': { en: 'Yearly', hu: 'Éves', ro: 'Anual', de: 'Jährlich' },
 
-  // Priorities
-  'priority.low': { en: 'Low', hu: 'Alacsony', ro: 'Scăzută', de: 'Niedrig' },
-  'priority.medium': { en: 'Medium', hu: 'Közepes', ro: 'Medie', de: 'Mittel' },
-  'priority.high': { en: 'High', hu: 'Magas', ro: 'Ridicată', de: 'Hoch' },
 
   // Common Buttons
   'transactions.actions.save': { en: 'Save Transaction', hu: 'Mentés', ro: 'Salvează Tranzacția', de: 'Transaktion speichern' },
@@ -583,7 +579,7 @@ const translations: Translations = {
   'budget.other': { en: 'Other', ko: 'Other', hu: 'Egyéb', ro: 'Altele', sk: 'Iné', hr: 'Ostalo', de: 'Sonstiges', fr: 'Autre', es: 'Otro', it: 'Altro', pl: 'Inne', cn: '其他', jp: 'その他', pt: 'Outro', tr: 'Diğer', ar: 'أخرى', ru: 'Другое', hi: 'अन्य', bn: 'অন্যান্য', ur: 'دیگر', th: 'อื่นๆ', id: 'Lainnya' },
 
   // Main View Titles
-  'daily.title': { en: 'Daily Planner', hu: 'Napi Tervező', ro: 'Planificator Zilnic', sk: 'Denný Plánovač', hr: 'Dnevni Planer', de: 'Tagesplaner', fr: 'Planning Quotidien', es: 'Planificador Diario', it: 'Agenda Giornaliera', pl: 'Planer Dzienny', cn: '每日计划', jp: 'デイリープランナー', pt: 'Planejador Diário', tr: 'Günlük Planlayıcı', ar: 'المخطط اليومي', ru: 'Ежедневник', hi: 'दैनिक योजनाकार', bn: 'দৈনিক পরিকল্পনাকারী', ur: 'روزانہ منصوبہ ساز', th: 'ผู้วางแผนรายวัน', id: 'Perencana Harian' },
+  'daily.title': { en: 'Daily Planner', hu: 'Napi Terv (általános tervek)', ro: 'Planificator Zilnic', sk: 'Denný Plánovač', hr: 'Dnevni Planer', de: 'Tagesplaner', fr: 'Planning Quotidien', es: 'Planificador Diario', it: 'Agenda Giornaliera', pl: 'Planer Dzienny', cn: '每日计划', jp: 'デイリープランナー', pt: 'Planejador Diário', tr: 'Günlük Planlayıcı', ar: 'المخطط اليومي', ru: 'Ежедневник', hi: 'दैनिक योजनाकार', bn: 'দৈনিক পরিকল্পনাকারী', ur: 'روزانہ منصوبہ ساز', th: 'ผู้วางแผนรายวัน', id: 'Perencana Harian' },
   'daily.subtitle': { en: 'Manage your day efficiently', hu: 'Kezeld hatékonyan a napodat', ro: 'Gestionează-ți ziua eficient', sk: 'Spravujte svoj deň efektívne', hr: 'Upravljajte svojim danom', de: 'Verwalten Sie Ihren Tag effizient', fr: 'Gérez votre journée', es: 'Gestiona tu día', it: 'Gestisci la tua giornata', pl: 'Zarządzaj swoim dniem', cn: '高效管理您的一天', jp: '一日を効率的に管理', pt: 'Gerencie seu dia', tr: 'Gününüzü verimli yönetin', ar: 'إدارة يومك بفعالية', ru: 'Управляйте днем эффективно', hi: 'अपना दिन प्रबंधित करें', bn: 'আপনার দিন পরিচালনা করুন', ur: 'اپنا دن منظم کریں', th: 'จัดการวันของคุณอย่างมีประสิทธิภาพ', id: 'Kelola hari Anda' },
 
   'weekly.title': { en: 'Weekly Overview', hu: 'Heti Áttekintés', ro: 'Prezentare Săptămânală', sk: 'Týždenný Prehľad', hr: 'Tjedni Pregled', de: 'Wochenübersicht', fr: 'Vue Hebdomadaire', es: 'Vista Semanal', it: 'Vista Settimanale', pl: 'Przegląd Tygodniowy', cn: '每周概览', jp: '週間概要', pt: 'Visão Semanal', tr: 'Haftalık Genel Bakış', ar: 'نظرة عامة أسبوعية', ru: 'Недельный обзор', hi: 'साप्ताहिक अवलोकन', bn: 'সাপ্তাহিক ওভারভিউ', ur: 'ہفتہ وار جائزہ', th: 'ภาพรวมรายสัปดาห์', id: 'Ikhtisar Mingguan' },
@@ -943,7 +939,7 @@ const translations: Translations = {
   'nav.menu': { en: 'Menu', hu: 'Menü' },
   'nav.tagline': { en: 'PhD-Level Planning', hu: 'PhD Szintű Tervezés' },
   'nav.hourlyPlanning': { en: 'Hourly Planning', ko: 'Hourly Planning', hu: 'Órarend', ro: 'Planificare Orară', sk: 'Hodinové Plánovanie', hr: 'Satno Planiranje', de: 'Stundenplanung', fr: 'Planification Horaire', es: 'Planificación Horaria', it: 'Pianificazione Oraria', pl: 'Planowanie Godzinowe', cn: '每小时计划', jp: '時間ごとの計画', pt: 'Planejamento Horário', tr: 'Saatlik Planlama', ar: 'التخطيط الساعي', ru: 'Почасовое Планирование', hi: 'प्रति घंटा योजना', bn: 'ঘণ্টa পরিকল্পনা', ur: 'گھنٹہ وار منصوبہ بندی', th: 'การวางแผนรายชั่วโมง', id: 'Perencanaan Per Jam' },
-  'nav.dailyPlanning': { en: 'Daily Planning', ko: 'Daily Planning', hu: 'Napi Terv', ro: 'Planificare Zilnică', sk: 'Denné Plánovanie', hr: 'Dnevno Planiranje', de: 'Tagesplanung', fr: 'Planification Quotidienne', es: 'Planificación Diaria', it: 'Pianificazione Giornaliera', pl: 'Planowanie Dzienne', cn: '每日计划', jp: '日次計画', pt: 'Planejamento Diário', tr: 'Günlük Planlama', ar: 'التخطيط اليومي', ru: 'Ежедневное Планирование', hi: 'दैनिक योजना', bn: 'দৈnik পরিকল্পনা', ur: 'روزانہ منصوبہ بندی', th: 'การวางแผนรายวัน', id: 'Perencanaan Harian' },
+  'nav.dailyPlanning': { en: 'Daily Planning', ko: 'Daily Planning', hu: 'Napi Terv (általános tervek)', ro: 'Planificare Zilnică', sk: 'Denné Plánovanie', hr: 'Dnevno Planiranje', de: 'Tagesplanung', fr: 'Planification Quotidienne', es: 'Planificación Diaria', it: 'Pianificazione Giornaliera', pl: 'Planowanie Dzienne', cn: '每日计划', jp: '日次計画', pt: 'Planejamento Diário', tr: 'Günlük Planlama', ar: 'التخطيط اليومي', ru: 'Ежедневное Планирование', hi: 'दैनिक योजना', bn: 'দৈnik পরিকল্পনা', ur: 'روزانہ منصوبہ بندی', th: 'การวางแผนรายวัน', id: 'Perencanaan Harian' },
   'nav.weeklyPlanning': { en: 'Weekly Planning', ko: 'Weekly Planning', hu: 'Heti Terv', ro: 'Planificare Săptămânală', sk: 'Týždenné Plánovanie', hr: 'Tjedno Planiranje', de: 'Wochenplanung', fr: 'Planification Hebdomadaire', es: 'Planificación Semanal', it: 'Pianificazione Settimanale', pl: 'Planowanie Tygodniowe', cn: '每周计划', jp: '週次計画', pt: 'Planejamento Semanal', tr: 'Haftalık Planlama', ar: 'التخطيط الأسبوعي', ru: 'Еженедельное Планирование', hi: 'साप्ताहिक योजना', bn: 'সাপ্তাহিক পরিকল্পনা', ur: 'ہفتہ وار منصوبہ بندی', th: 'การวางแผนรายสัปดาห์', id: 'Perencanaan Mingguan' },
   'nav.monthlyPlanning': { en: 'Monthly Planning', ko: 'Monthly Planning', hu: 'Havi Terv', ro: 'Planificare Lunară', sk: 'Mesačné Plánovanie', hr: 'Mjesečno Planiranje', de: 'Monatsplanung', fr: 'Planification Mensuelle', es: 'Planificación Mensual', it: 'Pianificazione Mensile', pl: 'Planowanie Miesięczne', cn: '每月计划', jp: '月次計画', pt: 'Planejamento Mensal', tr: 'Aylık Planlama', ar: 'التخطيط الشهري', ru: 'Ежемесячное Планирование', hi: 'मासिक योजना', bn: 'মাসিক পরিকল্পনা', ur: 'ماہانہ منصوبہ بندی', th: 'การวางแผนรายเดือน', id: 'Perencanaan Bulanan' },
   'nav.yearlyPlanning': { en: 'Yearly Planning', ko: 'Yearly Planning', hu: 'Éves Terv', ro: 'Planificare Anuală', sk: 'Ročné Plánovanie', hr: 'Godišnje Planiranje', de: 'Jahresplanung', fr: 'Planification Annuelle', es: 'Planificación Anual', it: 'Pianificazione Annuale', pl: 'Planowanie Roczne', cn: '年度计划', jp: '年次計画', pt: 'Planejamento Anual', tr: 'Yıllık Planlama', ar: 'التخطيط السنوي', ru: 'Годовое Планирование', hi: 'वार्षिक योजना', bn: 'বার্ষিক পরিকল্পনা', ur: 'سالانہ منصوبہ بندی', th: 'การวางแผนรายปี', id: 'Perencanaan Tahunan' },
@@ -958,6 +954,7 @@ const translations: Translations = {
 
   'nav.integrations': { en: 'Integrations', ko: 'Integrations', hu: 'Integrációk', ro: 'Integrări', sk: 'Integrácie', hr: 'Integracije', de: 'Integrationen', fr: 'Intégrations', es: 'Integraciones', it: 'Integrazioni', pl: 'Integracje', cn: '集成', jp: '統合', pt: 'Integrações', tr: 'Entegrasyonlar', ar: 'التكامل', ru: 'Интеграции', hi: 'एकीकरण', bn: 'ঐক্যবদ্ধতা', ur: 'انضمام', th: 'การรวมเข้าด้วยกัน', id: 'Integrasi' },
   'nav.navigation': { en: 'Navigation', ko: 'Navigation', hu: 'Navigáció', ro: 'Navigare', sk: 'Navigácia', hr: 'Navigacija', de: 'Navigation', fr: 'Navigation', es: 'Navegación', it: 'Navigazione', pl: 'Nawigacja', cn: '导航', jp: 'ナビゲーション', pt: 'Navegação', tr: 'Navigasyon', ar: 'التنقل', ru: 'Навигация', hi: 'नेविगेशन', bn: 'নেভিগেশন', ur: 'نیویগیشن', th: 'การนำทาง', id: 'Navigasi' },
+
 
   // Settings
   'settings.title': { en: 'Settings', ko: 'Settings', hu: 'Beállítások', ro: 'Setări', sk: 'Nastavenia', hr: 'Postavke', de: 'Einstellungen', fr: 'Paramètres', es: 'Configuración', it: 'Impostazioni', pl: 'Ustawienia', cn: '设置', jp: '設定', pt: 'Configurações', tr: 'Ayarlar', ar: 'الإعدادات', ru: 'Настройки', hi: 'सेटिंग्स', bn: 'সেটিংস', ur: 'ترتیبات', th: 'การตั้งค่า', id: 'Pengaturan' },
@@ -1220,7 +1217,6 @@ const translations: Translations = {
   'workflow.redo': { en: 'Redo', hu: 'Mégis', de: 'Wiederherstellen', fr: 'Rétablir', es: 'Rehacer' },
   'common.export': { en: 'Export', hu: 'Exportálás', de: 'Exportieren', fr: 'Exporter', es: 'Exportar' },
   'common.import': { en: 'Import', hu: 'Importálás', de: 'Importieren', fr: 'Importer', es: 'Importar' },
-  'common.delete': { en: 'Delete', hu: 'Törlés', de: 'Löschen', fr: 'Supprimer', es: 'Eliminar' },
   'common.title': { en: 'Title', hu: 'Cím', de: 'Titel', fr: 'Titre', es: 'Título' },
   'common.description': { en: 'Description', hu: 'Leírás', de: 'Beschreibung', fr: 'Description', es: 'Descripción' },
   'workflow.trash': { en: 'Trash', hu: 'Kuka', de: 'Papierkorb', fr: 'Corbeille', es: 'Papelera' },

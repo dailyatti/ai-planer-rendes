@@ -51,8 +51,6 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen, onSettingsCli
       case 'goals': return { title: t('goals.title'), subtitle: t('goals.subtitle') };
       case 'drawing': return { title: t('visual.title'), subtitle: t('visual.subtitle') };
       case 'budget': return { title: t('budget.title'), subtitle: t('budget.subtitle') };
-      case 'invoicing': return { title: t('invoicing.title'), subtitle: t('invoicing.subtitle') };
-      case 'pomodoro': return { title: t('pomodoro.title'), subtitle: t('pomodoro.subtitle') };
       case 'statistics': return { title: t('statistics.title'), subtitle: t('statistics.subtitle') };
       case 'integrations': return { title: t('integrations.title'), subtitle: t('integrations.subtitle') };
       case 'settings': return { title: t('settings.title'), subtitle: t('settings.subtitle') };

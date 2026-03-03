@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Calendar, CheckCircle, Circle, Edit2, Trash2, Clock } from 'lucide-react';
+import { Plus, Calendar, CheckCircle, Circle, Edit2, Trash2, GripVertical } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { PlanItem } from '../../types/planner';
@@ -11,17 +11,27 @@ const DailyView: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [newPlan, setNewPlan] = useState({
+  const [useDate, setUseDate] = useState(false);
+  const [newPlan, setNewPlan] = useState<{
+    title: string;
+    description: string;
+    priority: 'low' | 'medium' | 'high';
+  }>({
     title: '',
     description: '',
-    priority: 'medium' as const,
+    priority: 'medium',
   });
+
+  const [draggedId, setDraggedId] = useState<string | null>(null);
 
   const selectedDateStr = selectedDate.toISOString().split('T')[0];
 
-  const dayPlans = plans.filter(plan => 
-    plan.date.toISOString().split('T')[0] === selectedDateStr
+  const dayPlans = plans.filter(plan =>
+    !plan.date || plan.date.toISOString().split('T')[0] === selectedDateStr
   ).sort((a, b) => {
+    if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
+    if (a.order !== undefined) return -1;
+    if (b.order !== undefined) return 1;
     if (a.priority === b.priority) return 0;
     if (a.priority === 'high') return -1;
     if (b.priority === 'high') return 1;
@@ -40,13 +50,14 @@ const DailyView: React.FC = () => {
         title: newPlan.title,
         description: newPlan.description,
         priority: newPlan.priority,
+        date: useDate ? selectedDate : null,
       });
       setEditingId(null);
     } else {
       addPlan({
         title: newPlan.title,
         description: newPlan.description,
-        date: selectedDate,
+        date: useDate ? selectedDate : null,
         completed: false,
         priority: newPlan.priority,
         linkedNotes: [],
@@ -54,6 +65,7 @@ const DailyView: React.FC = () => {
     }
 
     setNewPlan({ title: '', description: '', priority: 'medium' });
+    setUseDate(false);
     setShowAddForm(false);
   };
 
@@ -63,8 +75,39 @@ const DailyView: React.FC = () => {
       description: plan.description,
       priority: plan.priority,
     });
+    setUseDate(!!plan.date);
+    if (plan.date) setSelectedDate(plan.date);
     setEditingId(plan.id);
     setShowAddForm(true);
+  };
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedId(id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedId || draggedId === targetId) return;
+
+    const sourceIndex = dayPlans.findIndex(p => p.id === draggedId);
+    const targetIndex = dayPlans.findIndex(p => p.id === targetId);
+
+    if (sourceIndex === -1 || targetIndex === -1) return;
+
+    const newPlans = [...dayPlans];
+    const [draggedItem] = newPlans.splice(sourceIndex, 1);
+    newPlans.splice(targetIndex, 0, draggedItem);
+
+    newPlans.forEach((plan, index) => {
+      updatePlan(plan.id, { order: index });
+    });
+    setDraggedId(null);
   };
 
   const getPriorityColor = (priority: string) => {
@@ -91,7 +134,12 @@ const DailyView: React.FC = () => {
           </div>
 
           <button
-            onClick={() => setShowAddForm(true)}
+            onClick={() => {
+              setNewPlan({ title: '', description: '', priority: 'medium' });
+              setUseDate(false);
+              setEditingId(null);
+              setShowAddForm(true);
+            }}
             className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors duration-200 shadow-md hover:shadow-lg"
           >
             <Plus size={20} />
@@ -126,7 +174,7 @@ const DailyView: React.FC = () => {
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               {editingId ? t('daily.editTask') : t('daily.addTask')}
             </h3>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -153,6 +201,26 @@ const DailyView: React.FC = () => {
                   rows={3}
                   placeholder={t('daily.descriptionPlaceholder')}
                 />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useDate}
+                    onChange={(e) => setUseDate(e.target.checked)}
+                    className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  />
+                  Dátumhoz kötés (Optional date)
+                </label>
+                {useDate && (
+                  <input
+                    type="date"
+                    value={selectedDateStr}
+                    onChange={(e) => setSelectedDate(new Date(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 mt-1"
+                  />
+                )}
               </div>
 
               <div>
@@ -183,6 +251,7 @@ const DailyView: React.FC = () => {
                     setShowAddForm(false);
                     setEditingId(null);
                     setNewPlan({ title: '', description: '', priority: 'medium' });
+                    setUseDate(false);
                   }}
                   className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
                 >
@@ -198,39 +267,52 @@ const DailyView: React.FC = () => {
         {dayPlans.map((plan) => (
           <div
             key={plan.id}
-            className={`p-6 rounded-xl border-l-4 ${getPriorityColor(plan.priority)} transition-all duration-200 hover:shadow-lg bg-white dark:bg-gray-800`}
+            draggable
+            onDragStart={(e) => handleDragStart(e, plan.id)}
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, plan.id)}
+            className={`p-6 rounded-xl border-l-4 ${getPriorityColor(plan.priority)} transition-all duration-200 hover:shadow-lg bg-white dark:bg-gray-800 ${draggedId === plan.id ? 'opacity-50' : 'opacity-100'} cursor-move`}
           >
             <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-3">
-                  <button
-                    onClick={() => updatePlan(plan.id, { completed: !plan.completed })}
-                    className="text-green-500 hover:text-green-600 transition-colors duration-200"
-                  >
-                    {plan.completed ? <CheckCircle size={20} /> : <Circle size={20} />}
-                  </button>
-                  <h4 className={`text-xl font-bold ${plan.completed ? 'line-through text-gray-500' : 'text-gray-900 dark:text-white'}`}>
-                    {plan.title}
-                  </h4>
+              <div className="flex items-start gap-4 flex-1">
+                <div className="mt-1 flex items-center justify-center text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing">
+                  <GripVertical size={20} />
                 </div>
-                
-                {plan.description && (
-                  <LinkifiedText 
-                    text={plan.description}
-                    className="text-gray-700 dark:text-gray-300 mb-3 leading-relaxed"
-                  />
-                )}
-                
-                <div className="flex items-center gap-4">
-                  <span className={`text-sm px-3 py-1 rounded-full font-medium ${
-                    plan.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' :
-                    plan.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
-                    'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                  }`}>
-                    {plan.priority === 'high' ? t('daily.highPriority') : 
-                     plan.priority === 'medium' ? t('daily.mediumPriority') : 
-                     t('daily.lowPriority')}
-                  </span>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-3">
+                    <button
+                      onClick={() => updatePlan(plan.id, { completed: !plan.completed })}
+                      className="text-green-500 hover:text-green-600 transition-colors duration-200"
+                    >
+                      {plan.completed ? <CheckCircle size={20} /> : <Circle size={20} />}
+                    </button>
+                    <h4 className={`text-xl font-bold ${plan.completed ? 'line-through text-gray-500' : 'text-gray-900 dark:text-white'}`}>
+                      {plan.title}
+                    </h4>
+                  </div>
+
+                  {plan.description && (
+                    <LinkifiedText
+                      text={plan.description}
+                      className="text-gray-700 dark:text-gray-300 mb-3 leading-relaxed"
+                    />
+                  )}
+
+                  <div className="flex items-center gap-4">
+                    <span className={`text-sm px-3 py-1 rounded-full font-medium ${plan.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' :
+                      plan.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                        'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                      }`}>
+                      {plan.priority === 'high' ? t('daily.highPriority') :
+                        plan.priority === 'medium' ? t('daily.mediumPriority') :
+                          t('daily.lowPriority')}
+                    </span>
+                    {!plan.date && (
+                      <span className="text-sm px-3 py-1 rounded-full font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                        Általános terv
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -251,6 +333,11 @@ const DailyView: React.FC = () => {
             </div>
           </div>
         ))}
+        {dayPlans.length === 0 && (
+          <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+            Nincsenek tervek. Kattints az "Új feladat" gombra a kezdéshez!
+          </div>
+        )}
       </div>
     </div>
   );

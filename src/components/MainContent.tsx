@@ -9,7 +9,6 @@ import NotesView from './views/NotesView';
 import GoalsView from './views/GoalsView';
 import DrawingView from './views/DrawingView';
 import BudgetView from './views/BudgetView';
-import PomodoroView from './views/PomodoroView';
 import StatisticsView from './views/StatisticsView';
 import HabitView from './views/HabitView';
 import SettingsView from './views/SettingsView';
@@ -45,8 +44,6 @@ const MainContent: React.FC<MainContentProps> = ({ activeView }) => {
         return <BudgetView />;
       case 'invoicing':
         return <InvoicingView />;
-      case 'pomodoro':
-        return <PomodoroView />;
       case 'statistics':
         return <StatisticsView />;
       case 'habits':

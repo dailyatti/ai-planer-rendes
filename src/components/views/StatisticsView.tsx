@@ -7,7 +7,12 @@ import {
   BadgeCheck,
   TrendingUp,
   CheckCircle2,
+  Bot,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
+import { useSettings } from '../../contexts/SettingsContext';
+import LinkifiedText from '../common/LinkifiedText';
 import {
   ResponsiveContainer,
   CartesianGrid,
@@ -80,6 +85,11 @@ const StatisticsView: React.FC = () => {
 
   const [timeRange, setTimeRange] = useState<TimeRange>('all');
   const [isDark, setIsDark] = useState(false);
+  const { settings } = useSettings();
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const apiKey = settings.aiConfig?.provider === 'gemini' ? settings.aiConfig.apiKey : (import.meta.env.VITE_GEMINI_API_KEY || '');
 
   useEffect(() => {
     const check = () => setIsDark(document.documentElement.classList.contains('dark'));
@@ -97,7 +107,8 @@ const StatisticsView: React.FC = () => {
     end.setHours(23, 59, 59, 999);
 
     const filtered = (plans ?? []).filter((p: any) => {
-      const dt = new Date(p?.date);
+      if (!p?.date) return false;
+      const dt = new Date(p.date);
       if (Number.isNaN(dt.getTime())) return false;
       return dt >= start && dt <= end;
     });
@@ -117,7 +128,8 @@ const StatisticsView: React.FC = () => {
 
     const grouped: Record<string, { iso: string; label: string; planned: number; completed: number }> = {};
     for (const p of filtered) {
-      const dt = new Date(p?.date);
+      if (!p?.date) continue;
+      const dt = new Date(p.date);
       if (Number.isNaN(dt.getTime())) continue;
       const iso = toISODateLocal(dt);
       if (!grouped[iso]) {
@@ -139,6 +151,40 @@ const StatisticsView: React.FC = () => {
   const handleTimeRange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const v = e.target.value as TimeRange;
     if (['week', 'month', 'year', 'all'].includes(v)) setTimeRange(v);
+  };
+
+  /* ----------------------------- AI Analysis ----------------------------- */
+
+  const handleAiAnalysis = async () => {
+    if (!apiKey || plans.length === 0) return;
+    setIsAnalyzing(true);
+    setAiSummary(null);
+    try {
+      const plansSummary = taskEngine.series.map(s => `${s.label}: ${s.planned} tervezve, ${s.completed} kész.`).join('\n') +
+        `\n\nÖsszesen: ${taskEngine.total} feladat, ${taskEngine.completed} kész, ${taskEngine.pending} függőben.`;
+
+      const prompt = `Te egy produktivitási asszisztens vagy. Elemezd a felhasználó felhőbeli vagy lokális feladatait és statisztikáit az alábbi adatok alapján (magyarul), és adj tanácsot a hatékonyabb haladáshoz. Legyél barátságos, fókuszálj az erősségekre és miként lehetne javítani azokon a napokon, amikor kevesebb feladat készül el.\n\nStatisztikák:\n${plansSummary}`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        })
+      });
+
+      const data = await response.json();
+      if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        setAiSummary(data.candidates[0].content.parts[0].text);
+      } else {
+        setAiSummary('Nem sikerült az elemzés. Kérlek próbáld újra.');
+      }
+    } catch (error) {
+      console.error(error);
+      setAiSummary('Hiba történt az elemzés során. Kérlek ellenőrizd az internetkapcsolatot vagy az API kulcsot.');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   /* ----------------------------- Render ----------------------------- */
@@ -236,6 +282,54 @@ const StatisticsView: React.FC = () => {
           <PriorityCard label="Magas" value={taskEngine.pri.high} emoji="🔥" color="rose" />
           <PriorityCard label="Közepes" value={taskEngine.pri.medium} emoji="⚡" color="amber" />
           <PriorityCard label="Alacsony" value={taskEngine.pri.low} emoji="🌿" color="emerald" />
+        </div>
+      </div>
+
+      {/* AI Assistant Section */}
+      <div className="rounded-3xl border border-blue-100 dark:border-blue-900/50 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 p-6 shadow-sm mt-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+          <Bot size={120} className="text-blue-500" />
+        </div>
+
+        <div className="relative z-10">
+          <h2 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2 mb-2">
+            <Sparkles size={20} className="text-blue-500" />
+            AI Asszisztens Elemzés
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 max-w-2xl">
+            Szerezz személyre szabott tippeket és motivációt az elvégzett feladataid alapján a beépített AI asszisztenstől.
+          </p>
+
+          {!apiKey ? (
+            <div className="inline-flex items-center gap-3 bg-white dark:bg-gray-800 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400">
+              <Bot size={18} className="text-gray-400" />
+              Az AI elemzés eléréséhez kérlek állíts be egy Gemini API kulcsot a beállításokban!
+            </div>
+          ) : (
+            <button
+              onClick={handleAiAnalysis}
+              disabled={isAnalyzing || plans.length === 0}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-bold transition-all duration-200 shadow-md hover:shadow-lg flex items-center gap-2"
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Elemzés folyamatban...
+                </>
+              ) : (
+                <>
+                  <Bot size={18} />
+                  Statisztika Elemzése
+                </>
+              )}
+            </button>
+          )}
+
+          {aiSummary && (
+            <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl p-6 border border-blue-100 dark:border-gray-700 shadow-inner">
+              <LinkifiedText text={aiSummary} className="text-gray-800 dark:text-gray-200 prose dark:prose-invert max-w-none text-sm md:text-base whitespace-pre-wrap" />
+            </div>
+          )}
         </div>
       </div>
     </div>

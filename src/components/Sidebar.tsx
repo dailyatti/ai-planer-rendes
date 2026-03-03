@@ -2,7 +2,7 @@ import React from 'react';
 import {
   Clock, Calendar, CalendarDays, CalendarRange,
   CalendarCheck, StickyNote, Target, Brush,
-  DollarSign, Timer, BarChart3, FileText, Link2,
+  DollarSign, BarChart3, FileText, Link2,
   X, Globe, Zap, ExternalLink, Heart
 } from 'lucide-react';
 import { ViewType } from '../types/planner';
@@ -28,8 +28,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onC
   };
 
   const menuItems = [
-    { id: 'hourly' as ViewType, label: t('nav.hourlyPlanning'), icon: Clock, color: 'from-blue-500 to-cyan-500' },
     { id: 'daily' as ViewType, label: t('nav.dailyPlanning'), icon: Calendar, color: 'from-green-500 to-emerald-500' },
+    { id: 'hourly' as ViewType, label: t('nav.hourlyPlanning'), icon: Clock, color: 'from-blue-500 to-cyan-500' },
     { id: 'weekly' as ViewType, label: t('nav.weeklyPlanning'), icon: CalendarDays, color: 'from-purple-500 to-violet-500' },
     { id: 'monthly' as ViewType, label: t('nav.monthlyPlanning'), icon: CalendarRange, color: 'from-orange-500 to-amber-500' },
     { id: 'yearly' as ViewType, label: t('nav.yearlyPlanning'), icon: CalendarCheck, color: 'from-red-500 to-rose-500' },
@@ -38,7 +38,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onC
     { id: 'drawing' as ViewType, label: t('nav.visualPlanning'), icon: Brush, color: 'from-pink-500 to-rose-500' },
     { id: 'budget' as ViewType, label: t('nav.budgetTracker'), icon: DollarSign, color: 'from-emerald-500 to-green-500' },
     { id: 'invoicing' as ViewType, label: t('nav.invoicing'), icon: FileText, color: 'from-indigo-500 to-purple-500' },
-    { id: 'pomodoro' as ViewType, label: t('nav.pomodoroTimer'), icon: Timer, color: 'from-rose-500 to-pink-500' },
     { id: 'statistics' as ViewType, label: t('nav.statistics'), icon: BarChart3, color: 'from-indigo-500 to-blue-500' },
     { id: 'habits' as ViewType, label: t('nav.habits'), icon: Zap, color: 'from-violet-500 to-purple-500' },
 

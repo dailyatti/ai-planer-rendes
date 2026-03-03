@@ -205,7 +205,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const savedPlans = StorageService.get<PlanItem[]>('plans', []);
         if (savedPlans) setPlans(savedPlans.map(p => ({
           ...p,
-          date: normalizeDate(p.date), // Strict YMD enforce
+          date: p.date ? normalizeDate(p.date) : null, // Support null dates for general plans
           startTime: p.startTime ? new Date(p.startTime) : undefined,
           endTime: p.endTime ? new Date(p.endTime) : undefined
         })));
@@ -499,7 +499,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateGoal = (id: string, updates: Partial<Goal>) => setGoals(prev => prev.map(g => (g.id === id ? { ...g, ...updates } : g)));
   const deleteGoal = (id: string) => setGoals(prev => prev.filter(g => g.id !== id));
 
-  const addPlan = (plan: Omit<PlanItem, 'id'>) => setPlans(prev => [...prev, { ...plan, id: newId() }]);
+  const addPlan = (plan: Omit<PlanItem, 'id'>) => setPlans(prev => [...prev, { ...plan, id: newId(), order: plan.order ?? prev.length }]);
   const updatePlan = (id: string, updates: Partial<PlanItem>) => setPlans(prev => prev.map(p => (p.id === id ? { ...p, ...updates } : p)));
   const deletePlan = (id: string) => setPlans(prev => prev.filter(p => p.id !== id));
 

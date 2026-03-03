@@ -1,4 +1,4 @@
-export type ViewType = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'notes' | 'goals' | 'drawing' | 'budget' | 'invoicing' | 'pomodoro' | 'statistics' | 'habits' | 'integrations' | 'settings';
+export type ViewType = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'notes' | 'goals' | 'drawing' | 'budget' | 'invoicing' | 'statistics' | 'habits' | 'integrations' | 'settings';
 
 export type TransactionPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'oneTime';
 
@@ -32,10 +32,11 @@ export interface PlanItem {
   description: string;
   startTime?: Date;
   endTime?: Date;
-  date: Date;
+  date: Date | null;
   completed: boolean;
   priority: 'low' | 'medium' | 'high';
   linkedNotes: string[];
+  order?: number;
 }
 
 export interface Drawing {
