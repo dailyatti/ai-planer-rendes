@@ -669,7 +669,7 @@ const InvoicingView: React.FC = () => {
                             onClick={(e) => e.stopPropagation()}
                         >
                             <h4 className="font-bold text-gray-900 dark:text-white mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
-                                {t('invoicing.detailsOf')?.replace('{label}', selectedStat.title) || `${selectedStat.title} részletei`}
+                                {t('invoicing.detailsOf')?.replace('{label}', selectedStat.title) || `${selectedStat.title} ${t('common.details')}`}
                             </h4>
                             <div className="space-y-2">
                                 {Object.entries(selectedStat.breakdown).map(([currency, amount]) => (
@@ -955,7 +955,7 @@ const InvoicingView: React.FC = () => {
                                     {t('invoicing.revenueForcast')}
                                 </h3>
                                 <span className="text-sm text-gray-500">
-                                    Lineáris regresszió alapú előrejelzés
+                                    {t('invoicing.forecastSubtitle')}
                                 </span>
                             </div>
 
@@ -980,8 +980,8 @@ const InvoicingView: React.FC = () => {
                                                     formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
                                                 />
                                                 <Legend />
-                                                <Bar dataKey="actual" name="Tény (Múlt)" fill="#10B981" radius={[4, 4, 0, 0]} />
-                                                <Bar dataKey="predicted" name="Előrejelzés" fill="#6366F1" radius={[4, 4, 0, 0]} />
+                                                <Bar dataKey="actual" name={t('invoicing.chartActual')} fill="#10B981" radius={[4, 4, 0, 0]} />
+                                                <Bar dataKey="predicted" name={t('invoicing.chartPredicted')} fill="#6366F1" radius={[4, 4, 0, 0]} />
                                             </BarChart>
                                         </ResponsiveContainer>
                                     </div>
@@ -990,7 +990,7 @@ const InvoicingView: React.FC = () => {
 
                             <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
-                                    <div className="text-sm text-emerald-600 dark:text-emerald-400 mb-1">Elmúlt 3 hónap átlag</div>
+                                    <div className="text-sm text-emerald-600 dark:text-emerald-400 mb-1">{t('invoicing.avgLast3Months')}</div>
                                     <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
                                         {(() => {
                                             const forecast = FinancialEngine.generateForecast(invoices, 'USD', 6);
@@ -1001,7 +1001,7 @@ const InvoicingView: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
-                                    <div className="text-sm text-indigo-600 dark:text-indigo-400 mb-1">Következő 3 hónap várható</div>
+                                    <div className="text-sm text-indigo-600 dark:text-indigo-400 mb-1">{t('invoicing.next3MonthsForecast')}</div>
                                     <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
                                         {(() => {
                                             const forecast = FinancialEngine.generateForecast(invoices, 'USD', 6);

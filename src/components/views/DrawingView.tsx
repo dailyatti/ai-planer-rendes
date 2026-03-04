@@ -764,7 +764,7 @@ const DrawingView: React.FC = () => {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Calculator size={18} className="text-primary-500" />
-              <span className="text-sm font-bold text-gray-800 dark:text-white">Számológép</span>
+              <span className="text-sm font-bold text-gray-800 dark:text-white">{t('drawing.calculator')}</span>
             </div>
             <button
               onClick={() => setShowCalculator(false)}
@@ -801,7 +801,7 @@ const DrawingView: React.FC = () => {
                       setCalcHistory(prev => [...prev.slice(-9), { expr: calcInput, result }]);
                       setCalcInput(result);
                     } catch {
-                      setCalcInput('Hiba');
+                      setCalcInput(t('drawing.calcError'));
                     }
                   } else {
                     setCalcInput(prev => prev + btn);
@@ -823,7 +823,7 @@ const DrawingView: React.FC = () => {
               onClick={() => setCalcInput('')}
               className="flex-1 px-3 py-2 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl font-medium hover:bg-red-200 dark:hover:bg-red-900/40 transition-colors"
             >
-              Törlés
+              {t('drawing.clearCalc')}
             </button>
             <button
               onClick={() => {
@@ -844,14 +844,14 @@ const DrawingView: React.FC = () => {
               className="flex-1 px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-medium hover:shadow-lg transition-all flex items-center justify-center gap-2"
             >
               <Plus size={14} />
-              Rajzra
+              {t('drawing.addToCanvas')}
             </button>
           </div>
 
           {/* History */}
           {calcHistory.length > 0 && (
             <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Előzmények</span>
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('drawing.calcHistory')}</span>
               <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
                 {calcHistory.slice().reverse().map((h, i) => (
                   <div

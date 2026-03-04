@@ -112,8 +112,8 @@ const TaskCard: React.FC<{
         <div className="flex-1 min-w-0">
           <h4
             className={`text-lg font-semibold leading-snug transition-all duration-300 ${plan.completed
-                ? 'line-through text-gray-400 dark:text-gray-500'
-                : 'text-gray-900 dark:text-white'
+              ? 'line-through text-gray-400 dark:text-gray-500'
+              : 'text-gray-900 dark:text-white'
               }`}
           >
             {plan.title}
@@ -143,7 +143,7 @@ const TaskCard: React.FC<{
             </span>
             {!plan.date && (
               <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 ring-1 ring-blue-200 dark:ring-blue-800">
-                Általános
+                {t('daily.general')}
               </span>
             )}
           </div>
@@ -391,7 +391,7 @@ const DailyView: React.FC = () => {
                       onChange={(e) => setUseDate(e.target.checked)}
                       className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                     />
-                    Dátumhoz kötés (Optional date)
+                    {t('daily.bindToDate')}
                   </label>
                   <AnimatePresence>
                     {useDate && (
@@ -423,12 +423,12 @@ const DailyView: React.FC = () => {
                         type="button"
                         onClick={() => setNewPlan({ ...newPlan, priority: level })}
                         className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border-2 ${newPlan.priority === level
-                            ? level === 'high'
-                              ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-                              : level === 'medium'
-                                ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'
-                                : 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
-                            : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400'
+                          ? level === 'high'
+                            ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                            : level === 'medium'
+                              ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'
+                              : 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400'
                           }`}
                       >
                         {level === 'high' ? t('daily.highPriority') :
@@ -495,7 +495,7 @@ const DailyView: React.FC = () => {
         >
           <Calendar className="mx-auto text-gray-300 dark:text-gray-600 mb-4" size={48} />
           <p className="text-gray-400 dark:text-gray-500 text-lg font-medium">
-            Nincsenek tervek. Kattints az "Új feladat" gombra a kezdéshez!
+            {t('daily.noPlans')}
           </p>
         </motion.div>
       )}
