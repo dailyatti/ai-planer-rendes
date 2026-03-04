@@ -80,7 +80,7 @@ const FancyTooltip = ({ active, payload, label }: any) => {
 /* ----------------------------- Main ----------------------------- */
 
 const StatisticsView: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { plans } = useData();
 
   const [timeRange, setTimeRange] = useState<TimeRange>('all');
@@ -160,10 +160,12 @@ const StatisticsView: React.FC = () => {
     setIsAnalyzing(true);
     setAiSummary(null);
     try {
-      const plansSummary = taskEngine.series.map(s => `${s.label}: ${s.planned} tervezve, ${s.completed} kész.`).join('\n') +
-        `\n\nÖsszesen: ${taskEngine.total} feladat, ${taskEngine.completed} kész, ${taskEngine.pending} függőben.`;
+      const currentLanguageName = ({ en: 'English', hu: 'Hungarian', de: 'German', es: 'Spanish', ro: 'Romanian' } as Record<string, string>)[language] || 'English';
 
-      const prompt = `Te egy produktivitási asszisztens vagy. Elemezd a felhasználó felhőbeli vagy lokális feladatait és statisztikáit az alábbi adatok alapján (magyarul), és adj tanácsot a hatékonyabb haladáshoz. Legyél barátságos, fókuszálj az erősségekre és miként lehetne javítani azokon a napokon, amikor kevesebb feladat készül el.\n\nStatisztikák:\n${plansSummary}`;
+      const plansSummary = taskEngine.series.map(s => `${s.label}: ${s.planned} planned, ${s.completed} completed.`).join('\n') +
+        `\n\nTotal: ${taskEngine.total} tasks, ${taskEngine.completed} completed, ${taskEngine.pending} pending.`;
+
+      const prompt = `You are a productivity assistant. Analyze the user's tasks and statistics based on the following data, and give advice for better progress. Be friendly, focus on strengths and how to improve on days when fewer tasks are completed. VERY IMPORTANT: You must respond entirely in ${currentLanguageName}.\n\nStatistics:\n${plansSummary}`;
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
@@ -177,11 +179,11 @@ const StatisticsView: React.FC = () => {
       if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
         setAiSummary(data.candidates[0].content.parts[0].text);
       } else {
-        setAiSummary('Nem sikerült az elemzés. Kérlek próbáld újra.');
+        setAiSummary(t('statistics.aiErrorFetch'));
       }
     } catch (error) {
       console.error(error);
-      setAiSummary('Hiba történt az elemzés során. Kérlek ellenőrizd az internetkapcsolatot vagy az API kulcsot.');
+      setAiSummary(t('statistics.aiErrorNetwork'));
     } finally {
       setIsAnalyzing(false);
     }
@@ -195,7 +197,7 @@ const StatisticsView: React.FC = () => {
       <div className="mb-8">
         <div className="inline-flex items-center gap-2 rounded-full border border-pink-200 dark:border-pink-800 bg-pink-50 dark:bg-pink-950/30 px-4 py-1.5 text-xs font-bold text-pink-600 dark:text-pink-400 mb-4">
           <BarChart3 size={14} />
-          <span>Productivity Analytics</span>
+          <span>{t('statistics.title')}</span>
         </div>
 
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
@@ -204,10 +206,10 @@ const StatisticsView: React.FC = () => {
               <span className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-br from-pink-400 to-rose-500 p-3 shadow-lg shadow-pink-500/20">
                 <BarChart3 size={24} className="text-white" />
               </span>
-              {t('statistics.title') || 'Statisztika'}
+              {t('statistics.title')}
             </h1>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              Elemezd a teljesítményedet és a produktivitási trendjeidet ✨
+              {t('statistics.subtitle')}
             </p>
           </div>
 
@@ -229,10 +231,10 @@ const StatisticsView: React.FC = () => {
 
       {/* KPI Cards - Full Width */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <KpiCard icon="🎯" title="Teljesítés" value={`${taskEngine.score}%`} sub={`${taskEngine.completed}/${taskEngine.total}`} color="pink" />
-        <KpiCard icon="✅" title="Elkészült" value={String(taskEngine.completed)} sub="feladat" color="emerald" />
-        <KpiCard icon="⏳" title="Függőben" value={String(taskEngine.pending)} sub="várakozik" color="amber" />
-        <KpiCard icon="📈" title="Tempó" value={taskEngine.velocity.toFixed(1)} sub="kész/nap" color="violet" />
+        <KpiCard icon="🎯" title={t('statistics.kpiScore')} value={`${taskEngine.score}%`} sub={`${taskEngine.completed}/${taskEngine.total}`} color="pink" />
+        <KpiCard icon="✅" title={t('statistics.kpiCompleted')} value={String(taskEngine.completed)} sub={t('statistics.kpiTasks')} color="emerald" />
+        <KpiCard icon="⏳" title={t('statistics.kpiPending')} value={String(taskEngine.pending)} sub={t('statistics.kpiWaiting')} color="amber" />
+        <KpiCard icon="📈" title={t('statistics.kpiVelocity')} value={taskEngine.velocity.toFixed(1)} sub={t('statistics.donePerDay')} color="violet" />
       </div>
 
       {/* Main Chart */}
@@ -241,15 +243,15 @@ const StatisticsView: React.FC = () => {
           <div>
             <h2 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
               <TrendingUp size={20} className="text-pink-500" />
-              Feladat Trend
+              {t('statistics.taskTrend')}
             </h2>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Tervezett vs. elkészült feladatok
+              {t('statistics.taskTrendDesc')}
             </p>
           </div>
           <div className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 px-3 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
             <BadgeCheck size={16} />
-            <span>{taskEngine.velocity.toFixed(2)} kész/nap</span>
+            <span>{taskEngine.velocity.toFixed(2)} {t('statistics.donePerDay')}</span>
           </div>
         </div>
 
@@ -262,12 +264,12 @@ const StatisticsView: React.FC = () => {
                 <YAxis tick={{ fill: isDark ? '#e5e7eb' : '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip content={<FancyTooltip />} cursor={{ fill: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(236,72,153,0.05)' }} />
                 <Legend iconType="circle" wrapperStyle={{ color: isDark ? '#e5e7eb' : '#374151' }} />
-                <Bar dataKey="planned" name="Tervezett" fill={isDark ? '#4b5563' : '#fce7f3'} radius={[8, 8, 0, 0]} />
-                <Bar dataKey="completed" name="Elkészült" fill="#ec4899" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="planned" name={t('statistics.planned')} fill={isDark ? '#4b5563' : '#fce7f3'} radius={[8, 8, 0, 0]} />
+                <Bar dataKey="completed" name={t('statistics.completed')} fill="#ec4899" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <EmptyState icon="📅" title="Nincs még adat" desc="Adj hozzá feladatokat és figyeld a trendet!" />
+            <EmptyState icon="📅" title={t('statistics.noData')} desc={t('statistics.noDataDesc')} />
           )}
         </div>
       </div>
@@ -276,12 +278,12 @@ const StatisticsView: React.FC = () => {
       <div className="rounded-3xl border border-pink-100 dark:border-pink-900/50 bg-white dark:bg-gray-900 p-6 shadow-sm">
         <h2 className="text-lg font-black text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <CheckCircle2 size={18} className="text-pink-500" />
-          Prioritás Összesítés
+          {t('statistics.prioritySummary')}
         </h2>
         <div className="grid grid-cols-3 gap-4">
-          <PriorityCard label="Magas" value={taskEngine.pri.high} emoji="🔥" color="rose" />
-          <PriorityCard label="Közepes" value={taskEngine.pri.medium} emoji="⚡" color="amber" />
-          <PriorityCard label="Alacsony" value={taskEngine.pri.low} emoji="🌿" color="emerald" />
+          <PriorityCard label={t('statistics.priorityHigh')} value={taskEngine.pri.high} emoji="🔥" color="rose" />
+          <PriorityCard label={t('statistics.priorityMedium')} value={taskEngine.pri.medium} emoji="⚡" color="amber" />
+          <PriorityCard label={t('statistics.priorityLow')} value={taskEngine.pri.low} emoji="🌿" color="emerald" />
         </div>
       </div>
 
@@ -294,16 +296,16 @@ const StatisticsView: React.FC = () => {
         <div className="relative z-10">
           <h2 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2 mb-2">
             <Sparkles size={20} className="text-blue-500" />
-            AI Asszisztens Elemzés
+            {t('statistics.aiAnalysisTitle')}
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 max-w-2xl">
-            Szerezz személyre szabott tippeket és motivációt az elvégzett feladataid alapján a beépített AI asszisztenstől.
+            {t('statistics.aiAnalysisDesc')}
           </p>
 
           {!apiKey ? (
             <div className="inline-flex items-center gap-3 bg-white dark:bg-gray-800 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400">
               <Bot size={18} className="text-gray-400" />
-              Az AI elemzés eléréséhez kérlek állíts be egy Gemini API kulcsot a beállításokban!
+              {t('statistics.aiKeyNeeded')}
             </div>
           ) : (
             <button
@@ -314,12 +316,12 @@ const StatisticsView: React.FC = () => {
               {isAnalyzing ? (
                 <>
                   <Loader2 size={18} className="animate-spin" />
-                  Elemzés folyamatban...
+                  {t('statistics.analyzing')}
                 </>
               ) : (
                 <>
                   <Bot size={18} />
-                  Statisztika Elemzése
+                  {t('statistics.analyzeStats')}
                 </>
               )}
             </button>

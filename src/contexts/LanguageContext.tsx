@@ -707,6 +707,30 @@ const translations: Translations = {
   'statistics.cashFlowProjection': { en: 'Cash-flow Projection', hu: 'Cash-flow Előrejelzés', ro: 'Proiecție Cash-flow', sk: 'Projekcia Cash-flow', hr: 'Projekcija toka', de: 'Cashflow-Prognose', fr: 'Projection de flux', es: 'Proyección de flujo', it: 'Proiezione cash-flow', pl: 'Prognoza przepływów', cn: '现金流预测', jp: 'キャッシュフロー予測', pt: 'Projeção de fluxo', tr: 'Nakit Akışı Projeksiyonu', ar: 'توقعات التدفق', ru: 'Прогноз Денежных Потоков', hi: 'नकदी प्रवाह प्रोजेक्शन', bn: 'নগদ প্রবাহ পূর্বাভাস', ur: 'نقد بہاؤ کی پیش گوئی', th: 'การคาดการณ์กระแสเงินสด', id: 'Proyeksi Arus Kas' },
   'statistics.projectionDisclaimer': { en: 'Projection is based on linear regression of past transactions.', hu: 'Az előrejelzés a múltbeli tranzakciók lineáris regresszióján alapul.', ro: 'Proiecția se bazează pe regresia liniară a tranzacțiilor trecute.', sk: 'Projekcia je založená na lineárnej regresii past transactions.', hr: 'Projekcija se temelji na regresiji', de: 'Die Prognose basiert auf linearer Regression vergangener Transaktionen.', fr: 'Projection basée sur une régression linéaire.', es: 'La proyección se basa en regresión lineal.', it: 'Proiezione basata su regressione lineare.', pl: 'Prognoza oparta na regresji liniowej.', cn: '预测基于过去交易的线性回归。', jp: '予測は過去の取引の線形回帰に基づいています。', pt: 'Projeção baseada em regressão linear.', tr: 'Projeksiyon geçmiş işlemlerin lineer regresyonuna dayanır.', ar: 'التوقعات تعتمد على الانحدار الخطي.', ru: 'Прогноз основан на линейной регрессии.', hi: 'प्रोजेक्शन पिछले लेनदेन के रैखिक प्रतिगमन पर आधारित है।', bn: 'পূর্বাভাস অতীত লেনদেনের রৈখিক রিগ্রেশনের উপর ভিত্তি করে।', ur: 'پیش گوئی ماضی کے لین دین کے لکیری رجعت پر مبنی ہے۔', th: 'การคาดการณ์อิงตามการถดถอยเชิงเส้น', id: 'Proyeksi didasarkan pada regresi linier.' },
 
+  // Extra Statistics Keys for the refactored StatisticsView
+  'statistics.taskTrend': { en: 'Task Trend', hu: 'Feladat Trend' },
+  'statistics.taskTrendDesc': { en: 'Planned vs. completed tasks', hu: 'Tervezett vs. elkészült feladatok' },
+  'statistics.donePerDay': { en: 'done/day', hu: 'kész/nap' },
+  'statistics.noData': { en: 'No data yet', hu: 'Nincs még adat' },
+  'statistics.noDataDesc': { en: 'Add tasks and watch the trend!', hu: 'Adj hozzá feladatokat és figyeld a trendet!' },
+  'statistics.prioritySummary': { en: 'Priority Summary', hu: 'Prioritás Összesítés' },
+  'statistics.priorityHigh': { en: 'High', hu: 'Magas' },
+  'statistics.priorityMedium': { en: 'Medium', hu: 'Közepes' },
+  'statistics.priorityLow': { en: 'Low', hu: 'Alacsony' },
+  'statistics.aiAnalysisTitle': { en: 'AI Assistant Analysis', hu: 'AI Asszisztens Elemzés' },
+  'statistics.aiAnalysisDesc': { en: 'Get personalized tips and motivation based on your completed tasks from the built-in AI assistant.', hu: 'Szerezz személyre szabott tippeket és motivációt az elvégzett feladataid alapján a beépített AI asszisztenstől.' },
+  'statistics.aiKeyNeeded': { en: 'Please set a Gemini API key in the settings to access AI analysis!', hu: 'Az AI elemzés eléréséhez kérlek állíts be egy Gemini API kulcsot a beállításokban!' },
+  'statistics.analyzeStats': { en: 'Analyze Statistics', hu: 'Statisztika Elemzése' },
+  'statistics.analyzing': { en: 'Analyzing...', hu: 'Elemzés folyamatban...' },
+  'statistics.aiErrorFetch': { en: 'Analysis failed. Please try again.', hu: 'Nem sikerült az elemzés. Kérlek próbáld újra.' },
+  'statistics.aiErrorNetwork': { en: 'An error occurred during analysis. Please check your internet connection or API key.', hu: 'Hiba történt az elemzés során. Kérlek ellenőrizd az internetkapcsolatot vagy az API kulcsot.' },
+  'statistics.kpiScore': { en: 'Completion', hu: 'Teljesítés' },
+  'statistics.kpiCompleted': { en: 'Completed', hu: 'Elkészült' },
+  'statistics.kpiPending': { en: 'Pending', hu: 'Függőben' },
+  'statistics.kpiVelocity': { en: 'Pace', hu: 'Tempó' },
+  'statistics.kpiTasks': { en: 'tasks', hu: 'feladat' },
+  'statistics.kpiWaiting': { en: 'waiting', hu: 'várakozik' },
+
 
   // Weekly & Daily View Additional Keys
   'daily.newTask': { en: 'New Task', hu: 'Új Feladat', ro: 'Sarcină Nouă', sk: 'Nová Úloha', hr: 'Novi zadatak', de: 'Neue Aufgabe', fr: 'Nouvelle tâche', es: 'Nueva tarea', it: 'Nuova attività', pl: 'Nowe zadanie', cn: '新任务', jp: '新しいタスク', pt: 'Nova tarefa', tr: 'Yeni Görev', ar: 'مهمة جديدة', ru: 'Новая задача', hi: 'नया कार्य', bn: 'নতুন কাজ', ur: 'نیا کام', th: 'งานใหม่', id: 'Tugas Baru' },

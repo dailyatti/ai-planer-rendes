@@ -301,12 +301,12 @@ const GoalsView: React.FC = () => {
                       type="button"
                       onClick={() => setNewGoal({ ...newGoal, priority: level })}
                       className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border-2 transition-all duration-200 text-sm font-medium ${newGoal.priority === level
-                          ? level === 'high'
-                            ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-                            : level === 'medium'
-                              ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400'
-                              : 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
-                          : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-400'
+                        ? level === 'high'
+                          ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                          : level === 'medium'
+                            ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400'
+                            : 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                        : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-400'
                         }`}
                     >
                       {level === 'high' && <ArrowUp size={16} />}
@@ -387,7 +387,7 @@ const GoalsView: React.FC = () => {
               {/* Order / Numbering - Optional */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Sorszám / Number <span className="text-gray-400 font-normal">({t('common.optional')})</span>
+                  {t('common.order')} <span className="text-gray-400 font-normal">({t('common.optional')})</span>
                 </label>
                 <input
                   type="number"
