@@ -231,7 +231,7 @@ const YearlyView: React.FC = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                {t('common.edit') || 'Szerkesztés'}
+                {t('common.edit')}
               </h3>
 
               <form onSubmit={handleEditSubmit} className="space-y-4">
@@ -292,7 +292,7 @@ const YearlyView: React.FC = () => {
                     type="submit"
                     className="flex-1 bg-gradient-to-r from-red-500 to-orange-500 text-white py-2.5 px-4 rounded-xl font-medium shadow-md hover:shadow-lg transition-shadow"
                   >
-                    {t('common.save') || 'Mentés'}
+                    {t('common.save')}
                   </button>
                   <button
                     type="button"
@@ -341,7 +341,7 @@ const YearlyView: React.FC = () => {
                     {monthName.substring(0, 3)}
                   </div>
                   <div className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    {monthData.total} {monthData.total === 1 ? t('yearly.monthly.plan') : t('yearly.monthly.plans')}
+                    {monthData.total} {monthData.total === 1 ? t('weekly.task') : t('weekly.tasks')}
                   </div>
                 </div>
 
@@ -390,7 +390,7 @@ const YearlyView: React.FC = () => {
                   <Calendar className="text-red-500 w-5 h-5 md:w-6 md:h-6" />
                   {t(monthKeys[selectedMonth])} {currentYear}
                   <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 font-semibold ml-1">
-                    {monthDataMap[selectedMonth].total} feladat
+                    {monthDataMap[selectedMonth].total} {t('weekly.tasks')}
                   </span>
                 </h4>
                 <button
@@ -427,7 +427,7 @@ const YearlyView: React.FC = () => {
                         </div>
                         {plan.date && (
                           <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                            {new Date(plan.date).toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' })}
+                            {new Date(plan.date).toLocaleDateString(navigator.language, { month: 'short', day: 'numeric' })}
                           </div>
                         )}
                       </div>
@@ -528,7 +528,7 @@ const YearlyView: React.FC = () => {
                         goal.status === 'paused' ? t('yearly.goals.status.paused') : t('yearly.goals.status.notStarted')}
                   </span>
                   <span className="text-gray-500 dark:text-gray-400">
-                    {goal.targetDate ? new Date(goal.targetDate).toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' }) : t('goals.noDate')}
+                    {goal.targetDate ? new Date(goal.targetDate).toLocaleDateString(navigator.language, { month: 'short', day: 'numeric' }) : t('goals.noDate')}
                   </span>
                 </div>
               </div>

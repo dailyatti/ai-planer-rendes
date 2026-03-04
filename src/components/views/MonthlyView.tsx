@@ -228,7 +228,7 @@ const MonthlyView: React.FC = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                {editingPlan ? t('common.edit') || 'Szerkesztés' : t('weekly.addTask')}
+                {editingPlan ? t('common.edit') : t('weekly.addTask')}
                 {selectedDay && !editingPlan && ` - ${selectedDay.toLocaleDateString()}`}
               </h3>
 
@@ -269,12 +269,12 @@ const MonthlyView: React.FC = () => {
                         type="button"
                         onClick={() => setNewPlan({ ...newPlan, priority: level })}
                         className={`px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 border-2 ${newPlan.priority === level
-                            ? level === 'high'
-                              ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-                              : level === 'medium'
-                                ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'
-                                : 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
-                            : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400'
+                          ? level === 'high'
+                            ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                            : level === 'medium'
+                              ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'
+                              : 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400'
                           }`}
                       >
                         {level === 'high' ? t('daily.highPriority') :
@@ -292,7 +292,7 @@ const MonthlyView: React.FC = () => {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    {editingPlan ? t('common.save') || 'Mentés' : t('weekly.addTask')}
+                    {editingPlan ? t('common.save') : t('weekly.addTask')}
                   </motion.button>
                   <motion.button
                     type="button"
@@ -332,11 +332,10 @@ const MonthlyView: React.FC = () => {
                 className={`min-h-32 p-2 bg-white dark:bg-gray-800 transition-colors duration-200 relative ${!isCurrentMonth(day) ? 'opacity-40' : ''
                   } ${isToday(day) ? 'bg-purple-50/50 dark:bg-purple-900/10' : ''}`}
               >
-                {/* Day Number & Add Button */}
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-1.5 ">
                   <span className={`text-sm font-semibold ${isToday(day)
-                      ? 'bg-purple-500 text-white w-7 h-7 rounded-full flex items-center justify-center'
-                      : isCurrentMonth(day) ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'
+                    ? 'bg-purple-500 text-white w-7 h-7 rounded-full flex items-center justify-center'
+                    : isCurrentMonth(day) ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'
                     }`}>
                     {day.getDate()}
                   </span>
@@ -352,6 +351,7 @@ const MonthlyView: React.FC = () => {
                       style={{ opacity: undefined }}
                       onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
                       onMouseLeave={(e) => (e.currentTarget.style.opacity = '')}
+                      title={t('weekly.addTask')}
                     >
                       <Plus size={14} />
                     </button>
@@ -447,13 +447,13 @@ const MonthlyView: React.FC = () => {
                       onClick={(e) => e.stopPropagation()}
                     >
                       {/* Panel Header */}
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-orange-50 dark:from-purple-900/20 dark:to-orange-900/20">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-orange-50 dark:from-purple-900/20 dark:to-orange-900/20 gap-2">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-gray-900 dark:text-white">
-                            {day.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' })}
+                            {day.toLocaleDateString(navigator.language, { month: 'short', day: 'numeric' })}
                           </span>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-semibold">
-                            {dayPlans.length} feladat
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-semibold truncate max-w-[120px]">
+                            {dayPlans.length} {t('weekly.tasks')}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">

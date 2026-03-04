@@ -185,7 +185,7 @@ const WeeklyView: React.FC = () => {
                 onClick={() => setCurrentWeek(new Date())}
                 className="px-3 py-1.5 text-sm font-medium text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
               >
-                {t('common.today') || 'Ma'}
+                {t('common.today')}
               </button>
 
               <button
@@ -227,8 +227,8 @@ const WeeklyView: React.FC = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                {editingPlan ? t('common.edit') || 'Szerkesztés' : t('weekly.addTask')}
-                {useDate && selectedDay && !editingPlan && ` - ${selectedDay.getFullYear()}. ${selectedDay.getMonth() + 1}. ${selectedDay.getDate()}.`}
+                {editingPlan ? t('common.edit') : t('weekly.addTask')}
+                {useDate && selectedDay && !editingPlan && ` - ${selectedDay.toLocaleDateString(navigator.language, { month: 'short', day: 'numeric' })}`}
               </h3>
 
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -268,12 +268,12 @@ const WeeklyView: React.FC = () => {
                         type="button"
                         onClick={() => setNewPlan({ ...newPlan, priority: level })}
                         className={`px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 border-2 ${newPlan.priority === level
-                            ? level === 'high'
-                              ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-                              : level === 'medium'
-                                ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'
-                                : 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
-                            : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400'
+                          ? level === 'high'
+                            ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                            : level === 'medium'
+                              ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'
+                              : 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400'
                           }`}
                       >
                         {level === 'high' ? t('daily.highPriority') :
@@ -289,7 +289,7 @@ const WeeklyView: React.FC = () => {
                     type="submit"
                     className="flex-1 bg-gradient-to-r from-purple-500 to-indigo-500 text-white py-2.5 px-4 rounded-xl font-medium shadow-md hover:shadow-lg transition-shadow"
                   >
-                    {editingPlan ? t('common.save') || 'Mentés' : t('weekly.addTask')}
+                    {editingPlan ? t('common.save') : t('weekly.addTask')}
                   </button>
                   <button
                     type="button"
@@ -332,7 +332,7 @@ const WeeklyView: React.FC = () => {
                       {expandedDayData.dayName} {expandedDayData.date.getDate()}.
                     </h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {expandedPlans.length} feladat · {expandedCompleted} kész
+                      {expandedPlans.length} {t('weekly.tasks')} · {expandedCompleted} {t('daily.completed')}
                     </p>
                   </div>
                 </div>
@@ -425,7 +425,7 @@ const WeeklyView: React.FC = () => {
         <div className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-            Napi terv (általános tervek)
+            {t('common.dailyPlan')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {generalPlans.map((plan) => (
