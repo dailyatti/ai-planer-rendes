@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Plus, CalendarDays, ChevronLeft, ChevronRight, CheckCircle, Circle, Pencil, Trash2, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useData } from '../../contexts/DataContext';
@@ -13,27 +13,14 @@ const WeeklyView: React.FC = () => {
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [editingPlan, setEditingPlan] = useState<PlanItem | null>(null);
   const [useDate, setUseDate] = useState(true);
-  const [expandedDay, setExpandedDay] = useState<string | null>(null);
-  const expandedRef = useRef<HTMLDivElement>(null);
+  // Modal-based expanded view for a day
+  const [expandedDayData, setExpandedDayData] = useState<{ date: Date; dayName: string } | null>(null);
 
   const [newPlan, setNewPlan] = useState({
     title: '',
     description: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
   });
-
-  // Click outside to close expanded panel
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (expandedRef.current && !expandedRef.current.contains(e.target as Node)) {
-        setExpandedDay(null);
-      }
-    };
-    if (expandedDay) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [expandedDay]);
 
   const getWeekDays = (date: Date) => {
     const week = [];
@@ -64,7 +51,6 @@ const WeeklyView: React.FC = () => {
     const newDate = new Date(currentWeek);
     newDate.setDate(currentWeek.getDate() + (direction === 'next' ? 7 : -7));
     setCurrentWeek(newDate);
-    setExpandedDay(null);
   };
 
   const formatDate = (date: Date) => {
@@ -114,8 +100,8 @@ const WeeklyView: React.FC = () => {
     setUseDate(true);
   };
 
-  const handleEditPlan = (plan: PlanItem, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleEditPlan = (plan: PlanItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setEditingPlan(plan);
     setUseDate(!!plan.date);
     if (plan.date) setSelectedDay(plan.date);
@@ -124,11 +110,12 @@ const WeeklyView: React.FC = () => {
       description: plan.description || '',
       priority: plan.priority,
     });
+    setExpandedDayData(null);
     setShowAddForm(true);
   };
 
-  const handleDeletePlan = (planId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDeletePlan = (planId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     deletePlan(planId);
   };
 
@@ -150,6 +137,10 @@ const WeeklyView: React.FC = () => {
       default: return 'bg-gray-400';
     }
   };
+
+  // Get expanded day plans for the modal
+  const expandedPlans = expandedDayData ? getPlansForDay(expandedDayData.date) : [];
+  const expandedCompleted = expandedPlans.filter(p => p.completed).length;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -183,30 +174,26 @@ const WeeklyView: React.FC = () => {
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
-              <motion.button
+              <button
                 onClick={() => navigateWeek('prev')}
                 className="p-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
               >
                 <ChevronLeft size={20} />
-              </motion.button>
+              </button>
 
               <button
-                onClick={() => { setCurrentWeek(new Date()); setExpandedDay(null); }}
+                onClick={() => setCurrentWeek(new Date())}
                 className="px-3 py-1.5 text-sm font-medium text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
               >
                 {t('common.today') || 'Ma'}
               </button>
 
-              <motion.button
+              <button
                 onClick={() => navigateWeek('next')}
                 className="p-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
               >
                 <ChevronRight size={20} />
-              </motion.button>
+              </button>
             </div>
 
             <div className="text-center min-w-[140px]">
@@ -233,10 +220,10 @@ const WeeklyView: React.FC = () => {
           >
             <motion.div
               className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-700"
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2 }}
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
@@ -298,23 +285,19 @@ const WeeklyView: React.FC = () => {
                 </div>
 
                 <div className="flex gap-3 pt-3">
-                  <motion.button
+                  <button
                     type="submit"
-                    className="flex-1 bg-gradient-to-r from-purple-500 to-indigo-500 text-white py-2.5 px-4 rounded-xl font-medium shadow-md"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    className="flex-1 bg-gradient-to-r from-purple-500 to-indigo-500 text-white py-2.5 px-4 rounded-xl font-medium shadow-md hover:shadow-lg transition-shadow"
                   >
                     {editingPlan ? t('common.save') || 'Mentés' : t('weekly.addTask')}
-                  </motion.button>
-                  <motion.button
+                  </button>
+                  <button
                     type="button"
                     onClick={resetForm}
                     className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2.5 px-4 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
                   >
                     {t('common.cancel')}
-                  </motion.button>
+                  </button>
                 </div>
               </form>
             </motion.div>
@@ -322,83 +305,184 @@ const WeeklyView: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* General Plans Section */}
+      {/* ─── EXPANDED DAY MODAL (proper full-screen modal) ─── */}
       <AnimatePresence>
-        {generalPlans.length > 0 && (
+        {expandedDayData && (
           <motion.div
-            className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-gray-700"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setExpandedDayData(null)}
           >
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-              Napi terv (általános tervek)
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {generalPlans.map((plan, idx) => (
-                <motion.div
-                  key={plan.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.03 }}
-                  className={`p-4 rounded-xl border-l-4 ${plan.priority === 'high' ? 'border-l-red-500' : plan.priority === 'medium' ? 'border-l-amber-500' : 'border-l-emerald-500'
-                    } bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all group cursor-pointer`}
-                  onClick={(e) => handleEditPlan(plan, e)}
-                >
-                  <div className="flex items-start justify-between">
+            <motion.div
+              className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden"
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
+                <div className="flex items-center gap-3">
+                  <CalendarDays className="text-purple-500" size={22} />
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                      {expandedDayData.dayName} {expandedDayData.date.getDate()}.
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {expandedPlans.length} feladat · {expandedCompleted} kész
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      setSelectedDay(expandedDayData.date);
+                      setEditingPlan(null);
+                      setUseDate(true);
+                      setExpandedDayData(null);
+                      setShowAddForm(true);
+                    }}
+                    className="p-2 rounded-lg text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                  >
+                    <Plus size={18} />
+                  </button>
+                  <button
+                    onClick={() => setExpandedDayData(null)}
+                    className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Scrollable Task List */}
+              <div className="max-h-[60vh] overflow-y-auto overscroll-contain p-3 space-y-2">
+                {expandedPlans.map((plan) => (
+                  <div
+                    key={plan.id}
+                    className={`flex items-center gap-3 p-3 rounded-xl text-sm group/item cursor-pointer transition-all hover:ring-1 hover:ring-purple-200 dark:hover:ring-purple-700 ${getPriorityBg(plan.priority, plan.completed)
+                      } ${plan.completed ? 'line-through' : ''}`}
+                    onClick={() => handleEditPlan(plan)}
+                  >
+                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${getPriorityDot(plan.priority)}`} />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updatePlan(plan.id, { completed: !plan.completed });
+                      }}
+                      className="flex-shrink-0"
+                    >
+                      {plan.completed ? <CheckCircle size={16} /> : <Circle size={16} />}
+                    </button>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            updatePlan(plan.id, { completed: !plan.completed });
-                          }}
-                          className="text-purple-500 hover:text-purple-600 transition-colors flex-shrink-0"
-                        >
-                          {plan.completed ? <CheckCircle size={18} /> : <Circle size={18} />}
-                        </button>
-                        <h4 className={`font-semibold truncate ${plan.completed ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>
-                          {plan.title}
-                        </h4>
-                      </div>
+                      <span className="font-medium truncate block">{plan.title}</span>
                       {plan.description && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 pl-7">{plan.description}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">{plan.description}</p>
                       )}
                     </div>
-                    <button
-                      onClick={(e) => handleDeletePlan(plan.id, e)}
-                      className="p-1.5 text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleEditPlan(plan); }}
+                        className="opacity-0 group-hover/item:opacity-100 p-1 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-all"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeletePlan(plan.id, e)}
+                        className="opacity-0 group-hover/item:opacity-100 p-1 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-all"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </div>
-                </motion.div>
-              ))}
-            </div>
+                ))}
+              </div>
+
+              {/* Footer */}
+              {expandedPlans.length > 0 && (
+                <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-3">
+                  <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-400 rounded-full transition-all duration-500"
+                      style={{ width: `${(expandedCompleted / expandedPlans.length) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    {expandedCompleted}/{expandedPlans.length}
+                  </span>
+                </div>
+              )}
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Week Grid */}
+      {/* General Plans Section */}
+      {generalPlans.length > 0 && (
+        <div className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+            Napi terv (általános tervek)
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {generalPlans.map((plan) => (
+              <div
+                key={plan.id}
+                className={`p-4 rounded-xl border-l-4 ${plan.priority === 'high' ? 'border-l-red-500' : plan.priority === 'medium' ? 'border-l-amber-500' : 'border-l-emerald-500'
+                  } bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all group cursor-pointer`}
+                onClick={(e) => handleEditPlan(plan, e)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updatePlan(plan.id, { completed: !plan.completed });
+                        }}
+                        className="text-purple-500 hover:text-purple-600 transition-colors flex-shrink-0"
+                      >
+                        {plan.completed ? <CheckCircle size={18} /> : <Circle size={18} />}
+                      </button>
+                      <h4 className={`font-semibold truncate ${plan.completed ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>
+                        {plan.title}
+                      </h4>
+                    </div>
+                    {plan.description && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 pl-7">{plan.description}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={(e) => handleDeletePlan(plan.id, e)}
+                    className="p-1.5 text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Week Grid — NO entrance animations */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
         {weekDays.map((day, index) => {
           const dayPlans = getPlansForDay(day);
           const isToday = day.toDateString() === new Date().toDateString();
           const completedTasks = dayPlans.filter(plan => plan.completed).length;
-          const dayKey = formatDate(day);
-          const isExpanded = expandedDay === dayKey;
 
           return (
-            <motion.div
+            <div
               key={day.toISOString()}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.04, type: 'spring', stiffness: 300, damping: 25 }}
-              className={`relative bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-sm hover:shadow-lg p-4 transition-all duration-300 border border-gray-100 dark:border-gray-700/50 ${isToday ? 'ring-2 ring-purple-500 shadow-purple-500/10' : ''
+              className={`bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-sm hover:shadow-lg p-4 transition-shadow duration-300 border border-gray-100 dark:border-gray-700/50 ${isToday ? 'ring-2 ring-purple-500 shadow-purple-500/10' : ''
                 }`}
             >
               {isToday && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full animate-pulse shadow-lg shadow-purple-500/50" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full shadow-lg shadow-purple-500/50 relative" style={{ position: 'absolute', top: '-4px', right: '-4px' }} />
               )}
 
               {/* Day Header */}
@@ -414,11 +498,9 @@ const WeeklyView: React.FC = () => {
                   <div className="mt-2">
                     <div className="flex items-center justify-center gap-1.5">
                       <div className="flex-1 h-1 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <motion.div
-                          className="h-full bg-emerald-400 rounded-full"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${(completedTasks / dayPlans.length) * 100}%` }}
-                          transition={{ type: 'spring', stiffness: 100, damping: 20, delay: 0.3 }}
+                        <div
+                          className="h-full bg-emerald-400 rounded-full transition-all duration-500"
+                          style={{ width: `${(completedTasks / dayPlans.length) * 100}%` }}
                         />
                       </div>
                       <span className="text-[10px] font-semibold text-gray-400">{completedTasks}/{dayPlans.length}</span>
@@ -447,7 +529,6 @@ const WeeklyView: React.FC = () => {
                     </button>
                     <span className="truncate flex-1 font-medium">{plan.title}</span>
                     <div className="hidden group-hover/task:flex items-center gap-0.5">
-                      <Pencil size={10} className="text-gray-400" />
                       <button
                         onClick={(e) => handleDeletePlan(plan.id, e)}
                         className="hover:text-red-600 transition-colors"
@@ -458,13 +539,10 @@ const WeeklyView: React.FC = () => {
                   </div>
                 ))}
 
-                {/* Expandable "+N more" button */}
+                {/* "+N more" opens modal */}
                 {dayPlans.length > 3 && (
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setExpandedDay(isExpanded ? null : dayKey);
-                    }}
+                    onClick={() => setExpandedDayData({ date: day, dayName: dayNames[index] })}
                     className="w-full text-xs font-medium text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 py-1 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all text-center"
                   >
                     +{dayPlans.length - 3} {t('common.more')}
@@ -480,131 +558,15 @@ const WeeklyView: React.FC = () => {
                   setUseDate(true);
                   setShowAddForm(true);
                 }}
-                className="w-full p-2.5 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-gray-400 dark:text-gray-500 hover:border-purple-400 hover:text-purple-500 dark:hover:text-purple-400 hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-all flex items-center justify-center gap-1.5 group/add"
+                className="w-full p-2.5 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-gray-400 dark:text-gray-500 hover:border-purple-400 hover:text-purple-500 dark:hover:text-purple-400 hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-all flex items-center justify-center gap-1.5"
               >
-                <Plus size={14} className="group-hover/add:scale-110 transition-transform" />
+                <Plus size={14} />
                 <span className="text-xs font-medium">{t('weekly.addTask')}</span>
               </button>
-
-              {/* ─── EXPANDED DAY OVERLAY ─── */}
-              <AnimatePresence>
-                {isExpanded && (
-                  <motion.div
-                    ref={expandedRef}
-                    className="absolute z-40 left-0 right-0 top-0 min-w-[280px] bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-600 overflow-hidden"
-                    style={{ minWidth: '280px' }}
-                    initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {/* Panel Header */}
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-gray-900 dark:text-white">
-                          {dayNames[index]} {day.getDate()}.
-                        </span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-semibold">
-                          {dayPlans.length} feladat
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedDay(day);
-                            setEditingPlan(null);
-                            setUseDate(true);
-                            setShowAddForm(true);
-                            setExpandedDay(null);
-                          }}
-                          className="p-1 rounded-lg text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
-                        >
-                          <Plus size={16} />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setExpandedDay(null);
-                          }}
-                          className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Scrollable Task List */}
-                    <div className="max-h-64 overflow-y-auto overscroll-contain px-2 py-2 space-y-1.5 custom-scrollbar-weekly">
-                      {dayPlans.map((plan, idx) => (
-                        <motion.div
-                          key={plan.id}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: idx * 0.03 }}
-                          className={`flex items-center gap-2 p-2.5 rounded-xl text-sm group/item cursor-pointer transition-all hover:ring-1 hover:ring-gray-200 dark:hover:ring-gray-600 ${getPriorityBg(plan.priority, plan.completed)
-                            } ${plan.completed ? 'line-through' : ''}`}
-                          onClick={(e) => handleEditPlan(plan, e)}
-                        >
-                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${getPriorityDot(plan.priority)}`} />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updatePlan(plan.id, { completed: !plan.completed });
-                            }}
-                            className="flex-shrink-0"
-                          >
-                            {plan.completed ? <CheckCircle size={14} /> : <Circle size={14} />}
-                          </button>
-                          <span className="truncate flex-1 font-medium">{plan.title}</span>
-                          <button
-                            onClick={(e) => handleDeletePlan(plan.id, e)}
-                            className="flex-shrink-0 opacity-0 group-hover/item:opacity-100 hover:text-red-600 dark:hover:text-red-400 transition-opacity p-0.5 rounded"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </motion.div>
-                      ))}
-                    </div>
-
-                    {/* Panel Footer */}
-                    <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-700 flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <motion.div
-                          className="h-full bg-emerald-400 rounded-full"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${(completedTasks / dayPlans.length) * 100}%` }}
-                          transition={{ type: 'spring', stiffness: 100, damping: 20 }}
-                        />
-                      </div>
-                      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        {completedTasks}/{dayPlans.length}
-                      </span>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
+            </div>
           );
         })}
       </div>
-
-      <style>{`
-        .custom-scrollbar-weekly::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar-weekly::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar-weekly::-webkit-scrollbar-thumb {
-          background: rgba(156, 163, 175, 0.3);
-          border-radius: 9999px;
-        }
-        .custom-scrollbar-weekly::-webkit-scrollbar-thumb:hover {
-          background: rgba(156, 163, 175, 0.5);
-        }
-      `}</style>
     </div>
   );
 };
