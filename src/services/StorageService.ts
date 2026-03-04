@@ -68,7 +68,9 @@ export class StorageService {
     }
 
     /**
-     * Clear all app-specific keys (planner-, invoice_sequence_, and migration flags)
+     * Clear all app-specific keys (planner-, invoice_sequence_, digitalplanner-)
+     * NOTE: Does NOT delete 'v1.*' migration flags - those must survive to prevent
+     * MigrationService from running nuclear resets on the next page load.
      */
     static clear(): void {
         if (typeof window === 'undefined') return;
@@ -78,9 +80,7 @@ export class StorageService {
             if (key && (
                 key.startsWith(this.PREFIX) ||
                 key.startsWith('invoice_sequence_') ||
-                key.startsWith('digitalplanner-') ||
-                key.startsWith('contentplanner-') ||
-                key.startsWith('v1.') // migration flags like v1.0.39_usd_migration
+                key.startsWith('digitalplanner-')
             )) {
                 keysToRemove.push(key);
             }
