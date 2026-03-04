@@ -12,6 +12,7 @@ export interface Note {
   linkedPlans: string[];
   tags: string[];
   priority?: PriorityLevel;
+  order?: number;
 }
 
 export interface Goal {
@@ -24,6 +25,7 @@ export interface Goal {
   createdAt: Date;
   priority?: PriorityLevel;
   exchange?: string;
+  order?: number;
 }
 
 export interface PlanItem {

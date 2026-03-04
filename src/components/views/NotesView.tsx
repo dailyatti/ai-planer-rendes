@@ -18,6 +18,7 @@ const NotesView: React.FC = () => {
     content: '',
     tags: [] as string[],
     priority: 'medium' as PriorityLevel,
+    order: '' as number | '',
   });
 
   // Dictation state
@@ -109,6 +110,9 @@ const NotesView: React.FC = () => {
     const matchesPriority = filterPriority === 'all' || (note.priority || 'medium') === filterPriority;
     return matchesSearch && matchesTag && matchesPriority;
   }).sort((a, b) => {
+    if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
+    if (a.order !== undefined) return -1;
+    if (b.order !== undefined) return 1;
     const pa = getPriorityOrder(a.priority);
     const pb = getPriorityOrder(b.priority);
     if (pa !== pb) return pa - pb;
@@ -125,6 +129,7 @@ const NotesView: React.FC = () => {
         content: newNote.content,
         tags: newNote.tags,
         priority: newNote.priority,
+        order: newNote.order !== '' ? Number(newNote.order) : undefined,
       });
       setEditingId(null);
     } else {
@@ -134,10 +139,11 @@ const NotesView: React.FC = () => {
         tags: newNote.tags,
         linkedPlans: [],
         priority: newNote.priority,
+        order: newNote.order !== '' ? Number(newNote.order) : undefined,
       });
     }
 
-    setNewNote({ title: '', content: '', tags: [], priority: 'medium' });
+    setNewNote({ title: '', content: '', tags: [], priority: 'medium', order: '' });
     setShowAddForm(false);
   };
 
@@ -147,6 +153,7 @@ const NotesView: React.FC = () => {
       content: note.content,
       tags: note.tags,
       priority: note.priority || 'medium',
+      order: note.order !== undefined ? note.order : '',
     });
     setEditingId(note.id);
     setShowAddForm(true);
@@ -272,11 +279,10 @@ const NotesView: React.FC = () => {
                     <button
                       type="button"
                       onClick={toggleDictation}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
-                        isRecording
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${isRecording
                           ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 animate-pulse border border-red-300 dark:border-red-700'
                           : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600'
-                      }`}
+                        }`}
                     >
                       {isRecording ? <MicOff size={14} /> : <Mic size={14} />}
                       {isRecording ? t('notes.stopDictation') : t('notes.startDictation')}
@@ -286,9 +292,8 @@ const NotesView: React.FC = () => {
                 <textarea
                   value={newNote.content}
                   onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 ${
-                    isRecording ? 'border-red-400 dark:border-red-600 ring-2 ring-red-200 dark:ring-red-900/30' : 'border-gray-300 dark:border-gray-600'
-                  }`}
+                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 ${isRecording ? 'border-red-400 dark:border-red-600 ring-2 ring-red-200 dark:ring-red-900/30' : 'border-gray-300 dark:border-gray-600'
+                    }`}
                   rows={8}
                   placeholder={isRecording ? t('notes.dictationActive') : t('notes.contentPlaceholder')}
                   required
@@ -312,15 +317,14 @@ const NotesView: React.FC = () => {
                       key={level}
                       type="button"
                       onClick={() => setNewNote({ ...newNote, priority: level })}
-                      className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border-2 transition-all duration-200 text-sm font-medium ${
-                        newNote.priority === level
+                      className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border-2 transition-all duration-200 text-sm font-medium ${newNote.priority === level
                           ? level === 'high'
                             ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
                             : level === 'medium'
-                            ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400'
-                            : 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                              ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400'
+                              : 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
                           : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-400'
-                      }`}
+                        }`}
                     >
                       {level === 'high' && <ArrowUp size={16} />}
                       {level === 'medium' && <ArrowRight size={16} />}
@@ -344,6 +348,20 @@ const NotesView: React.FC = () => {
                 />
               </div>
 
+              {/* Order / Numbering - Optional */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Sorszám / Number <span className="text-gray-400 font-normal">({t('common.optional')})</span>
+                </label>
+                <input
+                  type="number"
+                  value={newNote.order}
+                  onChange={(e) => setNewNote({ ...newNote, order: e.target.value ? parseInt(e.target.value) : '' })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500"
+                  placeholder="E.g., 1"
+                />
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
@@ -357,7 +375,7 @@ const NotesView: React.FC = () => {
                     if (isRecording) stopDictation();
                     setShowAddForm(false);
                     setEditingId(null);
-                    setNewNote({ title: '', content: '', tags: [], priority: 'medium' });
+                    setNewNote({ title: '', content: '', tags: [], priority: 'medium', order: '' });
                   }}
                   className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
                 >
@@ -393,6 +411,7 @@ const NotesView: React.FC = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white line-clamp-2">
+                      {note.order !== undefined && <span className="text-yellow-500 mr-2">#{note.order}</span>}
                       {note.title}
                     </h3>
                   </div>

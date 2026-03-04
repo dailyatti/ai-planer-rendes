@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Calendar, CheckCircle, Circle, Edit2, Trash2, GripVertical } from 'lucide-react';
+import { Reorder } from 'framer-motion';
 import { useData } from '../../contexts/DataContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { PlanItem } from '../../types/planner';
@@ -21,8 +22,6 @@ const DailyView: React.FC = () => {
     description: '',
     priority: 'medium',
   });
-
-  const [draggedId, setDraggedId] = useState<string | null>(null);
 
   const selectedDateStr = selectedDate.toISOString().split('T')[0];
 
@@ -81,33 +80,10 @@ const DailyView: React.FC = () => {
     setShowAddForm(true);
   };
 
-  const handleDragStart = (e: React.DragEvent, id: string) => {
-    setDraggedId(id);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleDrop = (e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    if (!draggedId || draggedId === targetId) return;
-
-    const sourceIndex = dayPlans.findIndex(p => p.id === draggedId);
-    const targetIndex = dayPlans.findIndex(p => p.id === targetId);
-
-    if (sourceIndex === -1 || targetIndex === -1) return;
-
-    const newPlans = [...dayPlans];
-    const [draggedItem] = newPlans.splice(sourceIndex, 1);
-    newPlans.splice(targetIndex, 0, draggedItem);
-
-    newPlans.forEach((plan, index) => {
+  const handleReorder = (newOrder: PlanItem[]) => {
+    newOrder.forEach((plan, index) => {
       updatePlan(plan.id, { order: index });
     });
-    setDraggedId(null);
   };
 
   const getPriorityColor = (priority: string) => {
@@ -263,15 +239,12 @@ const DailyView: React.FC = () => {
         </div>
       )}
 
-      <div className="space-y-4">
+      <Reorder.Group axis="y" values={dayPlans} onReorder={handleReorder} className="space-y-4">
         {dayPlans.map((plan) => (
-          <div
+          <Reorder.Item
             key={plan.id}
-            draggable
-            onDragStart={(e) => handleDragStart(e, plan.id)}
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, plan.id)}
-            className={`p-6 rounded-xl border-l-4 ${getPriorityColor(plan.priority)} transition-all duration-200 hover:shadow-lg bg-white dark:bg-gray-800 ${draggedId === plan.id ? 'opacity-50' : 'opacity-100'} cursor-move`}
+            value={plan}
+            className={`p-6 rounded-xl border-l-4 ${getPriorityColor(plan.priority)} transition-all duration-200 hover:shadow-lg bg-white dark:bg-gray-800 cursor-move relative`}
           >
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-4 flex-1">
@@ -331,14 +304,14 @@ const DailyView: React.FC = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </Reorder.Item>
         ))}
         {dayPlans.length === 0 && (
           <div className="text-center text-gray-500 dark:text-gray-400 py-8">
             Nincsenek tervek. Kattints az "Új feladat" gombra a kezdéshez!
           </div>
         )}
-      </div>
+      </Reorder.Group>
     </div>
   );
 };

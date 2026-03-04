@@ -20,6 +20,7 @@ const GoalsView: React.FC = () => {
     status: 'not-started' as 'not-started' | 'in-progress' | 'paused' | 'completed',
     priority: 'medium' as PriorityLevel,
     exchange: '',
+    order: '' as number | '',
   });
 
   const getPriorityOrder = (p?: PriorityLevel) => {
@@ -36,6 +37,9 @@ const GoalsView: React.FC = () => {
     if (filterPriority !== 'all' && (goal.priority || 'medium') !== filterPriority) return false;
     return true;
   }).sort((a, b) => {
+    if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
+    if (a.order !== undefined) return -1;
+    if (b.order !== undefined) return 1;
     const pa = getPriorityOrder(a.priority);
     const pb = getPriorityOrder(b.priority);
     if (pa !== pb) return pa - pb;
@@ -64,6 +68,7 @@ const GoalsView: React.FC = () => {
       status: newGoal.status,
       priority: newGoal.priority,
       exchange: newGoal.exchange || undefined,
+      order: newGoal.order !== '' ? Number(newGoal.order) : undefined,
     };
 
     if (newGoal.targetDate) {
@@ -77,7 +82,7 @@ const GoalsView: React.FC = () => {
       addGoal(goalData);
     }
 
-    setNewGoal({ title: '', description: '', targetDate: '', progress: 0, status: 'not-started', priority: 'medium', exchange: '' });
+    setNewGoal({ title: '', description: '', targetDate: '', progress: 0, status: 'not-started', priority: 'medium', exchange: '', order: '' });
     setShowAddForm(false);
   };
 
@@ -90,6 +95,7 @@ const GoalsView: React.FC = () => {
       status: goal.status,
       priority: goal.priority || 'medium',
       exchange: goal.exchange || '',
+      order: goal.order !== undefined ? goal.order : '',
     });
     setEditingId(goal.id);
     setShowAddForm(true);
@@ -294,15 +300,14 @@ const GoalsView: React.FC = () => {
                       key={level}
                       type="button"
                       onClick={() => setNewGoal({ ...newGoal, priority: level })}
-                      className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border-2 transition-all duration-200 text-sm font-medium ${
-                        newGoal.priority === level
+                      className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border-2 transition-all duration-200 text-sm font-medium ${newGoal.priority === level
                           ? level === 'high'
                             ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
                             : level === 'medium'
-                            ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400'
-                            : 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                              ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400'
+                              : 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
                           : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-400'
-                      }`}
+                        }`}
                     >
                       {level === 'high' && <ArrowUp size={16} />}
                       {level === 'medium' && <ArrowRight size={16} />}
@@ -379,6 +384,20 @@ const GoalsView: React.FC = () => {
                 />
               </div>
 
+              {/* Order / Numbering - Optional */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Sorszám / Number <span className="text-gray-400 font-normal">({t('common.optional')})</span>
+                </label>
+                <input
+                  type="number"
+                  value={newGoal.order}
+                  onChange={(e) => setNewGoal({ ...newGoal, order: e.target.value ? parseInt(e.target.value) : '' })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500"
+                  placeholder="E.g., 1"
+                />
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
@@ -391,7 +410,7 @@ const GoalsView: React.FC = () => {
                   onClick={() => {
                     setShowAddForm(false);
                     setEditingId(null);
-                    setNewGoal({ title: '', description: '', targetDate: '', progress: 0, status: 'not-started', priority: 'medium', exchange: '' });
+                    setNewGoal({ title: '', description: '', targetDate: '', progress: 0, status: 'not-started', priority: 'medium', exchange: '', order: '' });
                   }}
                   className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
                 >
@@ -432,6 +451,7 @@ const GoalsView: React.FC = () => {
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
                       {getStatusIcon(goal.status)}
                       <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                        {goal.order !== undefined && <span className="text-teal-500 mr-2">#{goal.order}</span>}
                         {goal.title}
                       </h3>
                       {/* Priority Badge */}
