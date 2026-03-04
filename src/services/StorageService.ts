@@ -68,14 +68,23 @@ export class StorageService {
     }
 
     /**
-     * Clear all app-specific keys
+     * Clear all app-specific keys (planner-, invoice_sequence_, and migration flags)
      */
     static clear(): void {
         if (typeof window === 'undefined') return;
-        Object.keys(localStorage).forEach(key => {
-            if (key.startsWith(this.PREFIX)) {
-                localStorage.removeItem(key);
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (
+                key.startsWith(this.PREFIX) ||
+                key.startsWith('invoice_sequence_') ||
+                key.startsWith('digitalplanner-') ||
+                key.startsWith('contentplanner-') ||
+                key.startsWith('v1.') // migration flags like v1.0.39_usd_migration
+            )) {
+                keysToRemove.push(key);
             }
-        });
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
     }
 }

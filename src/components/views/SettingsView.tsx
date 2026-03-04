@@ -10,7 +10,7 @@ import { AVAILABLE_CURRENCIES } from '../../constants/currencyData';
 import { DataTransferService } from '../../services/DataTransferService';
 
 const SettingsView: React.FC = () => {
-  const { budgetSettings, updateBudgetSettings } = useData();
+  const { budgetSettings, updateBudgetSettings, clearAllData } = useData();
   const { isDark, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const { settings, updateSettings } = useSettings();
@@ -606,7 +606,15 @@ const SettingsView: React.FC = () => {
                   <p className="text-red-700 dark:text-red-300 text-sm mb-4">
                     {t('settings.dangerZoneDesc')}
                   </p>
-                  <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors duration-200">
+                  <button
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors duration-200"
+                    onClick={() => {
+                      if (confirm(t('settings.clearAllDataConfirm') || 'Are you absolutely sure? This will permanently delete ALL your data!')) {
+                        clearAllData();
+                        window.location.reload();
+                      }
+                    }}
+                  >
                     {t('settings.clearAllData')}
                   </button>
                 </div>

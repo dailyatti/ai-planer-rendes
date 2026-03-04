@@ -139,7 +139,9 @@ export class FinancialEngine {
                 .reduce((sum, inv) => sum + CurrencyService.convert(inv.total, inv.currency || targetCurrency, targetCurrency), 0);
 
             historicalMonths.push(monthRevenue);
-            xValues.push(i); // 0 to 5
+            // FIX: x=0 means oldest month, x=5 means current month
+            // Positive slope now correctly means revenue is growing forward in time
+            xValues.push(5 - i);
         }
 
         // Use FinancialMathService for regression AND FinancialMathService works!
@@ -166,7 +168,7 @@ export class FinancialEngine {
             } else {
                 // Future prediction
                 actual.push(0); // No actual for future
-                // x value corresponds to index in the sequence where last known is 5.
+                // FIX: x=5 is the most recent month (current). Future months are 6, 7, ...
                 // i starts at 1 (next month), so x = 5 + i
                 const predictedValue = regression.predict(5 + i);
                 predicted.push(Math.max(0, Math.round(predictedValue)));
@@ -266,14 +268,18 @@ export class FinancialEngine {
         const currentBalance = this.calculateCurrentBalance(transactions, baseCurrency);
 
         // 1. Calculate Recurring Monthly Income
+        // FIX: Use 365/12 days/month and 365/52 days/week for accurate monthly conversion
+        const DAYS_PER_MONTH = 365 / 12;      // ≈ 30.417
+        const WEEKS_PER_MONTH = 365 / 84;     // ≈ 4.345 (not 4.0!)
+
         const incomeTransactions = transactions.filter(t => t.type === 'income');
         const recurringIncomeTransactions = incomeTransactions.filter(t => t.recurring === true && t.period && t.period !== 'oneTime');
 
         const recurringIncome = recurringIncomeTransactions.reduce((sum, t) => {
             let amount = this.convert(t.amount, t.currency || baseCurrency, baseCurrency);
             switch (t.period) {
-                case 'daily': return sum + (amount * 30);
-                case 'weekly': return sum + (amount * 4);
+                case 'daily': return sum + (amount * DAYS_PER_MONTH);
+                case 'weekly': return sum + (amount * WEEKS_PER_MONTH);
                 case 'monthly': return sum + amount;
                 case 'yearly': return sum + (amount / 12);
                 default: return sum;
@@ -287,8 +293,8 @@ export class FinancialEngine {
         const recurringExpenses = recurringExpenseTransactions.reduce((sum, t) => {
             let amount = this.convert(Math.abs(t.amount), t.currency || baseCurrency, baseCurrency);
             switch (t.period) {
-                case 'daily': return sum + (amount * 30);
-                case 'weekly': return sum + (amount * 4);
+                case 'daily': return sum + (amount * DAYS_PER_MONTH);
+                case 'weekly': return sum + (amount * WEEKS_PER_MONTH);
                 case 'monthly': return sum + amount;
                 case 'yearly': return sum + (amount / 12);
                 default: return sum;

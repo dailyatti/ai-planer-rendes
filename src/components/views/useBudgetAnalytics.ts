@@ -228,13 +228,13 @@ export const useBudgetAnalytics = (
     // PURE: Returns month/year indices, not translated names
     // Now includes BOTH history items AND master transaction occurrences for each month
     const cashFlowData = useMemo(() => {
-        // Handle empty/invalid transactions by returning 12 months of zeros (matching previous "Zero Data Guard")
+        // Handle empty/invalid transactions by returning 6 months of zeros (matching the real data path below)
         if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
-            return Array.from({ length: 12 }).map((_, i) => {
+            return Array.from({ length: 6 }).map((_, i) => {
                 const d = new Date();
-                d.setMonth(d.getMonth() - i);
+                d.setMonth(d.getMonth() - (5 - i));
                 return { monthIndex: d.getMonth(), year: d.getFullYear(), income: 0, expense: 0 };
-            }).reverse();
+            });
         }
 
         const now = new Date();
