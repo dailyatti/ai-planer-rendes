@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Plus, CalendarDays, ChevronLeft, ChevronRight, CheckCircle, Circle, Pencil, Trash2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, CalendarDays, ChevronLeft, ChevronRight, CheckCircle, Circle, Pencil, Trash2, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useData } from '../../contexts/DataContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { PlanItem } from '../../types/planner';
@@ -12,23 +13,39 @@ const WeeklyView: React.FC = () => {
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [editingPlan, setEditingPlan] = useState<PlanItem | null>(null);
   const [useDate, setUseDate] = useState(true);
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const expandedRef = useRef<HTMLDivElement>(null);
+
   const [newPlan, setNewPlan] = useState({
     title: '',
     description: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
   });
 
+  // Click outside to close expanded panel
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (expandedRef.current && !expandedRef.current.contains(e.target as Node)) {
+        setExpandedDay(null);
+      }
+    };
+    if (expandedDay) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [expandedDay]);
+
   const getWeekDays = (date: Date) => {
     const week = [];
     const startOfWeek = new Date(date);
     const day = startOfWeek.getDay();
-    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Monday as first day
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
     startOfWeek.setDate(diff);
 
     for (let i = 0; i < 7; i++) {
-      const day = new Date(startOfWeek);
-      day.setDate(startOfWeek.getDate() + i);
-      week.push(day);
+      const d = new Date(startOfWeek);
+      d.setDate(startOfWeek.getDate() + i);
+      week.push(d);
     }
     return week;
   };
@@ -47,9 +64,9 @@ const WeeklyView: React.FC = () => {
     const newDate = new Date(currentWeek);
     newDate.setDate(currentWeek.getDate() + (direction === 'next' ? 7 : -7));
     setCurrentWeek(newDate);
+    setExpandedDay(null);
   };
 
-  // Helper to compare dates ignoring time/timezone shifts
   const formatDate = (date: Date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -70,14 +87,12 @@ const WeeklyView: React.FC = () => {
     e.preventDefault();
 
     if (editingPlan) {
-      // Update existing plan
       updatePlan(editingPlan.id, {
         title: newPlan.title,
         description: newPlan.description,
         priority: newPlan.priority,
       });
     } else if (selectedDay || !useDate) {
-      // Add new plan
       addPlan({
         title: newPlan.title,
         description: newPlan.description,
@@ -103,9 +118,7 @@ const WeeklyView: React.FC = () => {
     e.stopPropagation();
     setEditingPlan(plan);
     setUseDate(!!plan.date);
-    if (plan.date) {
-      setSelectedDay(plan.date);
-    }
+    if (plan.date) setSelectedDay(plan.date);
     setNewPlan({
       title: plan.title,
       description: plan.description || '',
@@ -116,17 +129,25 @@ const WeeklyView: React.FC = () => {
 
   const handleDeletePlan = (planId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm(t('common.confirmDelete') || 'Biztosan törölni szeretnéd?')) {
-      deletePlan(planId);
+    deletePlan(planId);
+  };
+
+  const getPriorityBg = (priority: string, completed: boolean) => {
+    if (completed) return 'bg-gray-100 dark:bg-gray-700/50 text-gray-400 dark:text-gray-500';
+    switch (priority) {
+      case 'high': return 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400';
+      case 'medium': return 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400';
+      case 'low': return 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400';
+      default: return 'bg-gray-50 dark:bg-gray-700/50 text-gray-600';
     }
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityDot = (priority: string) => {
     switch (priority) {
-      case 'high': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
-      case 'low': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+      case 'high': return 'bg-red-500';
+      case 'medium': return 'bg-amber-500';
+      case 'low': return 'bg-emerald-500';
+      default: return 'bg-gray-400';
     }
   };
 
@@ -140,53 +161,59 @@ const WeeklyView: React.FC = () => {
                 <CalendarDays className="text-purple-500" size={32} />
                 {t('weekly.title')}
               </h1>
-              <button
+              <motion.button
                 onClick={() => {
                   setSelectedDay(new Date());
                   setEditingPlan(null);
-                  setUseDate(false); // Default to general plan when adding from top button
+                  setUseDate(false);
                   setShowAddForm(true);
                 }}
-                className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors duration-200 shadow-md ml-4 text-sm font-medium"
+                className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg shadow-purple-500/20 ml-4 text-sm font-medium"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
               >
                 <Plus size={16} />
                 {t('daily.newTask')}
-              </button>
+              </motion.button>
             </div>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">
+            <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm">
               {t('weekly.subtitle')}
             </p>
           </div>
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
-              <button
+              <motion.button
                 onClick={() => navigateWeek('prev')}
-                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+                className="p-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
               >
                 <ChevronLeft size={20} />
-              </button>
+              </motion.button>
 
               <button
-                onClick={() => setCurrentWeek(new Date())}
-                className="px-3 py-1.5 text-sm font-medium text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 rounded-md hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
+                onClick={() => { setCurrentWeek(new Date()); setExpandedDay(null); }}
+                className="px-3 py-1.5 text-sm font-medium text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
               >
                 {t('common.today') || 'Ma'}
               </button>
 
-              <button
+              <motion.button
                 onClick={() => navigateWeek('next')}
-                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+                className="p-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
               >
                 <ChevronRight size={20} />
-              </button>
+              </motion.button>
             </div>
 
             <div className="text-center min-w-[140px]">
-              <div className="text-lg font-semibold text-gray-900 dark:text-white">
+              <div className="text-lg font-bold text-gray-900 dark:text-white">
                 {monthNames[weekDays[0].getMonth()]} {weekDays[0].getFullYear()}
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
                 {weekDays[0].getDate()}. - {weekDays[6].getDate()}.
               </div>
             </div>
@@ -195,125 +222,162 @@ const WeeklyView: React.FC = () => {
       </div>
 
       {/* Add/Edit Form Modal */}
-      {showAddForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-2xl">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              {editingPlan ? t('common.edit') || 'Szerkesztés' : t('weekly.addTask')}
-              {useDate && selectedDay && !editingPlan && ` - ${selectedDay.getFullYear()}. ${selectedDay.getMonth() + 1}. ${selectedDay.getDate()}.`}
-            </h3>
+      <AnimatePresence>
+        {showAddForm && (
+          <motion.div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={resetForm}
+          >
+            <motion.div
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-700"
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                {editingPlan ? t('common.edit') || 'Szerkesztés' : t('weekly.addTask')}
+                {useDate && selectedDay && !editingPlan && ` - ${selectedDay.getFullYear()}. ${selectedDay.getMonth() + 1}. ${selectedDay.getDate()}.`}
+              </h3>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('daily.taskTitle')}
-                </label>
-                <input
-                  type="text"
-                  value={newPlan.title}
-                  onChange={(e) => setNewPlan({ ...newPlan, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
-                  required
-                />
-              </div>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    {t('daily.taskTitle')}
+                  </label>
+                  <input
+                    type="text"
+                    value={newPlan.title}
+                    onChange={(e) => setNewPlan({ ...newPlan, title: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    required
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('daily.taskDescription')}
-                </label>
-                <textarea
-                  value={newPlan.description}
-                  onChange={(e) => setNewPlan({ ...newPlan, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
-                  rows={3}
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    {t('daily.taskDescription')}
+                  </label>
+                  <textarea
+                    value={newPlan.description}
+                    onChange={(e) => setNewPlan({ ...newPlan, description: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    rows={3}
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('daily.priority')}
-                </label>
-                <select
-                  value={newPlan.priority}
-                  onChange={(e) => setNewPlan({ ...newPlan, priority: e.target.value as any })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
-                >
-                  <option value="low">{t('daily.lowPriority')}</option>
-                  <option value="medium">{t('daily.mediumPriority')}</option>
-                  <option value="high">{t('daily.highPriority')}</option>
-                </select>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="submit"
-                  className="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
-                >
-                  {editingPlan ? t('common.save') || 'Mentés' : t('weekly.addTask')}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
-                >
-                  {t('common.cancel')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* General Plans Section */}
-      {generalPlans.length > 0 && (
-        <div className="mb-8 bg-white/50 dark:bg-gray-800/50 rounded-2xl p-4 md:p-6 border border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-            Napi terv (általános tervek)
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {generalPlans.map((plan) => (
-              <div
-                key={plan.id}
-                className={`p-4 rounded-xl border-l-4 ${getPriorityColor(plan.priority)} bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer`}
-                onClick={(e) => handleEditPlan(plan, e)}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    {t('daily.priority')}
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['low', 'medium', 'high'] as const).map((level) => (
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updatePlan(plan.id, { completed: !plan.completed });
-                        }}
-                        className="text-purple-500 hover:text-purple-600 transition-colors"
+                        key={level}
+                        type="button"
+                        onClick={() => setNewPlan({ ...newPlan, priority: level })}
+                        className={`px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 border-2 ${newPlan.priority === level
+                            ? level === 'high'
+                              ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                              : level === 'medium'
+                                ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'
+                                : 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
+                            : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400'
+                          }`}
                       >
-                        {plan.completed ? <CheckCircle size={18} /> : <Circle size={18} />}
+                        {level === 'high' ? t('daily.highPriority') :
+                          level === 'medium' ? t('daily.mediumPriority') :
+                            t('daily.lowPriority')}
                       </button>
-                      <h4 className={`font-semibold ${plan.completed ? 'line-through text-gray-500' : 'text-gray-900 dark:text-white'}`}>
-                        {plan.title.length > 30 ? plan.title.substring(0, 30) + '...' : plan.title}
-                      </h4>
-                    </div>
-                    {plan.description && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 pl-7">
-                        {plan.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => handleDeletePlan(plan.id, e)}
-                      className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    ))}
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+
+                <div className="flex gap-3 pt-3">
+                  <motion.button
+                    type="submit"
+                    className="flex-1 bg-gradient-to-r from-purple-500 to-indigo-500 text-white py-2.5 px-4 rounded-xl font-medium shadow-md"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {editingPlan ? t('common.save') || 'Mentés' : t('weekly.addTask')}
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    onClick={resetForm}
+                    className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2.5 px-4 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {t('common.cancel')}
+                  </motion.button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* General Plans Section */}
+      <AnimatePresence>
+        {generalPlans.length > 0 && (
+          <motion.div
+            className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-gray-700"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              Napi terv (általános tervek)
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {generalPlans.map((plan, idx) => (
+                <motion.div
+                  key={plan.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.03 }}
+                  className={`p-4 rounded-xl border-l-4 ${plan.priority === 'high' ? 'border-l-red-500' : plan.priority === 'medium' ? 'border-l-amber-500' : 'border-l-emerald-500'
+                    } bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all group cursor-pointer`}
+                  onClick={(e) => handleEditPlan(plan, e)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updatePlan(plan.id, { completed: !plan.completed });
+                          }}
+                          className="text-purple-500 hover:text-purple-600 transition-colors flex-shrink-0"
+                        >
+                          {plan.completed ? <CheckCircle size={18} /> : <Circle size={18} />}
+                        </button>
+                        <h4 className={`font-semibold truncate ${plan.completed ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>
+                          {plan.title}
+                        </h4>
+                      </div>
+                      {plan.description && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 pl-7">{plan.description}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={(e) => handleDeletePlan(plan.id, e)}
+                      className="p-1.5 text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Week Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
@@ -321,76 +385,94 @@ const WeeklyView: React.FC = () => {
           const dayPlans = getPlansForDay(day);
           const isToday = day.toDateString() === new Date().toDateString();
           const completedTasks = dayPlans.filter(plan => plan.completed).length;
+          const dayKey = formatDate(day);
+          const isExpanded = expandedDay === dayKey;
 
           return (
-            <div
+            <motion.div
               key={day.toISOString()}
-              className={`relative bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg p-4 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] border border-gray-200/50 dark:border-gray-700/50 ${isToday ? 'ring-2 ring-purple-500 shadow-purple-500/20' : ''
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.04, type: 'spring', stiffness: 300, damping: 25 }}
+              className={`relative bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-sm hover:shadow-lg p-4 transition-all duration-300 border border-gray-100 dark:border-gray-700/50 ${isToday ? 'ring-2 ring-purple-500 shadow-purple-500/10' : ''
                 }`}
             >
               {isToday && (
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full animate-pulse shadow-lg shadow-purple-500/50" />
               )}
-              <div className="mb-4">
+
+              {/* Day Header */}
+              <div className="mb-3">
                 <div className={`text-center ${isToday ? 'text-purple-600 dark:text-purple-400' : 'text-gray-900 dark:text-white'}`}>
-                  <div className="text-sm font-medium mb-1">{dayNames[index]}</div>
-                  <div className={`text-2xl font-bold ${isToday ? 'bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-full w-12 h-12 flex items-center justify-center mx-auto shadow-lg shadow-purple-500/30' : ''}`}>
+                  <div className="text-xs font-semibold uppercase tracking-wider mb-1 text-gray-500 dark:text-gray-400">{dayNames[index]}</div>
+                  <div className={`text-2xl font-bold ${isToday ? 'bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-full w-11 h-11 flex items-center justify-center mx-auto shadow-lg shadow-purple-500/30' : ''}`}>
                     {day.getDate()}
                   </div>
                 </div>
 
                 {dayPlans.length > 0 && (
-                  <div className="text-center mt-2">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {completedTasks}/{dayPlans.length} {t('daily.completion')}
-                    </span>
+                  <div className="mt-2">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <div className="flex-1 h-1 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-emerald-400 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(completedTasks / dayPlans.length) * 100}%` }}
+                          transition={{ type: 'spring', stiffness: 100, damping: 20, delay: 0.3 }}
+                        />
+                      </div>
+                      <span className="text-[10px] font-semibold text-gray-400">{completedTasks}/{dayPlans.length}</span>
+                    </div>
                   </div>
                 )}
               </div>
 
-              <div className="space-y-2 mb-4 min-h-32">
+              {/* Task Preview (max 3) */}
+              <div className="space-y-1.5 mb-3 min-h-[80px]">
                 {dayPlans.slice(0, 3).map((plan) => (
                   <div
                     key={plan.id}
-                    className="p-2.5 rounded-xl bg-gray-50/80 dark:bg-gray-700/80 border border-gray-200/30 dark:border-gray-600/30 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-600 hover:border-purple-300 dark:hover:border-purple-600 cursor-pointer group"
+                    className={`p-2 rounded-lg flex items-center gap-1.5 text-xs cursor-pointer group/task transition-all hover:ring-1 hover:ring-purple-300 dark:hover:ring-purple-600 ${getPriorityBg(plan.priority, plan.completed)
+                      } ${plan.completed ? 'line-through' : ''}`}
                     onClick={(e) => handleEditPlan(plan, e)}
                   >
-                    <div className="flex items-center gap-2 mb-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updatePlan(plan.id, { completed: !plan.completed });
+                      }}
+                      className="flex-shrink-0 transition-colors"
+                    >
+                      {plan.completed ? <CheckCircle size={13} /> : <Circle size={13} />}
+                    </button>
+                    <span className="truncate flex-1 font-medium">{plan.title}</span>
+                    <div className="hidden group-hover/task:flex items-center gap-0.5">
+                      <Pencil size={10} className="text-gray-400" />
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updatePlan(plan.id, { completed: !plan.completed });
-                        }}
-                        className="text-purple-500 hover:text-purple-600 transition-colors duration-200"
+                        onClick={(e) => handleDeletePlan(plan.id, e)}
+                        className="hover:text-red-600 transition-colors"
                       >
-                        {plan.completed ? <CheckCircle size={16} /> : <Circle size={16} />}
+                        <Trash2 size={10} />
                       </button>
-                      <span className={`text-sm font-medium flex-1 ${plan.completed ? 'line-through text-gray-500' : 'text-gray-900 dark:text-white'}`}>
-                        {plan.title.length > 15 ? plan.title.substring(0, 15) + '...' : plan.title}
-                      </span>
-                      <div className="hidden group-hover:flex items-center gap-1">
-                        <Pencil size={12} className="text-gray-400" />
-                        <button
-                          onClick={(e) => handleDeletePlan(plan.id, e)}
-                          className="text-red-400 hover:text-red-600"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-lg ${getPriorityColor(plan.priority)}`}>
-                      {plan.priority === 'high' ? 'H' : plan.priority === 'medium' ? 'M' : 'L'}
-                    </span>
                   </div>
                 ))}
 
+                {/* Expandable "+N more" button */}
                 {dayPlans.length > 3 && (
-                  <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedDay(isExpanded ? null : dayKey);
+                    }}
+                    className="w-full text-xs font-medium text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 py-1 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all text-center"
+                  >
                     +{dayPlans.length - 3} {t('common.more')}
-                  </div>
+                  </button>
                 )}
               </div>
 
+              {/* Add Task Button */}
               <button
                 onClick={() => {
                   setSelectedDay(day);
@@ -398,15 +480,131 @@ const WeeklyView: React.FC = () => {
                   setUseDate(true);
                   setShowAddForm(true);
                 }}
-                className="w-full p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-500 dark:text-gray-400 hover:border-purple-500 hover:text-purple-500 dark:hover:text-purple-400 hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-all duration-300 flex items-center justify-center gap-2 group"
+                className="w-full p-2.5 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-gray-400 dark:text-gray-500 hover:border-purple-400 hover:text-purple-500 dark:hover:text-purple-400 hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-all flex items-center justify-center gap-1.5 group/add"
               >
-                <Plus size={18} className="group-hover:scale-110 transition-transform" />
-                <span className="text-sm font-medium">{t('weekly.addTask')}</span>
+                <Plus size={14} className="group-hover/add:scale-110 transition-transform" />
+                <span className="text-xs font-medium">{t('weekly.addTask')}</span>
               </button>
-            </div>
+
+              {/* ─── EXPANDED DAY OVERLAY ─── */}
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div
+                    ref={expandedRef}
+                    className="absolute z-40 left-0 right-0 top-0 min-w-[280px] bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-600 overflow-hidden"
+                    style={{ minWidth: '280px' }}
+                    initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Panel Header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-gray-900 dark:text-white">
+                          {dayNames[index]} {day.getDate()}.
+                        </span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-semibold">
+                          {dayPlans.length} feladat
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedDay(day);
+                            setEditingPlan(null);
+                            setUseDate(true);
+                            setShowAddForm(true);
+                            setExpandedDay(null);
+                          }}
+                          className="p-1 rounded-lg text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                        >
+                          <Plus size={16} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedDay(null);
+                          }}
+                          className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Scrollable Task List */}
+                    <div className="max-h-64 overflow-y-auto overscroll-contain px-2 py-2 space-y-1.5 custom-scrollbar-weekly">
+                      {dayPlans.map((plan, idx) => (
+                        <motion.div
+                          key={plan.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: idx * 0.03 }}
+                          className={`flex items-center gap-2 p-2.5 rounded-xl text-sm group/item cursor-pointer transition-all hover:ring-1 hover:ring-gray-200 dark:hover:ring-gray-600 ${getPriorityBg(plan.priority, plan.completed)
+                            } ${plan.completed ? 'line-through' : ''}`}
+                          onClick={(e) => handleEditPlan(plan, e)}
+                        >
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${getPriorityDot(plan.priority)}`} />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updatePlan(plan.id, { completed: !plan.completed });
+                            }}
+                            className="flex-shrink-0"
+                          >
+                            {plan.completed ? <CheckCircle size={14} /> : <Circle size={14} />}
+                          </button>
+                          <span className="truncate flex-1 font-medium">{plan.title}</span>
+                          <button
+                            onClick={(e) => handleDeletePlan(plan.id, e)}
+                            className="flex-shrink-0 opacity-0 group-hover/item:opacity-100 hover:text-red-600 dark:hover:text-red-400 transition-opacity p-0.5 rounded"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </motion.div>
+                      ))}
+                    </div>
+
+                    {/* Panel Footer */}
+                    <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-700 flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-emerald-400 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(completedTasks / dayPlans.length) * 100}%` }}
+                          transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+                        />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                        {completedTasks}/{dayPlans.length}
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
           );
         })}
       </div>
+
+      <style>{`
+        .custom-scrollbar-weekly::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar-weekly::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar-weekly::-webkit-scrollbar-thumb {
+          background: rgba(156, 163, 175, 0.3);
+          border-radius: 9999px;
+        }
+        .custom-scrollbar-weekly::-webkit-scrollbar-thumb:hover {
+          background: rgba(156, 163, 175, 0.5);
+        }
+      `}</style>
     </div>
   );
 };
