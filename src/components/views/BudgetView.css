@@ -1,11 +1,70 @@
 /* BudgetView.css */
 
-/* 
- * Premium Dashboard Styles 
- * Enhances the BudgetView with custom scrollbars and animations
- */
+.budget-container {
+    position: relative;
+    min-height: 100vh;
+    background: radial-gradient(circle at 0% 0%, rgba(var(--color-primary-500), 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 100% 100%, rgba(var(--color-secondary-500), 0.05) 0%, transparent 50%);
+    animation: backgroundPulse 15s ease-in-out infinite alternate;
+}
 
-/* Custom Scrollbar for Webkit (Chrome, Safari, Edge) */
+@keyframes backgroundPulse {
+    0% {
+        background-position: 0% 0%;
+    }
+
+    100% {
+        background-position: 100% 100%;
+    }
+}
+
+.premium-glow {
+    position: absolute;
+    width: 40vw;
+    height: 40vw;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(var(--color-primary-500), 0.08) 0%, transparent 70%);
+    filter: blur(80px);
+    z-index: 0;
+    pointer-events: none;
+    animation: floatGlow 20s infinite alternate;
+}
+
+@keyframes floatGlow {
+    0% {
+        transform: translate(-10%, -10%);
+    }
+
+    100% {
+        transform: translate(10%, 10%);
+    }
+}
+
+.premium-glow-secondary {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 35vw;
+    height: 35vw;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(var(--color-secondary-500), 0.08) 0%, transparent 70%);
+    filter: blur(80px);
+    z-index: 0;
+    pointer-events: none;
+    animation: floatGlowReverse 25s infinite alternate;
+}
+
+@keyframes floatGlowReverse {
+    0% {
+        transform: translate(10%, 10%);
+    }
+
+    100% {
+        transform: translate(-10%, -10%);
+    }
+}
+
+/* Custom Scrollbar for Webkit */
 .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -16,15 +75,13 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: rgba(156, 163, 175, 0.3);
-    /* Gray-400 equivalent with opacity */
+    background-color: rgba(var(--text-tertiary), 0.2);
     border-radius: 9999px;
     transition: background-color 0.2s;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(107, 114, 128, 0.6);
-    /* Gray-500 equivalent */
+    background-color: rgba(var(--text-tertiary), 0.4);
 }
 
 /* Hide scrollbar utility */
@@ -39,22 +96,18 @@
     /* Firefox */
 }
 
-/* Glassmorphism helpers for older browsers */
+/* Glassmorphism helpers */
 .glass-effect {
-    background: rgba(255, 255, 255, 0.7);
+    background: rgba(var(--surface-elevated), 0.7);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-}
-
-.dark .glass-effect {
-    background: rgba(17, 24, 39, 0.7);
 }
 
 /* Smooth fade-in animation keyframes */
 @keyframes fadeIn {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(15px);
     }
 
     to {
@@ -64,5 +117,5 @@
 }
 
 .animate-fade-in {
-    animation: fadeIn 0.4s ease-out forwards;
+    animation: fadeIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }

@@ -193,14 +193,13 @@ const GlassCard: React.FC<{
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     className={cx(
-      "rounded-[var(--radius-2xl)] border border-[rgba(var(--border-primary))] bg-[var(--glass-bg)] backdrop-blur-xl",
+      "rounded-[var(--radius-3xl)] border border-[rgba(var(--border-primary))] bg-[var(--glass-bg)] backdrop-blur-xl",
       "shadow-[var(--glass-shadow)]",
       gradient && "bg-gradient-to-br from-[rgb(var(--color-primary-500))]/10 to-[rgb(var(--color-secondary-500))]/10",
-      hoverEffect && "hover:shadow-[var(--shadow-premium)] hover:border-[rgba(var(--text-primary))]/20 transition-all duration-[var(--transition-premium)]",
+      hoverEffect && "hover:shadow-[var(--shadow-premium)] hover:border-[rgba(var(--text-primary))]/20 hover:-translate-y-1 transition-all duration-[var(--transition-premium)]",
       className
     )}
     style={{
-      // fallback for safety
       backgroundColor: 'var(--glass-bg)',
     }}
   >
@@ -325,31 +324,42 @@ const Tag: React.FC<{
 const StatCard: React.FC<{
   title: string;
   value: string;
-  change?: number;
+  change?: string;
   icon: React.ReactNode;
   color: "blue" | "green" | "red" | "purple" | "yellow";
   trend?: "up" | "down" | "neutral";
-}> = ({ title, value, icon, color }) => {
+}> = ({ title, value, change, icon, color, trend }) => {
   const colors = {
-    blue: "from-blue-500/20 to-blue-600/20 text-blue-500",
-    green: "from-emerald-500/20 to-emerald-600/20 text-emerald-500",
-    red: "from-rose-500/20 to-rose-600/20 text-rose-500",
-    purple: "from-purple-500/20 to-purple-600/20 text-purple-500",
-    yellow: "from-amber-500/20 to-amber-600/20 text-amber-500",
+    blue: { bg: "from-blue-500/20 to-blue-600/20", text: "text-blue-500", glow: "shadow-[0_0_20px_rgba(59,130,246,0.3)]", border: "border-blue-500/30" },
+    green: { bg: "from-emerald-500/20 to-emerald-600/20", text: "text-emerald-500", glow: "shadow-[0_0_20px_rgba(16,185,129,0.3)]", border: "border-emerald-500/30" },
+    red: { bg: "from-rose-500/20 to-rose-600/20", text: "text-rose-500", glow: "shadow-[0_0_20px_rgba(244,63,94,0.3)]", border: "border-rose-500/30" },
+    purple: { bg: "from-purple-500/20 to-purple-600/20", text: "text-purple-500", glow: "shadow-[0_0_20px_rgba(168,85,247,0.3)]", border: "border-purple-500/30" },
+    yellow: { bg: "from-amber-500/20 to-amber-600/20", text: "text-amber-500", glow: "shadow-[0_0_20px_rgba(245,158,11,0.3)]", border: "border-amber-500/30" },
   };
 
-  return (
-    <GlassCard>
-      <div className="p-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">{title}</p>
-            <p className="text-2xl font-black text-[rgb(var(--text-primary))]">{value}</p>
+  const style = colors[color];
 
+  return (
+    <GlassCard className={`relative overflow-hidden group border-2`}>
+      <div className={`absolute top-0 right-0 w-32 h-32 -mr-8 -mt-8 bg-gradient-to-br ${style.bg} blur-3xl opacity-20 group-hover:opacity-40 transition-opacity`} />
+      <div className="p-6 relative z-10">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <p className="text-xs font-black uppercase tracking-wider text-[rgb(var(--text-tertiary))]">{title}</p>
+            <h3 className="text-3xl font-black text-[rgb(var(--text-primary))] tracking-tight">{value}</h3>
+            {change && (
+              <div className="flex items-center gap-1.5 pt-1">
+                <span className={`flex items-center justify-center w-5 h-5 rounded-full ${trend === 'up' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-rose-500/20 text-rose-500'}`}>
+                  {trend === 'up' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                </span>
+                <span className={`text-xs font-bold ${trend === 'up' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                  {change}
+                </span>
+              </div>
+            )}
           </div>
-          <div className={`p-3 rounded-2xl bg-gradient-to-br ${colors[color].split(" ").slice(0, 2).join(" ")}`}>
-            {/* Clone element to add class if it's a valid react element, otherwise just render */}
-            <div className={colors[color].split(" ")[2]}>
+          <div className={`p-4 rounded-3xl bg-gradient-to-br ${style.bg} ${style.border} border-2 ${style.glow} transition-transform group-hover:scale-110 duration-300`}>
+            <div className={style.text}>
               {icon}
             </div>
           </div>
@@ -669,7 +679,7 @@ const useEnhancedBudgetEngine = () => {
         currency: String(tx.currency ?? "USD"),
         category: safeCategory(tx.category),
         period: (tx.period ?? "oneTime") as TransactionPeriod,
-        isMaster: Boolean(tx.kind === "master" || tx.isMaster),
+        isMaster: tx.kind === "master",
         time: tx.time as string | undefined,
         notes: tx.notes as string | undefined,
         tags: Array.isArray(tx.tags) ? tx.tags as string[] : [],
@@ -686,15 +696,21 @@ const useEnhancedBudgetEngine = () => {
     });
   }, [transactions, safeCategory, safeYMD]);
 
-  // Balance calculations using filtered transactions based on balanceMode
+  // Active transactions (cancelled entries never contribute to forecasting or aggregates)
+  const activeTransactions = useMemo(
+    () => uiTransactions.filter(tx => tx.status !== "cancelled"),
+    [uiTransactions]
+  );
+
+  // Transactions exposed by selected balance mode for UI lists/cards
   const visibleTransactions = useMemo(() => {
-    if (balanceMode === "includeScheduled") return uiTransactions;
+    if (balanceMode === "includeScheduled") return activeTransactions;
     const today = parseYMD(todayYMD)?.getTime() ?? Date.now();
-    return uiTransactions.filter(tx => {
+    return activeTransactions.filter(tx => {
       const dt = parseYMD(tx.effectiveDateYMD)?.getTime() ?? today;
-      return dt <= today && tx.status !== "cancelled";
+      return dt <= today;
     });
-  }, [uiTransactions, balanceMode, todayYMD]);
+  }, [activeTransactions, balanceMode, todayYMD]);
 
   // Today's date removed from here (moved up)
 
@@ -708,7 +724,7 @@ const useEnhancedBudgetEngine = () => {
     projectionData,
     cashFlowData
   } = useBudgetAnalytics(
-    visibleTransactions as Transaction[],
+    activeTransactions as Transaction[],
     currency,
     (amount, from, to) => CurrencyService.convert(amount, from, to),
     1
@@ -734,28 +750,13 @@ const useEnhancedBudgetEngine = () => {
     const result: { month: string; income: number; expense: number; balance: number }[] = [];
 
     // PART 1: Historical data (past 6 months from cashFlowData)
-    // Calculate running balance backward from current balance
-    let runningBalance = balance;
-    const historicalReversed = [...cashFlowData].reverse(); // Most recent first
-    const historicalWithBalance: { monthIndex: number; year: number; income: number; expense: number; balance: number }[] = [];
-
-    for (const h of historicalReversed) {
-      // Balance BEFORE this month = current balance - net of this month
-      historicalWithBalance.unshift({
-        ...h,
-        balance: runningBalance
-      });
-      runningBalance -= (h.income - h.expense); // Go backward in time
-    }
-
-    // Add historical months to result
-    for (const h of historicalWithBalance) {
+    for (const h of cashFlowData) {
       const yStr = String(h.year).slice(2);
       result.push({
         month: `${monthNames[h.monthIndex]} '${yStr}`,
+        balance: h.balance ?? 0,
         income: h.income,
-        expense: h.expense,
-        balance: h.balance
+        expense: h.expense
       });
     }
 
@@ -777,7 +778,7 @@ const useEnhancedBudgetEngine = () => {
     }
 
     return result;
-  }, [projectionData, cashFlowData, monthNames, balance]);
+  }, [projectionData, cashFlowData, monthNames]);
 
   const analytics = useMemo(() => {
     const mappedCategories = {} as Record<CategoryKey, { total: number; count: number }>;
@@ -799,17 +800,41 @@ const useEnhancedBudgetEngine = () => {
       monthlyData: cashFlowProjection, // <--- FIXED: Now using the unified projection
       categoryBreakdown: mappedCategories,
       weeklyTrend: [],
-      topTransactions: [...uiTransactions]
+      trends: {
+        income: (() => {
+          const last = cashFlowData[cashFlowData.length - 2] || { income: 0 };
+          const curr = cashFlowData[cashFlowData.length - 1] || { income: 0 };
+          const diff = curr.income - last.income;
+          const pct = last.income > 0 ? (diff / last.income) * 100 : 0;
+          return { change: `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`, trend: pct >= 0 ? 'up' as const : 'down' as const };
+        })(),
+        expense: (() => {
+          const last = cashFlowData[cashFlowData.length - 2] || { expense: 0 };
+          const curr = cashFlowData[cashFlowData.length - 1] || { expense: 0 };
+          const diff = curr.expense - last.expense;
+          const pct = last.expense > 0 ? (diff / last.expense) * 100 : 0;
+          return { change: `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`, trend: pct >= 0 ? 'down' as const : 'up' as const }; // Up is bad for expense? No, "up" = growth.
+        })(),
+        balance: (() => {
+          const last = cashFlowData[cashFlowData.length - 2] || { balance: 0 };
+          const curr = cashFlowData[cashFlowData.length - 1] || { balance: 0 };
+          const diff = curr.balance - last.balance;
+          const pct = Math.abs(last.balance) > 0 ? (diff / Math.abs(last.balance)) * 100 : 0;
+          return { change: `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`, trend: pct >= 0 ? 'up' as const : 'down' as const };
+        })()
+      },
+      topTransactions: [...visibleTransactions]
         .sort((a, b) => {
           const dateA = a.effectiveDateYMD ? parseYMD(a.effectiveDateYMD) : new Date(0);
           const dateB = b.effectiveDateYMD ? parseYMD(b.effectiveDateYMD) : new Date(0);
           return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
         }),
       totalSavings: totalIncome - totalExpense,
-      avgTransactionValue: uiTransactions.length > 0 ? (totalIncome + totalExpense) / uiTransactions.length : 0,
-      transactionCount: uiTransactions.length
+      savingsRate: totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0,
+      avgTransactionValue: visibleTransactions.length > 0 ? (totalIncome + totalExpense) / visibleTransactions.length : 0,
+      transactionCount: visibleTransactions.length
     };
-  }, [categoryTotals, totalIncome, totalExpense, categories, uiTransactions, cashFlowProjection]);
+  }, [categoryTotals, totalIncome, totalExpense, categories, visibleTransactions, cashFlowData, cashFlowProjection]);
 
   // Export functionality
   const exportData = useCallback((format: 'json' | 'csv' | 'pdf') => {
@@ -868,7 +893,7 @@ const useEnhancedBudgetEngine = () => {
       URL.revokeObjectURL(url);
     }
     // Add PDF export logic here
-  }, [uiTransactions, analytics, balanceStats, language]);
+  }, [uiTransactions, analytics, balanceStats]);
 
 
 
@@ -1130,7 +1155,8 @@ const EnhancedTransactionModal: React.FC<{
       return;
     }
 
-    const transactionData = {
+    const transactionData: Transaction = {
+      id: mode === "edit" && transaction ? transaction.id : "", // Will be overwritten if mode is not edit anyway or used by update
       description: form.description.trim(),
       amount: form.type === "income" ? Math.abs(amount) : -Math.abs(amount),
       currency: form.currency,
@@ -1142,12 +1168,12 @@ const EnhancedTransactionModal: React.FC<{
       tags: form.tags,
       notes: form.notes.trim() || undefined,
       priority: form.priority,
-      isMaster: false,
+      isMaster: form.period !== "oneTime", // Keep it aligned
       status: "completed" as TransactionStatus,
       // Fix for new Type requirement
       date: form.date,
-      kind: 'history' as const, // Default for manual entry
-      recurring: false
+      kind: (form.period !== "oneTime" ? 'master' : 'history') as 'master' | 'history',
+      recurring: form.period !== "oneTime"
     };
 
     if (mode === "edit" && transaction) {
@@ -1178,258 +1204,266 @@ const EnhancedTransactionModal: React.FC<{
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-2xl rounded-[var(--radius-3xl)] bg-[rgb(var(--surface-elevated))] border border-[rgb(var(--border-primary))] shadow-2xl overflow-hidden"
+        className="w-full max-w-4xl rounded-[2rem] bg-slate-950/95 border border-slate-700/80 shadow-2xl shadow-black/50 overflow-hidden"
       >
-        <div className="p-6 border-b border-[rgb(var(--border-primary))]">
+        <div className="p-6 border-b border-slate-700/80 bg-slate-900/60">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-black text-[rgb(var(--text-primary))]">
+            <h2 className="text-xl font-bold text-white">
               {mode === "edit"
                 ? t('transactions.editTransaction') || 'Edit Transaction'
-                : t('transactions.newTransaction') || 'New Transaction'}
+                : t('transactions.newTransaction') || 'Uj tranzakcio'}
             </h2>
             <button
               onClick={onClose}
-              className="p-2 rounded-[var(--radius-xl)] hover:bg-[rgb(var(--surface-tertiary))] transition-colors"
+              className="p-2 rounded-full hover:bg-slate-800 transition-colors"
             >
-              <X size={20} className="text-[rgb(var(--text-secondary))]" />
+              <X size={20} className="text-slate-300" />
             </button>
           </div>
         </div>
 
-        <div className="p-6 max-h-[70vh] overflow-y-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Left Column */}
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
-                  {t('transactions.description') || 'Description'}
-                </label>
-                <AnimatedInput
-                  value={form.description}
-                  onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder={t('transactions.descriptionPlaceholder') || 'Example: Client Payment'}
-                />
-              </div>
+        <div className="p-8 max-h-[75vh] overflow-y-auto">
+          <div className="grid grid-cols-1 gap-6">
+            {/* Description Row */}
+            <div>
+              <label className="block text-sm font-bold text-gray-400 mb-2">
+                {t('transactions.description') || 'Leiras'}
+              </label>
+              <AnimatedInput
+                value={form.description}
+                onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder={t('transactions.descriptionPlaceholder') || 'Pl.: ugyfel fizetes'}
+                className="bg-slate-900/80 border-slate-700/80 rounded-full text-white px-5 shadow-none placeholder:text-slate-400 focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
+              />
+            </div>
 
-              <div>
-                <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
-                  {t('transactions.amount')}
-                </label>
-                <div className="flex gap-3">
-                  <AnimatedInput
-                    type="number"
-                    value={form.amount}
-                    onChange={(e) => setForm(prev => ({ ...prev, amount: e.target.value }))}
-                    placeholder="0.00"
-                    className="flex-1"
-                  />
+            {/* Amount Row */}
+            <div>
+              <label className="block text-sm font-bold text-white mb-2">
+                {t('transactions.amount') || 'Osszeg'}
+              </label>
+              <div className="flex gap-4">
+                <AnimatedInput
+                  type="number"
+                  value={form.amount}
+                  onChange={(e) => setForm(prev => ({ ...prev, amount: e.target.value }))}
+                  placeholder="0.00"
+                  className="flex-1 bg-slate-900/80 border-slate-700/80 rounded-full text-white px-5 shadow-none placeholder:text-slate-400 focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
+                />
+                <div className="relative">
                   <select
                     value={form.currency}
                     onChange={(e) => setForm(prev => ({ ...prev, currency: e.target.value }))}
-                    className="px-4 py-3 rounded-[var(--radius-xl)] border-2 border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-elevated))] text-[rgb(var(--text-primary))] font-bold outline-none cursor-pointer"
+                    className="appearance-none pl-6 pr-10 py-3 rounded-full border border-slate-700/80 bg-slate-900/80 text-white font-bold outline-none cursor-pointer hover:border-slate-500 transition-colors focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
                   >
                     {AVAILABLE_CURRENCIES.map((c) => (
                       <option key={c.code} value={c.code}>{c.code}</option>
                     ))}
                   </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
-                  {t('transactions.category')}
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {Object.entries(categories).slice(0, 6).map(([key, cat]) => (
-                    <button
-                      key={key}
-                      onClick={() => setForm(prev => ({ ...prev, category: key as CategoryKey }))}
-                      className={`p-3 rounded-[var(--radius-xl)] border-2 transition-all ${form.category === key
-                        ? 'border-[rgb(var(--color-primary-500))] bg-[rgb(var(--color-primary-500))]/10'
-                        : 'border-[rgb(var(--border-secondary))] hover:border-[rgb(var(--border-primary))]'
-                        }`}
-                    >
-                      <div className="flex flex-col items-center gap-1">
-                        <div style={{ color: cat.color }}>{cat.icon}</div>
-                        <span className="text-xs font-bold text-[rgb(var(--text-secondary))]">{cat.label}</span>
-                      </div>
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => {
-                      // Show more categories
-                    }}
-                    className="p-3 rounded-[var(--radius-xl)] border-2 border-[rgb(var(--border-secondary))] hover:border-[rgb(var(--border-primary))] transition-all"
-                  >
-                    <div className="flex flex-col items-center gap-1">
-                      <MoreVertical size={16} className="text-[rgb(var(--text-tertiary))]" />
-                      <span className="text-xs font-bold text-[rgb(var(--text-tertiary))]">More</span>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column */}
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
-                  {t('transactions.dateTime')}
-                </label>
-                <div className="flex gap-3">
-                  <AnimatedInput
-                    type="date"
-                    value={form.date}
-                    onChange={(e) => setForm(prev => ({ ...prev, date: e.target.value }))}
-                    className="flex-1"
-                  />
-                  <AnimatedInput
-                    type="time"
-                    value={form.time}
-                    onChange={(e) => setForm(prev => ({ ...prev, time: e.target.value }))}
-                    className="w-32"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
-                  {t('transactions.type')}
-                </label>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setForm(prev => ({ ...prev, type: "income" }))}
-                    className={`flex-1 p-3 rounded-[var(--radius-xl)] border-2 transition-all ${form.type === "income"
-                      ? 'border-emerald-400/50 bg-emerald-500/10 text-emerald-500'
-                      : 'border-[rgb(var(--border-secondary))] hover:border-[rgb(var(--border-primary))] text-[rgb(var(--text-secondary))]'
-                      }`}
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <TrendingUp size={16} />
-                      <span className="font-bold">{t('transactions.income')}</span>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setForm(prev => ({ ...prev, type: "expense" }))}
-                    className={`flex-1 p-3 rounded-[var(--radius-xl)] border-2 transition-all ${form.type === "expense"
-                      ? 'border-rose-400/50 bg-rose-500/10 text-rose-500'
-                      : 'border-[rgb(var(--border-secondary))] hover:border-[rgb(var(--border-primary))] text-[rgb(var(--text-secondary))]'
-                      }`}
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <TrendingDown size={16} />
-                      <span className="font-bold">{t('transactions.expense')}</span>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
-                  {t('transactions.tags')}
-                </label>
-                <div className="flex gap-2 mb-2">
-                  <AnimatedInput
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addTag();
-                      }
-                    }}
-                    placeholder={t('transactions.addTag')}
-                    className="flex-1"
-                  />
-                  <GradientButton
-                    onClick={addTag}
-                    variant="secondary"
-                    size="lg"
-                  >
-                    <Plus size={16} />
-                  </GradientButton>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {form.tags.map(tag => (
-                    <Tag
-                      key={tag}
-                      label={tag}
-                      removable
-                      onRemove={() => removeTag(tag)}
-                    />
-                  ))}
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                    <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path></svg>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Additional Fields */}
-          <div className="mt-6 space-y-6">
+          {/* Three-Column Horizontal Row for Date, Type, Tags */}
+          <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6 px-2 min-w-0">
+            {/* Column 1: Date & Time */}
+            <div className="space-y-4">
+              <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase">
+                {t('transactions.dateTime') || 'Datum es ido'}
+              </label>
+              <div className="flex gap-3">
+                <AnimatedInput
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm(prev => ({ ...prev, date: e.target.value }))}
+                  className="flex-1 bg-slate-900/80 border-slate-700/80 rounded-full text-white px-5 shadow-none placeholder:text-slate-400 focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
+                />
+                <AnimatedInput
+                  type="time"
+                  value={form.time}
+                  onChange={(e) => setForm(prev => ({ ...prev, time: e.target.value }))}
+                  className="w-28 bg-slate-900/80 border-slate-700/80 rounded-full text-white px-5 text-center shadow-none focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </div>
+            </div>
+
+            {/* Column 2: Type Selector */}
+            <div className="space-y-4">
+              <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase">
+                {t('transactions.type') || 'Tipus'}
+              </label>
+              <div className="flex gap-4 min-w-0">
+                <button
+                  onClick={() => setForm(prev => ({ ...prev, type: "income" }))}
+                  className={`flex-1 py-2.5 px-3 rounded-full border transition-all flex items-center justify-center gap-2 font-bold text-[13px] min-w-0 ${form.type === "income"
+                    ? 'border-[#10b981] bg-[#10b981] text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                    : 'border-[#10b981] bg-transparent text-[#10b981] hover:bg-[#10b981]/10'
+                    }`}
+                >
+                  <TrendingUp size={16} className="shrink-0" />
+                  <span className="truncate">{t('transactions.income') || 'Bevetel'}</span>
+                </button>
+                <button
+                  onClick={() => setForm(prev => ({ ...prev, type: "expense" }))}
+                  className={`flex-1 py-2.5 px-3 rounded-full border transition-all flex items-center justify-center gap-2 font-bold text-[13px] min-w-0 ${form.type === "expense"
+                    ? 'border-[#ef4444] bg-[#ef4444] text-white shadow-[0_0_15px_rgba(239,68,68,0.3)]'
+                    : 'border-[#ef4444] bg-transparent text-[#ef4444] hover:bg-[#ef4444]/10'
+                    }`}
+                >
+                  <TrendingDown size={16} className="shrink-0" />
+                  <span className="truncate">{t('transactions.expense') || 'Kiadas'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Column 3: Tags */}
+            <div className="space-y-4">
+              <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase">
+                {t('transactions.tags') || 'Cimkek'}
+              </label>
+              <div className="flex gap-3">
+                <AnimatedInput
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addTag();
+                    }
+                  }}
+                  placeholder={t('transactions.addTag') || 'Cimke hozzaadasa...'}
+                  className="flex-1 bg-slate-900/80 border-slate-700/80 rounded-full text-white px-5 shadow-none placeholder:text-slate-400 focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
+                />
+                <button
+                  onClick={addTag}
+                  className="h-[46px] w-[46px] rounded-full border border-slate-700/80 bg-transparent flex items-center justify-center shrink-0 hover:bg-slate-800 text-slate-300 transition-colors"
+                >
+                  <Plus size={18} />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 min-h-[32px]">
+                {form.tags.map(tag => (
+                  <Tag
+                    key={tag}
+                    label={tag}
+                    removable
+                    onRemove={() => removeTag(tag)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Categories - Full Width Row */}
+          <div className="mt-8 px-2">
+            <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-4">
+              {t('transactions.category') || 'KATEGORIA'}
+            </label>
+            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-3">
+              {Object.entries(categories).map(([key, cat]) => (
+                <button
+                  key={key}
+                  onClick={() => setForm(prev => ({ ...prev, category: key as CategoryKey }))}
+                  className={`py-4 px-2 rounded-[1.5rem] border transition-all flex flex-col items-center justify-center gap-2 group/cat ${form.category === key
+                    ? 'border-[#4f46e5] bg-[#4f46e5] shadow-lg shadow-indigo-500/20'
+                    : 'border-transparent border-slate-700/70 bg-transparent hover:border-slate-500 hover:bg-slate-800/70'
+                    }`}
+                  title={cat.label}
+                >
+                  <div
+                    className={`transition-transform group-hover/cat:scale-110 ${form.category === key ? 'text-white' : ''}`}
+                    style={{ color: form.category === key ? 'white' : cat.color }}
+                  >
+                    {React.cloneElement(cat.icon as React.ReactElement, { size: 20 })}
+                  </div>
+                  <span className={`text-[12px] font-bold truncate w-full text-center ${form.category === key ? 'text-white' : 'text-gray-400'}`}>
+                    {cat.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Additional Fields - Also Full Width */}
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 px-2 pb-6">
             <div>
-              <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
-                {t('transactions.notes')}
+              <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">
+                {t('transactions.notes') || 'Leiras (opcionalis)'}
               </label>
               <textarea
                 value={form.notes}
                 onChange={(e) => setForm(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder={t('transactions.notesPlaceholder')}
-                className="w-full h-24 px-4 py-3 rounded-[var(--radius-xl)] border-2 border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-elevated))] text-[rgb(var(--text-primary))] font-semibold placeholder:text-[rgb(var(--text-tertiary))] outline-none focus:border-[rgb(var(--color-primary-400))]/60 resize-none"
+                placeholder={t('transactions.notesPlaceholder') || 'Tovabbi informaciok...'}
+                className="w-full h-24 px-5 py-4 rounded-[1.5rem] border border-slate-700/80 bg-slate-900/80 text-white font-bold placeholder:text-slate-400 outline-none focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20 resize-none transition-colors"
               />
             </div>
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">
+                    {t('transactions.period') || 'Gyakorisag'}
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={form.period}
+                      onChange={(e) => setForm(prev => ({ ...prev, period: e.target.value as TransactionPeriod }))}
+                      className="w-full pl-5 pr-10 py-3 rounded-full border border-slate-700/80 bg-slate-900/80 text-white font-bold outline-none cursor-pointer hover:border-slate-500 transition-colors appearance-none focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
+                    >
+                      <option value="oneTime">{t('period.oneTime') || 'Egyszeri'}</option>
+                      <option value="daily">{t('period.daily') || 'Napi'}</option>
+                      <option value="weekly">{t('period.weekly') || 'Heti'}</option>
+                      <option value="monthly">{t('period.monthly') || 'Havi'}</option>
+                      <option value="yearly">{t('period.yearly') || 'Eves'}</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                      <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path></svg>
+                    </div>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
-                  {t('transactions.period')}
-                </label>
-                <select
-                  value={form.period}
-                  onChange={(e) => setForm(prev => ({ ...prev, period: e.target.value as TransactionPeriod }))}
-                  className="w-full px-4 py-3 rounded-[var(--radius-xl)] border-2 border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-elevated))] text-[rgb(var(--text-primary))] font-bold outline-none cursor-pointer"
-                >
-                  <option value="oneTime">{t('period.oneTime')}</option>
-                  <option value="daily">{t('period.daily')}</option>
-                  <option value="weekly">{t('period.weekly')}</option>
-                  <option value="monthly">{t('period.monthly')}</option>
-                  <option value="yearly">{t('period.yearly')}</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-[rgb(var(--text-secondary))] mb-2">
-                  {t('transactions.priority')}
-                </label>
-                <select
-                  value={form.priority}
-                  onChange={(e) => setForm(prev => ({ ...prev, priority: e.target.value as PriorityLevel }))}
-                  className="w-full px-4 py-3 rounded-[var(--radius-xl)] border-2 border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-elevated))] text-[rgb(var(--text-primary))] font-bold outline-none cursor-pointer"
-                >
-                  <option value="low">{t('priority.low')}</option>
-                  <option value="medium">{t('priority.medium')}</option>
-                  <option value="high">{t('priority.high')}</option>
-                </select>
+                <div>
+                  <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">
+                    {t('transactions.priority') || 'Prioritas'}
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={form.priority}
+                      onChange={(e) => setForm(prev => ({ ...prev, priority: e.target.value as PriorityLevel }))}
+                      className="w-full pl-5 pr-10 py-3 rounded-full border border-slate-700/80 bg-slate-900/80 text-white font-bold outline-none cursor-pointer hover:border-slate-500 transition-colors appearance-none focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
+                    >
+                      <option value="low">{t('priority.low') || 'Alacsony'}</option>
+                      <option value="medium">{t('priority.medium') || 'Kozepes'}</option>
+                      <option value="high">{t('priority.high') || 'Magas'}</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                      <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path></svg>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="p-6 border-t border-[rgb(var(--border-primary))]">
-          <div className="flex gap-3">
-            <GradientButton
+        <div className="p-6 border-t border-slate-700/80 bg-slate-900/50">
+          <div className="flex gap-6">
+            <button
               onClick={onClose}
-              variant="ghost"
-              fullWidth
+              className="flex-1 py-4 rounded-full border border-slate-600 text-slate-300 font-bold text-sm tracking-widest uppercase hover:bg-slate-800 hover:text-white transition-colors"
             >
-              {t('common.cancel')}
-            </GradientButton>
-            <GradientButton
+              {t('common.cancel') || 'MEGSEM'}
+            </button>
+            <button
               onClick={handleSubmit}
-              variant="primary"
-              fullWidth
-              leftIcon={<Check size={16} />}
+              className="flex-1 py-4 rounded-full bg-[#10b981] text-white font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-2 hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-500/20"
             >
-              {mode === 'edit' ? t('transactions.actions.update') : t('transactions.actions.save')}
-            </GradientButton>
+              <Check size={20} />
+              {mode === 'edit' ? (t('transactions.actions.update') || 'MODOSITAS') : (t('transactions.actions.save') || 'MENTES')}
+            </button>
           </div>
         </div>
       </motion.div>
@@ -1493,15 +1527,13 @@ const EnhancedBudgetView: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[rgb(var(--surface-primary))] text-[rgb(var(--text-primary))] transition-colors duration-[var(--transition-normal)]">
-      {/* Animated Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-[rgb(var(--color-primary-500))]/10 rounded-[var(--radius-full)] blur-3xl opacity-50 dark:opacity-20" />
-        <div className="absolute top-1/3 -right-40 w-96 h-96 bg-[rgb(var(--color-secondary-500))]/10 rounded-[var(--radius-full)] blur-3xl opacity-50 dark:opacity-20" />
-        <div className="absolute -bottom-40 left-1/4 w-96 h-96 bg-[rgb(var(--color-accent-500))]/10 rounded-[var(--radius-full)] blur-3xl opacity-50 dark:opacity-20" />
-      </div>
+    <div className="budget-container flex flex-col min-h-screen bg-[rgb(var(--surface-primary))] text-[rgb(var(--text-primary))] transition-colors duration-[var(--transition-normal)] overflow-x-hidden">
+      {/* Premium Background Effects */}
+      <div className="premium-glow top-0 left-0" />
+      <div className="premium-glow-secondary bottom-0 right-0" />
+      <div className="premium-glow top-1/2 left-1/3 opacity-30" />
 
-      <div className="relative z-10 max-w-7xl mx-auto p-4 md:p-6">
+      <div className="relative z-10 w-full px-6 py-8">
         {/* Header */}
         <header className="mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
@@ -1605,25 +1637,33 @@ const EnhancedBudgetView: React.FC = () => {
                 <StatCard
                   title={t('stats.balance')}
                   value={engine.formatCurrency(balanceStats.balance)}
-                  icon={<Wallet size={20} />}
+                  change={analytics.trends.balance.change}
+                  trend={analytics.trends.balance.trend}
+                  icon={<Wallet size={24} />}
                   color="blue"
                 />
                 <StatCard
                   title={t('stats.income')}
                   value={engine.formatCurrency(balanceStats.income)}
-                  icon={<TrendingUp size={20} />}
+                  change={analytics.trends.income.change}
+                  trend={analytics.trends.income.trend}
+                  icon={<TrendingUp size={24} />}
                   color="green"
                 />
                 <StatCard
                   title={t('stats.expenses')}
                   value={engine.formatCurrency(balanceStats.expense)}
-                  icon={<TrendingDown size={20} />}
+                  change={analytics.trends.expense.change}
+                  trend={analytics.trends.expense.trend}
+                  icon={<TrendingDown size={24} />}
                   color="red"
                 />
                 <StatCard
                   title={t('stats.savings')}
                   value={engine.formatCurrency(analytics.totalSavings)}
-                  icon={<Star size={20} />}
+                  change={`${analytics.savingsRate?.toFixed(1) || '0.0'}% Rate`}
+                  trend={(analytics.savingsRate || 0) >= 20 ? "up" : "neutral"}
+                  icon={<Star size={24} />}
                   color="purple"
                 />
               </div>
@@ -1640,38 +1680,56 @@ const EnhancedBudgetView: React.FC = () => {
                       <ComposedChart data={cashFlowProjection}>
                         <defs>
                           <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                            <stop offset="5%" stopColor="rgb(var(--color-primary-500))" stopOpacity={0.4} />
+                            <stop offset="95%" stopColor="rgb(var(--color-primary-500))" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.4} />
+                          </linearGradient>
+                          <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#f87171" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#f87171" stopOpacity={0.4} />
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(var(--text-tertiary), 0.05)" vertical={false} />
                         <XAxis
                           dataKey="month"
-                          stroke="rgba(255,255,255,0.4)"
-                          tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 12 }}
+                          stroke="rgb(var(--text-tertiary))"
+                          tick={{ fill: 'rgb(var(--text-tertiary))', fontSize: 11, fontWeight: 600 }}
                           tickLine={false}
                           axisLine={false}
+                          dy={10}
                         />
                         <YAxis
-                          stroke="rgba(255,255,255,0.4)"
-                          tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 12 }}
+                          stroke="rgb(var(--text-tertiary))"
+                          tick={{ fill: 'rgb(var(--text-tertiary))', fontSize: 11, fontWeight: 600 }}
                           tickLine={false}
                           axisLine={false}
                           tickFormatter={(value) => `${value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}`}
                         />
-                        <RechartsTooltip content={<CustomTooltip currency={engine.currency} language={engine.language} />} />
-                        <Legend iconType="circle" />
+                        <RechartsTooltip
+                          content={<CustomTooltip currency={engine.currency} language={engine.language} />}
+                          cursor={{ stroke: 'rgba(var(--color-primary-500), 0.2)', strokeWidth: 20 }}
+                        />
+                        <Legend
+                          verticalAlign="top"
+                          height={36}
+                          iconType="circle"
+                          formatter={(value) => <span className="text-xs font-bold text-[rgb(var(--text-secondary))] px-2">{value}</span>}
+                        />
 
-                        <Bar dataKey="income" name={t('stats.income')} fill="#10b981" radius={[4, 4, 0, 0]} barSize={8} fillOpacity={0.8} />
-                        <Bar dataKey="expense" name={t('stats.expenses')} fill="#f87171" radius={[4, 4, 0, 0]} barSize={8} fillOpacity={0.8} />
+                        <Bar dataKey="income" name={t('stats.income')} fill="url(#colorIncome)" radius={[6, 6, 0, 0]} barSize={12} />
+                        <Bar dataKey="expense" name={t('stats.expenses')} fill="url(#colorExpense)" radius={[6, 6, 0, 0]} barSize={12} />
 
                         <Area
                           type="monotone"
                           dataKey="balance"
                           name={t('stats.balance')}
-                          stroke="#8b5cf6"
-                          strokeWidth={3}
+                          stroke="rgb(var(--color-primary-500))"
+                          strokeWidth={4}
                           fill="url(#colorBalance)"
+                          animationDuration={1500}
                         />
                       </ComposedChart>
                     </ResponsiveContainer>

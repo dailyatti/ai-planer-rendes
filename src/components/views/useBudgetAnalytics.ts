@@ -35,7 +35,11 @@ export const useBudgetAnalytics = (
 
     const ensureCurrency = (c?: string) => (c && c.trim() ? c : 'USD');
 
-    const isMaster = (tr: Transaction) => tr.kind === 'master';
+    const isMaster = (tr: Transaction) => (
+        tr.kind === 'master' &&
+        tr.recurring === true &&
+        tr.period !== 'oneTime'
+    );
 
     // ... existing helpers ...
 
@@ -71,8 +75,8 @@ export const useBudgetAnalytics = (
      * Goal: O(1) performance for Daily/Weekly to prevent UI freezes on long projections.
      */
     const calculateOccurrences = useCallback((tr: Transaction, start: Date, end: Date): number => {
-        // Standalone transactions always count as 1 if they fall in the window
-        if (!tr.recurring || tr.period === 'oneTime') return 1;
+        // This helper is only for recurring master series; inconsistent inputs must not create phantom hits.
+        if (!tr.recurring || tr.period === 'oneTime') return 0;
 
         const trDate = toDateSafe(tr.date);
         if (!trDate) return 0;
@@ -192,29 +196,34 @@ export const useBudgetAnalytics = (
         [absToView, projectionYears, calculateOccurrences]
     );
 
+    const activeTransactions = useMemo(
+        () => (Array.isArray(transactions) ? transactions.filter(tr => tr.status !== 'cancelled') : []),
+        [transactions]
+    );
+
     // --- MEMOIZED DATA SETS ---
 
     const { totalIncome, totalExpense, balance } = useMemo(() => {
-        if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
+        if (activeTransactions.length === 0) {
             return { totalIncome: 0, totalExpense: 0, balance: 0 };
         }
 
-        const realizedIncome = sumByType(transactions, 'income', false);
-        const realizedExpense = sumByType(transactions, 'expense', false);
+        const realizedIncome = sumByType(activeTransactions, 'income', false);
+        const realizedExpense = sumByType(activeTransactions, 'expense', false);
 
         return {
             totalIncome: realizedIncome,
             totalExpense: realizedExpense,
             balance: realizedIncome - realizedExpense,
         };
-    }, [transactions, sumByType]);
+    }, [activeTransactions, sumByType]);
 
     // PURE: Returns category keys, not translated labels
     const categoryTotals = useMemo(() => {
         const result: Record<string, number> = {};
-        if (!transactions || !Array.isArray(transactions) || transactions.length === 0) return result;
+        if (activeTransactions.length === 0) return result;
 
-        transactions
+        activeTransactions
             .filter(tr => tr.type === 'expense' && !isMaster(tr))
             .forEach(tr => {
                 const amount = Math.abs(tr.amount);
@@ -223,22 +232,37 @@ export const useBudgetAnalytics = (
                 result[tr.category] = (result[tr.category] || 0) + converted;
             });
         return result;
-    }, [transactions, currency, safeConvert]);
+    }, [activeTransactions, currency, safeConvert]);
 
     // PURE: Returns month/year indices, not translated names
     // Now includes BOTH history items AND master transaction occurrences for each month
     const cashFlowData = useMemo(() => {
         // Handle empty/invalid transactions by returning 6 months of zeros (matching the real data path below)
-        if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
+        if (activeTransactions.length === 0) {
             return Array.from({ length: 6 }).map((_, i) => {
                 const d = new Date();
                 d.setMonth(d.getMonth() - (5 - i));
-                return { monthIndex: d.getMonth(), year: d.getFullYear(), income: 0, expense: 0 };
+                return { monthIndex: d.getMonth(), year: d.getFullYear(), income: 0, expense: 0, balance: 0 };
             });
         }
 
         const now = new Date();
-        const monthsData: { monthIndex: number; year: number; income: number; expense: number }[] = [];
+        const monthsData: { monthIndex: number; year: number; income: number; expense: number; balance: number }[] = [];
+
+        // Calculate the balance exactly 6 months ago
+        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+        let currentBalance = 0;
+
+        // First, add up everything BEFORE the 6 months period to get our starting point
+        activeTransactions.forEach(tr => {
+            const amt = absToView(tr.amount, ensureCurrency(tr.currency));
+            if (!isMaster(tr)) {
+                const dt = toDateSafe(tr.date);
+                if (dt && dt.getTime() < sixMonthsAgo.getTime()) {
+                    if (tr.type === 'income') currentBalance += amt; else currentBalance -= amt;
+                }
+            }
+        });
 
         for (let i = 5; i >= 0; i--) {
             const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -249,14 +273,14 @@ export const useBudgetAnalytics = (
 
             let inc = 0, exp = 0;
 
-            transactions.forEach(tr => {
+            activeTransactions.forEach(tr => {
                 const amt = absToView(tr.amount, ensureCurrency(tr.currency));
 
                 if (isMaster(tr)) {
                     // For master transactions, calculate occurrences in this specific month
                     // FIX: Prevent double-counting by only projecting FUTURE occurrences for masters
                     // (Past occurrences are covered by instantiated history items)
-                    const effectiveStart = new Date(Math.max(monthStart.getTime(), new Date().getTime()));
+                    const effectiveStart = new Date(Math.max(monthStart.getTime(), now.getTime()));
 
                     // If effective start is past month end, this returns 0, which is correct (fully realized)
                     const hits = calculateOccurrences(tr, effectiveStart, monthEnd);
@@ -270,16 +294,19 @@ export const useBudgetAnalytics = (
                 }
             });
 
-            monthsData.push({ monthIndex: m, year: y, income: inc, expense: exp });
+            // Add net to current balance for this month's final state
+            currentBalance += (inc - exp);
+
+            monthsData.push({ monthIndex: m, year: y, income: inc, expense: exp, balance: currentBalance });
         }
         return monthsData;
-    }, [transactions, absToView, calculateOccurrences]);
+    }, [activeTransactions, absToView, calculateOccurrences]);
 
     // PURE: Returns year/month indices for labeling in the UI
     const projectionData = useMemo(() => {
         const now = new Date();
         const projData: { year: number; monthIndex: number | null; balance: number; income: number; expense: number }[] = [];
-        if (!transactions || !Array.isArray(transactions) || transactions.length === 0) return [];
+        if (activeTransactions.length === 0) return [];
 
         let cumulativeBalance = balance;
         const isYearly = projectionYears > 3;
@@ -302,7 +329,7 @@ export const useBudgetAnalytics = (
             }
 
             let inc = 0, exp = 0;
-            transactions.forEach(tr => {
+            activeTransactions.forEach(tr => {
                 const amt = absToView(tr.amount, ensureCurrency(tr.currency));
                 if (isMaster(tr)) {
                     const hits = calculateOccurrences(tr, start, end);
@@ -319,7 +346,7 @@ export const useBudgetAnalytics = (
             projData.push({ year, monthIndex, balance: cumulativeBalance, income: inc, expense: exp });
         }
         return projData;
-    }, [transactions, absToView, balance, projectionYears, calculateOccurrences]);
+    }, [activeTransactions, absToView, balance, projectionYears, calculateOccurrences]);
 
     const averageMonthlyExpense = useMemo(() => {
         if (!cashFlowData || cashFlowData.length === 0) return 0;

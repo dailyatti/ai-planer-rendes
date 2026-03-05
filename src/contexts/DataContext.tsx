@@ -520,8 +520,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const date = normalizeDate((tx as any).date);
 
       const isRecurring = (tx as any).recurring && (tx as any).period !== 'oneTime';
-      // Auto-set kind='master' if recurring
-      const kind = isRecurring ? ('master' as const) : (tx as any).kind;
+      // Keep kind/recurring/period consistent to avoid phantom master states.
+      const kind = isRecurring
+        ? ('master' as const)
+        : ((tx as any).kind === 'master' ? ('history' as const) : (tx as any).kind);
 
       if (isRecurring) shouldTrigger = true;
       return [...prev, { ...tx, id, kind, date } as Transaction];
@@ -557,6 +559,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 2. Handle 'interestRate' deletion
         if ('interestRate' in updates && (updates.interestRate === null || updates.interestRate === undefined)) {
           delete (merged as any).interestRate; // Cleanly remove empty rates
+        }
+
+        // 3. Canonicalize recurring-kind relation
+        const shouldBeMaster = Boolean((merged as any).recurring) && (merged as any).period !== 'oneTime';
+        if (shouldBeMaster) {
+          (merged as any).kind = 'master';
+        } else if ((merged as any).kind === 'master') {
+          (merged as any).kind = 'history';
         }
 
         // trigger only if it impacts recurring logic
