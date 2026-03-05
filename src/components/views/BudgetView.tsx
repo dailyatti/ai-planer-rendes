@@ -225,18 +225,26 @@ const GradientButton: React.FC<
   gradient = true,
   className,
   children,
+  style,
   ...props
 }) => {
     const base = "inline-flex items-center justify-center gap-2 rounded-[var(--radius-xl)] font-bold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none";
 
     const variants = {
       primary: gradient
-        ? "bg-[var(--gradient-primary)] text-white shadow-[var(--glow-primary)] hover:shadow-[0_12px_48px_rgba(67,97,238,0.48)] border-none"
+        ? "text-white shadow-[var(--glow-primary)] hover:shadow-[0_12px_48px_rgba(67,97,238,0.48)] border-none"
         : "bg-[rgb(var(--color-primary-600))] text-white shadow-lg hover:bg-[rgb(var(--color-primary-700))]",
       secondary: "bg-[rgb(var(--surface-tertiary))] text-[rgb(var(--text-primary))] border border-[rgb(var(--border-primary))] hover:bg-[rgb(var(--surface-elevated))] hover:border-[rgba(var(--color-primary-500))]/30",
-      danger: "bg-[var(--gradient-danger)] text-white shadow-[0_8px_32px_rgba(244,63,94,0.32)]",
-      success: "bg-[var(--gradient-success)] text-white shadow-[var(--glow-success)]",
+      danger: "text-white shadow-[0_8px_32px_rgba(244,63,94,0.32)]",
+      success: "text-white shadow-[var(--glow-success)]",
       ghost: "bg-transparent text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] hover:bg-[rgb(var(--surface-tertiary))]",
+    };
+
+    // Map gradient variants to their CSS background values
+    const gradientStyles: Record<string, React.CSSProperties> = {
+      primary: gradient ? { background: 'var(--gradient-primary)' } : {},
+      danger: { background: 'var(--gradient-danger)' },
+      success: { background: 'var(--gradient-success)' },
     };
 
     const sizes = {
@@ -248,6 +256,7 @@ const GradientButton: React.FC<
     return (
       <button
         className={cx(base, variants[variant], sizes[size], fullWidth && "w-full", className)}
+        style={{ ...gradientStyles[variant], ...style }}
         {...props}
       >
         {leftIcon}
@@ -1155,30 +1164,54 @@ const EnhancedTransactionModal: React.FC<{
       return;
     }
 
-    const transactionData: Transaction = {
-      id: mode === "edit" && transaction ? transaction.id : "", // Will be overwritten if mode is not edit anyway or used by update
-      description: form.description.trim(),
-      amount: form.type === "income" ? Math.abs(amount) : -Math.abs(amount),
-      currency: form.currency,
-      category: form.category,
-      effectiveDateYMD: form.date,
-      time: form.time,
-      type: form.type,
-      period: form.period,
-      tags: form.tags,
-      notes: form.notes.trim() || undefined,
-      priority: form.priority,
-      isMaster: form.period !== "oneTime", // Keep it aligned
-      status: "completed" as TransactionStatus,
-      // Fix for new Type requirement
-      date: form.date,
-      kind: (form.period !== "oneTime" ? 'master' : 'history') as 'master' | 'history',
-      recurring: form.period !== "oneTime"
-    };
+    const isRecurring = form.period !== "oneTime";
 
     if (mode === "edit" && transaction) {
-      engine.updateTransaction(transaction.id, transactionData);
+      // Only send changed fields as patch to avoid triggering unnecessary recurring regeneration
+      const patch: Record<string, unknown> = {
+        description: form.description.trim(),
+        amount: form.type === "income" ? Math.abs(amount) : -Math.abs(amount),
+        currency: form.currency,
+        category: form.category,
+        effectiveDateYMD: form.date,
+        time: form.time,
+        type: form.type,
+        tags: form.tags,
+        notes: form.notes.trim() || undefined,
+        priority: form.priority,
+        status: "completed" as TransactionStatus,
+      };
+
+      // Only include recurring-related fields if they actually changed
+      if (transaction.period !== form.period) {
+        patch.period = form.period;
+        patch.recurring = isRecurring;
+        patch.kind = isRecurring ? 'master' : 'history';
+      }
+      if (transaction.effectiveDateYMD !== form.date) {
+        patch.date = form.date;
+      }
+
+      engine.updateTransaction(transaction.id, patch as any);
     } else {
+      const transactionData: Transaction = {
+        id: "",
+        description: form.description.trim(),
+        amount: form.type === "income" ? Math.abs(amount) : -Math.abs(amount),
+        currency: form.currency,
+        category: form.category,
+        effectiveDateYMD: form.date,
+        time: form.time,
+        type: form.type,
+        period: form.period,
+        tags: form.tags,
+        notes: form.notes.trim() || undefined,
+        priority: form.priority,
+        status: "completed" as TransactionStatus,
+        date: form.date,
+        kind: isRecurring ? 'master' : 'history',
+        recurring: isRecurring,
+      };
       engine.addTransaction(transactionData);
     }
 
@@ -1268,8 +1301,8 @@ const EnhancedTransactionModal: React.FC<{
             </div>
           </div>
 
-          {/* Three-Column Horizontal Row for Date, Type, Tags */}
-          <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6 px-2 min-w-0">
+          {/* Date & Tags Row */}
+          <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6 px-2 min-w-0">
             {/* Column 1: Date & Time */}
             <div className="space-y-4">
               <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase">
@@ -1291,36 +1324,7 @@ const EnhancedTransactionModal: React.FC<{
               </div>
             </div>
 
-            {/* Column 2: Type Selector */}
-            <div className="space-y-4">
-              <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase">
-                {t('transactions.type') || 'Tipus'}
-              </label>
-              <div className="flex gap-4 min-w-0">
-                <button
-                  onClick={() => setForm(prev => ({ ...prev, type: "income" }))}
-                  className={`flex-1 py-2.5 px-3 rounded-full border transition-all flex items-center justify-center gap-2 font-bold text-[13px] min-w-0 ${form.type === "income"
-                    ? 'border-[#10b981] bg-[#10b981] text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]'
-                    : 'border-[#10b981] bg-transparent text-[#10b981] hover:bg-[#10b981]/10'
-                    }`}
-                >
-                  <TrendingUp size={16} className="shrink-0" />
-                  <span className="truncate">{t('transactions.income') || 'Bevetel'}</span>
-                </button>
-                <button
-                  onClick={() => setForm(prev => ({ ...prev, type: "expense" }))}
-                  className={`flex-1 py-2.5 px-3 rounded-full border transition-all flex items-center justify-center gap-2 font-bold text-[13px] min-w-0 ${form.type === "expense"
-                    ? 'border-[#ef4444] bg-[#ef4444] text-white shadow-[0_0_15px_rgba(239,68,68,0.3)]'
-                    : 'border-[#ef4444] bg-transparent text-[#ef4444] hover:bg-[#ef4444]/10'
-                    }`}
-                >
-                  <TrendingDown size={16} className="shrink-0" />
-                  <span className="truncate">{t('transactions.expense') || 'Kiadas'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Column 3: Tags */}
+            {/* Column 2: Tags */}
             <div className="space-y-4">
               <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase">
                 {t('transactions.tags') || 'Cimkek'}
@@ -1358,6 +1362,35 @@ const EnhancedTransactionModal: React.FC<{
             </div>
           </div>
 
+          {/* Type Selector Row */}
+          <div className="mt-6 px-2">
+            <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">
+              {t('transactions.type') || 'Tipus'}
+            </label>
+            <div className="flex gap-4 max-w-md">
+              <button
+                onClick={() => setForm(prev => ({ ...prev, type: "income" }))}
+                className={`flex-1 py-3 px-6 rounded-full border-2 transition-all flex items-center justify-center gap-2 font-bold text-sm ${form.type === "income"
+                  ? 'border-[#10b981] bg-[#10b981] text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                  : 'border-[#10b981] bg-transparent text-[#10b981] hover:bg-[#10b981]/10'
+                  }`}
+              >
+                <TrendingUp size={18} className="shrink-0" />
+                <span>{t('transactions.income') || 'Bevetel'}</span>
+              </button>
+              <button
+                onClick={() => setForm(prev => ({ ...prev, type: "expense" }))}
+                className={`flex-1 py-3 px-6 rounded-full border-2 transition-all flex items-center justify-center gap-2 font-bold text-sm ${form.type === "expense"
+                  ? 'border-[#ef4444] bg-[#ef4444] text-white shadow-[0_0_15px_rgba(239,68,68,0.3)]'
+                  : 'border-[#ef4444] bg-transparent text-[#ef4444] hover:bg-[#ef4444]/10'
+                  }`}
+              >
+                <TrendingDown size={18} className="shrink-0" />
+                <span>{t('transactions.expense') || 'Kiadas'}</span>
+              </button>
+            </div>
+          </div>
+
           {/* Categories - Full Width Row */}
           <div className="mt-8 px-2">
             <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-4">
@@ -1370,7 +1403,7 @@ const EnhancedTransactionModal: React.FC<{
                   onClick={() => setForm(prev => ({ ...prev, category: key as CategoryKey }))}
                   className={`py-4 px-2 rounded-[1.5rem] border transition-all flex flex-col items-center justify-center gap-2 group/cat ${form.category === key
                     ? 'border-[#4f46e5] bg-[#4f46e5] shadow-lg shadow-indigo-500/20'
-                    : 'border-transparent border-slate-700/70 bg-transparent hover:border-slate-500 hover:bg-slate-800/70'
+                    : 'border-slate-700/70 bg-slate-900/40 hover:border-slate-500 hover:bg-slate-800/70'
                     }`}
                   title={cat.label}
                 >

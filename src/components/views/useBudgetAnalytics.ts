@@ -23,7 +23,13 @@ export const useBudgetAnalytics = (
     // --- BASIC HELPERS ---
 
     const toDateSafe = (d: Date | string | number): Date | null => {
-        const dt = d instanceof Date ? d : new Date(d);
+        if (d instanceof Date) return Number.isNaN(d.getTime()) ? null : d;
+        // Parse YMD strings as local time (noon) to avoid UTC drift
+        if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+            const [y, m, day] = d.split('-').map(Number);
+            return new Date(y, m - 1, day, 12, 0, 0, 0);
+        }
+        const dt = new Date(d);
         return Number.isNaN(dt.getTime()) ? null : dt;
     };
 
@@ -48,7 +54,7 @@ export const useBudgetAnalytics = (
 
 
     const isFuture = (tr: Transaction, now: Date) => {
-        const dt = toDateSafe(tr.date);
+        const dt = toDateSafe((tr as any).effectiveDateYMD || tr.date);
         if (!dt) return false;
         return dt.getTime() > now.getTime();
     };
@@ -175,7 +181,8 @@ export const useBudgetAnalytics = (
                     }
                     // Masters never contribute to current cash balance (only history items do)
                 } else {
-                    const trDate = toDateSafe(tr.date);
+                    // Prefer effectiveDateYMD (drift-proof) over date
+                    const trDate = toDateSafe((tr as any).effectiveDateYMD || tr.date);
                     if (!trDate) return;
 
                     if (isProjectionMode) {
@@ -257,7 +264,7 @@ export const useBudgetAnalytics = (
         activeTransactions.forEach(tr => {
             const amt = absToView(tr.amount, ensureCurrency(tr.currency));
             if (!isMaster(tr)) {
-                const dt = toDateSafe(tr.date);
+                const dt = toDateSafe((tr as any).effectiveDateYMD || tr.date);
                 if (dt && dt.getTime() < sixMonthsAgo.getTime()) {
                     if (tr.type === 'income') currentBalance += amt; else currentBalance -= amt;
                 }
@@ -287,7 +294,7 @@ export const useBudgetAnalytics = (
                     if (tr.type === 'income') inc += (amt * hits); else exp += (amt * hits);
                 } else {
                     // For history/standalone items, check if date falls in this month
-                    const dt = toDateSafe(tr.date);
+                    const dt = toDateSafe((tr as any).effectiveDateYMD || tr.date);
                     if (dt && dt.getMonth() === m && dt.getFullYear() === y) {
                         if (tr.type === 'income') inc += amt; else exp += amt;
                     }
@@ -335,7 +342,7 @@ export const useBudgetAnalytics = (
                     const hits = calculateOccurrences(tr, start, end);
                     if (tr.type === 'income') inc += (amt * hits); else exp += (amt * hits);
                 } else {
-                    const dt = toDateSafe(tr.date);
+                    const dt = toDateSafe((tr as any).effectiveDateYMD || tr.date);
                     if (dt && dt >= start && dt <= end) {
                         if (tr.type === 'income') inc += amt; else exp += amt;
                     }
