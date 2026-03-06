@@ -57,7 +57,7 @@ import { AVAILABLE_CURRENCIES } from "../../constants/currencyData";
 import { CurrencyService } from "../../services/CurrencyService";
 import { useBudgetAnalytics } from "./useBudgetAnalytics";
 import CurrencyConverterModal from "./CurrencyConverterModal";
-import { Transaction } from "../../types/planner";
+import { Transaction, TransactionPatch as PlannerTransactionPatch } from "../../types/planner";
 
 const EMPTY_ARRAY: Transaction[] = [];
 
@@ -107,7 +107,7 @@ export type BudgetTransaction = {
   recurring?: boolean;
 };
 
-type TransactionPatch = Partial<Omit<BudgetTransaction, "id" | "createdAtISO">>;
+type TransactionPatch = PlannerTransactionPatch;
 type BalanceMode = "realizedOnly" | "includeScheduled";
 type ViewMode = "cards" | "list" | "compact";
 type ChartType = "area" | "bar" | "radar";
@@ -713,11 +713,15 @@ const useEnhancedBudgetEngine = () => {
 
   // Transactions exposed by selected balance mode for UI lists/cards
   const visibleTransactions = useMemo(() => {
-    if (balanceMode === "includeScheduled") return activeTransactions;
     const today = parseYMD(todayYMD)?.getTime() ?? Date.now();
+
+    if (balanceMode === "includeScheduled") {
+      return activeTransactions;
+    }
+
     return activeTransactions.filter(tx => {
       const dt = parseYMD(tx.effectiveDateYMD)?.getTime() ?? today;
-      return dt <= today;
+      return dt <= today && tx.status !== "pending";
     });
   }, [activeTransactions, balanceMode, todayYMD]);
 
@@ -788,6 +792,86 @@ const useEnhancedBudgetEngine = () => {
 
     return result;
   }, [projectionData, cashFlowData, monthNames]);
+
+  const toViewAbsAmount = useCallback((tx: Pick<BudgetTransaction, "amount" | "currency">) => {
+    return CurrencyService.convert(Math.abs(tx.amount), tx.currency || "USD", currency);
+  }, [currency]);
+
+  const backtestSummary = useMemo(() => {
+    const today = parseYMD(todayYMD)?.getTime() ?? Date.now();
+
+    const realizedTransactions = activeTransactions.filter(tx => {
+      const dt = parseYMD(tx.effectiveDateYMD)?.getTime();
+      if (dt == null) return false;
+      return dt <= today && tx.status !== "pending";
+    });
+
+    const realizedIncome = realizedTransactions
+      .filter(tx => tx.type === "income")
+      .reduce((sum, tx) => sum + toViewAbsAmount(tx), 0);
+
+    const realizedExpense = realizedTransactions
+      .filter(tx => tx.type === "expense")
+      .reduce((sum, tx) => sum + toViewAbsAmount(tx), 0);
+
+    const realizedNet = realizedIncome - realizedExpense;
+    const trackedMonths = Math.max(new Set(realizedTransactions.map(tx => tx.effectiveDateYMD.slice(0, 7))).size, 1);
+
+    const firstEntryYMD = realizedTransactions.reduce<string | null>((min, tx) => {
+      if (!min) return tx.effectiveDateYMD;
+      return tx.effectiveDateYMD < min ? tx.effectiveDateYMD : min;
+    }, null);
+
+    const averageMonthlyNet = realizedTransactions.length > 0 ? realizedNet / trackedMonths : 0;
+    const historyNetSixMonths = cashFlowData.reduce((acc, month) => acc + (month.income - month.expense), 0);
+
+    return {
+      transactionCount: realizedTransactions.length,
+      trackedMonths,
+      firstEntryYMD,
+      realizedIncome,
+      realizedExpense,
+      realizedNet,
+      averageMonthlyNet,
+      historyNetSixMonths,
+    };
+  }, [activeTransactions, cashFlowData, todayYMD, toViewAbsAmount]);
+
+  const forecastSummary = useMemo(() => {
+    const expectedIncome = projectionData.reduce((sum, point) => sum + point.income, 0);
+    const expectedExpense = projectionData.reduce((sum, point) => sum + point.expense, 0);
+    const expectedNet = expectedIncome - expectedExpense;
+
+    const projectedBalance = projectionData.length > 0
+      ? projectionData[projectionData.length - 1].balance
+      : balance;
+
+    const firstNegativePoint = projectionData.find(point => point.balance < 0);
+    const firstNegativePeriod = firstNegativePoint
+      ? (firstNegativePoint.monthIndex !== null && firstNegativePoint.monthIndex !== undefined
+        ? (monthNames[firstNegativePoint.monthIndex] + " " + firstNegativePoint.year)
+        : String(firstNegativePoint.year))
+      : null;
+
+    const today = parseYMD(todayYMD)?.getTime() ?? Date.now();
+    const upcomingTransactions = activeTransactions.filter(tx => {
+      const dt = parseYMD(tx.effectiveDateYMD)?.getTime();
+      return dt != null && dt > today;
+    });
+
+    return {
+      horizonMonths: projectionData.length,
+      expectedIncome,
+      expectedExpense,
+      expectedNet,
+      projectedBalance,
+      nextMonthNet: projectionData.length > 0 ? projectionData[0].income - projectionData[0].expense : 0,
+      upcomingCount: upcomingTransactions.length,
+      upcomingIncomeCount: upcomingTransactions.filter(tx => tx.type === "income").length,
+      upcomingExpenseCount: upcomingTransactions.filter(tx => tx.type === "expense").length,
+      firstNegativePeriod,
+    };
+  }, [activeTransactions, balance, monthNames, projectionData, todayYMD]);
 
   const analytics = useMemo(() => {
     const mappedCategories = {} as Record<CategoryKey, { total: number; count: number }>;
@@ -947,15 +1031,37 @@ const useEnhancedBudgetEngine = () => {
       // Safe import loop
       let importedCount = 0;
       for (const raw of data.transactions) {
-        // Strip sensitive/system fields to prevent collisions
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { id, createdAtISO, ...rest } = (raw as Record<string, unknown>) ?? {};
+        const rawTx = (raw ?? {}) as Partial<Transaction> & Record<string, unknown>;
+        const amount = Number(rawTx.amount ?? 0);
+        const type = rawTx.type === 'income' ? 'income' : 'expense';
+        const effectiveDateYMD = safeYMD(rawTx.effectiveDateYMD ?? rawTx.date ?? todayYMD);
+        const period = (rawTx.period ?? 'oneTime') as TransactionPeriod;
+        const recurring = period !== 'oneTime';
+
+        const importedTx: Omit<Transaction, 'id'> = {
+          amount: Number.isFinite(amount) ? amount : 0,
+          description: String(rawTx.description ?? ''),
+          date: effectiveDateYMD,
+          type,
+          category: safeCategory(rawTx.category),
+          period,
+          recurring,
+          currency: String(rawTx.currency ?? currency),
+          kind: recurring ? 'master' : 'history',
+          effectiveDateYMD,
+          time: typeof rawTx.time === 'string' ? rawTx.time : undefined,
+          tags: Array.isArray(rawTx.tags) ? rawTx.tags.map(tag => String(tag)).filter(Boolean) : [],
+          status: rawTx.status === 'pending' || rawTx.status === 'cancelled' ? rawTx.status : 'completed',
+          priority: rawTx.priority === 'low' || rawTx.priority === 'high' ? rawTx.priority : 'medium',
+          notes: typeof rawTx.notes === 'string' ? rawTx.notes : undefined,
+          attachmentUrl: typeof rawTx.attachmentUrl === 'string' ? rawTx.attachmentUrl : undefined,
+          location: typeof rawTx.location === 'string' ? rawTx.location : undefined,
+          reminderId: typeof rawTx.reminderId === 'string' ? rawTx.reminderId : undefined,
+          createdAtISO: new Date().toISOString(),
+        };
 
         if (dataContext?.addTransaction) {
-          dataContext.addTransaction({
-            ...rest,
-            createdAtISO: new Date().toISOString(), // Fresh timestamp
-          } as unknown as BudgetTransaction);
+          dataContext.addTransaction(importedTx);
           importedCount++;
         }
       }
@@ -970,18 +1076,39 @@ const useEnhancedBudgetEngine = () => {
     } catch (error) {
       console.error("Import failed", error);
     }
-  }, [dataContext, t, addNotification]);
+  }, [dataContext, t, addNotification, safeCategory, safeYMD, todayYMD, currency]);
 
   // Add transaction with enhanced features
-  const addTransaction = useCallback((transaction: Omit<BudgetTransaction, 'id' | 'createdAtISO'>) => {
-    const payload = {
-      ...transaction,
+  const addTransaction = useCallback((transaction: Omit<Transaction, 'id'>) => {
+    const effectiveDateYMD = safeYMD(transaction.effectiveDateYMD ?? transaction.date);
+    const period = transaction.period ?? 'oneTime';
+    const recurring = period !== 'oneTime';
+
+    const payload: Omit<Transaction, 'id'> = {
+      amount: transaction.amount,
+      description: transaction.description,
+      date: effectiveDateYMD,
+      type: transaction.type,
+      category: transaction.category,
+      period,
+      recurring,
+      currency: transaction.currency,
+      kind: transaction.kind ?? (recurring ? 'master' : 'history'),
+      effectiveDateYMD,
+      time: transaction.time,
+      tags: transaction.tags,
+      status: transaction.status,
+      priority: transaction.priority,
+      notes: transaction.notes,
+      attachmentUrl: transaction.attachmentUrl,
+      location: transaction.location,
+      reminderId: transaction.reminderId,
       createdAtISO: new Date().toISOString(),
     };
 
     // Use DataContext instead of local state
     if (dataContext?.addTransaction) {
-      dataContext.addTransaction(payload as unknown as BudgetTransaction);
+      dataContext.addTransaction(payload);
     }
 
     // Add notification for large transactions
@@ -992,7 +1119,7 @@ const useEnhancedBudgetEngine = () => {
         type: transaction.amount > 0 ? "success" : "warning",
       });
     }
-  }, [addNotification, t, language, dataContext]);
+  }, [addNotification, t, language, dataContext, safeYMD]);
 
   // Update transaction
   const updateTransaction = useCallback((id: string, updates: TransactionPatch) => {
@@ -1059,6 +1186,8 @@ const useEnhancedBudgetEngine = () => {
     balanceStats,
     analytics,
     cashFlowProjection,
+    backtestSummary,
+    forecastSummary,
 
     // Actions
     addTransaction,
@@ -1078,7 +1207,7 @@ const useEnhancedBudgetEngine = () => {
       formatCurrency(amount, curr || currency, language),
     formatDate: (ymd: string) => {
       const date = parseYMD(ymd);
-      if (!date) return "—";
+      if (!date) return "-";
       return new Intl.DateTimeFormat(language === "hu" ? "hu-HU" : "en-US", {
         year: 'numeric',
         month: 'short',
@@ -1168,7 +1297,7 @@ const EnhancedTransactionModal: React.FC<{
 
     if (mode === "edit" && transaction) {
       // Only send changed fields as patch to avoid triggering unnecessary recurring regeneration
-      const patch: Record<string, unknown> = {
+      const patch: PlannerTransactionPatch = {
         description: form.description.trim(),
         amount: form.type === "income" ? Math.abs(amount) : -Math.abs(amount),
         currency: form.currency,
@@ -1192,10 +1321,9 @@ const EnhancedTransactionModal: React.FC<{
         patch.date = form.date;
       }
 
-      engine.updateTransaction(transaction.id, patch as any);
+      engine.updateTransaction(transaction.id, patch);
     } else {
-      const transactionData: Transaction = {
-        id: "",
+      const transactionData: Omit<Transaction, 'id'> = {
         description: form.description.trim(),
         amount: form.type === "income" ? Math.abs(amount) : -Math.abs(amount),
         currency: form.currency,
@@ -1508,7 +1636,7 @@ const EnhancedTransactionModal: React.FC<{
 
 const EnhancedBudgetView: React.FC = () => {
   const engine = useEnhancedBudgetEngine();
-  const { t, balanceStats, analytics, cashFlowProjection, notifications, currency, language } = engine;
+  const { t, balanceStats, analytics, cashFlowProjection, notifications, currency, language, backtestSummary, forecastSummary, visibleTransactions, deleteTransactions } = engine;
 
   const [activeTab, setActiveTab] = useState<"dashboard" | "transactions" | "analytics" | "goals" | "settings">("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
@@ -1558,6 +1686,50 @@ const EnhancedBudgetView: React.FC = () => {
       action: () => engine.exportData("json")
     }
   ];
+
+  const resolveText = useCallback((key: string, fallback: string) => {
+    const value = t(key);
+    const tail = key.split('.').pop() || key;
+    if (!value || value === key || value === tail) return fallback;
+    return value;
+  }, [t]);
+
+  const filteredTransactions = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    const sorted = [...visibleTransactions].sort((a, b) => {
+      const keyA = a.effectiveDateYMD + 'T' + (a.time || '00:00');
+      const keyB = b.effectiveDateYMD + 'T' + (b.time || '00:00');
+      return keyB.localeCompare(keyA);
+    });
+
+    if (!query) return sorted;
+
+    return sorted.filter(tx => {
+      const haystack = [
+        tx.description,
+        tx.category,
+        tx.notes || '',
+        ...(tx.tags || []),
+      ].join(' ').toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [visibleTransactions, searchQuery]);
+
+  const handleDeleteAllVisible = useCallback(() => {
+    if (filteredTransactions.length === 0) return;
+
+    const fallbackMessage = 'Delete ' + filteredTransactions.length + ' transactions? This action cannot be undone.';
+    const translated = resolveText('budget.delete.confirmAll', fallbackMessage);
+    const message = translated === fallbackMessage
+      ? fallbackMessage
+      : translated + ' (' + filteredTransactions.length + ')';
+
+    if (!window.confirm(message)) return;
+
+    deleteTransactions(filteredTransactions.map(tx => tx.id));
+  }, [deleteTransactions, filteredTransactions, resolveText]);
 
   return (
     <div className="budget-container flex flex-col min-h-screen bg-[rgb(var(--surface-primary))] text-[rgb(var(--text-primary))] transition-colors duration-[var(--transition-normal)] overflow-x-hidden">
@@ -1699,6 +1871,83 @@ const EnhancedBudgetView: React.FC = () => {
                   icon={<Star size={24} />}
                   color="purple"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <GlassCard>
+                  <div className="p-5 space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-base font-black text-[rgb(var(--text-primary))]">
+                        {resolveText('analytics.backtestTitle', 'Backtest (Realized)')}
+                      </h3>
+                      <span className="text-xs font-bold text-[rgb(var(--text-tertiary))] text-right">
+                        {backtestSummary.firstEntryYMD
+                          ? (engine.formatDate(backtestSummary.firstEntryYMD) + ' - ' + engine.formatDate(engine.todayYMD))
+                          : engine.formatDate(engine.todayYMD)}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-[var(--radius-xl)] border border-emerald-500/20 bg-emerald-500/10 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-400">{resolveText('stats.income', 'Income')}</p>
+                        <p className="text-sm font-black text-emerald-300">{engine.formatCurrency(backtestSummary.realizedIncome)}</p>
+                      </div>
+                      <div className="rounded-[var(--radius-xl)] border border-rose-500/20 bg-rose-500/10 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-rose-400">{resolveText('stats.expenses', 'Expenses')}</p>
+                        <p className="text-sm font-black text-rose-300">{engine.formatCurrency(backtestSummary.realizedExpense)}</p>
+                      </div>
+                      <div className="rounded-[var(--radius-xl)] border border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-tertiary))] p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-[rgb(var(--text-tertiary))]">{resolveText('stats.balance', 'Net')}</p>
+                        <p className="text-sm font-black text-[rgb(var(--text-primary))]">{engine.formatCurrency(backtestSummary.realizedNet)}</p>
+                      </div>
+                      <div className="rounded-[var(--radius-xl)] border border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-tertiary))] p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-[rgb(var(--text-tertiary))]">{resolveText('analytics.avgMonthlyNet', 'Avg Monthly Net')}</p>
+                        <p className="text-sm font-black text-[rgb(var(--text-primary))]">{engine.formatCurrency(backtestSummary.averageMonthlyNet)}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs font-medium text-[rgb(var(--text-tertiary))]">
+                      {resolveText('analytics.backtestTracked', 'Tracked realized transactions')}: {backtestSummary.transactionCount} | {resolveText('analytics.months', 'months')}: {backtestSummary.trackedMonths}
+                    </p>
+                  </div>
+                </GlassCard>
+
+                <GlassCard>
+                  <div className="p-5 space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-base font-black text-[rgb(var(--text-primary))]">
+                        {resolveText('analytics.forecastTitle', 'Forecast')}
+                      </h3>
+                      <span className="text-xs font-bold text-[rgb(var(--text-tertiary))]">
+                        {forecastSummary.horizonMonths} {resolveText('analytics.months', 'months')}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-[var(--radius-xl)] border border-emerald-500/20 bg-emerald-500/10 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-400">{resolveText('stats.income', 'Income')}</p>
+                        <p className="text-sm font-black text-emerald-300">{engine.formatCurrency(forecastSummary.expectedIncome)}</p>
+                      </div>
+                      <div className="rounded-[var(--radius-xl)] border border-rose-500/20 bg-rose-500/10 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-rose-400">{resolveText('stats.expenses', 'Expenses')}</p>
+                        <p className="text-sm font-black text-rose-300">{engine.formatCurrency(forecastSummary.expectedExpense)}</p>
+                      </div>
+                      <div className="rounded-[var(--radius-xl)] border border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-tertiary))] p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-[rgb(var(--text-tertiary))]">{resolveText('stats.balance', 'Projected Balance')}</p>
+                        <p className="text-sm font-black text-[rgb(var(--text-primary))]">{engine.formatCurrency(forecastSummary.projectedBalance)}</p>
+                      </div>
+                      <div className="rounded-[var(--radius-xl)] border border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-tertiary))] p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-[rgb(var(--text-tertiary))]">{resolveText('analytics.nextMonthNet', 'Next Month Net')}</p>
+                        <p className="text-sm font-black text-[rgb(var(--text-primary))]">{engine.formatCurrency(forecastSummary.nextMonthNet)}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs font-medium text-[rgb(var(--text-tertiary))]">
+                      {resolveText('analytics.upcomingTransactions', 'Upcoming transactions')}: {forecastSummary.upcomingCount} ({forecastSummary.upcomingIncomeCount}/{forecastSummary.upcomingExpenseCount})
+                    </p>
+                    <p className="text-xs font-medium text-[rgb(var(--text-tertiary))]">
+                      {forecastSummary.firstNegativePeriod
+                        ? (resolveText('analytics.firstNegative', 'First negative balance period') + ': ' + forecastSummary.firstNegativePeriod)
+                        : resolveText('analytics.noNegative', 'No negative balance in the forecast window.')}
+                    </p>
+                  </div>
+                </GlassCard>
               </div>
 
               {/* Charts Row */}
@@ -1931,6 +2180,13 @@ const EnhancedBudgetView: React.FC = () => {
                     />
                   </div>
                   <div className="flex items-center gap-2 w-full md:w-auto">
+                    <button
+                      onClick={handleDeleteAllVisible}
+                      disabled={filteredTransactions.length === 0}
+                      className="px-4 py-2.5 rounded-[var(--radius-xl)] border border-rose-500/30 text-rose-400 font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-rose-500/10 transition-colors"
+                    >
+                      {resolveText('budget.delete.deleteAll', 'Delete All')}
+                    </button>
                     <GradientButton
                       onClick={() => { setEditingTransaction(null); setShowTransactionModal(true); }}
                       leftIcon={<Plus size={16} />}
@@ -1943,15 +2199,7 @@ const EnhancedBudgetView: React.FC = () => {
 
               {/* Transactions List */}
               <div className="space-y-3">
-                {engine.uiTransactions
-                  .filter(tx => (tx.description || "").toLowerCase().includes(searchQuery.toLowerCase()))
-                  .sort((a, b) => {
-                    // Safe date comparison using effectiveDateYMD string
-                    const dateA = a.effectiveDateYMD ? a.effectiveDateYMD : "1970-01-01";
-                    const dateB = b.effectiveDateYMD ? b.effectiveDateYMD : "1970-01-01";
-                    return dateB.localeCompare(dateA);
-                  })
-                  .map(tx => (
+                {filteredTransactions.map(tx => (
                     <GlassCard key={tx.id} className="hover:border-[rgb(var(--border-secondary))] transition-colors group cursor-pointer">
                       <div className="p-4 flex items-center justify-between" onClick={() => { setEditingTransaction(tx); setShowTransactionModal(true); }}>
                         <div className="flex items-center gap-4">
@@ -1965,7 +2213,7 @@ const EnhancedBudgetView: React.FC = () => {
                                 {engine.categories[tx.category as CategoryKey]?.label || tx.category}
                               </span>
                               <span className="text-xs text-[rgb(var(--text-tertiary))] font-medium">
-                                {engine.formatDate(tx.effectiveDateYMD)} {tx.time ? `• ${tx.time}` : ''}
+                                {engine.formatDate(tx.effectiveDateYMD)} {tx.time ? (' | ' + tx.time) : ''}
                               </span>
                               {tx.status === 'pending' && (
                                 <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500">
@@ -1989,7 +2237,13 @@ const EnhancedBudgetView: React.FC = () => {
                             )}
                           </div>
                           <button
-                            onClick={(e) => { e.stopPropagation(); if (confirm(t('budget.delete.confirmOne'))) engine.deleteTransaction(tx.id); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const confirmMessage = resolveText('budget.delete.confirmOne', 'Delete this transaction?');
+                              if (window.confirm(confirmMessage)) {
+                                engine.deleteTransaction(tx.id);
+                              }
+                            }}
                             className="p-2 hover:bg-rose-500/20 rounded-[var(--radius-lg)] text-[rgb(var(--text-tertiary))] hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
                           >
                             <Trash2 size={18} />
@@ -1999,9 +2253,13 @@ const EnhancedBudgetView: React.FC = () => {
                     </GlassCard>
                   ))}
 
-                {engine.uiTransactions.length === 0 && (
+                {filteredTransactions.length === 0 && (
                   <div className="text-center py-12">
-                    <p className="text-[rgb(var(--text-tertiary))] font-medium">{t('budget.noTransactions')}</p>
+                    <p className="text-[rgb(var(--text-tertiary))] font-medium">
+                      {visibleTransactions.length === 0
+                        ? resolveText('budget.noTransactions', 'No transactions yet')
+                        : resolveText('transactions.noResults', 'No transactions match your search')}
+                    </p>
                   </div>
                 )}
               </div>
@@ -2059,7 +2317,7 @@ const EnhancedBudgetView: React.FC = () => {
                       </div>
                     </div>
                     <h3 className="text-xl font-bold text-[rgb(var(--text-primary))] mb-1">{goal.name}</h3>
-                    <span className="text-sm text-[rgb(var(--text-tertiary))] mb-4">{t('tabs.goals')} • {engine.categories[goal.category as CategoryKey]?.label}</span>
+                    <span className="text-sm text-[rgb(var(--text-tertiary))] mb-4">{t('tabs.goals')} | {engine.categories[goal.category as CategoryKey]?.label}</span>
                     <div className="relative h-2 bg-[rgb(var(--surface-tertiary))] rounded-full overflow-hidden mb-2">
                       <div
                         className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-1000"
@@ -2251,3 +2509,8 @@ const EnhancedBudgetView: React.FC = () => {
 };
 
 export default EnhancedBudgetView;
+
+
+
+
+

@@ -12,6 +12,33 @@ import { ViewType } from './types/planner';
 import { CurrencyService } from './services/CurrencyService';
 import { MigrationService } from './services/MigrationService'; // Import added
 
+type VoiceCommand = {
+  type: string;
+  target?: string;
+  data?: {
+    [key: string]: unknown;
+    title?: string;
+    description?: string;
+    content?: string;
+    date?: string;
+    priority?: string;
+    amount?: number | string;
+    currency?: string;
+    category?: string;
+    type?: string;
+    targetDate?: string;
+    action?: string;
+    invoiceId?: string;
+    direction?: string;
+    intensity?: string;
+  };
+};
+
+const normalizePriority = (priority?: string): 'low' | 'medium' | 'high' => {
+  if (priority === 'low' || priority === 'high' || priority === 'medium') return priority;
+  return 'medium';
+};
+
 function AppContent() {
   const { language } = useLanguage();
   const { settings } = useSettings();
@@ -36,7 +63,7 @@ function AppContent() {
     setSidebarOpen(false);
   };
 
-  const handleVoiceCommand = (command: any) => {
+  const handleVoiceCommand = (command: VoiceCommand) => {
     console.log('Voice command received:', command);
 
     // New: Handle control_scroll command
@@ -75,31 +102,37 @@ function AppContent() {
 
     // Handle create_task
     if (command.type === 'create_task' && command.data) {
+      const taskDate = command.data.date ? new Date(String(command.data.date)) : new Date();
       addPlan({
-        title: command.data.title,
-        description: command.data.description || '',
-        date: new Date(command.data.date),
-        startTime: new Date(command.data.date), // default to start of day
-        priority: (command.data.priority?.toLowerCase() as any) || 'medium',
+        title: String(command.data.title || 'Voice task'),
+        description: String(command.data.description || ''),
+        date: taskDate,
+        startTime: taskDate, // default to start of day
+        priority: normalizePriority(
+          typeof command.data.priority === 'string'
+            ? command.data.priority.toLowerCase()
+            : undefined
+        ),
         completed: false,
         linkedNotes: []
       });
-      console.log(`Task created: ${command.data.title}`);
+      console.log(`Task created: ${String(command.data.title || 'Voice task')}`);
     }
 
     // Handle create_transaction
     if (command.type === 'create_transaction' && command.data) {
+      const txType = command.data.type === 'income' ? 'income' : 'expense';
       addTransaction({
-        type: command.data.type as 'income' | 'expense',
+        type: txType,
         amount: Number(command.data.amount),
-        currency: command.data.currency || 'USD',
-        category: command.data.category || 'General',
-        description: command.data.description || 'Voice entry',
+        currency: String(command.data.currency || 'USD'),
+        category: String(command.data.category || 'General'),
+        description: String(command.data.description || 'Voice entry'),
         date: new Date(),
         recurring: false,
         period: 'oneTime'
       });
-      console.log(`Transaction created: ${command.data.amount} ${command.data.currency}`);
+      console.log(`Transaction created: ${String(command.data.amount)} ${String(command.data.currency || 'USD')}`);
     }
 
     // Handle schedule_pending command for invoices
@@ -127,31 +160,31 @@ function AppContent() {
     // Handle create_goal - create a new goal and navigate to goals view
     if (command.type === 'create_goal' && command.data) {
       addGoal({
-        title: command.data.title,
-        description: command.data.description || '',
-        targetDate: command.data.targetDate ? new Date(command.data.targetDate) : new Date(),
+        title: String(command.data.title || 'Voice goal'),
+        description: String(command.data.description || ''),
+        targetDate: command.data.targetDate ? new Date(String(command.data.targetDate)) : new Date(),
         progress: 0,
         status: 'not-started'
       });
       setActiveView('goals');
-      console.log(`Goal created: ${command.data.title}`);
+      console.log(`Goal created: ${String(command.data.title || 'Voice goal')}`);
     }
 
     // New: Handle manage_invoices linking
     if (command.type === 'manage_invoices' && command.data && command.data.action === 'LINK' && command.data.invoiceId) {
-      console.log(`Link invoice ${command.data.invoiceId}`);
+      console.log(`Link invoice ${String(command.data.invoiceId)}`);
       // Implement linking logic as needed.
     }
     // Handle create_note - create a note and navigate to notes
     if (command.type === 'create_note' && command.data) {
       addNote({
-        title: command.data.title,
-        content: command.data.content || '',
+        title: String(command.data.title || 'Voice note'),
+        content: String(command.data.content || ''),
         linkedPlans: [],
         tags: []
       });
       setActiveView('notes');
-      console.log(`Note created: ${command.data.title}`);
+      console.log(`Note created: ${String(command.data.title || 'Voice note')}`);
     }
 
     // Handle toggle_theme - toggle dark/light mode
@@ -181,9 +214,9 @@ function AppContent() {
         className="fixed inset-0 pointer-events-none opacity-50 dark:opacity-30"
         style={{
           backgroundImage: `
-radial - gradient(at 20 % 20 %, hsla(228, 89 %, 60 %, 0.1) 0px, transparent 50 %),
-  radial - gradient(at 80 % 10 %, hsla(189, 100 %, 56 %, 0.08) 0px, transparent 50 %),
-  radial - gradient(at 10 % 80 %, hsla(355, 85 %, 50 %, 0.06) 0px, transparent 50 %)
+radial-gradient(at 20% 20%, hsla(228, 89%, 60%, 0.1) 0px, transparent 50%),
+radial-gradient(at 80% 10%, hsla(189, 100%, 56%, 0.08) 0px, transparent 50%),
+radial-gradient(at 10% 80%, hsla(355, 85%, 50%, 0.06) 0px, transparent 50%)
     `
         }}
       />

@@ -952,7 +952,7 @@ const InvoicingView: React.FC = () => {
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                     <TrendingUp className="text-primary-600" />
-                                    {t('invoicing.revenueForcast')}
+                      {t('invoicing.revenueForecast') || t('invoicing.revenueForcast')}
                                 </h3>
                                 <span className="text-sm text-gray-500">
                                     {t('invoicing.forecastSubtitle')}

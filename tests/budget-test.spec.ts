@@ -25,7 +25,7 @@ async function openAddTransactionModal(page: Page, type: 'expense' | 'income' = 
     await quickBtn.click();
   } else {
     // Fallback: Header add button
-    const addBtn = page.locator('button:has-text("Add"), button:has-text("Hozzáadás")').first();
+    const addBtn = page.locator('button:has-text("Add"), button:has-text("HozzĂˇadĂˇs")').first();
     await addBtn.click();
   }
   await page.waitForTimeout(1000);
@@ -77,7 +77,7 @@ async function submitForm(page: Page) {
   await page.waitForTimeout(300);
 
   // Click save/submit button (MENTES/SAVE)
-  const saveBtn = modal.locator('button:has-text("SAVE"), button:has-text("MENTES"), button:has-text("MENTÉS")').first();
+  const saveBtn = modal.locator('button:has-text("SAVE"), button:has-text("MENTES"), button:has-text("MENTĂ‰S")').first();
   if (await saveBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
     await saveBtn.click({ force: true });
   }
@@ -203,7 +203,7 @@ test.describe('Budget - Update Transaction Test', () => {
         await screenshot(page, '10-form-updated');
 
         // Click UPDATE TRANSACTION button
-        const updateBtn = page.locator('button:has-text("UPDATE TRANSACTION"), button:has-text("MODOSITAS"), button:has-text("MÓDOSÍTÁS")').first();
+        const updateBtn = page.locator('button:has-text("UPDATE TRANSACTION"), button:has-text("MODOSITAS"), button:has-text("MĂ“DOSĂŤTĂS")').first();
         await updateBtn.click({ force: true });
         await page.waitForTimeout(1500);
         await screenshot(page, '11-after-update');
@@ -231,5 +231,56 @@ test.describe('Budget - Update Transaction Test', () => {
       await screenshot(page, '08b-tx-not-found');
       expect(txFound).toBeTruthy();
     }
+  });
+});
+
+
+// ======================================================================
+// TEST 3: Forecast/backtest visibility + bulk delete flow
+// ======================================================================
+test.describe('Budget - Forecast & Bulk Delete Test', () => {
+  test('should render forecast cards and allow deleting all visible transactions', async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+
+    await goToBudget(page);
+
+    await expect(page.locator('text=Backtest (Realized)').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=Forecast').first()).toBeVisible({ timeout: 10000 });
+
+    await openAddTransactionModal(page, 'expense');
+    await fillTransactionForm(page, {
+      description: 'BulkDelete One',
+      amount: '12345',
+      date: '2025-03-01',
+      type: 'expense',
+    });
+    await submitForm(page);
+
+    await openAddTransactionModal(page, 'income');
+    await fillTransactionForm(page, {
+      description: 'BulkDelete Two',
+      amount: '54321',
+      date: '2025-03-02',
+      type: 'income',
+    });
+    await submitForm(page);
+
+    const transactionsTab = page.locator('button:has-text("Transactions")').first();
+    await transactionsTab.click();
+    await page.waitForTimeout(1200);
+
+    await expect(page.locator('text=BulkDelete One').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=BulkDelete Two').first()).toBeVisible({ timeout: 5000 });
+
+    page.once('dialog', dialog => dialog.accept());
+    const deleteAllBtn = page.locator('button:has-text("Delete All")').first();
+    await expect(deleteAllBtn).toBeVisible({ timeout: 5000 });
+    await deleteAllBtn.click();
+    await page.waitForTimeout(1500);
+
+    const txOneVisible = await page.locator('text=BulkDelete One').first().isVisible().catch(() => false);
+    const txTwoVisible = await page.locator('text=BulkDelete Two').first().isVisible().catch(() => false);
+
+    expect(txOneVisible || txTwoVisible).toBeFalsy();
   });
 });

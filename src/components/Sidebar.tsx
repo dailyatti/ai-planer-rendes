@@ -6,7 +6,7 @@ import {
   X, Globe, Zap, ExternalLink, Heart
 } from 'lucide-react';
 import { ViewType } from '../types/planner';
-import { useLanguage, Language, LANGUAGE_NAMES } from '../contexts/LanguageContext';
+import { useLanguage, Language, LANGUAGE_FLAGS, LANGUAGE_NAMES } from '../contexts/LanguageContext';
 
 interface SidebarProps {
   activeView: ViewType;
@@ -17,15 +17,6 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onClose }) => {
   const { t, language, setLanguage } = useLanguage();
-
-  // Language flag/code mapping
-  const languageFlags: Record<Language, string> = {
-    en: '🇺🇸', hu: '🇭🇺', ro: '🇷🇴', sk: '🇸🇰', hr: '🇭🇷',
-    de: '🇩🇪', fr: '🇫🇷', es: '🇪🇸', it: '🇮🇹', pl: '🇵🇱',
-    cn: '🇨🇳', jp: '🇯🇵', pt: '🇵🇹', tr: '🇹🇷', ar: '🇸🇦',
-    ru: '🇷🇺', hi: '🇮🇳', bn: '🇧🇩', ur: '🇵🇰', th: '🇹🇭',
-    id: '🇮🇩', ko: '🇰🇷'
-  };
 
   const menuItems = [
     { id: 'daily' as ViewType, label: t('nav.dailyPlanning'), icon: Calendar, color: 'from-green-500 to-emerald-500' },
@@ -206,7 +197,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, isOpen, onC
             >
               {(Object.entries(LANGUAGE_NAMES) as [Language, string][]).map(([code, name]) => (
                 <option key={code} value={code}>
-                  {languageFlags[code]} {name}
+                  {LANGUAGE_FLAGS[code]} {name}
                 </option>
               ))}
             </select>

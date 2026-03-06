@@ -218,7 +218,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const savedTransactions = StorageService.get<Transaction[]>('transactions', []);
         if (savedTransactions) {
-          setTransactions(savedTransactions.map(t => {
+          const normalized = savedTransactions.map(t => {
             const date = normalizeDate((t as any).date);
             return {
               ...t,
@@ -226,7 +226,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
               // Consistency Fix: Ensure all recurring transactions have kind='master'
               kind: (t.recurring && t.period !== 'oneTime' && !t.kind) ? 'master' : t.kind
             } as Transaction;
-          }));
+          });
+
+          // Defensive dedupe: keep first transaction per ID to prevent duplicated rendering/history.
+          const seen = new Set<string>();
+          const deduped = normalized.filter(tx => {
+            if (!tx?.id || seen.has(tx.id)) return false;
+            seen.add(tx.id);
+            return true;
+          });
+
+          setTransactions(deduped);
         }
 
         const savedInvoices = StorageService.get<Invoice[]>('invoices', []);

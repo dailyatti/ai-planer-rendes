@@ -38,6 +38,31 @@ export const LANGUAGE_NAMES: LanguageName = {
   ko: '한국어',
 };
 
+export const LANGUAGE_FLAGS: Record<Language, string> = {
+  en: '🇺🇸',
+  hu: '🇭🇺',
+  ro: '🇷🇴',
+  sk: '🇸🇰',
+  hr: '🇭🇷',
+  de: '🇩🇪',
+  fr: '🇫🇷',
+  es: '🇪🇸',
+  it: '🇮🇹',
+  pl: '🇵🇱',
+  cn: '🇨🇳',
+  jp: '🇯🇵',
+  pt: '🇵🇹',
+  tr: '🇹🇷',
+  ar: '🇸🇦',
+  ru: '🇷🇺',
+  hi: '🇮🇳',
+  bn: '🇧🇩',
+  ur: '🇵🇰',
+  th: '🇹🇭',
+  id: '🇮🇩',
+  ko: '🇰🇷',
+};
+
 interface Translations {
   [key: string]: Partial<{
     [key in Language]: string;
@@ -333,6 +358,8 @@ const translations: Translations = {
   'invoicing.markAsPaid': { en: 'Mark as Paid', ko: 'Mark as Paid', hu: 'Kifizetve jelölés', ro: 'Marchează ca Plătit', sk: 'Označiť ako Zaplatené', hr: 'Označi kao Plaćeno', de: 'Als bezahlt markieren', fr: 'Marquer comme Payé', es: 'Marcar como Pagado', it: 'Segna come Pagato', pl: 'Oznacz jako Opłacone', cn: '标记为已付款', jp: '支払済みとしてマーク', pt: 'Marcar como Pago', tr: 'Ödendi olarak işaretle', ar: 'تحديد كمدفوع', ru: 'Отметить как оплаченный', hi: 'भुगतान के रूप में चिह्नित करें', bn: 'প্রদত্ত হিসাবে চিহ্নিত করুন', ur: 'ادا شدہ کے طور پر نشان زد کریں', th: 'ทำเครื่องหมายว่าจ่ายแล้ว', id: 'Tandai sebagai Dibayar' },
   'invoicing.markAsSent': { en: 'Mark as Sent', ko: 'Mark as Sent', hu: 'Elküldve jelölés', ro: 'Marchează ca Trimis', sk: 'Označiť ako Odoslané', hr: 'Označi kao Poslano', de: 'Als gesendet markieren', fr: 'Marquer comme Envoyé', es: 'Marcar como Enviado', it: 'Segna come Inviato', pl: 'Oznacz jako Wysłane', cn: '标记为已发送', jp: '送信済みとしてマーク', pt: 'Marcar como Enviado', tr: 'Gönderildi olarak işaretle', ar: 'تحديد كمرسل', ru: 'Отметить как отправленный', hi: 'भेजा गया के रूप में चिह्नित करें', bn: 'প্রেরিত হিসাবে চিহ্নিত করুন', ur: 'بھیجا گیا کے طور پر نشان زد کریں', th: 'ทำเครื่องหมายว่าส่งแล้ว', id: 'Tandai sebagai Terkirim' },
   'invoicing.revenueForcast': { en: 'Revenue Forecast', ko: 'Revenue Forecast', hu: 'Bevétel Előrejelzés', ro: 'Prognoza Veniturilor', sk: 'Prognóza Príjmov', hr: 'Prognoza Prihoda', de: 'Umsatzprognose', fr: 'Prévision de Revenus', es: 'Pronóstico de Ingresos', it: 'Previsione Ricavi', pl: 'Prognoza Przychodów', cn: '收入预测', jp: '収益予測', pt: 'Previsão de Receita', tr: 'Gelir Tahmini', ar: 'توقعات الإيرادات', ru: 'Прогноз Выручки', hi: 'राजस्व पूर्वानुमान', bn: 'রাজস্ব পূর্বাভাস', ur: 'آمدنی کی پیش گوئی', th: 'การคาดการณ์รายได้', id: 'Perkiraan Pendapatan' },
+  // Keep both keys for backward compatibility with existing view usage.
+  'invoicing.revenueForecast': { en: 'Revenue Forecast', ko: 'Revenue Forecast', hu: 'Bevétel Előrejelzés', ro: 'Prognoza Veniturilor', sk: 'Prognóza Príjmov', hr: 'Prognoza Prihoda', de: 'Umsatzprognose', fr: 'Prévision de Revenus', es: 'Pronóstico de Ingresos', it: 'Previsione Ricavi', pl: 'Prognoza Przychodów', cn: '收入预测', jp: '収益予測', pt: 'Previsão de Receita', tr: 'Gelir Tahmini', ar: 'توقعات الإيرادات', ru: 'Прогноз Выручки', hi: 'राजस्व पूर्वानुमान', bn: 'রাজস্ব পূর্বাভাস', ur: 'آمدنی کی پیش گوئی', th: 'การคาดการณ์รายได้', id: 'Perkiraan Pendapatan' },
   'invoicing.deleteSelected': { en: 'Delete Selected', ko: 'Delete Selected', hu: 'Kijelöltek törlése', ro: 'Șterge Selecția', sk: 'Vymazať Vybrané', hr: 'Izbriši Odabrano', de: 'Ausgewählte löschen', fr: 'Supprimer la sélection', es: 'Eliminar seleccionados', it: 'Elimina selezionati', pl: 'Usuń zaznaczone', cn: '删除选中', jp: '選択を削除', pt: 'Excluir selecionados', tr: 'Seçilenleri sil', ar: 'حذف المحدد', ru: 'Удалить выбранные', hi: 'चयनित हटाएं', bn: 'নির্বাচিত মুছুন', ur: 'منتخب حذف کریں', th: 'ลบที่เลือก', id: 'Hapus yang Dipilih' },
   'invoicing.confirmBulkDelete': { en: 'Are you sure you want to delete the selected invoices?', ko: 'Are you sure you want to delete the selected invoices?', hu: 'Biztosan törölni szeretnéd a kijelölt számlákat?', ro: 'Sigur doriți să ștergeți facturile selectate?', sk: 'Naozaj chcete vymazať vybrané faktúry?', hr: 'Jeste li sigurni da želite izbrisati odabrane račune?', de: 'Sind Sie sicher, dass Sie die ausgewählten Rechnungen löschen möchten?', fr: 'Voulez-vous vraiment supprimer les factures sélectionnées?', es: '¿Está seguro de que desea eliminar las facturas seleccionadas?', it: 'Sei sicuro di voler eliminare le fatture selezionate?', pl: 'Czy na pewno chcesz usunąć wybrane faktury?', cn: '确定要删除选中的发票吗？', jp: '選択した請求書を削除してもよろしいですか？', pt: 'Tem certeza de que deseja excluir as faturas selecionadas?', tr: 'Seçilen faturaları silmek istediğinize emin misiniz?', ar: 'هل أنت متأكد أنك تريد حذف الفواتير المحددة؟', ru: 'Вы уверены, что хотите удалить выбранные счета?', hi: 'क्या आप वाकई चयनित चालान हटाना चाहते हैं?', bn: 'আপনি কি নিশ্চিত যে আপনি নির্বাচিত ইনভয়েসগুলি মুছতে চান?', ur: 'کیا آپ واقعی منتخب انوائسز کو حذف کرنا چاہتے ہیں؟', th: 'คุณแน่ใจหรือไม่ว่าต้องการลบใบแจ้งหนี้ที่เลือก?', id: 'Apakah Anda yakin ingin menghapus faktur yang dipilih?' },
 

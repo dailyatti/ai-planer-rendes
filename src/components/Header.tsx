@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Menu, Moon, Sun, Calendar, Download, Settings, Sparkles, Globe, ChevronDown } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
-import { useLanguage, Language, LANGUAGE_NAMES } from '../contexts/LanguageContext';
+import { useLanguage, LANGUAGE_FLAGS, LANGUAGE_NAMES } from '../contexts/LanguageContext';
 import ImportExportModal from './common/ImportExportModal';
 
 import { ViewType } from '../types/planner';
@@ -30,15 +30,6 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen, onSettingsCli
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  // Language flag/code mapping
-  const languageFlags: Record<Language, string> = {
-    en: '🇺🇸', hu: '🇭🇺', ro: '🇷🇴', sk: '🇸🇰', hr: '🇭🇷',
-    de: '🇩🇪', fr: '🇫🇷', es: '🇪🇸', it: '🇮🇹', pl: '🇵🇱',
-    cn: '🇨🇳', jp: '🇯🇵', pt: '🇵🇹', tr: '🇹🇷', ar: '🇸🇦',
-    ru: '🇷🇺', hi: '🇮🇳', bn: '🇧🇩', ur: '🇵🇰', th: '🇹🇭',
-    id: '🇮🇩', ko: '🇰🇷'
-  };
 
   const getHeaderInfo = () => {
     switch (activeView) {
@@ -155,7 +146,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen, onSettingsCli
                     title={t('settings.language')}
                     aria-label="Change language"
                   >
-                    <span className="text-lg">{languageFlags[language]}</span>
+                    <span className="text-lg">{LANGUAGE_FLAGS[language]}</span>
                     <ChevronDown size={12} className={`transition-transform duration-200 ${showLangDropdown ? 'rotate-180' : ''}`} />
                   </button>
 
@@ -171,7 +162,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarOpen, onSettingsCli
                           className={`w-full px-4 py-2 text-left text-sm flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors
                             ${language === code ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 font-medium' : 'text-gray-700 dark:text-gray-300'}`}
                         >
-                          <span className="text-lg">{languageFlags[code]}</span>
+                          <span className="text-lg">{LANGUAGE_FLAGS[code]}</span>
                           <span>{name}</span>
                           {language === code && <Globe size={14} className="ml-auto text-primary-500" />}
                         </button>

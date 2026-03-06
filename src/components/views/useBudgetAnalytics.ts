@@ -20,8 +20,6 @@ export const useBudgetAnalytics = (
 
     // --- BASIC HELPERS ---
 
-    // --- BASIC HELPERS ---
-
     const toDateSafe = (d: Date | string | number): Date | null => {
         if (d instanceof Date) return Number.isNaN(d.getTime()) ? null : d;
         // Parse YMD strings as local time (noon) to avoid UTC drift
@@ -46,15 +44,13 @@ export const useBudgetAnalytics = (
         tr.recurring === true &&
         tr.period !== 'oneTime'
     );
+
 
-    // ... existing helpers ...
-
-    // Derived Key Metrics (re-inserting to ensure scope availability if needed, but primarily for the return object update below)
-    // Note: This replacement chunk spans widely to update the TOP zero-guard return. The bottom calculation needs to be updated too.
-
+    const getEffectiveDate = useCallback((tr: Transaction) => toDateSafe(tr.effectiveDateYMD ?? tr.date), []);
+    const isPending = useCallback((tr: Transaction) => tr.status === 'pending', []);
 
     const isFuture = (tr: Transaction, now: Date) => {
-        const dt = toDateSafe((tr as any).effectiveDateYMD || tr.date);
+        const dt = getEffectiveDate(tr);
         if (!dt) return false;
         return dt.getTime() > now.getTime();
     };
@@ -151,7 +147,7 @@ export const useBudgetAnalytics = (
             }
             default: return 1;
         }
-    }, []); // Removed dependency on toDateSafe etc as they are defined inside/outside but not refs. Wait, addMonthsWithAnchor is const.
+    }, []);
 
     const absToView = useCallback((amount: number, fromCurrency: string) => {
         const abs = Math.abs(amount);
@@ -182,7 +178,7 @@ export const useBudgetAnalytics = (
                     // Masters never contribute to current cash balance (only history items do)
                 } else {
                     // Prefer effectiveDateYMD (drift-proof) over date
-                    const trDate = toDateSafe((tr as any).effectiveDateYMD || tr.date);
+                    const trDate = getEffectiveDate(tr);
                     if (!trDate) return;
 
                     if (isProjectionMode) {
@@ -191,8 +187,8 @@ export const useBudgetAnalytics = (
                             total += baseAmount;
                         }
                     } else {
-                        // Cash balance: Include all history items in the past
-                        if (trDate.getTime() <= now.getTime()) {
+                        // Cash balance: Include only realized (non-pending) history items in the past
+                        if (!isPending(tr) && trDate.getTime() <= now.getTime()) {
                             total += baseAmount;
                         }
                     }
@@ -200,7 +196,7 @@ export const useBudgetAnalytics = (
             });
             return total;
         },
-        [absToView, projectionYears, calculateOccurrences]
+        [absToView, projectionYears, calculateOccurrences, getEffectiveDate, isPending]
     );
 
     const activeTransactions = useMemo(
@@ -229,17 +225,23 @@ export const useBudgetAnalytics = (
     const categoryTotals = useMemo(() => {
         const result: Record<string, number> = {};
         if (activeTransactions.length === 0) return result;
+        const now = endOfToday();
 
         activeTransactions
             .filter(tr => tr.type === 'expense' && !isMaster(tr))
             .forEach(tr => {
+                const dt = getEffectiveDate(tr);
+                if (!dt) return;
+                if (isPending(tr)) return;
+                if (dt.getTime() > now.getTime()) return;
+
                 const amount = Math.abs(tr.amount);
                 const trCurrency = ensureCurrency(tr.currency);
                 const converted = safeConvert(amount, trCurrency, currency);
                 result[tr.category] = (result[tr.category] || 0) + converted;
             });
         return result;
-    }, [activeTransactions, currency, safeConvert]);
+    }, [activeTransactions, currency, safeConvert, getEffectiveDate, isPending]);
 
     // PURE: Returns month/year indices, not translated names
     // Now includes BOTH history items AND master transaction occurrences for each month
@@ -264,8 +266,8 @@ export const useBudgetAnalytics = (
         activeTransactions.forEach(tr => {
             const amt = absToView(tr.amount, ensureCurrency(tr.currency));
             if (!isMaster(tr)) {
-                const dt = toDateSafe((tr as any).effectiveDateYMD || tr.date);
-                if (dt && dt.getTime() < sixMonthsAgo.getTime()) {
+                const dt = getEffectiveDate(tr);
+                if (dt && !isPending(tr) && dt.getTime() < sixMonthsAgo.getTime()) {
                     if (tr.type === 'income') currentBalance += amt; else currentBalance -= amt;
                 }
             }
@@ -294,8 +296,11 @@ export const useBudgetAnalytics = (
                     if (tr.type === 'income') inc += (amt * hits); else exp += (amt * hits);
                 } else {
                     // For history/standalone items, check if date falls in this month
-                    const dt = toDateSafe((tr as any).effectiveDateYMD || tr.date);
+                    const dt = getEffectiveDate(tr);
                     if (dt && dt.getMonth() === m && dt.getFullYear() === y) {
+                        // Pending entries only influence future cash-flow, not realized history.
+                        const includePending = dt.getTime() > now.getTime();
+                        if (isPending(tr) && !includePending) return;
                         if (tr.type === 'income') inc += amt; else exp += amt;
                     }
                 }
@@ -307,7 +312,7 @@ export const useBudgetAnalytics = (
             monthsData.push({ monthIndex: m, year: y, income: inc, expense: exp, balance: currentBalance });
         }
         return monthsData;
-    }, [activeTransactions, absToView, calculateOccurrences]);
+    }, [activeTransactions, absToView, calculateOccurrences, getEffectiveDate, isPending]);
 
     // PURE: Returns year/month indices for labeling in the UI
     const projectionData = useMemo(() => {
@@ -342,7 +347,7 @@ export const useBudgetAnalytics = (
                     const hits = calculateOccurrences(tr, start, end);
                     if (tr.type === 'income') inc += (amt * hits); else exp += (amt * hits);
                 } else {
-                    const dt = toDateSafe((tr as any).effectiveDateYMD || tr.date);
+                    const dt = getEffectiveDate(tr);
                     if (dt && dt >= start && dt <= end) {
                         if (tr.type === 'income') inc += amt; else exp += amt;
                     }
@@ -353,7 +358,7 @@ export const useBudgetAnalytics = (
             projData.push({ year, monthIndex, balance: cumulativeBalance, income: inc, expense: exp });
         }
         return projData;
-    }, [activeTransactions, absToView, balance, projectionYears, calculateOccurrences]);
+    }, [activeTransactions, absToView, balance, projectionYears, calculateOccurrences, getEffectiveDate]);
 
     const averageMonthlyExpense = useMemo(() => {
         if (!cashFlowData || cashFlowData.length === 0) return 0;
@@ -394,3 +399,6 @@ export const useBudgetAnalytics = (
         ensureCurrency,
     };
 };
+
+
+

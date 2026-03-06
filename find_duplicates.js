@@ -1,4 +1,4 @@
-const fs = require('fs');
+import fs from 'node:fs';
 const content = fs.readFileSync('src/contexts/LanguageContext.tsx', 'utf8');
 const lines = content.split('\n');
 const keyMap = new Map();
