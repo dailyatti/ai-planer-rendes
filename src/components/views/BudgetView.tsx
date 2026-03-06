@@ -881,6 +881,8 @@ const useEnhancedBudgetEngine = () => {
     const realizedTransactions = activeTransactions.filter(tx => {
       const dt = parseYMD(tx.effectiveDateYMD)?.getTime();
       if (dt == null) return false;
+      // Recurring masters are templates/placeholders, not realized cash events.
+      if (tx.kind === "master") return false;
       return dt <= today && tx.status !== "pending";
     });
 
@@ -1732,6 +1734,17 @@ const EnhancedBudgetView: React.FC = () => {
     [notifications]
   );
 
+  const analyticsCategoryRadarData = useMemo(() => {
+    return Object.entries(analytics.categoryBreakdown)
+      .filter(([, value]) => value.total > 0)
+      .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 6)
+      .map(([key, value]) => ({
+        subject: engine.categories[key as CategoryKey]?.label || key,
+        value: value.total,
+      }));
+  }, [analytics.categoryBreakdown, engine.categories]);
+
   // Quick actions
   // Quick Action Handlers
   const [presetType, setPresetType] = useState<TransactionType>("expense");
@@ -2389,15 +2402,23 @@ const EnhancedBudgetView: React.FC = () => {
 
                 <EnhancedChartFrame title={t('charts.categoryBreakdown')} height={400}>
                   {({ width, height }) => (
-                    <ResponsiveContainer width={width} height={height}>
-                      <RadarChart data={Object.entries(analytics.categoryBreakdown).slice(0, 6).map(([k, v]) => ({ subject: engine.categories[k as CategoryKey]?.label || k, A: v.total, fullMark: 100 }))}>
-                        <PolarGrid stroke="rgba(var(--border-primary), 0.3)" />
-                        <PolarAngleAxis dataKey="subject" tick={{ fill: 'rgb(var(--text-secondary))', fontSize: 12 }} />
-                        <PolarRadiusAxis angle={30} stroke="rgba(var(--border-primary), 0.3)" />
-                        <Radar name="Expenses" dataKey="A" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
-                        <RechartsTooltip />
-                      </RadarChart>
-                    </ResponsiveContainer>
+                    analyticsCategoryRadarData.length > 0 ? (
+                      <ResponsiveContainer width={width} height={height}>
+                        <RadarChart data={analyticsCategoryRadarData}>
+                          <PolarGrid stroke="rgba(var(--border-primary), 0.3)" />
+                          <PolarAngleAxis dataKey="subject" tick={{ fill: 'rgb(var(--text-secondary))', fontSize: 12 }} />
+                          <PolarRadiusAxis tick={false} axisLine={false} />
+                          <Radar name={t('stats.expenses') || "Expenses"} dataKey="value" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
+                          <RechartsTooltip content={<CustomTooltip currency={currency} language={language} />} />
+                        </RadarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <p className="text-[rgb(var(--text-tertiary))] text-sm font-medium">
+                          {t('common.noData') || "No data available"}
+                        </p>
+                      </div>
+                    )
                   )}
                 </EnhancedChartFrame>
               </div>
