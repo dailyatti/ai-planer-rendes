@@ -86,6 +86,7 @@ export type BudgetTransaction = {
   id: string;
   createdAtISO: string;
   effectiveDateYMD: string;
+  originId?: string;
   description: string;
   type: TransactionType;
   amount: number;
@@ -105,6 +106,8 @@ export type BudgetTransaction = {
   date: Date | string;
   kind?: 'master' | 'history';
   recurring?: boolean;
+  occurrenceCount?: number;
+  sourceIds?: string[];
 };
 
 type TransactionPatch = PlannerTransactionPatch;
@@ -680,6 +683,7 @@ const useEnhancedBudgetEngine = () => {
       const effectiveDateYMD = safeYMD(tx.effectiveDateYMD ?? tx.date);
       return {
         id: String(tx.id ?? tmpId()),
+        originId: typeof tx.originId === "string" ? tx.originId : undefined,
         createdAtISO: String(tx.createdAtISO ?? new Date().toISOString()),
         effectiveDateYMD,
         description: String(tx.description ?? ""),
@@ -724,6 +728,80 @@ const useEnhancedBudgetEngine = () => {
       return dt <= today && tx.status !== "pending";
     });
   }, [activeTransactions, balanceMode, todayYMD]);
+
+  const displayTransactions = useMemo(() => {
+    const mastersById = new Map(
+      activeTransactions
+        .filter(tx => tx.kind === "master")
+        .map(tx => [tx.id, tx] as const)
+    );
+
+    const toMillis = (tx: BudgetTransaction) => {
+      const d = parseYMD(tx.effectiveDateYMD) ?? new Date(0);
+      if (tx.time && /^\d{2}:\d{2}$/.test(tx.time)) {
+        const [hh, mm] = tx.time.split(':').map(Number);
+        d.setHours(hh, mm, 0, 0);
+      } else {
+        d.setHours(0, 0, 0, 0);
+      }
+      return d.getTime();
+    };
+
+    const groups = new Map<string, BudgetTransaction[]>();
+    for (const tx of visibleTransactions) {
+      // Recurring masters are placeholders for next due occurrence; they must not inflate realized totals/counts.
+      if (tx.kind === "master" && tx.recurring && tx.period !== "oneTime") {
+        continue;
+      }
+      const groupKey = tx.kind === "history" && tx.originId ? tx.originId : tx.id;
+      const arr = groups.get(groupKey) ?? [];
+      arr.push(tx);
+      groups.set(groupKey, arr);
+    }
+
+    if (balanceMode === "includeScheduled") {
+      for (const [masterId, master] of mastersById) {
+        if (!groups.has(masterId)) {
+          groups.set(masterId, [master]);
+        }
+      }
+    }
+
+    const aggregated: BudgetTransaction[] = [];
+    for (const [seriesId, items] of groups) {
+      const master = mastersById.get(seriesId);
+      const sortedItems = [...items].sort((a, b) => toMillis(b) - toMillis(a));
+      const latest = sortedItems[0];
+
+      const isRecurringSeries = Boolean(master) || (items.length > 1 && items.some(item => item.originId === seriesId));
+      if (!isRecurringSeries) {
+        aggregated.push({
+          ...latest,
+          occurrenceCount: 1,
+          sourceIds: [latest.id],
+        });
+        continue;
+      }
+
+      const totalAbs = items.reduce((sum, item) => sum + Math.abs(item.amount), 0);
+      const sourceIds = new Set<string>(items.map(item => item.id));
+      if (master) sourceIds.add(master.id);
+
+      aggregated.push({
+        ...(master || latest),
+        id: master?.id || seriesId,
+        effectiveDateYMD: latest.effectiveDateYMD,
+        time: latest.time,
+        amount: latest.type === "income" ? totalAbs : -totalAbs,
+        occurrenceCount: items.length,
+        sourceIds: Array.from(sourceIds),
+        kind: "master",
+        recurring: true,
+      });
+    }
+
+    return aggregated.sort((a, b) => toMillis(b) - toMillis(a));
+  }, [activeTransactions, balanceMode, visibleTransactions]);
 
   // Today's date removed from here (moved up)
 
@@ -916,7 +994,7 @@ const useEnhancedBudgetEngine = () => {
           return { change: `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`, trend: pct >= 0 ? 'up' as const : 'down' as const };
         })()
       },
-      topTransactions: [...visibleTransactions]
+      topTransactions: [...displayTransactions]
         .sort((a, b) => {
           const dateA = a.effectiveDateYMD ? parseYMD(a.effectiveDateYMD) : new Date(0);
           const dateB = b.effectiveDateYMD ? parseYMD(b.effectiveDateYMD) : new Date(0);
@@ -924,10 +1002,10 @@ const useEnhancedBudgetEngine = () => {
         }),
       totalSavings: totalIncome - totalExpense,
       savingsRate: totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0,
-      avgTransactionValue: visibleTransactions.length > 0 ? (totalIncome + totalExpense) / visibleTransactions.length : 0,
-      transactionCount: visibleTransactions.length
+      avgTransactionValue: displayTransactions.length > 0 ? (totalIncome + totalExpense) / displayTransactions.length : 0,
+      transactionCount: displayTransactions.length
     };
-  }, [categoryTotals, totalIncome, totalExpense, categories, visibleTransactions, cashFlowData, cashFlowProjection]);
+  }, [categoryTotals, totalIncome, totalExpense, categories, displayTransactions, cashFlowData, cashFlowProjection]);
 
   // Export functionality
   const exportData = useCallback((format: 'json' | 'csv' | 'pdf') => {
@@ -1178,7 +1256,7 @@ const useEnhancedBudgetEngine = () => {
     // Data
     transactions: uiTransactions, // Expose normalized transactions as secondary source if needed, but prefer uiTransactions
     uiTransactions,            // <--- NEW: Normalized Safe Transactions
-    visibleTransactions,       // <--- NEW: Filtered by balance mode
+    visibleTransactions: displayTransactions,       // Aggregated recurring rows for UI
     categories,
     todayYMD,
 
@@ -1728,7 +1806,12 @@ const EnhancedBudgetView: React.FC = () => {
 
     if (!window.confirm(message)) return;
 
-    deleteTransactions(filteredTransactions.map(tx => tx.id));
+    const ids = Array.from(new Set(
+      filteredTransactions.flatMap(tx =>
+        tx.sourceIds && tx.sourceIds.length > 0 ? tx.sourceIds : [tx.id]
+      )
+    ));
+    deleteTransactions(ids);
   }, [deleteTransactions, filteredTransactions, resolveText]);
 
   return (
@@ -2121,7 +2204,8 @@ const EnhancedBudgetView: React.FC = () => {
                           key={tx.id}
                           className="flex items-center justify-between p-3 rounded-[var(--radius-xl)] border border-[rgb(var(--border-primary))] hover:border-[rgb(var(--border-secondary))] hover:bg-[rgb(var(--surface-elevated))] transition-all cursor-pointer"
                           onClick={() => {
-                            setEditingTransaction(tx);
+                            const editable = engine.transactions.find(candidate => candidate.id === tx.id) || tx;
+                            setEditingTransaction(editable);
                             setShowTransactionModal(true);
                           }}
                         >
@@ -2136,7 +2220,14 @@ const EnhancedBudgetView: React.FC = () => {
                               }
                             </div>
                             <div>
-                              <p className="font-bold text-[rgb(var(--text-primary))]">{tx.description}</p>
+                              <p className="font-bold text-[rgb(var(--text-primary))]">
+                                {tx.description}
+                                {(tx.occurrenceCount || 1) > 1 && (
+                                  <span className="ml-2 text-xs font-semibold text-[rgb(var(--text-tertiary))]">
+                                    ({tx.occurrenceCount})
+                                  </span>
+                                )}
+                              </p>
                               <div className="flex items-center gap-2 mt-1">
                                 <Tag
                                   label={engine.categories[tx.category as CategoryKey]?.label || engine.categories.other.label}
@@ -2201,13 +2292,24 @@ const EnhancedBudgetView: React.FC = () => {
               <div className="space-y-3">
                 {filteredTransactions.map(tx => (
                     <GlassCard key={tx.id} className="hover:border-[rgb(var(--border-secondary))] transition-colors group cursor-pointer">
-                      <div className="p-4 flex items-center justify-between" onClick={() => { setEditingTransaction(tx); setShowTransactionModal(true); }}>
+                      <div className="p-4 flex items-center justify-between" onClick={() => {
+                        const editable = engine.transactions.find(candidate => candidate.id === tx.id) || tx;
+                        setEditingTransaction(editable);
+                        setShowTransactionModal(true);
+                      }}>
                         <div className="flex items-center gap-4">
                           <div className={`p-3 rounded-[var(--radius-xl)] ${tx.type === 'income' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
                             {engine.categories[tx.category as CategoryKey]?.icon || <TagIcon size={20} />}
                           </div>
                           <div>
-                            <h4 className="font-bold text-[rgb(var(--text-primary))] text-lg">{tx.description}</h4>
+                            <h4 className="font-bold text-[rgb(var(--text-primary))] text-lg">
+                              {tx.description}
+                              {(tx.occurrenceCount || 1) > 1 && (
+                                <span className="ml-2 text-xs font-semibold text-[rgb(var(--text-tertiary))]">
+                                  ({tx.occurrenceCount})
+                                </span>
+                              )}
+                            </h4>
                             <div className="flex items-center gap-2 mt-1">
                               <span className={`text-xs font-bold px-2 py-0.5 rounded border bg-[rgb(var(--surface-tertiary))] border-[rgb(var(--border-primary))] text-[rgb(var(--text-secondary))]`}>
                                 {engine.categories[tx.category as CategoryKey]?.label || tx.category}

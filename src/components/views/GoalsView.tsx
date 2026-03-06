@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Target, Edit2, Trash2, Calendar, TrendingUp, CheckCircle, Play, Pause, RotateCcw, Star, AlertTriangle, ArrowUp, ArrowRight, ArrowDown, Gift } from 'lucide-react';
+import { Plus, Target, Edit2, Trash2, Calendar, TrendingUp, CheckCircle, Play, Pause, RotateCcw, ArrowUp, ArrowRight, ArrowDown, Gift } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import { Goal, PriorityLevel } from '../../types/planner';
 import LinkifiedText from '../common/LinkifiedText';
@@ -61,7 +61,7 @@ const GoalsView: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const goalData: any = {
+    const goalData: Omit<Goal, 'id' | 'createdAt'> = {
       title: newGoal.title,
       description: newGoal.description,
       progress: newGoal.progress,
@@ -69,11 +69,8 @@ const GoalsView: React.FC = () => {
       priority: newGoal.priority,
       exchange: newGoal.exchange || undefined,
       order: newGoal.order !== '' ? Number(newGoal.order) : undefined,
+      targetDate: newGoal.targetDate ? new Date(newGoal.targetDate) : undefined,
     };
-
-    if (newGoal.targetDate) {
-      goalData.targetDate = new Date(newGoal.targetDate);
-    }
 
     if (editingId) {
       updateGoal(editingId, goalData);
@@ -360,7 +357,7 @@ const GoalsView: React.FC = () => {
                 </label>
                 <select
                   value={newGoal.status}
-                  onChange={(e) => setNewGoal({ ...newGoal, status: e.target.value as any })}
+                  onChange={(e) => setNewGoal({ ...newGoal, status: e.target.value as Goal['status'] })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500"
                 >
                   <option value="not-started">{t('goals.filterNotStarted')}</option>

@@ -3,11 +3,13 @@ import { Settings, Save, Download, Upload, Palette, Bell, Globe, Shield, Moon, S
 import { useData } from '../../contexts/DataContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useLanguage, Language } from '../../contexts/LanguageContext';
-import { useSettings } from '../../contexts/SettingsContext';
+import { DateFormat, TimeZone, useSettings } from '../../contexts/SettingsContext';
 import { CurrencyService } from '../../services/CurrencyService';
 import { AVAILABLE_CURRENCIES } from '../../constants/currencyData';
 // import { AIService } from '../../services/AIService';
 import { DataTransferService } from '../../services/DataTransferService';
+
+type SettingsSection = 'general' | 'budget' | 'appearance' | 'notifications' | 'data';
 
 const SettingsView: React.FC = () => {
   const { budgetSettings, updateBudgetSettings, clearAllData } = useData();
@@ -15,7 +17,7 @@ const SettingsView: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
   const { settings, updateSettings } = useSettings();
   const [tempSettings, setTempSettings] = useState(budgetSettings);
-  const [activeSection, setActiveSection] = useState<'general' | 'budget' | 'appearance' | 'notifications' | 'data'>('general');
+  const [activeSection, setActiveSection] = useState<SettingsSection>('general');
   const [exchangeRates, setExchangeRates] = useState<Record<string, number>>(CurrencyService.getAllRates());
   const [isFetchingRates, setIsFetchingRates] = useState(false);
   const [rateMessage, setRateMessage] = useState<string | null>(null);
@@ -81,7 +83,7 @@ const SettingsView: React.FC = () => {
                 return (
                   <button
                     key={section.id}
-                    onClick={() => setActiveSection(section.id as any)}
+                    onClick={() => setActiveSection(section.id as SettingsSection)}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200 ${activeSection === section.id
                       ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -131,7 +133,7 @@ const SettingsView: React.FC = () => {
                     <select
                       value={settings.general.timeZone}
                       onChange={(e) => updateSettings({
-                        general: { ...settings.general, timeZone: e.target.value as any }
+                        general: { ...settings.general, timeZone: e.target.value as TimeZone }
                       })}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                     >
@@ -160,7 +162,7 @@ const SettingsView: React.FC = () => {
                         className="mr-2"
                         checked={settings.general.dateFormat === 'MM/DD/YYYY'}
                         onChange={(e) => updateSettings({
-                          general: { ...settings.general, dateFormat: e.target.value as any }
+                          general: { ...settings.general, dateFormat: e.target.value as DateFormat }
                         })}
                       />
                       <span className="text-gray-700 dark:text-gray-300">{t('settings.dateFormatUS')}</span>
@@ -173,7 +175,7 @@ const SettingsView: React.FC = () => {
                         className="mr-2"
                         checked={settings.general.dateFormat === 'DD/MM/YYYY'}
                         onChange={(e) => updateSettings({
-                          general: { ...settings.general, dateFormat: e.target.value as any }
+                          general: { ...settings.general, dateFormat: e.target.value as DateFormat }
                         })}
                       />
                       <span className="text-gray-700 dark:text-gray-300">{t('settings.dateFormatEU')}</span>
@@ -186,7 +188,7 @@ const SettingsView: React.FC = () => {
                         className="mr-2"
                         checked={settings.general.dateFormat === 'YYYY-MM-DD'}
                         onChange={(e) => updateSettings({
-                          general: { ...settings.general, dateFormat: e.target.value as any }
+                          general: { ...settings.general, dateFormat: e.target.value as DateFormat }
                         })}
                       />
                       <span className="text-gray-700 dark:text-gray-300">{t('settings.dateFormatISO')}</span>
@@ -590,7 +592,7 @@ const SettingsView: React.FC = () => {
                               } else {
                                 alert(t('settings.importFailed') || 'Import failed: ' + result.message);
                               }
-                            } catch (err) {
+                            } catch {
                               alert('Invalid JSON file');
                             }
                           };

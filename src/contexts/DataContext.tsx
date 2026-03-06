@@ -6,6 +6,11 @@ import { StorageService } from '../services/StorageService';
 import { FinancialEngine } from '../utils/FinancialEngine';
 import { BUILTIN_TEMPLATES } from '../data/workflowTemplates';
 
+type FinancialStats = {
+  projection: number[];
+  runway: number | null;
+};
+
 interface DataContextType {
   notes: Note[];
   goals: Goal[];
@@ -21,7 +26,7 @@ interface DataContextType {
   workflows: ProjectWorkflow[];
   workflowTemplates: WorkflowTemplate[];
   // Financial helpers
-  financialStats: any;
+  financialStats: FinancialStats | null;
   computeProjection: (months: number) => number[];
   computeRunway: () => number | null;
   getFinancialSummary: (currency: string) => { revenue: number; paid: number; pending: number; overdue: number };
@@ -92,7 +97,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [companyProfiles, setCompanyProfiles] = useState<CompanyProfile[]>([]);
   const [workflows, setWorkflows] = useState<ProjectWorkflow[]>([]);
   const [workflowTemplates, setWorkflowTemplates] = useState<WorkflowTemplate[]>(BUILTIN_TEMPLATES);
-  const [financialStats, setFinancialStats] = useState<any>(null);
+  const [financialStats, setFinancialStats] = useState<FinancialStats | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [recurringTick, setRecurringTick] = useState(0);
   const [skips, setSkips] = useState<Set<string>>(new Set());
@@ -125,10 +130,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isYMD = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
   // Robust date normalizer that respects strict YMD but falls back safely
-  const normalizeDate = (raw: any): Date => {
+  const normalizeDate = (raw: unknown): Date => {
     if (raw instanceof Date) return raw;
     if (typeof raw === 'string') return isYMD(raw) ? parseYMDLocal(raw) : new Date(raw);
-    return new Date(raw);
+    if (typeof raw === 'number') return new Date(raw);
+    return new Date(NaN);
   };
 
   // FIX #4: Guard ref to prevent infinite loops when transactions is in dependency
@@ -142,15 +148,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Bank-Grade ID Generator (avoid substr and collisions)
   const newId = () => {
     const c = globalThis.crypto as Crypto | undefined;
-    if (c && 'randomUUID' in c) return (c as any).randomUUID();
+    if (c?.randomUUID) return c.randomUUID();
     return Math.random().toString(36).slice(2, 11);
   };
 
   // Helper functions within DataProvider context
-  const endOfToday = () => {
-    const d = new Date();
-    d.setHours(23, 59, 59, 999);
-    return d;
+  const nowLocal = () => new Date();
+
+  const withTimeOfDay = (d: Date, time?: string): Date => {
+    const out = new Date(d);
+    if (!time || !/^\d{2}:\d{2}$/.test(time)) return out;
+    const [hh, mm] = time.split(':').map(Number);
+    out.setHours(hh, mm, 0, 0);
+    return out;
   };
 
   // Prevent date drift for monthly (Jan 31 -> Feb 28/29)
@@ -180,7 +190,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return next;
   };
 
-  const isMasterTx = (t: Transaction) => (t as any).kind === 'master';
+  const isMasterTx = (t: Transaction) => t.kind === 'master';
 
   // Load persisted data
   useEffect(() => {
@@ -219,7 +229,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const savedTransactions = StorageService.get<Transaction[]>('transactions', []);
         if (savedTransactions) {
           const normalized = savedTransactions.map(t => {
-            const date = normalizeDate((t as any).date);
+            const date = normalizeDate(t.date);
             return {
               ...t,
               date,
@@ -365,6 +375,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // OPTIMIZATION: Removed 'skips' from dependency, uses 'skipsRef' to prevent double-firing.
   useEffect(() => {
     if (!isInitialized) return;
+    const timer = window.setInterval(() => {
+      triggerRecurring();
+    }, 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [isInitialized]);
+
+  useEffect(() => {
+    if (!isInitialized) return;
     if (processingRecurringRef.current) return;
 
     processingRecurringRef.current = true;
@@ -379,7 +397,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setTransactions(prev => {
         if (!prev || prev.length === 0) return prev;
 
-        const now = endOfToday();
+        const now = nowLocal();
         // quick lookup existing ids to avoid O(n^2)
         const existingIds = new Set(prev.map(t => t.id));
 
@@ -397,7 +415,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (Number.isNaN(trDate.getTime())) return master;
 
           // If master next date is in the future -> nothing to catch up
-          if (trDate.getTime() > now.getTime()) return master;
+          if (withTimeOfDay(trDate, master.time).getTime() > now.getTime()) return master;
 
           // Safety brake depending on period (daily can be many)
           const MAX_CATCHUP =
@@ -411,7 +429,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let iterations = 0;
 
           // Catch-up: create history for each occurrence up to today
-          while (currentDate.getTime() <= now.getTime() && iterations < MAX_CATCHUP) {
+          while (withTimeOfDay(currentDate, master.time).getTime() <= now.getTime() && iterations < MAX_CATCHUP) {
             // FIX: Use LOCAL YMD for history ID to avoid UTC drift duplicity
             const dayKey = toYMDLocal(currentDate);
             const historyId = `${master.id}_${dayKey}`;
@@ -527,13 +545,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTransactions(prev => {
       const id = newId();
 
-      const date = normalizeDate((tx as any).date);
+      const date = normalizeDate(tx.date);
 
-      const isRecurring = (tx as any).recurring && (tx as any).period !== 'oneTime';
+      const isRecurring = Boolean(tx.recurring) && tx.period !== 'oneTime';
       // Keep kind/recurring/period consistent to avoid phantom master states.
       const kind = isRecurring
         ? ('master' as const)
-        : ((tx as any).kind === 'master' ? ('history' as const) : (tx as any).kind);
+        : (tx.kind === 'master' ? ('history' as const) : tx.kind);
 
       if (isRecurring) shouldTrigger = true;
       return [...prev, { ...tx, id, kind, date } as Transaction];
@@ -553,30 +571,30 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Normalize date on update if provided
         if ('date' in updates) {
-          const raw: any = (updates as any).date;
+          const raw = updates.date;
           if (raw) {
-            (merged as any).date = normalizeDate(raw);
+            merged.date = normalizeDate(raw);
           }
         }
 
         // 1. Handle 'kind' deletion
         if ('kind' in updates && (updates.kind === null || updates.kind === undefined)) {
-          delete (merged as any).kind;
+          delete merged.kind;
         } else if (wasMaster && updates.kind === undefined) {
-          (merged as any).kind = 'master';
+          merged.kind = 'master';
         }
 
         // 2. Handle 'interestRate' deletion
         if ('interestRate' in updates && (updates.interestRate === null || updates.interestRate === undefined)) {
-          delete (merged as any).interestRate; // Cleanly remove empty rates
+          delete merged.interestRate; // Cleanly remove empty rates
         }
 
         // 3. Canonicalize recurring-kind relation
-        const shouldBeMaster = Boolean((merged as any).recurring) && (merged as any).period !== 'oneTime';
+        const shouldBeMaster = Boolean(merged.recurring) && merged.period !== 'oneTime';
         if (shouldBeMaster) {
-          (merged as any).kind = 'master';
-        } else if ((merged as any).kind === 'master') {
-          (merged as any).kind = 'history';
+          merged.kind = 'master';
+        } else if (merged.kind === 'master') {
+          merged.kind = 'history';
         }
 
         // trigger only if it impacts recurring logic
@@ -607,11 +625,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (isMasterTx(target)) {
         pendingDeletionsRef.current.trigger = true;
         // delete master + all history generated from it
-        return prev.filter(t => t.id !== id && (t as any).originId !== id);
+        return prev.filter(t => t.id !== id && t.originId !== id);
       }
 
       // If deleting a history item, queue it for skipping
-      if ((target as any).kind === 'history') {
+      if (target.kind === 'history') {
         pendingDeletionsRef.current.skips.add(target.id);
       }
 
@@ -638,7 +656,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Identify history items being deleted
-      const historyItems = prev.filter(t => t && idsSet.has(t.id) && (t as any).kind === 'history');
+      const historyItems = prev.filter(t => t && idsSet.has(t.id) && t.kind === 'history');
       if (historyItems.length > 0) {
         historyItems.forEach(h => pendingDeletionsRef.current.skips.add(h.id));
       }
@@ -648,7 +666,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Drop if ID is in list
         if (idsSet.has(t.id)) return false;
         // Drop if it's a child of a deleted master
-        if ((t as any).originId && mastersToDelete.has((t as any).originId)) return false;
+        if (t.originId && mastersToDelete.has(t.originId)) return false;
         return true;
       });
     });

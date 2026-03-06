@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as fabric from 'fabric';
 import {
@@ -10,10 +11,6 @@ import { useLanguage } from '../../contexts/LanguageContext';
 
 // --- Types ---
 type Tool = 'select' | 'pan' | 'pen' | 'marker' | 'rectangle' | 'circle' | 'triangle' | 'line' | 'text' | 'image' | 'eraser';
-
-type ToolbarItem =
-  | { id: Tool; icon: React.ElementType; label: string; action?: () => void; type?: undefined }
-  | { id: string; type: 'separator'; icon?: undefined; label?: undefined; action?: undefined };
 
 // Robust local event interface for Fabric to avoid import errors
 interface FabricEvent {
@@ -61,7 +58,7 @@ const DrawingView: React.FC = () => {
 
   // Grid Paper State
   const [showGrid, setShowGrid] = useState(false);
-  const [gridSize, setGridSize] = useState(30); // 20=small, 30=medium, 40=large
+  const [gridSize] = useState(30); // 20=small, 30=medium, 40=large
 
   // Calculator State
   const [showCalculator, setShowCalculator] = useState(false);
@@ -168,15 +165,17 @@ const DrawingView: React.FC = () => {
         break;
       case 'pen':
       case 'marker':
-        fabricCanvas.isDrawingMode = true;
-        const brush = new fabric.PencilBrush(fabricCanvas);
-        brush.color = state.strokeColor;
-        brush.width = state.tool === 'marker' ? state.strokeWidth * 4 : state.strokeWidth;
-        // Marker opacity simulation
-        if (state.tool === 'marker') {
-          brush.color = new fabric.Color(state.strokeColor).setAlpha(0.5).toRgba();
+        {
+          fabricCanvas.isDrawingMode = true;
+          const brush = new fabric.PencilBrush(fabricCanvas);
+          brush.color = state.strokeColor;
+          brush.width = state.tool === 'marker' ? state.strokeWidth * 4 : state.strokeWidth;
+          // Marker opacity simulation
+          if (state.tool === 'marker') {
+            brush.color = new fabric.Color(state.strokeColor).setAlpha(0.5).toRgba();
+          }
+          fabricCanvas.freeDrawingBrush = brush;
         }
-        fabricCanvas.freeDrawingBrush = brush;
         break;
       case 'eraser':
         fabricCanvas.selection = false; // Disable selection box for drag-erase
@@ -796,7 +795,6 @@ const DrawingView: React.FC = () => {
                         .replace(/×/g, '*')
                         .replace(/÷/g, '/')
                         .replace(/[^0-9+\-*/.() ]/g, '');
-                      // eslint-disable-next-line no-eval
                       const result = String(eval(expr) || 0);
                       setCalcHistory(prev => [...prev.slice(-9), { expr: calcInput, result }]);
                       setCalcInput(result);

@@ -188,7 +188,7 @@ const HourlyView: React.FC = () => {
                 </label>
                 <select
                   value={newPlan.priority}
-                  onChange={(e) => setNewPlan({ ...newPlan, priority: e.target.value as any })}
+                  onChange={(e) => setNewPlan({ ...newPlan, priority: e.target.value as 'low' | 'medium' | 'high' })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="low">{t('hourly.lowPriority')}</option>

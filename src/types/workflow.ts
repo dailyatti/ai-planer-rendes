@@ -40,7 +40,7 @@ export interface WorkflowNode {
     dueDate?: string;              // ISO date string (YMD)
     color?: string;                // Custom node color
     icon?: string;                 // Custom icon name
-    data?: Record<string, any>;    // Extra data for node-specific info
+    data?: Record<string, unknown>;    // Extra data for node-specific info
     width?: number;                // Node width (auto if not set)
     height?: number;               // Node height (auto if not set)
     // Nesting / Grouping fields

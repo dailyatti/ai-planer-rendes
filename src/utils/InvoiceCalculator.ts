@@ -51,7 +51,7 @@ export const InvoiceCalculator = {
                 minimumFractionDigits: fractionDigits,
                 maximumFractionDigits: fractionDigits,
             }).format(value);
-        } catch (error) {
+        } catch {
             // Fallback if currency code is invalid
             return `${value} ${currency}`;
         }

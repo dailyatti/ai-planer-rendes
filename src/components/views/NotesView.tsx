@@ -5,6 +5,37 @@ import { Note, PriorityLevel } from '../../types/planner';
 import LinkifiedText from '../common/LinkifiedText';
 import { useLanguage } from '../../contexts/LanguageContext';
 
+interface SpeechRecognitionResultAlternativeLike {
+  transcript: string;
+}
+
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  0: SpeechRecognitionResultAlternativeLike;
+}
+
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: ArrayLike<SpeechRecognitionResultLike>;
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+type BrowserWindowWithSpeech = Window & typeof globalThis & {
+  SpeechRecognition?: SpeechRecognitionCtor;
+  webkitSpeechRecognition?: SpeechRecognitionCtor;
+};
+
 const NotesView: React.FC = () => {
   const { notes, addNote, updateNote, deleteNote } = useData();
   const { t } = useLanguage();
@@ -24,15 +55,17 @@ const NotesView: React.FC = () => {
   // Dictation state
   const [isRecording, setIsRecording] = useState(false);
   const [dictationSupported, setDictationSupported] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const browserWindow = window as BrowserWindowWithSpeech;
+    const SpeechRecognition = browserWindow.SpeechRecognition || browserWindow.webkitSpeechRecognition;
     setDictationSupported(!!SpeechRecognition);
   }, []);
 
   const startDictation = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const browserWindow = window as BrowserWindowWithSpeech;
+    const SpeechRecognition = browserWindow.SpeechRecognition || browserWindow.webkitSpeechRecognition;
     if (!SpeechRecognition) return;
 
     const recognition = new SpeechRecognition();
@@ -42,7 +75,7 @@ const NotesView: React.FC = () => {
 
     let finalTranscript = '';
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEventLike) => {
       let interimTranscript = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;

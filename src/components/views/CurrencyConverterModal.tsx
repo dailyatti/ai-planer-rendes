@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, ArrowRightLeft, RefreshCw, Calculator } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { CurrencyService } from '../../services/CurrencyService';
 import { AVAILABLE_CURRENCIES } from '../../constants/currencyData';
 
@@ -22,16 +22,16 @@ const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({ isOpen,
     const [rateMessage, setRateMessage] = useState<string | null>(null);
 
     // Recalculate when inputs change
-    useEffect(() => {
-        calculateConversion();
-    }, [amount, fromCurrency, toCurrency, useLiveRates]);
-
-    const calculateConversion = () => {
+    const calculateConversion = useCallback(() => {
         // If using live rates, we rely on the stored rates in CurrencyService (which should be updated)
         // If we want to FORCE live rate fetch, user clicks "Refresh Rates"
         const converted = CurrencyService.convert(amount, fromCurrency, toCurrency);
         setResult(converted);
-    };
+    }, [amount, fromCurrency, toCurrency]);
+
+    useEffect(() => {
+        calculateConversion();
+    }, [amount, fromCurrency, toCurrency, useLiveRates, calculateConversion]);
 
     const handleRefreshRates = async () => {
         if (!useLiveRates) return;

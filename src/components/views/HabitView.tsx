@@ -1,25 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     Plus,
     Flame,
-    TrendingUp,
     Check,
     X,
-    Clock,
     ChevronLeft,
     ChevronRight,
     LayoutList,
     LayoutGrid,
     Search,
-    SlidersHorizontal,
     Archive,
     RotateCcw,
     Pencil,
-    Save,
     Trash2,
-    Calendar as CalendarIcon,
-    Hash,
-    Activity,
     Award,
     Trophy
 } from 'lucide-react';
@@ -70,6 +63,12 @@ type Habit = {
     mastery: number; // 0-100 (manual mastery)
     formed?: boolean; // NEW: 66-day challenge completion
     order?: number;
+};
+
+type RawHabit = Partial<Habit> & {
+    text?: string;
+    goal?: Partial<HabitGoal>;
+    history?: Record<string, Partial<HabitDayLog>>;
 };
 
 const STORAGE_KEY = 'habit-studio-v3-data';
@@ -173,7 +172,8 @@ function getDailyStreak(h: Habit, todayISO: string) {
     return streak;
 }
 
-function normalizeHabit(anyHabit: any): Habit {
+function normalizeHabit(raw: unknown): Habit {
+    const anyHabit = (raw && typeof raw === 'object') ? (raw as RawHabit) : {};
     const goal: HabitGoal = {
         period: (anyHabit?.goal?.period as GoalPeriod) || 'daily',
         target: clamp(Number(anyHabit?.goal?.target ?? 1), 1, 9999),
@@ -270,7 +270,7 @@ export default function HabitView() {
 
     const [query, setQuery] = useState('');
     const [showArchived, setShowArchived] = useState(false);
-    const [sortBy, setSortBy] = useState<'order' | 'name' | 'streak'>('order');
+    const sortBy: 'order' | 'name' | 'streak' = 'order';
 
     // Add/Edit State
     const [showAdd, setShowAdd] = useState(false);
@@ -348,7 +348,7 @@ export default function HabitView() {
         if (!draftName.trim()) return;
 
         // Construct Habit
-        const newHabitPartial: Partial<Habit> = {
+        const newHabitPartial: Pick<Habit, 'name' | 'description' | 'emoji' | 'color' | 'goal' | 'mastery'> = {
             name: draftName.trim(),
             description: draftDesc.trim() || undefined,
             emoji: draftEmoji,
@@ -369,7 +369,7 @@ export default function HabitView() {
                 createdAt: new Date().toISOString(),
                 history: {},
                 order: habits.length,
-                ...newHabitPartial as any
+                ...newHabitPartial
             };
             nextHabits.push(h);
         }
@@ -383,7 +383,7 @@ export default function HabitView() {
             if (h.id !== id) return h;
 
             const prev = h.history[date] || { date, count: 0, completed: false };
-            let newHistory = { ...h.history };
+            const newHistory = { ...h.history };
             let updatedEntry = prev;
 
             if (h.goal.mode === 'binary') {
@@ -526,7 +526,6 @@ export default function HabitView() {
                         {visibleHabits.map(h => {
                             const streak = getDailyStreak(h, todayISO);
                             const daysCompleted = getTotalCompletedDays(h);
-                            const daysLeft = Math.max(0, FORMATION_DAYS - daysCompleted);
                             const formationProgress = Math.min(100, (daysCompleted / FORMATION_DAYS) * 100);
 
                             return (
@@ -634,7 +633,7 @@ export default function HabitView() {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="text-xs font-bold text-gray-500 mb-1 block">{t('habits.goal.period')}</label>
-                                <select value={draftPeriod} onChange={e => setDraftPeriod(e.target.value as any)} className="w-full p-2 rounded-xl bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-800 outline-none">
+                                <select value={draftPeriod} onChange={e => setDraftPeriod(e.target.value as GoalPeriod)} className="w-full p-2 rounded-xl bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-800 outline-none">
                                     <option value="daily">{t('habits.goal.daily')}</option>
                                     <option value="weekly">{t('habits.goal.weekly')}</option>
                                     <option value="monthly">{t('habits.goal.monthly')}</option>
@@ -642,7 +641,7 @@ export default function HabitView() {
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-gray-500 mb-1 block">{t('habits.goal.mode')}</label>
-                                <select value={draftMode} onChange={e => setDraftMode(e.target.value as any)} className="w-full p-2 rounded-xl bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-800 outline-none">
+                                <select value={draftMode} onChange={e => setDraftMode(e.target.value as GoalMode)} className="w-full p-2 rounded-xl bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-800 outline-none">
                                     <option value="binary">{t('habits.goal.binary')}</option>
                                     <option value="count">{t('habits.goal.count')}</option>
                                 </select>

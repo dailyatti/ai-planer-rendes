@@ -10,7 +10,7 @@ export const DataTransferService = {
      */
     exportAll: () => {
         try {
-            const data: Record<string, any> = {};
+            const data: Record<string, unknown> = {};
             const prefixPlanner = 'planner-';
             const prefixSequence = 'invoice_sequence_';
             const prefixDigital = 'digitalplanner-'; // New
@@ -64,13 +64,14 @@ export const DataTransferService = {
      * Clears existing data and restores from the provided object.
      * @param jsonData The parsed JSON object from the backup file
      */
-    importAll: async (jsonData: any): Promise<{ success: boolean; message: string }> => {
+    importAll: async (jsonData: unknown): Promise<{ success: boolean; message: string }> => {
         try {
             if (!jsonData || typeof jsonData !== 'object') {
                 return { success: false, message: 'Invalid backup file format' };
             }
+            const payload = jsonData as Record<string, unknown>;
 
-            const keys = Object.keys(jsonData);
+            const keys = Object.keys(payload);
             const validKeys = keys.filter(k =>
                 k.startsWith('planner-') ||
                 k.startsWith('invoice_sequence_') ||
@@ -107,9 +108,9 @@ export const DataTransferService = {
 
             // Restore data
             validKeys.forEach(key => {
-                const value = jsonData[key];
+                const value = payload[key];
                 // if value is object, stringify it, otherwise store as string
-                const stringValue = typeof value === 'object' ? JSON.stringify(value) : value;
+                const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
                 localStorage.setItem(key, stringValue);
             });
 

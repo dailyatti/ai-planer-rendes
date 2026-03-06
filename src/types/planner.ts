@@ -192,7 +192,7 @@ export interface Integration {
   accessToken?: string;
   refreshToken?: string;
   expiresAt?: Date;
-  settings?: Record<string, any>;
+  settings?: Record<string, unknown>;
 }
 
 export interface SyncEvent {

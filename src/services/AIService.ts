@@ -27,14 +27,6 @@ interface TextGenerationResult {
     provider: AIProvider;
 }
 
-interface VoiceSessionOptions {
-    language: string;
-    systemPrompt?: string;
-    onTranscript?: (text: string) => void;
-    onResponse?: (text: string) => void;
-    onError?: (error: Error) => void;
-}
-
 class AIServiceClass {
     private config: AIConfig = { provider: null, apiKey: '' };
 
@@ -196,9 +188,10 @@ class AIServiceClass {
                 text: text,
                 provider: 'gemini'
             };
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Gemini 1.5 Pro Error:', error);
-            throw error;
+            if (error instanceof Error) throw error;
+            throw new Error('Unknown Gemini error');
         }
     }
 
@@ -211,7 +204,7 @@ class AIServiceClass {
         }
 
         try {
-            const result = await this.generateText({
+            await this.generateText({
                 prompt: 'Válaszolj egyetlen szóval: működik',
                 maxTokens: 10
             });

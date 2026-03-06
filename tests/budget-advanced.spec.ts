@@ -312,4 +312,31 @@ test.describe('Budget - Advanced Recurrence + Update Validation', () => {
     expect(statsAfterSingleDelete.expense).toBeCloseTo(expectedExpenseAfterDelete, 2);
     expect(statsAfterSingleDelete.balance).toBeCloseTo(expectedBalanceAfterDelete, 2);
   });
+
+  test('should show recurring series as one aggregated row with occurrence counter', async ({ page }) => {
+    test.setTimeout(120000);
+    await page.setViewportSize({ width: 1440, height: 920 });
+
+    await resetAppState(page);
+
+    const start = ymdDaysAgo(9);
+    await createTransaction(page, {
+      description: 'Whop Daily Income',
+      amount: '100',
+      date: start,
+      time: '09:00',
+      type: 'income',
+      period: 'daily',
+    });
+
+    await openTransactionsTab(page);
+
+    const expectedOccurrences = countOccurrences(start, 'daily');
+    await expect(page.locator('h4:has-text("Whop Daily Income")')).toHaveCount(1);
+    await expect(page.locator(`text=(${expectedOccurrences})`).first()).toBeVisible({ timeout: 5000 });
+
+    const expectedIncome = expectedOccurrences * 100;
+    const stats = await exportBalanceStats(page);
+    expect(stats.income).toBeCloseTo(expectedIncome, 2);
+  });
 });

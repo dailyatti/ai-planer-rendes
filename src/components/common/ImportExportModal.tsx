@@ -3,11 +3,30 @@ import { Download, Upload, FileText, AlertTriangle, CheckCircle, Plus, RefreshCw
 import { useData } from '../../contexts/DataContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import Modal from './Modal';
+import { Goal, Note, PlanItem, Drawing, Subscription, Transaction, BudgetSettings } from '../../types/planner';
 
 interface ImportExportModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+type ExportPayload = {
+  version: string;
+  exportDate: string;
+  exportType: 'all' | 'tasks' | 'budget';
+  data: Record<string, unknown>;
+  stats: Record<string, number>;
+  habits: unknown[];
+};
+
+type ImportedNote = Partial<Note>;
+type ImportedGoal = Partial<Goal>;
+type ImportedPlan = Partial<PlanItem>;
+type ImportedDrawing = Partial<Drawing>;
+type ImportedSubscription = Partial<Subscription>;
+type ImportedTransaction = Partial<Transaction>;
+type ImportedBudgetSettings = Partial<BudgetSettings>;
+type ImportedHabit = { id?: string } & Record<string, unknown>;
 
 const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }) => {
   const {
@@ -24,7 +43,7 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
   const [importMessage, setImportMessage] = useState('');
 
   const exportData = () => {
-    let data: any = {
+    const data: ExportPayload = {
       version: '1.0',
       exportDate: new Date().toISOString(),
       exportType,
@@ -83,7 +102,7 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
         return;
       }
 
-      const parsedData = JSON.parse(importData);
+      const parsedData = JSON.parse(importData) as { data?: Record<string, unknown>; habits?: unknown[] };
 
       // Validate data structure
       if (!parsedData.data || typeof parsedData.data !== 'object') {
@@ -102,6 +121,16 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
         budgetSettings: importBudgetSettings
       } = parsedData.data;
 
+      const safeNotes = Array.isArray(importNotes) ? (importNotes as ImportedNote[]) : [];
+      const safeGoals = Array.isArray(importGoals) ? (importGoals as ImportedGoal[]) : [];
+      const safePlans = Array.isArray(importPlans) ? (importPlans as ImportedPlan[]) : [];
+      const safeDrawings = Array.isArray(importDrawings) ? (importDrawings as ImportedDrawing[]) : [];
+      const safeSubscriptions = Array.isArray(importSubscriptions) ? (importSubscriptions as ImportedSubscription[]) : [];
+      const safeTransactions = Array.isArray(importTransactions) ? (importTransactions as ImportedTransaction[]) : [];
+      const safeBudgetSettings = (importBudgetSettings && typeof importBudgetSettings === 'object'
+        ? (importBudgetSettings as ImportedBudgetSettings)
+        : null);
+
       let importedCount = 0;
 
       // Replace mode - clear all existing data first
@@ -110,14 +139,14 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
       }
 
       // Import notes
-      if (Array.isArray(importNotes)) {
-        importNotes.forEach((note: any) => {
+      if (safeNotes.length > 0) {
+        safeNotes.forEach((note) => {
           if (note.title && note.content) {
             addNote({
               title: note.title,
               content: note.content,
-              tags: Array.isArray(note.tags) ? note.tags : [],
-              linkedPlans: Array.isArray(note.linkedPlans) ? note.linkedPlans : [],
+              tags: Array.isArray(note.tags) ? note.tags.filter((tag): tag is string => typeof tag === 'string') : [],
+              linkedPlans: Array.isArray(note.linkedPlans) ? note.linkedPlans.filter((id): id is string => typeof id === 'string') : [],
               priority: ['high', 'medium', 'low'].includes(note.priority) ? note.priority : 'medium'
             });
             importedCount++;
@@ -126,8 +155,8 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
       }
 
       // Import goals
-      if (Array.isArray(importGoals)) {
-        importGoals.forEach((goal: any) => {
+      if (safeGoals.length > 0) {
+        safeGoals.forEach((goal) => {
           if (goal.title) {
             addGoal({
               title: goal.title,
@@ -144,8 +173,8 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
       }
 
       // Import plans
-      if (Array.isArray(importPlans)) {
-        importPlans.forEach((plan: any) => {
+      if (safePlans.length > 0) {
+        safePlans.forEach((plan) => {
           if (plan.title && plan.date) {
             addPlan({
               title: plan.title,
@@ -155,7 +184,7 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
               endTime: plan.endTime ? new Date(plan.endTime) : undefined,
               completed: Boolean(plan.completed),
               priority: ['low', 'medium', 'high'].includes(plan.priority) ? plan.priority : 'medium',
-              linkedNotes: Array.isArray(plan.linkedNotes) ? plan.linkedNotes : []
+              linkedNotes: Array.isArray(plan.linkedNotes) ? plan.linkedNotes.filter((id): id is string => typeof id === 'string') : []
             });
             importedCount++;
           }
@@ -163,8 +192,8 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
       }
 
       // Import drawings
-      if (Array.isArray(importDrawings)) {
-        importDrawings.forEach((drawing: any) => {
+      if (safeDrawings.length > 0) {
+        safeDrawings.forEach((drawing) => {
           if (drawing.title && drawing.data) {
             addDrawing({
               title: drawing.title,
@@ -176,8 +205,8 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
       }
 
       // Import subscriptions
-      if (Array.isArray(importSubscriptions)) {
-        importSubscriptions.forEach((subscription: any) => {
+      if (safeSubscriptions.length > 0) {
+        safeSubscriptions.forEach((subscription) => {
           if (subscription.name && subscription.cost && subscription.nextPayment) {
             addSubscription({
               name: subscription.name,
@@ -195,9 +224,9 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
       }
 
       // Import transactions
-      if (Array.isArray(importTransactions)) {
-        importTransactions.forEach((transaction: any) => {
-          if (transaction.amount && transaction.description && transaction.date) {
+      if (safeTransactions.length > 0) {
+        safeTransactions.forEach((transaction) => {
+          if (typeof transaction.amount === 'number' && transaction.description && transaction.date) {
             addTransaction({
               amount: transaction.amount,
               description: transaction.description,
@@ -212,21 +241,27 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
       }
 
       // Import budget settings
-      if (importBudgetSettings && typeof importBudgetSettings === 'object') {
+      if (safeBudgetSettings) {
         updateBudgetSettings({
-          monthlyBudget: importBudgetSettings.monthlyBudget || 0,
-          currency: importBudgetSettings.currency || 'USD',
-          notifications: Boolean(importBudgetSettings.notifications),
-          warningThreshold: importBudgetSettings.warningThreshold || 80
+          monthlyBudget: typeof safeBudgetSettings.monthlyBudget === 'number' ? safeBudgetSettings.monthlyBudget : 0,
+          currency: safeBudgetSettings.currency || 'USD',
+          notifications: Boolean(safeBudgetSettings.notifications),
+          warningThreshold: typeof safeBudgetSettings.warningThreshold === 'number' ? safeBudgetSettings.warningThreshold : 80
         });
         importedCount++;
       }
 
       if (parsedData.habits && Array.isArray(parsedData.habits)) {
-        const existingHabits = importMode === 'replace' ? [] : JSON.parse(localStorage.getItem('planner.habits.v2') || '[]');
-        const habitMap = new Map();
-        existingHabits.forEach((h: any) => habitMap.set(h.id, h));
-        parsedData.habits.forEach((h: any) => habitMap.set(h.id, h));
+        const existingHabitsRaw = importMode === 'replace' ? [] : JSON.parse(localStorage.getItem('planner.habits.v2') || '[]');
+        const existingHabits = Array.isArray(existingHabitsRaw) ? (existingHabitsRaw as ImportedHabit[]) : [];
+        const incomingHabits = parsedData.habits as ImportedHabit[];
+        const habitMap = new Map<string, ImportedHabit>();
+        existingHabits.forEach((h) => {
+          if (h.id) habitMap.set(h.id, h);
+        });
+        incomingHabits.forEach((h) => {
+          if (h.id) habitMap.set(h.id, h);
+        });
         localStorage.setItem('planner.habits.v2', JSON.stringify(Array.from(habitMap.values())));
         importedCount++;
       }
@@ -235,7 +270,7 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({ isOpen, onClose }
       setImportMessage(`${t('import.successPrefix')} ${importedCount} ${t('import.items')}! ${importMode === 'replace' ? t('import.replacedMsg') : t('import.mergedMsg')}`);
       setImportData('');
 
-    } catch (error) {
+    } catch {
       setImportStatus('error');
       setImportMessage(t('import.errorInvalid'));
     }

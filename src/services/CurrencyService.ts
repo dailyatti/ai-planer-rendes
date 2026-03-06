@@ -196,7 +196,7 @@ class CurrencyServiceClass {
 
             return { success: true, message: 'Mai napi árfolyamok betöltve (Offline)', method: 'fallback' };
 
-        } catch (error) {
+        } catch {
             return { success: false, message: 'Hiba a frissítés közben', method: 'fallback' };
         }
     }

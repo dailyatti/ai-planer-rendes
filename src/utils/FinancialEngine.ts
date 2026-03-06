@@ -187,7 +187,7 @@ export class FinancialEngine {
         transactions
             .filter(t => t.type === type && t.kind !== 'master')
             .forEach(t => {
-                const currency = (t as any).currency || 'USD'; // Transaction might not have currency yet, default to USD
+                const currency = t.currency || 'USD'; // Transaction might not have currency yet, default to USD
                 const amount = Math.abs(t.amount);
 
                 if (!result[currency]) {
@@ -205,7 +205,7 @@ export class FinancialEngine {
     static calculateBurnRate(transactions: Transaction[], targetCurrency: string): number {
         const expenses = transactions
             .filter(t => t.type === 'expense' && t.kind !== 'master')
-            .reduce((sum, t) => sum + CurrencyService.convert(Math.abs(t.amount), (t as any).currency || targetCurrency, targetCurrency), 0);
+            .reduce((sum, t) => sum + CurrencyService.convert(Math.abs(t.amount), t.currency || targetCurrency, targetCurrency), 0);
 
         // Assume transactions span ~last month (simplified for now)
         return expenses;
@@ -276,7 +276,7 @@ export class FinancialEngine {
         const recurringIncomeTransactions = incomeTransactions.filter(t => t.recurring === true && t.period && t.period !== 'oneTime');
 
         const recurringIncome = recurringIncomeTransactions.reduce((sum, t) => {
-            let amount = this.convert(t.amount, t.currency || baseCurrency, baseCurrency);
+            const amount = this.convert(t.amount, t.currency || baseCurrency, baseCurrency);
             switch (t.period) {
                 case 'daily': return sum + (amount * DAYS_PER_MONTH);
                 case 'weekly': return sum + (amount * WEEKS_PER_MONTH);
@@ -291,7 +291,7 @@ export class FinancialEngine {
         const recurringExpenseTransactions = expenseTransactions.filter(t => t.recurring === true && t.period && t.period !== 'oneTime');
 
         const recurringExpenses = recurringExpenseTransactions.reduce((sum, t) => {
-            let amount = this.convert(Math.abs(t.amount), t.currency || baseCurrency, baseCurrency);
+            const amount = this.convert(Math.abs(t.amount), t.currency || baseCurrency, baseCurrency);
             switch (t.period) {
                 case 'daily': return sum + (amount * DAYS_PER_MONTH);
                 case 'weekly': return sum + (amount * WEEKS_PER_MONTH);

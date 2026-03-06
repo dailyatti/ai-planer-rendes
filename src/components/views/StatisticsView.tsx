@@ -27,6 +27,7 @@ import {
 /* ----------------------------- Types ----------------------------- */
 
 type TimeRange = 'week' | 'month' | 'year' | 'all';
+type TooltipPoint = { color?: string; fill?: string; name?: string; value?: number | string };
 
 /* ----------------------------- Utilities ----------------------------- */
 
@@ -59,13 +60,13 @@ const daysBetween = (a: Date, b: Date) => Math.floor((b.getTime() - a.getTime())
 
 /* ----------------------------- Tooltip ----------------------------- */
 
-const FancyTooltip = ({ active, payload, label }: any) => {
+const FancyTooltip: React.FC<{ active?: boolean; payload?: TooltipPoint[]; label?: string }> = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-2xl border border-pink-200 dark:border-pink-800 bg-white/95 dark:bg-gray-900/95 shadow-xl px-4 py-3 backdrop-blur">
       <div className="text-sm font-semibold text-gray-900 dark:text-white">{label}</div>
       <div className="mt-2 space-y-1">
-        {payload.map((p: any, i: number) => (
+        {payload.map((p, i: number) => (
           <div key={i} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
             <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p?.color || p?.fill }} />
             <span className="opacity-80">{p?.name}:</span>
@@ -106,7 +107,7 @@ const StatisticsView: React.FC = () => {
     const end = new Date();
     end.setHours(23, 59, 59, 999);
 
-    const filtered = (plans ?? []).filter((p: any) => {
+    const filtered = (plans ?? []).filter((p) => {
       if (!p?.date) return false;
       const dt = new Date(p.date);
       if (Number.isNaN(dt.getTime())) return false;
@@ -114,7 +115,7 @@ const StatisticsView: React.FC = () => {
     });
 
     const total = filtered.length;
-    const completed = filtered.filter((p: any) => !!p?.completed).length;
+    const completed = filtered.filter((p) => !!p?.completed).length;
     const pending = Math.max(0, total - completed);
     const score = total > 0 ? Math.round((completed / total) * 100) : 0;
 

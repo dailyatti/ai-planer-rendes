@@ -1,4 +1,5 @@
 // VoiceAssistant.tsx
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality, Type } from '@google/genai';
 import { Mic, MicOff, Loader2, Sparkles, MessageSquare, Send, ChevronDown, Keyboard } from 'lucide-react';
@@ -11,7 +12,7 @@ import { CurrencyService } from '../services/CurrencyService';
 
 interface VoiceAssistantProps {
     apiKey: string;
-    onCommand?: (command: any) => void;
+    onCommand?: (command: unknown) => void;
     currentLanguage: string;
     currentView: string;
 }
@@ -85,13 +86,13 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     currentLanguage,
     currentView,
 }) => {
-    const { language: _lang, t } = useLanguage(); // language available via currentLanguage prop
+    const { t } = useLanguage();
     const { transactions } = useData();
 
     const [isActive, setIsActive] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
     const [isTextMode, setIsTextMode] = useState(false);
-    const [volume, setVolume] = useState(0);
+    const [, setVolume] = useState(0);
     const [scrollPosition, setScrollPosition] = useState({ top: 0, percent: 0 });
     const [viewportElements, setViewportElements] = useState<ViewportElement[]>([]);
     const [showVisualAssist, setShowVisualAssist] = useState(false);
@@ -261,7 +262,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
             if (processorRef.current) {
                 try {
                     processorRef.current.disconnect();
-                } catch { }
+                } catch { /* ignore cleanup disconnect errors */ }
                 processorRef.current = null;
             }
 
@@ -273,14 +274,14 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
             if (inputAudioContextRef.current) {
                 try {
                     await inputAudioContextRef.current.close();
-                } catch { }
+                } catch { /* ignore cleanup close errors */ }
                 inputAudioContextRef.current = null;
             }
 
             if (audioContextRef.current) {
                 try {
                     await audioContextRef.current.close();
-                } catch { }
+                } catch { /* ignore cleanup close errors */ }
                 audioContextRef.current = null;
             }
 
@@ -458,7 +459,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                 try {
                     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     streamRef.current = stream;
-                } catch (err) {
+                } catch {
                     stream = null;
                     toast.error(currentLanguage === 'hu' ? 'Mikrofon engedély megtagadva (csak chat mód).' : 'Microphone denied (chat only).');
                 }

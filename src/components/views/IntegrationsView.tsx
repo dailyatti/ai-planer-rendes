@@ -92,7 +92,7 @@ const IntegrationsView: React.FC = () => {
                     throw new Error('Invalid Format');
                 }
             }
-        } catch (error) {
+        } catch {
             setTestStatus('error');
             setTestMessage(t('integrations.connectionFailed') || 'Connection Failed');
         }
