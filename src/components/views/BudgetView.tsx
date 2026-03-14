@@ -47,7 +47,9 @@ import {
   FileText,
   BellRing,
   PieChart as PieChartIcon,
-  ShoppingBag as ShoppingBagIcon
+  ShoppingBag as ShoppingBagIcon,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 
 // Context imports
@@ -324,6 +326,7 @@ const Tag: React.FC<{
     {label}
     {removable && (
       <button
+        type="button"
         onClick={onRemove}
         className="ml-1 hover:opacity-70 transition-opacity"
       >
@@ -1312,6 +1315,11 @@ const EnhancedTransactionModal: React.FC<{
   presetType?: TransactionType;
 }> = ({ isOpen, onClose, mode, transaction, engine, presetType = "expense" }) => {
   const { t, categories, todayYMD } = engine;
+  const [showMetaPanel, setShowMetaPanel] = useState(false);
+  const resolveModalText = useCallback((key: string, fallback: string) => {
+    const value = t(key);
+    return value && value !== key ? value : fallback;
+  }, [t]);
 
   const [form, setForm] = useState({
     description: "",
@@ -1345,6 +1353,7 @@ const EnhancedTransactionModal: React.FC<{
         priority: transaction.priority || "medium",
         // Force priority valid
       });
+      setShowMetaPanel(Boolean(transaction.tags?.length) || Boolean(transaction.notes?.trim()));
     } else {
       setForm({
         description: "",
@@ -1359,7 +1368,9 @@ const EnhancedTransactionModal: React.FC<{
         notes: "",
         priority: "medium",
       });
+      setShowMetaPanel(false);
     }
+    setTagInput("");
   }, [mode, transaction, engine.currency, todayYMD, presetType, isOpen]); // Added isOpen to reset on open
 
   const handleSubmit = () => {
@@ -1427,10 +1438,27 @@ const EnhancedTransactionModal: React.FC<{
   };
 
   const addTag = () => {
-    if (tagInput.trim() && !form.tags.includes(tagInput.trim())) {
-      setForm(prev => ({ ...prev, tags: [...prev.tags, tagInput.trim()] }));
-      setTagInput("");
+    const nextTags = tagInput
+      .split(",")
+      .map(tag => tag.trim().replace(/\s+/g, " "))
+      .filter(Boolean);
+
+    if (nextTags.length === 0) {
+      return;
     }
+
+    setForm(prev => {
+      const existing = new Set(prev.tags.map(tag => tag.toLocaleLowerCase()));
+      const uniqueTags = nextTags.filter(tag => !existing.has(tag.toLocaleLowerCase()));
+
+      if (uniqueTags.length === 0) {
+        return prev;
+      }
+
+      return { ...prev, tags: [...prev.tags, ...uniqueTags] };
+    });
+    setTagInput("");
+    setShowMetaPanel(true);
   };
 
   const removeTag = (tag: string) => {
@@ -1509,9 +1537,8 @@ const EnhancedTransactionModal: React.FC<{
             </div>
           </div>
 
-          {/* Date & Tags Row */}
-          <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6 px-2 min-w-0">
-            {/* Column 1: Date & Time */}
+          {/* Date Row */}
+          <div className="mt-6 px-2 min-w-0">
             <div className="space-y-4">
               <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase">
                 {t('transactions.dateTime') || 'Datum es ido'}
@@ -1531,42 +1558,101 @@ const EnhancedTransactionModal: React.FC<{
                 />
               </div>
             </div>
+          </div>
 
-            {/* Column 2: Tags */}
-            <div className="space-y-4">
-              <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase">
-                {t('transactions.tags') || 'Cimkek'}
-              </label>
-              <div className="flex gap-3">
-                <AnimatedInput
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addTag();
-                    }
-                  }}
-                  placeholder={t('transactions.addTag') || 'Cimke hozzaadasa...'}
-                  className="flex-1 bg-slate-900/80 border-slate-700/80 rounded-full text-white px-5 shadow-none placeholder:text-slate-400 focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
-                />
-                <button
-                  onClick={addTag}
-                  className="h-[46px] w-[46px] rounded-full border border-slate-700/80 bg-transparent flex items-center justify-center shrink-0 hover:bg-slate-800 text-slate-300 transition-colors"
-                >
-                  <Plus size={18} />
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2 min-h-[32px]">
-                {form.tags.map(tag => (
-                  <Tag
-                    key={tag}
-                    label={tag}
-                    removable
-                    onRemove={() => removeTag(tag)}
-                  />
-                ))}
-              </div>
+          {/* Metadata Panel */}
+          <div className="mt-6 px-2">
+            <div className="rounded-[1.5rem] border border-slate-700/80 bg-slate-900/55 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowMetaPanel(prev => !prev)}
+                className="w-full px-5 py-4 flex items-center justify-between gap-4 text-left hover:bg-slate-800/50 transition-colors"
+              >
+                <div>
+                  <p className="text-xs font-bold tracking-widest text-slate-400 uppercase">
+                    {resolveModalText('transactions.meta', 'Tags and notes')}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-200">
+                    {form.tags.length > 0
+                      ? `${form.tags.length} ${resolveModalText('transactions.tags', 'tags').toLowerCase()}`
+                      : resolveModalText('transactions.noTags', 'No tags yet')}
+                    {' • '}
+                    {form.notes.trim()
+                      ? resolveModalText('transactions.notesSaved', 'Notes saved')
+                      : resolveModalText('transactions.noNotes', 'No notes yet')}
+                  </p>
+                </div>
+                <span className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700/80 bg-slate-950/70 text-slate-300">
+                  {showMetaPanel ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                </span>
+              </button>
+
+              <AnimatePresence initial={false}>
+                {showMetaPanel && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.18, ease: "easeOut" }}
+                    className="overflow-hidden border-t border-slate-700/70"
+                  >
+                    <div className="p-5 space-y-5">
+                      <div className="space-y-4">
+                        <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase">
+                          {t('transactions.tags') || 'Cimkek'}
+                        </label>
+                        <div className="flex gap-3">
+                          <AnimatedInput
+                            value={tagInput}
+                            onChange={(e) => setTagInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                addTag();
+                              }
+                            }}
+                            placeholder={t('transactions.addTag') || 'Cimke hozzaadasa...'}
+                            className="flex-1 bg-slate-950/80 border-slate-700/80 rounded-full text-white px-5 shadow-none placeholder:text-slate-400 focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
+                          />
+                          <button
+                            type="button"
+                            onClick={addTag}
+                            className="h-[46px] w-[46px] rounded-full border border-slate-700/80 bg-transparent flex items-center justify-center shrink-0 hover:bg-slate-800 text-slate-300 transition-colors"
+                            aria-label={t('transactions.addTag') || 'Cimke hozzaadasa'}
+                          >
+                            <Plus size={18} />
+                          </button>
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          {resolveModalText('transactions.tagHint', 'You can add multiple tags separated by commas.')}
+                        </p>
+                        <div className="flex flex-wrap gap-2 min-h-[32px]">
+                          {form.tags.map(tag => (
+                            <Tag
+                              key={tag}
+                              label={tag}
+                              removable
+                              onRemove={() => removeTag(tag)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">
+                          {t('transactions.notes') || 'Leiras (opcionalis)'}
+                        </label>
+                        <textarea
+                          value={form.notes}
+                          onChange={(e) => setForm(prev => ({ ...prev, notes: e.target.value }))}
+                          placeholder={t('transactions.notesPlaceholder') || 'Tovabbi informaciok...'}
+                          className="w-full h-24 px-5 py-4 rounded-[1.5rem] border border-slate-700/80 bg-slate-950/80 text-white font-bold placeholder:text-slate-400 outline-none focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20 resize-none transition-colors"
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
@@ -1630,20 +1716,9 @@ const EnhancedTransactionModal: React.FC<{
           </div>
 
           {/* Additional Fields - Also Full Width */}
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 px-2 pb-6">
-            <div>
-              <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">
-                {t('transactions.notes') || 'Leiras (opcionalis)'}
-              </label>
-              <textarea
-                value={form.notes}
-                onChange={(e) => setForm(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder={t('transactions.notesPlaceholder') || 'Tovabbi informaciok...'}
-                className="w-full h-24 px-5 py-4 rounded-[1.5rem] border border-slate-700/80 bg-slate-900/80 text-white font-bold placeholder:text-slate-400 outline-none focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20 resize-none transition-colors"
-              />
-            </div>
+          <div className="mt-8 px-2 pb-6">
             <div className="space-y-5">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">
                     {t('transactions.period') || 'Gyakorisag'}
@@ -1728,6 +1803,7 @@ const EnhancedBudgetView: React.FC = () => {
   const [showConverterModal, setShowConverterModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<BudgetTransaction | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showForecastDetails, setShowForecastDetails] = useState(false);
 
   const unreadNotifications = useMemo(
     () => notifications.filter(n => !n.read).length,
@@ -2009,22 +2085,26 @@ const EnhancedBudgetView: React.FC = () => {
                 <GlassCard>
                   <div className="p-5 space-y-4">
                     <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-base font-black text-[rgb(var(--text-primary))]">
-                        {resolveText('analytics.forecastTitle', 'Forecast')}
-                      </h3>
-                      <span className="text-xs font-bold text-[rgb(var(--text-tertiary))]">
-                        {forecastSummary.horizonMonths} {resolveText('analytics.months', 'months')}
-                      </span>
+                      <div>
+                        <h3 className="text-base font-black text-[rgb(var(--text-primary))]">
+                          {resolveText('analytics.forecastTitle', 'Forecast')}
+                        </h3>
+                        <p className="text-xs font-medium text-[rgb(var(--text-tertiary))] mt-1">
+                          {forecastSummary.horizonMonths} {resolveText('analytics.months', 'months')}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowForecastDetails(prev => !prev)}
+                        className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-tertiary))] px-3 py-2 text-xs font-bold text-[rgb(var(--text-secondary))] hover:border-[rgb(var(--border-secondary))] hover:text-[rgb(var(--text-primary))] transition-colors"
+                      >
+                        {showForecastDetails
+                          ? (resolveText('common.hide', 'Hide'))
+                          : (resolveText('common.details', 'Details'))}
+                        {showForecastDetails ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      </button>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-[var(--radius-xl)] border border-emerald-500/20 bg-emerald-500/10 p-3">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-400">{resolveText('stats.income', 'Income')}</p>
-                        <p className="text-sm font-black text-emerald-300">{engine.formatCurrency(forecastSummary.expectedIncome)}</p>
-                      </div>
-                      <div className="rounded-[var(--radius-xl)] border border-rose-500/20 bg-rose-500/10 p-3">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-rose-400">{resolveText('stats.expenses', 'Expenses')}</p>
-                        <p className="text-sm font-black text-rose-300">{engine.formatCurrency(forecastSummary.expectedExpense)}</p>
-                      </div>
                       <div className="rounded-[var(--radius-xl)] border border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-tertiary))] p-3">
                         <p className="text-[10px] font-bold uppercase tracking-wide text-[rgb(var(--text-tertiary))]">{resolveText('stats.balance', 'Projected Balance')}</p>
                         <p className="text-sm font-black text-[rgb(var(--text-primary))]">{engine.formatCurrency(forecastSummary.projectedBalance)}</p>
@@ -2034,14 +2114,36 @@ const EnhancedBudgetView: React.FC = () => {
                         <p className="text-sm font-black text-[rgb(var(--text-primary))]">{engine.formatCurrency(forecastSummary.nextMonthNet)}</p>
                       </div>
                     </div>
-                    <p className="text-xs font-medium text-[rgb(var(--text-tertiary))]">
-                      {resolveText('analytics.upcomingTransactions', 'Upcoming transactions')}: {forecastSummary.upcomingCount} ({forecastSummary.upcomingIncomeCount}/{forecastSummary.upcomingExpenseCount})
-                    </p>
-                    <p className="text-xs font-medium text-[rgb(var(--text-tertiary))]">
-                      {forecastSummary.firstNegativePeriod
-                        ? (resolveText('analytics.firstNegative', 'First negative balance period') + ': ' + forecastSummary.firstNegativePeriod)
-                        : resolveText('analytics.noNegative', 'No negative balance in the forecast window.')}
-                    </p>
+                    <AnimatePresence initial={false}>
+                      {showForecastDetails && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.18, ease: "easeOut" }}
+                          className="overflow-hidden space-y-4"
+                        >
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="rounded-[var(--radius-xl)] border border-emerald-500/20 bg-emerald-500/10 p-3">
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-400">{resolveText('stats.income', 'Income')}</p>
+                              <p className="text-sm font-black text-emerald-300">{engine.formatCurrency(forecastSummary.expectedIncome)}</p>
+                            </div>
+                            <div className="rounded-[var(--radius-xl)] border border-rose-500/20 bg-rose-500/10 p-3">
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-rose-400">{resolveText('stats.expenses', 'Expenses')}</p>
+                              <p className="text-sm font-black text-rose-300">{engine.formatCurrency(forecastSummary.expectedExpense)}</p>
+                            </div>
+                          </div>
+                          <p className="text-xs font-medium text-[rgb(var(--text-tertiary))]">
+                            {resolveText('analytics.upcomingTransactions', 'Upcoming transactions')}: {forecastSummary.upcomingCount} ({forecastSummary.upcomingIncomeCount}/{forecastSummary.upcomingExpenseCount})
+                          </p>
+                          <p className="text-xs font-medium text-[rgb(var(--text-tertiary))]">
+                            {forecastSummary.firstNegativePeriod
+                              ? (resolveText('analytics.firstNegative', 'First negative balance period') + ': ' + forecastSummary.firstNegativePeriod)
+                              : resolveText('analytics.noNegative', 'No negative balance in the forecast window.')}
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </GlassCard>
               </div>
@@ -2336,6 +2438,11 @@ const EnhancedBudgetView: React.FC = () => {
                                 </span>
                               )}
                             </div>
+                            {tx.notes && (
+                              <p className="mt-2 max-w-[32rem] text-xs font-medium text-[rgb(var(--text-tertiary))] break-words">
+                                {tx.notes}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-6">
@@ -2344,8 +2451,8 @@ const EnhancedBudgetView: React.FC = () => {
                               {tx.type === 'income' ? '+' : '-'}{engine.formatCurrency(Math.abs(tx.amount), tx.currency)}
                             </span>
                             {tx.tags && tx.tags.length > 0 && (
-                              <div className="flex gap-1 justify-end mt-1">
-                                {tx.tags.slice(0, 2).map(tag => (
+                              <div className="flex gap-1 justify-end mt-1 flex-wrap max-w-[14rem]">
+                                {tx.tags.slice(0, 3).map(tag => (
                                   <span key={tag} className="text-[10px] bg-[rgb(var(--surface-tertiary))] px-1.5 py-0.5 rounded text-[rgb(var(--text-tertiary))]">#{tag}</span>
                                 ))}
                               </div>
