@@ -156,6 +156,34 @@ type Notification = {
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(" ");
 
 const tmpId = () => `tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+const MAX_BUDGET_NOTIFICATIONS = 20;
+const VALIDATION_NOTIFICATION_PATTERNS = [
+  /validation error/i,
+  /validacios hiba/i,
+  /validációs hiba/i,
+  /please fill all required fields/i,
+  /kot[eé]lez[oő] mez[oő]ket/i,
+];
+
+const isValidationNoiseNotification = (notification: Pick<Notification, "title" | "message">) => {
+  const haystack = `${notification.title} ${notification.message}`.trim();
+  return VALIDATION_NOTIFICATION_PATTERNS.some(pattern => pattern.test(haystack));
+};
+
+const normalizeNotifications = (items: Notification[]) => {
+  const seen = new Set<string>();
+
+  return [...items]
+    .filter(item => !isValidationNoiseNotification(item))
+    .sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp))
+    .filter(item => {
+      const key = `${item.type}|${item.title}|${item.message}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, MAX_BUDGET_NOTIFICATIONS);
+};
 
 // Date utilities
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -518,7 +546,7 @@ const useEnhancedBudgetEngine = () => {
     if (typeof window === 'undefined') return [];
     try {
       const saved = window.localStorage.getItem('budget_notifications');
-      return saved ? JSON.parse(saved) : [];
+      return saved ? normalizeNotifications(JSON.parse(saved) as Notification[]) : [];
     } catch {
       return [];
     }
@@ -543,6 +571,13 @@ const useEnhancedBudgetEngine = () => {
   useEffect(() => {
     localStorage.setItem('budget_notifications', JSON.stringify(notifications));
   }, [notifications]);
+
+  useEffect(() => {
+    setNotifications(prev => {
+      const next = normalizeNotifications(prev);
+      return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
+    });
+  }, []);
 
   // Today's date (Moved up to fix use before declaration)
   const todayYMD = useMemo(() => toYMDLocal(new Date()), []);
@@ -653,6 +688,26 @@ const useEnhancedBudgetEngine = () => {
   // FIX: Using DataContext as single source of truth
   // Fix: Memoize transactions to prevent unstable reference warning
   const transactions = useMemo(() => dataContext?.transactions || EMPTY_ARRAY, [dataContext]);
+
+  const resolveBudgetText = useCallback((key: string, fallback: string) => {
+    const value = t?.(key);
+    return value && value !== key ? value : fallback;
+  }, [t]);
+
+  const getPeriodLabel = useCallback((period: TransactionPeriod) => {
+    switch (period) {
+      case "daily":
+        return resolveBudgetText('period.daily', 'Daily');
+      case "weekly":
+        return resolveBudgetText('period.weekly', 'Weekly');
+      case "monthly":
+        return resolveBudgetText('period.monthly', 'Monthly');
+      case "yearly":
+        return resolveBudgetText('period.yearly', 'Yearly');
+      default:
+        return resolveBudgetText('period.oneTime', 'One-time');
+    }
+  }, [resolveBudgetText]);
 
   // Filter/transform for UI consumption (safe dates & type mapping)
 
@@ -1075,14 +1130,32 @@ const useEnhancedBudgetEngine = () => {
 
   // Add notification
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
+    const timestamp = new Date().toISOString();
     const newNotification: Notification = {
-      timestamp: new Date().toISOString(),
+      timestamp,
       read: false,
       ...notification,
       id: tmpId(),
     };
-    setNotifications(prev => [newNotification, ...prev]);
-  }, []);
+    setNotifications(prev => {
+      const base = notification.title !== (t?.('notifications.welcome') || "Welcome to Budget Pro!")
+        ? prev.filter(item => !item.id.startsWith("welcome-"))
+        : prev;
+
+      const duplicateIndex = base.findIndex(item =>
+        item.title === newNotification.title &&
+        item.message === newNotification.message &&
+        item.type === newNotification.type
+      );
+
+      const next = [...base];
+      if (duplicateIndex >= 0) {
+        next.splice(duplicateIndex, 1);
+      }
+
+      return normalizeNotifications([newNotification, ...next]);
+    });
+  }, [t]);
 
   // Mark notification as read
   const markAsRead = useCallback((id: string) => {
@@ -1151,8 +1224,8 @@ const useEnhancedBudgetEngine = () => {
 
       if (importedCount > 0) {
         addNotification({
-          title: t('import.success'),
-          message: `${t('import.imported')} (${importedCount})`,
+          title: resolveBudgetText('import.success', 'Import completed'),
+          message: `${resolveBudgetText('import.imported', 'Imported transactions')}: ${importedCount}`,
           type: "success"
         });
       }
@@ -1194,15 +1267,34 @@ const useEnhancedBudgetEngine = () => {
       dataContext.addTransaction(payload);
     }
 
-    // Add notification for large transactions
+    if (recurring) {
+      addNotification({
+        title: transaction.type === "income"
+          ? resolveBudgetText('notifications.recurringIncome', 'Recurring income scheduled')
+          : resolveBudgetText('notifications.recurringExpense', 'Recurring expense scheduled'),
+        message: `${transaction.description} • ${getPeriodLabel(period)}`,
+        type: transaction.type === "income" ? "success" : "warning",
+      });
+      return;
+    }
+
+    if (effectiveDateYMD > todayYMD) {
+      addNotification({
+        title: resolveBudgetText('notifications.scheduledTransaction', 'Scheduled transaction added'),
+        message: `${transaction.description} • ${formatDate(effectiveDateYMD, language === "hu" ? "hu-HU" : "en-US")}`,
+        type: transaction.type === "income" ? "info" : "warning",
+      });
+      return;
+    }
+
     if (Math.abs(transaction.amount) > 5000) {
       addNotification({
-        title: t?.('notifications.largeTransaction') || "Large Transaction Added",
+        title: resolveBudgetText('notifications.largeTransaction', "Large transaction added"),
         message: `${transaction.description} - ${formatCurrency(Math.abs(transaction.amount), transaction.currency, language)}`,
         type: transaction.amount > 0 ? "success" : "warning",
       });
     }
-  }, [addNotification, t, language, dataContext, safeYMD]);
+  }, [addNotification, resolveBudgetText, getPeriodLabel, language, dataContext, safeYMD, todayYMD]);
 
   // Update transaction
   const updateTransaction = useCallback((id: string, updates: TransactionPatch) => {
@@ -1316,6 +1408,7 @@ const EnhancedTransactionModal: React.FC<{
 }> = ({ isOpen, onClose, mode, transaction, engine, presetType = "expense" }) => {
   const { t, categories, todayYMD } = engine;
   const [showMetaPanel, setShowMetaPanel] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const resolveModalText = useCallback((key: string, fallback: string) => {
     const value = t(key);
     return value && value !== key ? value : fallback;
@@ -1371,20 +1464,19 @@ const EnhancedTransactionModal: React.FC<{
       setShowMetaPanel(false);
     }
     setTagInput("");
+    setFormError(null);
   }, [mode, transaction, engine.currency, todayYMD, presetType, isOpen]); // Added isOpen to reset on open
 
   const handleSubmit = () => {
     const amount = parseFloat(form.amount);
     if (!form.description.trim() || isNaN(amount) || amount <= 0) {
-      engine.addNotification({
-        title: t('notifications.validationError') || 'Validation Error',
-        message: t('notifications.pleaseCheckFields') || 'Please fill all required fields',
-        type: "error",
-      });
+      setFormError(resolveModalText('notifications.pleaseCheckFields', 'Please fill all required fields.'));
       return;
     }
 
+    setFormError(null);
     const isRecurring = form.period !== "oneTime";
+    const transactionLabel = form.description.trim();
 
     if (mode === "edit" && transaction) {
       // Only send changed fields as patch to avoid triggering unnecessary recurring regeneration
@@ -1413,6 +1505,11 @@ const EnhancedTransactionModal: React.FC<{
       }
 
       engine.updateTransaction(transaction.id, patch);
+      engine.addNotification({
+        title: resolveModalText('notifications.transactionUpdated', 'Transaction updated'),
+        message: transactionLabel,
+        type: "info",
+      });
     } else {
       const transactionData: Omit<Transaction, 'id'> = {
         description: form.description.trim(),
@@ -1500,8 +1597,12 @@ const EnhancedTransactionModal: React.FC<{
               </label>
               <AnimatedInput
                 value={form.description}
-                onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e) => {
+                  setForm(prev => ({ ...prev, description: e.target.value }));
+                  if (formError) setFormError(null);
+                }}
                 placeholder={t('transactions.descriptionPlaceholder') || 'Pl.: ugyfel fizetes'}
+                error={!form.description.trim() && formError ? formError : undefined}
                 className="bg-slate-900/80 border-slate-700/80 rounded-full text-white px-5 shadow-none placeholder:text-slate-400 focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
               />
             </div>
@@ -1515,8 +1616,12 @@ const EnhancedTransactionModal: React.FC<{
                 <AnimatedInput
                   type="number"
                   value={form.amount}
-                  onChange={(e) => setForm(prev => ({ ...prev, amount: e.target.value }))}
+                  onChange={(e) => {
+                    setForm(prev => ({ ...prev, amount: e.target.value }));
+                    if (formError) setFormError(null);
+                  }}
                   placeholder="0.00"
+                  error={(isNaN(parseFloat(form.amount)) || parseFloat(form.amount) <= 0) && formError ? formError : undefined}
                   className="flex-1 bg-slate-900/80 border-slate-700/80 rounded-full text-white px-5 shadow-none placeholder:text-slate-400 focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
                 />
                 <div className="relative">
@@ -1766,6 +1871,11 @@ const EnhancedTransactionModal: React.FC<{
         </div>
 
         <div className="p-6 border-t border-slate-700/80 bg-slate-900/50">
+          {formError && (
+            <p className="mb-4 rounded-[var(--radius-xl)] border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-300">
+              {formError}
+            </p>
+          )}
           <div className="flex gap-6">
             <button
               onClick={onClose}
@@ -1791,7 +1901,7 @@ const EnhancedTransactionModal: React.FC<{
 
 const EnhancedBudgetView: React.FC = () => {
   const engine = useEnhancedBudgetEngine();
-  const { t, balanceStats, analytics, cashFlowProjection, notifications, currency, language, backtestSummary, forecastSummary, visibleTransactions, deleteTransactions } = engine;
+  const { t, balanceStats, analytics, cashFlowProjection, notifications, currency, language, backtestSummary, forecastSummary, visibleTransactions, deleteTransactions, addNotification } = engine;
 
   const [activeTab, setActiveTab] = useState<"dashboard" | "transactions" | "analytics" | "goals" | "settings">("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
@@ -1901,7 +2011,14 @@ const EnhancedBudgetView: React.FC = () => {
       )
     ));
     deleteTransactions(ids);
-  }, [deleteTransactions, filteredTransactions, resolveText]);
+    addNotification({
+      title: resolveText('notifications.transactionsDeleted', 'Transactions removed'),
+      message: language === "hu"
+        ? `${ids.length} tranzakcio torolve`
+        : `${ids.length} transactions deleted`,
+      type: "warning",
+    });
+  }, [addNotification, deleteTransactions, filteredTransactions, language, resolveText]);
 
   return (
     <div className="budget-container flex flex-col min-h-screen bg-[rgb(var(--surface-primary))] text-[rgb(var(--text-primary))] transition-colors duration-[var(--transition-normal)] overflow-x-hidden">
@@ -2464,6 +2581,11 @@ const EnhancedBudgetView: React.FC = () => {
                               const confirmMessage = resolveText('budget.delete.confirmOne', 'Delete this transaction?');
                               if (window.confirm(confirmMessage)) {
                                 engine.deleteTransaction(tx.id);
+                                engine.addNotification({
+                                  title: resolveText('notifications.transactionDeleted', 'Transaction removed'),
+                                  message: tx.description,
+                                  type: "warning",
+                                });
                               }
                             }}
                             className="p-2 hover:bg-rose-500/20 rounded-[var(--radius-lg)] text-[rgb(var(--text-tertiary))] hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
