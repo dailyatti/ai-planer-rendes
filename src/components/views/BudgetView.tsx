@@ -182,7 +182,124 @@ const normalizeNotifications = (items: Notification[]) => {
       seen.add(key);
       return true;
     })
-    .slice(0, MAX_BUDGET_NOTIFICATIONS);
+  .slice(0, MAX_BUDGET_NOTIFICATIONS);
+};
+
+const BUDGET_NOTIFICATION_FALLBACKS: Record<string, Record<string, string>> = {
+  'notifications.title': {
+    en: 'Notifications', hu: 'Értesítések', ro: 'Notificari', sk: 'Upozornenia', hr: 'Obavijesti', de: 'Benachrichtigungen',
+    fr: 'Notifications', es: 'Notificaciones', it: 'Notifiche', pl: 'Powiadomienia', cn: '通知', jp: '通知', pt: 'Notificacoes',
+    tr: 'Bildirimler', ar: 'الإشعارات', ru: 'Уведомления', hi: 'सूचनाएं', bn: 'বিজ্ঞপ্তি', ur: 'نوٹیفکیشنز', th: 'การแจ้งเตือน',
+    id: 'Notifikasi', ko: '알림',
+  },
+  'notifications.clearAll': {
+    en: 'Clear All', hu: 'Összes törlése', ro: 'Sterge tot', sk: 'Vymazat vsetko', hr: 'Obrisi sve', de: 'Alle loschen',
+    fr: 'Tout effacer', es: 'Borrar todo', it: 'Cancella tutto', pl: 'Wyczysc wszystko', cn: '全部清除', jp: 'すべてクリア',
+    pt: 'Limpar tudo', tr: 'Tumunu temizle', ar: 'مسح الكل', ru: 'Очистить все', hi: 'सभी साफ करें', bn: 'সব মুছুন',
+    ur: 'سب صاف کریں', th: 'ล้างทั้งหมด', id: 'Hapus semua', ko: '모두 지우기',
+  },
+  'notifications.recurringIncome': {
+    en: 'Recurring income scheduled', hu: 'Ismétlődő bevétel ütemezve', ro: 'Venit recurent programat', sk: 'Opakovany prijem naplanovany',
+    hr: 'Ponavljajuci prihod zakazan', de: 'Wiederkehrende Einnahme geplant', fr: 'Revenu recurrent planifie', es: 'Ingreso recurrente programado',
+    it: 'Entrata ricorrente pianificata', pl: 'Zaplanowano cykliczny przychod', cn: '已安排经常性收入', jp: '定期収入を設定しました',
+    pt: 'Receita recorrente agendada', tr: 'Tekrarlanan gelir planlandi', ar: 'تمت جدولة دخل متكرر', ru: 'Запланирован регулярный доход',
+    hi: 'आवर्ती आय निर्धारित', bn: 'পুনরাবৃত্ত আয় নির্ধারিত', ur: 'بار بار آمدنی شیڈول ہوگئی', th: 'ตั้งรายรับประจำแล้ว',
+    id: 'Pemasukan berulang dijadwalkan', ko: '반복 수입이 예약되었습니다',
+  },
+  'notifications.recurringExpense': {
+    en: 'Recurring expense scheduled', hu: 'Ismétlődő kiadás ütemezve', ro: 'Cheltuiala recurenta programata', sk: 'Opakovany vydaj naplanovany',
+    hr: 'Ponavljajuci trosak zakazan', de: 'Wiederkehrende Ausgabe geplant', fr: 'Depense recurrente planifiee', es: 'Gasto recurrente programado',
+    it: 'Spesa ricorrente pianificata', pl: 'Zaplanowano cykliczny wydatek', cn: '已安排经常性支出', jp: '定期支出を設定しました',
+    pt: 'Despesa recorrente agendada', tr: 'Tekrarlanan gider planlandi', ar: 'تمت جدولة مصروف متكرر', ru: 'Запланирован регулярный расход',
+    hi: 'आवर्ती खर्च निर्धारित', bn: 'পুনরাবৃত্ত ব্যয় নির্ধারিত', ur: 'بار بار خرچ شیڈول ہوگیا', th: 'ตั้งรายจ่ายประจำแล้ว',
+    id: 'Pengeluaran berulang dijadwalkan', ko: '반복 지출이 예약되었습니다',
+  },
+  'notifications.scheduledTransaction': {
+    en: 'Scheduled transaction added', hu: 'Ütemezett tranzakció hozzáadva', ro: 'Tranzactie programata adaugata', sk: 'Naplanovana transakcia pridana',
+    hr: 'Zakazana transakcija dodana', de: 'Geplante Transaktion hinzugefugt', fr: 'Transaction planifiee ajoutee', es: 'Transaccion programada agregada',
+    it: 'Transazione pianificata aggiunta', pl: 'Dodano zaplanowana transakcje', cn: '已添加计划交易', jp: '予定済み取引を追加しました',
+    pt: 'Transacao agendada adicionada', tr: 'Planlanan islem eklendi', ar: 'تمت إضافة معاملة مجدولة', ru: 'Добавлена запланированная транзакция',
+    hi: 'अनुसूचित लेनदेन जोड़ा गया', bn: 'নির্ধারিত লেনদেন যোগ হয়েছে', ur: 'شیڈول ٹرانزیکشن شامل ہوگئی', th: 'เพิ่มธุรกรรมที่กำหนดเวลาไว้แล้ว',
+    id: 'Transaksi terjadwal ditambahkan', ko: '예약된 거래가 추가되었습니다',
+  },
+  'notifications.largeTransaction': {
+    en: 'Large transaction added', hu: 'Nagy összegű tranzakció', ro: 'Tranzactie mare adaugata', sk: 'Pridana velka transakcia',
+    hr: 'Velika transakcija dodana', de: 'Grosse Transaktion hinzugefugt', fr: 'Grande transaction ajoutee', es: 'Transaccion grande agregada',
+    it: 'Grande transazione aggiunta', pl: 'Dodano duza transakcje', cn: '已添加大额交易', jp: '高額取引を追加しました',
+    pt: 'Transacao grande adicionada', tr: 'Buyuk islem eklendi', ar: 'تمت إضافة معاملة كبيرة', ru: 'Добавлена крупная транзакция',
+    hi: 'बड़ा लेनदेन जोड़ा गया', bn: 'বড় লেনদেন যোগ হয়েছে', ur: 'بڑی ٹرانزیکشن شامل ہوگئی', th: 'เพิ่มธุรกรรมมูลค่าสูงแล้ว',
+    id: 'Transaksi besar ditambahkan', ko: '큰 거래가 추가되었습니다',
+  },
+  'notifications.transactionUpdated': {
+    en: 'Transaction updated', hu: 'Tranzakció frissítve', ro: 'Tranzactie actualizata', sk: 'Transakcia aktualizovana', hr: 'Transakcija azurirana',
+    de: 'Transaktion aktualisiert', fr: 'Transaction mise a jour', es: 'Transaccion actualizada', it: 'Transazione aggiornata', pl: 'Transakcja zaktualizowana',
+    cn: '交易已更新', jp: '取引を更新しました', pt: 'Transacao atualizada', tr: 'Islem guncellendi', ar: 'تم تحديث المعاملة',
+    ru: 'Транзакция обновлена', hi: 'लेनदेन अपडेट किया गया', bn: 'লেনদেন আপডেট হয়েছে', ur: 'ٹرانزیکشن اپڈیٹ ہوگئی', th: 'อัปเดตธุรกรรมแล้ว',
+    id: 'Transaksi diperbarui', ko: '거래가 업데이트되었습니다',
+  },
+  'notifications.transactionDeleted': {
+    en: 'Transaction removed', hu: 'Tranzakció törölve', ro: 'Tranzactie stearsa', sk: 'Transakcia odstranena', hr: 'Transakcija obrisana',
+    de: 'Transaktion entfernt', fr: 'Transaction supprimee', es: 'Transaccion eliminada', it: 'Transazione rimossa', pl: 'Transakcja usunieta',
+    cn: '交易已删除', jp: '取引を削除しました', pt: 'Transacao removida', tr: 'Islem silindi', ar: 'تم حذف المعاملة', ru: 'Транзакция удалена',
+    hi: 'लेनदेन हटाया गया', bn: 'লেনদেন মুছে ফেলা হয়েছে', ur: 'ٹرانزیکشن حذف ہوگئی', th: 'ลบธุรกรรมแล้ว', id: 'Transaksi dihapus', ko: '거래가 삭제되었습니다',
+  },
+  'notifications.transactionsDeleted': {
+    en: 'Transactions removed', hu: 'Tranzakciók törölve', ro: 'Tranzactii sterse', sk: 'Transakcie odstranene', hr: 'Transakcije obrisane',
+    de: 'Transaktionen entfernt', fr: 'Transactions supprimees', es: 'Transacciones eliminadas', it: 'Transazioni rimosse', pl: 'Transakcje usuniete',
+    cn: '交易已删除', jp: '取引を削除しました', pt: 'Transacoes removidas', tr: 'Islemler silindi', ar: 'تم حذف المعاملات', ru: 'Транзакции удалены',
+    hi: 'लेनदेन हटाए गए', bn: 'লেনদেনগুলো মুছে ফেলা হয়েছে', ur: 'ٹرانزیکشنز حذف ہوگئیں', th: 'ลบธุรกรรมแล้ว', id: 'Transaksi dihapus', ko: '거래가 삭제되었습니다',
+  },
+  'notifications.transactionsDeletedMessage': {
+    en: '{count} transactions deleted', hu: '{count} tranzakció törölve', ro: '{count} tranzactii sterse', sk: '{count} transakcii odstranene',
+    hr: '{count} transakcija obrisano', de: '{count} Transaktionen geloscht', fr: '{count} transactions supprimees', es: 'Se eliminaron {count} transacciones',
+    it: '{count} transazioni eliminate', pl: 'Usunieto {count} transakcji', cn: '已删除 {count} 笔交易', jp: '{count}件の取引を削除しました',
+    pt: '{count} transacoes removidas', tr: '{count} islem silindi', ar: 'تم حذف {count} معاملة', ru: 'Удалено транзакций: {count}',
+    hi: '{count} लेनदेन हटाए गए', bn: '{count} টি লেনদেন মুছে ফেলা হয়েছে', ur: '{count} ٹرانزیکشنز حذف ہوئیں', th: 'ลบธุรกรรมแล้ว {count} รายการ',
+    id: '{count} transaksi dihapus', ko: '{count}개의 거래를 삭제했습니다',
+  },
+  'notifications.empty': {
+    en: 'No notifications', hu: 'Nincsenek értesítések', ro: 'Fara notificari', sk: 'Ziadne upozornenia', hr: 'Nema obavijesti', de: 'Keine Benachrichtigungen',
+    fr: 'Aucune notification', es: 'No hay notificaciones', it: 'Nessuna notifica', pl: 'Brak powiadomien', cn: '无通知', jp: '通知なし',
+    pt: 'Sem notificacoes', tr: 'Bildirim yok', ar: 'لا توجد إشعارات', ru: 'Нет уведомлений', hi: 'कोई सूचना नहीं', bn: 'কোন বিজ্ঞপ্তি নেই',
+    ur: 'کوئی نوٹیفکیشن نہیں', th: 'ไม่มีการแจ้งเตือน', id: 'Tidak ada notifikasi', ko: '알림이 없습니다',
+  },
+  'notifications.pleaseCheckFields': {
+    en: 'Please fill all required fields', hu: 'Kérlek töltsd ki a kötelező mezőket', ro: 'Va rugam completati toate campurile obligatorii',
+    sk: 'Vyplnte vsetky povinne polia', hr: 'Molimo ispunite sva obavezna polja', de: 'Bitte alle Pflichtfelder ausfullen', fr: 'Veuillez remplir tous les champs obligatoires',
+    es: 'Por favor completa todos los campos obligatorios', it: 'Compila tutti i campi obbligatori', pl: 'Wypelnij wszystkie wymagane pola', cn: '请填写所有必填字段',
+    jp: '必須項目をすべて入力してください', pt: 'Preencha todos os campos obrigatorios', tr: 'Lutfen tum zorunlu alanlari doldurun', ar: 'يرجى ملء جميع الحقول المطلوبة',
+    ru: 'Пожалуйста, заполните все обязательные поля', hi: 'कृपया सभी आवश्यक फ़ील्ड भरें', bn: 'অনুগ্রহ করে সব প্রয়োজনীয় ঘর পূরণ করুন',
+    ur: 'براہ کرم تمام ضروری خانے بھریں', th: 'กรุณากรอกข้อมูลที่จำเป็นทั้งหมด', id: 'Harap isi semua bidang wajib', ko: '필수 항목을 모두 입력해 주세요',
+  },
+  'import.success': {
+    en: 'Import completed', hu: 'Import befejezve', ro: 'Import finalizat', sk: 'Import dokonceny', hr: 'Uvoz dovrsen', de: 'Import abgeschlossen',
+    fr: 'Import termine', es: 'Importacion completada', it: 'Importazione completata', pl: 'Import zakonczony', cn: '导入完成', jp: 'インポートが完了しました',
+    pt: 'Importacao concluida', tr: 'Ice aktarma tamamlandi', ar: 'اكتمل الاستيراد', ru: 'Импорт завершен', hi: 'आयात पूरा हुआ', bn: 'ইমপোর্ট সম্পন্ন হয়েছে',
+    ur: 'درآمد مکمل ہوئی', th: 'นำเข้าเสร็จสิ้น', id: 'Impor selesai', ko: '가져오기가 완료되었습니다',
+  },
+  'import.imported': {
+    en: 'Imported transactions', hu: 'Importált tranzakciók', ro: 'Tranzactii importate', sk: 'Importovane transakcie', hr: 'Uvezene transakcije',
+    de: 'Importierte Transaktionen', fr: 'Transactions importees', es: 'Transacciones importadas', it: 'Transazioni importate', pl: 'Zaimportowane transakcje',
+    cn: '已导入交易', jp: 'インポート済みの取引', pt: 'Transacoes importadas', tr: 'Ice aktarilan islemler', ar: 'المعاملات المستوردة', ru: 'Импортированные транзакции',
+    hi: 'आयातित लेनदेन', bn: 'ইমপোর্ট করা লেনদেন', ur: 'درآمد شدہ ٹرانزیکشنز', th: 'ธุรกรรมที่นำเข้าแล้ว', id: 'Transaksi yang diimpor', ko: '가져온 거래',
+  },
+};
+
+const getBudgetLocalizedText = (key: string, language: string, fallback: string, replacements?: Record<string, string | number>) => {
+  const template = BUDGET_NOTIFICATION_FALLBACKS[key]?.[language] ?? BUDGET_NOTIFICATION_FALLBACKS[key]?.en ?? fallback;
+  if (!replacements) return template;
+  return Object.entries(replacements).reduce(
+    (text, [token, value]) => text.replace(new RegExp(`\\{${token}\\}`, "g"), String(value)),
+    template
+  );
+};
+
+const findBudgetNotificationKey = (text: string) => {
+  if (!text) return null;
+  return Object.entries(BUDGET_NOTIFICATION_FALLBACKS).find(([key, variants]) => {
+    const tail = key.split('.').pop() || key;
+    return text === key || text === tail || Object.values(variants).includes(text);
+  })?.[0] ?? null;
 };
 
 // Date utilities
@@ -535,6 +652,20 @@ const useEnhancedBudgetEngine = () => {
   // Data context
   const dataContext = useData();
 
+  const resolveBudgetText = useCallback((key: string, fallback: string, replacements?: Record<string, string | number>) => {
+    const value = t?.(key);
+    const tail = key.split('.').pop() || key;
+    if (value && value !== key && value !== tail) {
+      return replacements
+        ? Object.entries(replacements).reduce(
+          (text, [token, replacement]) => text.replace(new RegExp(`\\{${token}\\}`, "g"), String(replacement)),
+          value
+        )
+        : value;
+    }
+    return getBudgetLocalizedText(key, language, fallback, replacements);
+  }, [language, t]);
+
   // State
   // localTransactions removed - using DataContext as source of truth
   const [currency, setCurrency] = useState("USD");
@@ -558,14 +689,14 @@ const useEnhancedBudgetEngine = () => {
     const welcomeId = `welcome-${Date.now()}`;
     setNotifications([{
       id: welcomeId,
-      title: t?.('notifications.welcome') || "Welcome to Budget Pro!",
-      message: t?.('notifications.getStarted') || "Start by adding your first transaction",
+      title: resolveBudgetText('notifications.welcome', "Welcome to Budget Pro!"),
+      message: resolveBudgetText('notifications.getStarted', "Start by adding your first transaction"),
       type: "info",
       timestamp: new Date().toISOString(),
       read: false,
     }]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t]);
+  }, [resolveBudgetText]);
 
   // Persist notifications
   useEffect(() => {
@@ -688,11 +819,6 @@ const useEnhancedBudgetEngine = () => {
   // FIX: Using DataContext as single source of truth
   // Fix: Memoize transactions to prevent unstable reference warning
   const transactions = useMemo(() => dataContext?.transactions || EMPTY_ARRAY, [dataContext]);
-
-  const resolveBudgetText = useCallback((key: string, fallback: string) => {
-    const value = t?.(key);
-    return value && value !== key ? value : fallback;
-  }, [t]);
 
   const getPeriodLabel = useCallback((period: TransactionPeriod) => {
     switch (period) {
@@ -1138,7 +1264,7 @@ const useEnhancedBudgetEngine = () => {
       id: tmpId(),
     };
     setNotifications(prev => {
-      const base = notification.title !== (t?.('notifications.welcome') || "Welcome to Budget Pro!")
+      const base = notification.title !== resolveBudgetText('notifications.welcome', "Welcome to Budget Pro!")
         ? prev.filter(item => !item.id.startsWith("welcome-"))
         : prev;
 
@@ -1155,7 +1281,7 @@ const useEnhancedBudgetEngine = () => {
 
       return normalizeNotifications([newNotification, ...next]);
     });
-  }, [t]);
+  }, [resolveBudgetText]);
 
   // Mark notification as read
   const markAsRead = useCallback((id: string) => {
@@ -1177,8 +1303,8 @@ const useEnhancedBudgetEngine = () => {
       const data = jsonData as { transactions: unknown[] };
       if (!data || !data.transactions || !Array.isArray(data.transactions)) {
         addNotification({
-          title: t('import.error'),
-          message: t('import.invalidFormat'),
+          title: resolveBudgetText('import.error', 'Import failed'),
+          message: resolveBudgetText('import.invalidFormat', 'Invalid import format'),
           type: "error"
         });
         return;
@@ -1406,13 +1532,16 @@ const EnhancedTransactionModal: React.FC<{
   engine: ReturnType<typeof useEnhancedBudgetEngine>;
   presetType?: TransactionType;
 }> = ({ isOpen, onClose, mode, transaction, engine, presetType = "expense" }) => {
-  const { t, categories, todayYMD } = engine;
+  const { t, categories, todayYMD, language } = engine;
   const [showMetaPanel, setShowMetaPanel] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const resolveModalText = useCallback((key: string, fallback: string) => {
     const value = t(key);
-    return value && value !== key ? value : fallback;
-  }, [t]);
+    const tail = key.split('.').pop() || key;
+    return value && value !== key && value !== tail
+      ? value
+      : getBudgetLocalizedText(key, language, fallback);
+  }, [language, t]);
 
   const [form, setForm] = useState({
     description: "",
@@ -1967,9 +2096,11 @@ const EnhancedBudgetView: React.FC = () => {
   const resolveText = useCallback((key: string, fallback: string) => {
     const value = t(key);
     const tail = key.split('.').pop() || key;
-    if (!value || value === key || value === tail) return fallback;
+    if (!value || value === key || value === tail) {
+      return getBudgetLocalizedText(key, language, fallback);
+    }
     return value;
-  }, [t]);
+  }, [language, t]);
 
   const filteredTransactions = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -2013,9 +2144,7 @@ const EnhancedBudgetView: React.FC = () => {
     deleteTransactions(ids);
     addNotification({
       title: resolveText('notifications.transactionsDeleted', 'Transactions removed'),
-      message: language === "hu"
-        ? `${ids.length} tranzakcio torolve`
-        : `${ids.length} transactions deleted`,
+      message: getBudgetLocalizedText('notifications.transactionsDeletedMessage', language, `${ids.length} transactions deleted`, { count: ids.length }),
       type: "warning",
     });
   }, [addNotification, deleteTransactions, filteredTransactions, language, resolveText]);
@@ -2838,7 +2967,12 @@ const EnhancedBudgetView: React.FC = () => {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <p className="font-bold text-[rgb(var(--text-primary))]">{notif.title}</p>
+                          <p className="font-bold text-[rgb(var(--text-primary))]">
+                            {(() => {
+                              const key = findBudgetNotificationKey(notif.title);
+                              return key ? getBudgetLocalizedText(key, language, notif.title) : notif.title;
+                            })()}
+                          </p>
                           <span className="text-xs text-[rgb(var(--text-tertiary))]">
                             {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
