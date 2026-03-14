@@ -1,0 +1,24 @@
+{
+  "name": "Digital Planner Pro",
+  "short_name": "Planner Pro",
+  "description": "Professional digital planning suite with budget tracking, invoicing, notes, and AI-assisted workflows.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#111827",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/image.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
