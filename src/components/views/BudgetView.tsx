@@ -2680,13 +2680,16 @@ const EnhancedBudgetView: React.FC = () => {
                     >
                       <Bell size={18} />
                     </button>
-                    <h3 className="font-black text-[rgb(var(--text-primary))]">{t('notifications.title') || "Notifications"}</h3>
+                    <h3 className="font-black text-[rgb(var(--text-primary))]">
+                      {resolveText('notifications.title', 'Notifications')}
+                    </h3>
                   </div>
                   <button
                     onClick={() => engine.clearNotifications()}
-                    className="text-sm font-bold text-rose-500 hover:text-rose-400"
+                    disabled={notifications.length === 0}
+                    className="text-sm font-bold text-rose-500 hover:text-rose-400 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    {t('notifications.clearAll') || "Clear All"}
+                    {resolveText('notifications.clearAll', 'Clear All')}
                   </button>
                 </div>
               </div>
@@ -2726,7 +2729,9 @@ const EnhancedBudgetView: React.FC = () => {
                 {notifications.length === 0 && (
                   <div className="p-8 text-center">
                     <Bell size={24} className="text-[rgb(var(--text-tertiary))] mx-auto mb-2" />
-                    <p className="text-[rgb(var(--text-tertiary))] text-sm">{t('notifications.empty') || "No notifications"}</p>
+                    <p className="text-[rgb(var(--text-tertiary))] text-sm">
+                      {resolveText('notifications.empty', 'No notifications')}
+                    </p>
                   </div>
                 )}
               </div>
