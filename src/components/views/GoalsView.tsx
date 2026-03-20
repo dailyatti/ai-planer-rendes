@@ -95,6 +95,7 @@ const GoalsView: React.FC = () => {
   const [expandedTextPanel, setExpandedTextPanel] = useState<ExpandedTextPanel | null>(null);
 
   const modalOpen = mode !== null;
+  const hasOverlayOpen = modalOpen || expandedTextPanel !== null;
   const activeGoal = selectedGoalId ? goals.find((goal) => goal.id === selectedGoalId) || null : null;
   const formatDate = (value?: Date) =>
     value
@@ -253,7 +254,7 @@ const GoalsView: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!modalOpen) return undefined;
+    if (!hasOverlayOpen) return undefined;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const onKeyDown = (event: KeyboardEvent) => {
@@ -269,7 +270,7 @@ const GoalsView: React.FC = () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [expandedTextPanel, modalOpen]);
+  }, [expandedTextPanel, hasOverlayOpen]);
 
   const getDaysUntilTarget = (targetDate?: Date) => {
     if (!targetDate) return null;
@@ -570,6 +571,32 @@ const GoalsView: React.FC = () => {
         )}
       </section>
       
+      {expandedTextPanel && (
+        <div className="fixed inset-0 z-[10030] bg-slate-950/70 backdrop-blur-md" onClick={closeTextPanel}>
+          <div className="flex h-full items-stretch justify-center p-3 sm:p-5 lg:p-6" onClick={(event) => event.stopPropagation()}>
+            <div className={`flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-[1.75rem] border shadow-2xl shadow-slate-950/50 ${textPanelTheme[expandedTextPanel.accent].shell}`}>
+              <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
+                <div className="min-w-0">
+                  <div className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] ${textPanelTheme[expandedTextPanel.accent].badge}`}>{t('common.details')}</div>
+                  <h4 className="mt-3 truncate text-xl font-black tracking-tight text-white sm:text-2xl">{expandedTextPanel.title}</h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeTextPanel}
+                  className={`inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-2.5 text-white transition ${textPanelTheme[expandedTextPanel.accent].button}`}
+                  aria-label={t('common.close')}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className={`hide-scrollbar flex-1 overflow-y-auto px-5 py-5 text-sm leading-8 sm:px-6 sm:py-6 sm:text-base ${textPanelTheme[expandedTextPanel.accent].text}`}>
+                <LinkifiedText text={expandedTextPanel.text} preserveFormatting className="space-y-4" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {modalOpen && (
         <div className={`fixed inset-0 z-[10020] bg-slate-950/70 backdrop-blur-md ${isFullscreen ? 'p-0' : 'p-3 sm:p-5 lg:p-6'}`} onClick={closeModal}>
           <div
@@ -608,32 +635,6 @@ const GoalsView: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            {expandedTextPanel && (
-              <div className="absolute inset-0 z-20 bg-slate-950/70 backdrop-blur-md">
-                <div className="flex h-full items-stretch justify-center p-3 sm:p-5 lg:p-6">
-                  <div className={`flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-[1.75rem] border shadow-2xl shadow-slate-950/50 ${textPanelTheme[expandedTextPanel.accent].shell}`}>
-                    <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
-                      <div className="min-w-0">
-                        <div className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] ${textPanelTheme[expandedTextPanel.accent].badge}`}>{t('common.details')}</div>
-                        <h4 className="mt-3 truncate text-xl font-black tracking-tight text-white sm:text-2xl">{expandedTextPanel.title}</h4>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={closeTextPanel}
-                        className={`inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-2.5 text-white transition ${textPanelTheme[expandedTextPanel.accent].button}`}
-                        aria-label={t('common.close')}
-                      >
-                        <X size={18} />
-                      </button>
-                    </div>
-                    <div className={`hide-scrollbar flex-1 overflow-y-auto px-5 py-5 text-sm leading-8 sm:px-6 sm:py-6 sm:text-base ${textPanelTheme[expandedTextPanel.accent].text}`}>
-                      <LinkifiedText text={expandedTextPanel.text} preserveFormatting className="space-y-4" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             <div className="grid flex-1 overflow-hidden lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.9fr)]">
               {mode === 'details' && activeGoal ? (
