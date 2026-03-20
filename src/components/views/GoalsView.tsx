@@ -37,6 +37,14 @@ type GoalDraft = {
   order: number | '';
 };
 
+type DeadlineTone = 'neutral' | 'safe' | 'soon' | 'urgent';
+
+type ExpandedTextPanel = {
+  title: string;
+  text: string;
+  accent: 'teal' | 'violet';
+};
+
 const EMPTY_DRAFT: GoalDraft = {
   title: '',
   description: '',
@@ -84,6 +92,7 @@ const GoalsView: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
   const [draft, setDraft] = useState<GoalDraft>(EMPTY_DRAFT);
+  const [expandedTextPanel, setExpandedTextPanel] = useState<ExpandedTextPanel | null>(null);
 
   const modalOpen = mode !== null;
   const activeGoal = selectedGoalId ? goals.find((goal) => goal.id === selectedGoalId) || null : null;
@@ -171,19 +180,96 @@ const GoalsView: React.FC = () => {
     },
   };
 
+  const deadlineToneMeta: Record<DeadlineTone, { panel: string; dot: string; icon: string }> = {
+    neutral: {
+      panel: 'border-slate-200/80 bg-slate-50/70 text-slate-600 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-300',
+      dot: 'bg-slate-400 dark:bg-slate-500',
+      icon: 'text-slate-500 dark:text-slate-400',
+    },
+    safe: {
+      panel: 'border-emerald-400/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+      dot: 'bg-emerald-500',
+      icon: 'text-emerald-600 dark:text-emerald-300',
+    },
+    soon: {
+      panel: 'border-amber-400/35 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+      dot: 'bg-amber-500',
+      icon: 'text-amber-600 dark:text-amber-300',
+    },
+    urgent: {
+      panel: 'border-rose-400/35 bg-rose-500/10 text-rose-700 dark:text-rose-300',
+      dot: 'bg-rose-500',
+      icon: 'text-rose-600 dark:text-rose-300',
+    },
+  };
+
+  const textPanelTheme: Record<ExpandedTextPanel['accent'], { shell: string; badge: string; button: string; text: string }> = {
+    teal: {
+      shell: 'border-teal-400/25 bg-gradient-to-br from-slate-950 via-slate-900 to-teal-950/90',
+      badge: 'border-teal-400/30 bg-teal-400/10 text-teal-200',
+      button: 'hover:border-teal-400/50 hover:bg-teal-400/10 hover:text-teal-100',
+      text: 'text-slate-100',
+    },
+    violet: {
+      shell: 'border-violet-400/25 bg-gradient-to-br from-slate-950 via-slate-900 to-violet-950/90',
+      badge: 'border-violet-400/30 bg-violet-400/10 text-violet-200',
+      button: 'hover:border-violet-400/50 hover:bg-violet-400/10 hover:text-violet-100',
+      text: 'text-slate-100',
+    },
+  };
+
+  const getDeadlineText = (daysUntilTarget: number | null) => {
+    if (daysUntilTarget === null) return t('goals.noDeadline');
+    if (daysUntilTarget > 0) return `${daysUntilTarget} ${t('goals.daysLeft')}`;
+    if (daysUntilTarget === 0) return t('goals.dueToday');
+    return `${Math.abs(daysUntilTarget)} ${t('goals.overdue')}`;
+  };
+
+  const getDeadlineTone = (daysUntilTarget: number | null, status: Goal['status']): DeadlineTone => {
+    if (daysUntilTarget === null) return 'neutral';
+    if (status === 'completed') return 'safe';
+    if (daysUntilTarget <= 7) return 'urgent';
+    if (daysUntilTarget <= 30) return 'soon';
+    return 'safe';
+  };
+
+  const getDeadlineState = (targetDate: Goal['targetDate'], status: Goal['status']) => {
+    const daysUntilTarget = getDaysUntilTarget(targetDate);
+    const tone = getDeadlineTone(daysUntilTarget, status);
+
+    return {
+      daysUntilTarget,
+      text: getDeadlineText(daysUntilTarget),
+      meta: deadlineToneMeta[tone],
+    };
+  };
+
+  const openTextPanel = (title: string, text: string, accent: ExpandedTextPanel['accent']) => {
+    setExpandedTextPanel({ title, text, accent });
+  };
+
+  const closeTextPanel = () => {
+    setExpandedTextPanel(null);
+  };
+
   useEffect(() => {
     if (!modalOpen) return undefined;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeModal();
+      if (event.key !== 'Escape') return;
+      if (expandedTextPanel) {
+        closeTextPanel();
+        return;
+      }
+      closeModal();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [modalOpen]);
+  }, [expandedTextPanel, modalOpen]);
 
   const getDaysUntilTarget = (targetDate?: Date) => {
     if (!targetDate) return null;
@@ -205,6 +291,7 @@ const GoalsView: React.FC = () => {
     setMode(null);
     setIsFullscreen(false);
     setSelectedGoalId(null);
+    setExpandedTextPanel(null);
     resetDraft();
   };
 
@@ -212,12 +299,14 @@ const GoalsView: React.FC = () => {
     resetDraft();
     setSelectedGoalId(null);
     setIsFullscreen(false);
+    setExpandedTextPanel(null);
     setMode('create');
   };
 
   const openDetails = (goal: Goal) => {
     setSelectedGoalId(goal.id);
     setIsFullscreen(false);
+    setExpandedTextPanel(null);
     setMode('details');
   };
 
@@ -233,6 +322,7 @@ const GoalsView: React.FC = () => {
       order: goal.order ?? '',
     });
     setSelectedGoalId(goal.id);
+    setExpandedTextPanel(null);
     setMode('edit');
   };
 
@@ -371,15 +461,7 @@ const GoalsView: React.FC = () => {
             {filteredGoals.map((goal) => {
               const priority = priorityMeta[goal.priority || 'medium'];
               const status = statusMeta[goal.status];
-              const daysUntilTarget = getDaysUntilTarget(goal.targetDate);
-              const deadlineText =
-                daysUntilTarget === null
-                  ? t('goals.noDeadline')
-                  : daysUntilTarget > 0
-                    ? `${daysUntilTarget} ${t('goals.daysLeft')}`
-                    : daysUntilTarget === 0
-                      ? t('goals.dueToday')
-                      : `${Math.abs(daysUntilTarget)} ${t('goals.overdue')}`;
+              const deadline = getDeadlineState(goal.targetDate, goal.status);
 
               return (
                 <article
@@ -406,7 +488,28 @@ const GoalsView: React.FC = () => {
                         {goal.order !== undefined && <span className="mr-2 text-teal-500">#{goal.order}</span>}
                         {goal.title}
                       </h3>
-                      {goal.description && <div className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300"><LinkifiedText text={goal.description} /></div>}
+                      {goal.description && (
+                        <div className="mt-4 rounded-2xl border border-teal-400/20 bg-teal-500/5 p-4">
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <div className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-700 dark:text-teal-300">{t('goals.goalDescription')}</div>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openTextPanel(t('goals.goalDescription'), goal.description, 'teal');
+                              }}
+                              className="inline-flex items-center justify-center rounded-xl border border-teal-400/20 bg-white/80 p-2 text-teal-700 transition hover:border-teal-400/40 hover:bg-teal-500/10 dark:border-teal-400/15 dark:bg-slate-900/70 dark:text-teal-200"
+                              aria-label={t('common.fullscreen')}
+                              title={t('common.fullscreen')}
+                            >
+                              <Maximize2 size={16} />
+                            </button>
+                          </div>
+                          <div className="hide-scrollbar max-h-32 overflow-y-auto pr-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
+                            <LinkifiedText text={goal.description} preserveFormatting />
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <button type="button" onClick={(event) => { event.stopPropagation(); openEdit(goal); }} className="rounded-2xl border border-slate-200/80 p-3 text-slate-500 transition hover:border-sky-300 hover:bg-sky-500/10 hover:text-sky-600 dark:border-slate-700 dark:text-slate-300 dark:hover:border-sky-500/40 dark:hover:text-sky-300" aria-label={t('common.edit')}><Edit2 size={18} /></button>
@@ -414,20 +517,41 @@ const GoalsView: React.FC = () => {
                     </div>
                   </div>
                   <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                    <div className={`rounded-2xl border px-4 py-3 text-sm ${status.panel}`}>
-                      <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                        <Calendar size={16} />
+                    <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${deadline.meta.panel}`}>
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2.5 w-2.5 rounded-full ${deadline.meta.dot}`} />
+                        <Calendar size={16} className={deadline.meta.icon} />
                         <span>{goal.targetDate ? `${t('goals.target')}: ${formatDate(goal.targetDate)}` : t('goals.noDeadline')}</span>
                       </div>
                     </div>
-                    <div className={`rounded-2xl border px-4 py-3 text-sm ${daysUntilTarget !== null && daysUntilTarget < 0 && goal.status !== 'completed' ? 'border-rose-400/40 bg-rose-500/10 text-rose-700 dark:text-rose-300' : 'border-slate-200/80 bg-slate-50/70 text-slate-600 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-300'}`}>
-                      <div className="flex items-center gap-2"><TrendingUp size={16} /><span>{deadlineText}</span></div>
+                    <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${deadline.meta.panel}`}>
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2.5 w-2.5 rounded-full ${deadline.meta.dot}`} />
+                        <TrendingUp size={16} className={deadline.meta.icon} />
+                        <span>{deadline.text}</span>
+                      </div>
                     </div>
                   </div>
                   {goal.exchange && (
                     <div className="mt-4 rounded-2xl border border-violet-400/25 bg-violet-500/10 p-4 text-sm text-violet-700 dark:text-violet-300">
-                      <div className="mb-2 flex items-center gap-2 font-semibold"><Gift size={16} />{t('goals.exchange')}</div>
-                      <LinkifiedText text={goal.exchange} />
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 font-semibold"><Gift size={16} />{t('goals.exchange')}</div>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openTextPanel(t('goals.exchange'), goal.exchange, 'violet');
+                          }}
+                          className="inline-flex items-center justify-center rounded-xl border border-violet-400/20 bg-white/80 p-2 text-violet-700 transition hover:border-violet-400/40 hover:bg-violet-500/10 dark:border-violet-400/15 dark:bg-slate-900/70 dark:text-violet-200"
+                          aria-label={t('common.fullscreen')}
+                          title={t('common.fullscreen')}
+                        >
+                          <Maximize2 size={16} />
+                        </button>
+                      </div>
+                      <div className="hide-scrollbar max-h-32 overflow-y-auto pr-2">
+                        <LinkifiedText text={goal.exchange} preserveFormatting />
+                      </div>
                     </div>
                   )}
                   <div className="mt-6">
@@ -450,7 +574,7 @@ const GoalsView: React.FC = () => {
         <div className={`fixed inset-0 z-[10020] bg-slate-950/70 backdrop-blur-md ${isFullscreen ? 'p-0' : 'p-3 sm:p-5 lg:p-6'}`} onClick={closeModal}>
           <div
             onClick={(event) => event.stopPropagation()}
-            className={`mx-auto flex h-full w-full flex-col overflow-hidden border border-white/10 bg-white/95 shadow-2xl shadow-slate-950/40 dark:bg-slate-950/95 ${isFullscreen ? 'max-w-none rounded-none' : 'max-w-6xl rounded-[2rem]'}`}
+            className={`relative mx-auto flex h-full w-full flex-col overflow-hidden border border-white/10 bg-white/95 shadow-2xl shadow-slate-950/40 dark:bg-slate-950/95 ${isFullscreen ? 'max-w-none rounded-none' : 'max-w-6xl rounded-[2rem]'}`}
           >
             <div className="border-b border-slate-200/80 bg-white/90 px-4 py-4 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90 sm:px-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -485,65 +609,129 @@ const GoalsView: React.FC = () => {
               </div>
             </div>
 
+            {expandedTextPanel && (
+              <div className="absolute inset-0 z-20 bg-slate-950/70 backdrop-blur-md">
+                <div className="flex h-full items-stretch justify-center p-3 sm:p-5 lg:p-6">
+                  <div className={`flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-[1.75rem] border shadow-2xl shadow-slate-950/50 ${textPanelTheme[expandedTextPanel.accent].shell}`}>
+                    <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
+                      <div className="min-w-0">
+                        <div className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] ${textPanelTheme[expandedTextPanel.accent].badge}`}>{t('common.details')}</div>
+                        <h4 className="mt-3 truncate text-xl font-black tracking-tight text-white sm:text-2xl">{expandedTextPanel.title}</h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={closeTextPanel}
+                        className={`inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-2.5 text-white transition ${textPanelTheme[expandedTextPanel.accent].button}`}
+                        aria-label={t('common.close')}
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                    <div className={`hide-scrollbar flex-1 overflow-y-auto px-5 py-5 text-sm leading-8 sm:px-6 sm:py-6 sm:text-base ${textPanelTheme[expandedTextPanel.accent].text}`}>
+                      <LinkifiedText text={expandedTextPanel.text} preserveFormatting className="space-y-4" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="grid flex-1 overflow-hidden lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.9fr)]">
               {mode === 'details' && activeGoal ? (
                 <>
                   <div className="hide-scrollbar overflow-y-auto border-b border-slate-200/80 px-4 py-5 dark:border-slate-800 lg:border-b-0 lg:border-r lg:px-6 lg:py-6">
                     <div className="space-y-5">
-                      <div className="rounded-[1.75rem] border border-slate-200/80 bg-gradient-to-br from-white to-teal-50/80 p-6 shadow-lg shadow-teal-500/5 dark:border-slate-800 dark:from-slate-900 dark:to-slate-900">
-                        <div className="mb-4 flex items-center gap-3">
-                          <div className="rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-500 p-3 text-white shadow-lg shadow-teal-500/30"><Target size={22} /></div>
-                          <div>
-                            <div className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-700 dark:text-teal-300">{t('common.details')}</div>
-                            <div className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">{activeGoal.title}</div>
-                          </div>
-                        </div>
-                        {activeGoal.description && <div className="rounded-2xl bg-white/70 p-4 text-sm leading-7 text-slate-700 shadow-sm dark:bg-slate-950/50 dark:text-slate-200"><LinkifiedText text={activeGoal.description} /></div>}
-                      </div>
+                      {(() => {
+                        const deadline = getDeadlineState(activeGoal.targetDate, activeGoal.status);
 
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className={`rounded-[1.5rem] border p-5 ${statusMeta[activeGoal.status].panel}`}>
-                          <div className="mb-3 flex items-center gap-3">{statusMeta[activeGoal.status].icon}<div><div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">{t('goals.status')}</div><div className="text-lg font-bold text-slate-950 dark:text-white">{statusMeta[activeGoal.status].label}</div></div></div>
-                          <select value={activeGoal.status} onChange={(event) => updateGoal(activeGoal.id, { status: event.target.value as Goal['status'] })} className="w-full rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200">
-                            {(['not-started', 'in-progress', 'paused', 'completed'] as Goal['status'][]).map((status) => <option key={status} value={status}>{statusMeta[status].label}</option>)}
-                          </select>
-                        </div>
+                        return (
+                          <>
+                            <div className="rounded-[1.75rem] border border-slate-200/80 bg-gradient-to-br from-white to-teal-50/80 p-6 shadow-lg shadow-teal-500/5 dark:border-slate-800 dark:from-slate-900 dark:to-slate-900">
+                              <div className="mb-4 flex items-start justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-500 p-3 text-white shadow-lg shadow-teal-500/30"><Target size={22} /></div>
+                                  <div>
+                                    <div className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-700 dark:text-teal-300">{t('common.details')}</div>
+                                    <div className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">{activeGoal.title}</div>
+                                  </div>
+                                </div>
+                                {activeGoal.description && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openTextPanel(t('goals.goalDescription'), activeGoal.description, 'teal')}
+                                    className="inline-flex items-center gap-2 rounded-2xl border border-teal-400/20 bg-white/80 px-3 py-2 text-sm font-semibold text-teal-700 transition hover:border-teal-400/40 hover:bg-teal-500/10 dark:border-teal-400/15 dark:bg-slate-900/70 dark:text-teal-200"
+                                  >
+                                    <Maximize2 size={16} />
+                                    <span className="hidden sm:inline">{t('common.fullscreen')}</span>
+                                  </button>
+                                )}
+                              </div>
+                              {activeGoal.description && (
+                                <div className="rounded-2xl bg-white/70 p-4 shadow-sm dark:bg-slate-950/50">
+                                  <div className="hide-scrollbar max-h-64 overflow-y-auto pr-2 text-sm leading-7 text-slate-700 dark:text-slate-200">
+                                    <LinkifiedText text={activeGoal.description} preserveFormatting />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
 
-                        <div className="rounded-[1.5rem] border border-slate-200/80 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-900/70">
-                          <div className="mb-3 flex items-center gap-3"><div className={`rounded-full p-2 ${priorityMeta[activeGoal.priority || 'medium'].chip}`}>{priorityMeta[activeGoal.priority || 'medium'].icon}</div><div><div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">{t('priority.label')}</div><div className="text-lg font-bold text-slate-950 dark:text-white">{priorityMeta[activeGoal.priority || 'medium'].label}</div></div></div>
-                          <div className="grid gap-2">
-                            {(['high', 'medium', 'low'] as PriorityLevel[]).map((priority) => (
-                              <button key={priority} type="button" onClick={() => updateGoal(activeGoal.id, { priority })} className={`flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${(activeGoal.priority || 'medium') === priority ? priorityMeta[priority].chip : 'border-slate-200/80 bg-slate-50/80 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-300 dark:hover:border-slate-500'}`}>{priorityMeta[priority].icon}{priorityMeta[priority].label}</button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className={`rounded-[1.5rem] border p-5 ${statusMeta[activeGoal.status].panel}`}>
+                                <div className="mb-3 flex items-center gap-3">{statusMeta[activeGoal.status].icon}<div><div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">{t('goals.status')}</div><div className="text-lg font-bold text-slate-950 dark:text-white">{statusMeta[activeGoal.status].label}</div></div></div>
+                                <select value={activeGoal.status} onChange={(event) => updateGoal(activeGoal.id, { status: event.target.value as Goal['status'] })} className="w-full rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200">
+                                  {(['not-started', 'in-progress', 'paused', 'completed'] as Goal['status'][]).map((status) => <option key={status} value={status}>{statusMeta[status].label}</option>)}
+                                </select>
+                              </div>
 
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="rounded-[1.5rem] border border-slate-200/80 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-900/70">
-                          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400"><Calendar size={14} />{t('goals.targetDate')}</div>
-                          <div className="text-lg font-bold text-slate-950 dark:text-white">{activeGoal.targetDate ? formatDate(activeGoal.targetDate) : t('goals.noDeadline')}</div>
-                        </div>
-                        <div className={`rounded-[1.5rem] border p-5 ${getDaysUntilTarget(activeGoal.targetDate) !== null && getDaysUntilTarget(activeGoal.targetDate)! < 0 && activeGoal.status !== 'completed' ? 'border-rose-400/30 bg-rose-500/10' : 'border-slate-200/80 bg-white/80 dark:border-slate-800 dark:bg-slate-900/70'}`}>
-                          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400"><TrendingUp size={14} />{t('goals.progress')}</div>
-                          <div className="text-lg font-bold text-slate-950 dark:text-white">
-                            {(() => {
-                              const days = getDaysUntilTarget(activeGoal.targetDate);
-                              if (days === null) return t('goals.noDeadline');
-                              if (days > 0) return `${days} ${t('goals.daysLeft')}`;
-                              if (days === 0) return t('goals.dueToday');
-                              return `${Math.abs(days)} ${t('goals.overdue')}`;
-                            })()}
-                          </div>
-                        </div>
-                      </div>
+                              <div className="rounded-[1.5rem] border border-slate-200/80 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-900/70">
+                                <div className="mb-3 flex items-center gap-3"><div className={`rounded-full p-2 ${priorityMeta[activeGoal.priority || 'medium'].chip}`}>{priorityMeta[activeGoal.priority || 'medium'].icon}</div><div><div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">{t('priority.label')}</div><div className="text-lg font-bold text-slate-950 dark:text-white">{priorityMeta[activeGoal.priority || 'medium'].label}</div></div></div>
+                                <div className="grid gap-2">
+                                  {(['high', 'medium', 'low'] as PriorityLevel[]).map((priority) => (
+                                    <button key={priority} type="button" onClick={() => updateGoal(activeGoal.id, { priority })} className={`flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${(activeGoal.priority || 'medium') === priority ? priorityMeta[priority].chip : 'border-slate-200/80 bg-slate-50/80 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-300 dark:hover:border-slate-500'}`}>{priorityMeta[priority].icon}{priorityMeta[priority].label}</button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
 
-                      {activeGoal.exchange && (
-                        <div className="rounded-[1.75rem] border border-violet-400/25 bg-violet-500/10 p-5">
-                          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-violet-700 dark:text-violet-300"><Gift size={16} />{t('goals.exchange')}</div>
-                          <div className="text-sm leading-7 text-violet-800 dark:text-violet-200"><LinkifiedText text={activeGoal.exchange} /></div>
-                        </div>
-                      )}
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className={`rounded-[1.5rem] border p-5 ${deadline.meta.panel}`}>
+                                <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em]">
+                                  <span className={`h-2.5 w-2.5 rounded-full ${deadline.meta.dot}`} />
+                                  <Calendar size={14} className={deadline.meta.icon} />
+                                  {t('goals.targetDate')}
+                                </div>
+                                <div className="text-lg font-bold">{activeGoal.targetDate ? formatDate(activeGoal.targetDate) : t('goals.noDeadline')}</div>
+                              </div>
+                              <div className={`rounded-[1.5rem] border p-5 ${deadline.meta.panel}`}>
+                                <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em]">
+                                  <span className={`h-2.5 w-2.5 rounded-full ${deadline.meta.dot}`} />
+                                  <TrendingUp size={14} className={deadline.meta.icon} />
+                                  {t('goals.target')}
+                                </div>
+                                <div className="text-lg font-bold">{deadline.text}</div>
+                              </div>
+                            </div>
+
+                            {activeGoal.exchange && (
+                              <div className="rounded-[1.75rem] border border-violet-400/25 bg-violet-500/10 p-5">
+                                <div className="mb-3 flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-2 text-sm font-semibold text-violet-700 dark:text-violet-300"><Gift size={16} />{t('goals.exchange')}</div>
+                                  <button
+                                    type="button"
+                                    onClick={() => openTextPanel(t('goals.exchange'), activeGoal.exchange || '', 'violet')}
+                                    className="inline-flex items-center gap-2 rounded-2xl border border-violet-400/20 bg-white/80 px-3 py-2 text-sm font-semibold text-violet-700 transition hover:border-violet-400/40 hover:bg-violet-500/10 dark:border-violet-400/15 dark:bg-slate-900/70 dark:text-violet-200"
+                                  >
+                                    <Maximize2 size={16} />
+                                    <span className="hidden sm:inline">{t('common.fullscreen')}</span>
+                                  </button>
+                                </div>
+                                <div className="hide-scrollbar max-h-64 overflow-y-auto pr-2 text-sm leading-7 text-violet-800 dark:text-violet-200">
+                                  <LinkifiedText text={activeGoal.exchange} preserveFormatting />
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
 
