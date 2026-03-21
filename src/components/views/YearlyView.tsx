@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { CalendarCheck, ChevronLeft, ChevronRight, TrendingUp, Target, CheckCircle, Calendar, Circle, Trash2, Pencil, X } from 'lucide-react';
+import { CalendarCheck, ChevronLeft, ChevronRight, TrendingUp, CheckCircle, Calendar, Circle, Trash2, Pencil, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useData } from '../../contexts/DataContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { PlanItem } from '../../types/planner';
 
 const YearlyView: React.FC = () => {
-  const { plans, goals, updatePlan, deletePlan } = useData();
+  const { plans, updatePlan, deletePlan } = useData();
   const { t } = useLanguage();
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
@@ -54,24 +54,16 @@ const YearlyView: React.FC = () => {
     setSelectedMonth(selectedMonth === monthIndex ? null : monthIndex);
   };
 
-  const yearlyGoals = goals.filter(goal => {
-    if (!goal.targetDate) return false;
-    const targetYear = new Date(goal.targetDate).getFullYear();
-    return targetYear === currentYear;
-  });
-
   const yearlyStats = useMemo(() => {
-    const totalPlans = plans.filter(plan => plan.date && new Date(plan.date).getFullYear() === currentYear).length;
-    const completedPlans = plans.filter(plan =>
-      plan.date && new Date(plan.date).getFullYear() === currentYear && plan.completed
-    ).length;
+    const monthlyEntries = Object.values(monthDataMap);
+    const totalPlans = monthlyEntries.reduce((sum, month) => sum + month.total, 0);
+    const completedPlans = monthlyEntries.reduce((sum, month) => sum + month.completed, 0);
     return {
       totalPlans,
       completedPlans,
-      activeGoals: yearlyGoals.filter(goal => goal.status === 'in-progress').length,
-      completedGoals: yearlyGoals.filter(goal => goal.status === 'completed').length,
+      activeMonths: monthlyEntries.filter(month => month.total > 0).length,
     };
-  }, [plans, currentYear, yearlyGoals]);
+  }, [monthDataMap]);
 
   const yearlyCompletionRate = yearlyStats.totalPlans > 0
     ? (yearlyStats.completedPlans / yearlyStats.totalPlans) * 100
@@ -192,10 +184,10 @@ const YearlyView: React.FC = () => {
             <div className="absolute inset-0 bg-white/5" />
             <div className="flex items-center justify-between relative">
               <div>
-                <div className="text-xl md:text-2xl font-bold">{yearlyStats.activeGoals}</div>
-                <div className="text-xs md:text-sm opacity-90 mt-1">{t('yearly.stats.activeGoals')}</div>
+                <div className="text-xl md:text-2xl font-bold">{yearlyStats.completedPlans}</div>
+                <div className="text-xs md:text-sm opacity-90 mt-1">{t('yearly.stats.completedPlans')}</div>
               </div>
-              <Target size={20} className="opacity-80 md:w-6 md:h-6" />
+              <CheckCircle size={20} className="opacity-80 md:w-6 md:h-6" />
             </div>
           </div>
 
@@ -203,10 +195,10 @@ const YearlyView: React.FC = () => {
             <div className="absolute inset-0 bg-white/5" />
             <div className="flex items-center justify-between relative">
               <div>
-                <div className="text-xl md:text-2xl font-bold">{yearlyStats.completedGoals}</div>
-                <div className="text-xs md:text-sm opacity-90 mt-1">{t('yearly.stats.achieved')}</div>
+                <div className="text-xl md:text-2xl font-bold">{yearlyStats.activeMonths}</div>
+                <div className="text-xs md:text-sm opacity-90 mt-1">{t('yearly.stats.activeMonths')}</div>
               </div>
-              <CheckCircle size={20} className="opacity-80 md:w-6 md:h-6" />
+              <Calendar size={20} className="opacity-80 md:w-6 md:h-6" />
             </div>
           </div>
         </div>
@@ -482,60 +474,6 @@ const YearlyView: React.FC = () => {
         </AnimatePresence>
       </div>
 
-      {/* Goals Overview — NO entrance animations */}
-      {yearlyGoals.length > 0 && (
-        <div className="card">
-          <h3 className="section-title mb-4 md:mb-6 flex items-center gap-2">
-            <Target className="text-red-500 w-5 h-5 md:w-6 md:h-6" />
-            {currentYear} {t('yearly.goals.title')}
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-            {yearlyGoals.map((goal) => (
-              <div
-                key={goal.id}
-                className="card-compact hover:shadow-lg transition-all duration-200"
-              >
-                <h4 className="font-semibold text-sm md:text-base text-gray-900 dark:text-white mb-2 line-clamp-2">
-                  {goal.order !== undefined && <span className="text-red-500 mr-1.5">#{goal.order}</span>}
-                  {goal.title}
-                </h4>
-                <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-3 line-clamp-2">
-                  {goal.description}
-                </p>
-
-                <div className="mb-3">
-                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    <span>{t('yearly.monthly.progress')}</span>
-                    <span className="font-semibold">{goal.progress}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 md:h-2 overflow-hidden">
-                    <div
-                      className="bg-gradient-to-r from-red-500 to-orange-500 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${goal.progress}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center text-xs">
-                  <span className={`px-2.5 py-1 rounded-full font-medium ${goal.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400' :
-                    goal.status === 'in-progress' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' :
-                      goal.status === 'paused' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400' :
-                        'bg-gray-100 text-gray-600 dark:bg-gray-900/20 dark:text-gray-400'
-                    }`}>
-                    {goal.status === 'completed' ? t('yearly.goals.status.completed') :
-                      goal.status === 'in-progress' ? t('yearly.goals.status.inProgress') :
-                        goal.status === 'paused' ? t('yearly.goals.status.paused') : t('yearly.goals.status.notStarted')}
-                  </span>
-                  <span className="text-gray-500 dark:text-gray-400">
-                    {goal.targetDate ? new Date(goal.targetDate).toLocaleDateString(navigator.language, { month: 'short', day: 'numeric' }) : t('goals.noDate')}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
