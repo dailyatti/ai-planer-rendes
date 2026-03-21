@@ -13,6 +13,7 @@ import {
   ArrowUp,
   ArrowRight,
   ArrowDown,
+  Search,
   Gift,
   X,
   Maximize2,
@@ -44,6 +45,8 @@ type ExpandedTextPanel = {
   text: string;
   accent: 'teal' | 'violet';
 };
+
+type GoalSortOption = 'order' | 'priority' | 'newest' | 'oldest' | 'alphabetical';
 
 const EMPTY_DRAFT: GoalDraft = {
   title: '',
@@ -91,6 +94,8 @@ const GoalsView: React.FC = () => {
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<GoalSortOption>('order');
   const [draft, setDraft] = useState<GoalDraft>(EMPTY_DRAFT);
   const [expandedTextPanel, setExpandedTextPanel] = useState<ExpandedTextPanel | null>(null);
 
@@ -107,21 +112,42 @@ const GoalsView: React.FC = () => {
       : '';
 
   const filteredGoals = useMemo(
-    () =>
-      goals
+    () => {
+      const searchNeedle = searchQuery.trim().toLocaleLowerCase(localeMap[language] || 'en-US');
+
+      return goals
         .filter((goal) => (filterStatus === 'all' ? true : goal.status === filterStatus))
         .filter((goal) => (filterPriority === 'all' ? true : (goal.priority || 'medium') === filterPriority))
+        .filter((goal) => {
+          if (!searchNeedle) return true;
+
+          return [goal.title, goal.description, goal.exchange, goal.order?.toString() || '']
+            .filter(Boolean)
+            .some((value) => value.toLocaleLowerCase(localeMap[language] || 'en-US').includes(searchNeedle));
+        })
         .sort((a, b) => {
-          if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
-          if (a.order !== undefined) return -1;
-          if (b.order !== undefined) return 1;
-          const priorityDelta = priorityOrder[a.priority || 'medium'] - priorityOrder[b.priority || 'medium'];
-          if (priorityDelta !== 0) return priorityDelta;
-          const aDate = a.targetDate ? new Date(a.targetDate).getTime() : Number.POSITIVE_INFINITY;
-          const bDate = b.targetDate ? new Date(b.targetDate).getTime() : Number.POSITIVE_INFINITY;
-          return aDate - bDate;
-        }),
-    [filterPriority, filterStatus, goals],
+          switch (sortBy) {
+            case 'newest':
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            case 'oldest':
+              return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+            case 'alphabetical':
+              return a.title.localeCompare(b.title, localeMap[language] || 'en-US', { sensitivity: 'base' });
+            case 'priority': {
+              const priorityDelta = priorityOrder[a.priority || 'medium'] - priorityOrder[b.priority || 'medium'];
+              if (priorityDelta !== 0) return priorityDelta;
+              return a.title.localeCompare(b.title, localeMap[language] || 'en-US', { sensitivity: 'base' });
+            }
+            case 'order':
+            default:
+              if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
+              if (a.order !== undefined) return -1;
+              if (b.order !== undefined) return 1;
+              return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          }
+        });
+    },
+    [filterPriority, filterStatus, goals, language, searchQuery, sortBy],
   );
 
   const stats = useMemo(
@@ -418,7 +444,28 @@ const GoalsView: React.FC = () => {
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">{t('common.details')}</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">{filteredGoals.length} / {stats.total}</p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex flex-col gap-3 lg:min-w-[720px] lg:flex-row lg:justify-end">
+            <label className="relative block lg:min-w-[260px] lg:flex-1">
+              <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={t('goals.searchPlaceholder')}
+                className="w-full rounded-2xl border border-slate-200/80 bg-white/80 py-3 pl-11 pr-4 text-sm font-medium text-slate-800 shadow-sm outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200"
+              />
+            </label>
+            <select
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value as GoalSortOption)}
+              className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 text-sm font-medium text-slate-800 shadow-sm outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200"
+            >
+              <option value="order">{t('goals.sortOrder')}</option>
+              <option value="priority">{t('goals.sortPriority')}</option>
+              <option value="newest">{t('goals.sortNewest')}</option>
+              <option value="oldest">{t('goals.sortOldest')}</option>
+              <option value="alphabetical">{t('goals.sortAlphabetical')}</option>
+            </select>
             <select
               value={filterStatus}
               onChange={(event) => setFilterStatus(event.target.value)}
