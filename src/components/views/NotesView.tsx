@@ -4,6 +4,7 @@ import { useData } from '../../contexts/DataContext';
 import { Note, PriorityLevel } from '../../types/planner';
 import LinkifiedText from '../common/LinkifiedText';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { StorageService } from '../../services/StorageService';
 
 interface SpeechRecognitionResultAlternativeLike {
   transcript: string;
@@ -56,6 +57,25 @@ const NotesView: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [dictationSupported, setDictationSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+
+  // Load draft from localStorage on mount
+  useEffect(() => {
+    const savedDraft = StorageService.get<typeof newNote>('notes-draft');
+    if (savedDraft) {
+      setNewNote(savedDraft);
+      if (savedDraft.title || savedDraft.content) {
+        setShowAddForm(true);
+      }
+    }
+  }, []);
+
+  // Save draft to localStorage on change
+  useEffect(() => {
+    const isEmpty = !newNote.title && !newNote.content && newNote.tags.length === 0 && newNote.priority === 'medium' && newNote.order === '';
+    if (!isEmpty && !editingId) {
+      StorageService.set('notes-draft', newNote);
+    }
+  }, [newNote, editingId]);
 
   useEffect(() => {
     const browserWindow = window as BrowserWindowWithSpeech;
@@ -177,6 +197,7 @@ const NotesView: React.FC = () => {
     }
 
     setNewNote({ title: '', content: '', tags: [], priority: 'medium', order: '' });
+    StorageService.remove('notes-draft');
     setShowAddForm(false);
   };
 
@@ -409,6 +430,7 @@ const NotesView: React.FC = () => {
                     setShowAddForm(false);
                     setEditingId(null);
                     setNewNote({ title: '', content: '', tags: [], priority: 'medium', order: '' });
+                    StorageService.remove('notes-draft');
                   }}
                   className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
                 >

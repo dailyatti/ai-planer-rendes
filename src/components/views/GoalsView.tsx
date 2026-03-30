@@ -24,6 +24,7 @@ import { useData } from '../../contexts/DataContext';
 import { Goal, PriorityLevel } from '../../types/planner';
 import LinkifiedText from '../common/LinkifiedText';
 import { Language, useLanguage } from '../../contexts/LanguageContext';
+import { StorageService } from '../../services/StorageService';
 
 type ModalMode = 'create' | 'edit' | 'details' | null;
 
@@ -98,6 +99,25 @@ const GoalsView: React.FC = () => {
   const [sortBy, setSortBy] = useState<GoalSortOption>('order');
   const [draft, setDraft] = useState<GoalDraft>(EMPTY_DRAFT);
   const [expandedTextPanel, setExpandedTextPanel] = useState<ExpandedTextPanel | null>(null);
+
+  // Load draft from localStorage on mount
+  useEffect(() => {
+    const savedDraft = StorageService.get<GoalDraft>('goals-draft');
+    if (savedDraft) {
+      setDraft(savedDraft);
+      // If we have a saved draft, automatically open the creation modal
+      if (savedDraft.title || savedDraft.description) {
+        setMode('create');
+      }
+    }
+  }, []);
+
+  // Save draft to localStorage on change
+  useEffect(() => {
+    if (draft !== EMPTY_DRAFT) {
+      StorageService.set('goals-draft', draft);
+    }
+  }, [draft]);
 
   const modalOpen = mode !== null;
   const hasOverlayOpen = modalOpen || expandedTextPanel !== null;
@@ -313,7 +333,10 @@ const GoalsView: React.FC = () => {
     return status;
   };
 
-  const resetDraft = () => setDraft(EMPTY_DRAFT);
+  const resetDraft = () => {
+    setDraft(EMPTY_DRAFT);
+    StorageService.remove('goals-draft');
+  };
   const closeModal = () => {
     setMode(null);
     setIsFullscreen(false);
