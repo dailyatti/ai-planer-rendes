@@ -114,10 +114,10 @@ const GoalsView: React.FC = () => {
 
   // Save draft to localStorage on change
   useEffect(() => {
-    if (draft !== EMPTY_DRAFT) {
+    if (mode === 'create' && draft !== EMPTY_DRAFT) {
       StorageService.set('goals-draft', draft);
     }
-  }, [draft]);
+  }, [draft, mode]);
 
   const modalOpen = mode !== null;
   const hasOverlayOpen = modalOpen || expandedTextPanel !== null;
@@ -142,7 +142,7 @@ const GoalsView: React.FC = () => {
           if (!searchNeedle) return true;
 
           return [goal.title, goal.description, goal.exchange, goal.order?.toString() || '']
-            .filter(Boolean)
+            .filter((val): val is string => Boolean(val))
             .some((value) => value.toLocaleLowerCase(localeMap[language] || 'en-US').includes(searchNeedle));
         })
         .sort((a, b) => {
@@ -333,20 +333,21 @@ const GoalsView: React.FC = () => {
     return status;
   };
 
-  const resetDraft = () => {
-    setDraft(EMPTY_DRAFT);
-    StorageService.remove('goals-draft');
-  };
   const closeModal = () => {
     setMode(null);
     setIsFullscreen(false);
     setSelectedGoalId(null);
     setExpandedTextPanel(null);
-    resetDraft();
+    
+    // Reload the "New Goal" draft from storage after closing any modal
+    // This ensures that if we were editing a goal, the "New Goal" draft is restored
+    const savedDraft = StorageService.get<GoalDraft>('goals-draft');
+    setDraft(savedDraft || EMPTY_DRAFT);
   };
 
   const openCreate = () => {
-    resetDraft();
+    const savedDraft = StorageService.get<GoalDraft>('goals-draft');
+    setDraft(savedDraft || EMPTY_DRAFT);
     setSelectedGoalId(null);
     setIsFullscreen(false);
     setExpandedTextPanel(null);
@@ -408,6 +409,8 @@ const GoalsView: React.FC = () => {
       return;
     }
     addGoal(payload);
+    StorageService.remove('goals-draft');
+    setDraft(EMPTY_DRAFT);
     closeModal();
   };
 
@@ -611,7 +614,7 @@ const GoalsView: React.FC = () => {
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            openTextPanel(t('goals.exchange'), goal.exchange, 'violet');
+                            openTextPanel(t('goals.exchange'), goal.exchange || '', 'violet');
                           }}
                           className="inline-flex items-center justify-center rounded-xl border border-violet-400/20 bg-white/80 p-2 text-violet-700 transition hover:border-violet-400/40 hover:bg-violet-500/10 dark:border-violet-400/15 dark:bg-slate-900/70 dark:text-violet-200"
                           aria-label={t('common.fullscreen')}

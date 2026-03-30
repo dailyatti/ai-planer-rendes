@@ -112,6 +112,7 @@ const InvoicingView: React.FC = () => {
             document.removeEventListener('click', handleClickOutside);
         };
     }, [selectedStat]);
+
     const [selectedInvoices, setSelectedInvoices] = useState<Set<string>>(new Set());
 
     // New Invoice State
@@ -164,6 +165,72 @@ const InvoicingView: React.FC = () => {
         setToast(msg);
         setTimeout(() => setToast(null), 3000);
     };
+
+    // Standardized closing for all modals
+    React.useEffect(() => {
+        const handleEsc = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setShowCreateInvoice(false);
+                setShowAddClient(false);
+                setShowAddCompanyProfile(false);
+                setPreviewInvoice(null);
+                setShowConverter(false);
+                setShowCompanySettings(false);
+                setSelectedStat(null);
+            }
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, []);
+
+    // Body scroll lock
+    React.useEffect(() => {
+        const anyOpen = showCreateInvoice || showAddClient || showAddCompanyProfile || previewInvoice || showConverter || showCompanySettings;
+        if (anyOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [showCreateInvoice, showAddClient, showAddCompanyProfile, previewInvoice, showConverter, showCompanySettings]);
+
+    // Draft Persistence: Invoice
+    React.useEffect(() => {
+        if (showCreateInvoice) {
+            localStorage.setItem('invoice-draft', JSON.stringify(newInvoice));
+        }
+    }, [newInvoice, showCreateInvoice]);
+
+    React.useEffect(() => {
+        const saved = localStorage.getItem('invoice-draft');
+        if (saved) {
+            try {
+                const draft = JSON.parse(saved);
+                setNewInvoice(prev => ({ ...prev, ...draft }));
+            } catch (e) {
+                console.error("Failed to load invoice draft", e);
+            }
+        }
+    }, []);
+
+    // Draft Persistence: Client
+    React.useEffect(() => {
+        if (showAddClient) {
+            localStorage.setItem('client-draft', JSON.stringify(newClient));
+        }
+    }, [newClient, showAddClient]);
+
+    React.useEffect(() => {
+        const saved = localStorage.getItem('client-draft');
+        if (saved) {
+            try {
+                const draft = JSON.parse(saved);
+                setNewClient(prev => ({ ...prev, ...draft }));
+            } catch (e) {
+                console.error("Failed to load client draft", e);
+            }
+        }
+    }, []);
 
     // Formatting
     const formatCurrency = (amount: number, currency: string) => {

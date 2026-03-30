@@ -19,6 +19,43 @@ const HourlyView: React.FC = () => {
     priority: 'medium' as 'low' | 'medium' | 'high',
   });
 
+  // Modal Standardization & Persistence
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowAddForm(false);
+        setEditingId(null);
+        setNewPlan({ title: '', description: '', startTime: '', endTime: '', priority: 'medium' });
+      }
+    };
+    if (showAddForm) {
+      window.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [showAddForm]);
+
+  React.useEffect(() => {
+    if (showAddForm && !editingId) {
+      localStorage.setItem('hourly-plan-draft', JSON.stringify(newPlan));
+    }
+  }, [showAddForm, editingId, newPlan]);
+
+  React.useEffect(() => {
+    const saved = localStorage.getItem('hourly-plan-draft');
+    if (saved && !showAddForm) {
+      try {
+        const draft = JSON.parse(saved);
+        setNewPlan(draft);
+      } catch (e) {
+        console.error("Failed to load hourly draft", e);
+      }
+    }
+  }, [showAddForm]);
+
   // const today = new Date().toISOString().split('T')[0]; // Removed unused variable
   const selectedDateStr = selectedDate.toISOString().split('T')[0];
 
@@ -63,6 +100,7 @@ const HourlyView: React.FC = () => {
       });
     }
 
+    localStorage.removeItem('hourly-plan-draft');
     setNewPlan({ title: '', description: '', startTime: '', endTime: '', priority: 'medium' });
     setShowAddForm(false);
   };
@@ -125,8 +163,18 @@ const HourlyView: React.FC = () => {
       </div>
 
       {showAddForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-2xl">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
+          onClick={() => {
+            setShowAddForm(false);
+            setEditingId(null);
+            setNewPlan({ title: '', description: '', startTime: '', endTime: '', priority: 'medium' });
+          }}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               {editingId ? t('hourly.editBlock') : t('hourly.addBlock')}
             </h3>

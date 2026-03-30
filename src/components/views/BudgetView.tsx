@@ -331,6 +331,16 @@ function formatCurrency(amount: number, currency: string, language: string): str
 
 
 
+function formatDate(ymd: string, locale: string): string {
+  const date = parseYMD(ymd);
+  if (!date) return ymd || "-";
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(date);
+}
+
 /* -------------------------------- Premium UI Components -------------------------------- */
 
 const GlassCard: React.FC<{
@@ -1360,7 +1370,7 @@ const useEnhancedBudgetEngine = () => {
     }
   }, [dataContext, t, addNotification, safeCategory, safeYMD, todayYMD, currency]);
 
-  // Add transaction with enhanced features
+  // Add transaction
   const addTransaction = useCallback((transaction: Omit<Transaction, 'id'>) => {
     const effectiveDateYMD = safeYMD(transaction.effectiveDateYMD ?? transaction.date);
     const period = transaction.period ?? 'oneTime';
@@ -1388,7 +1398,6 @@ const useEnhancedBudgetEngine = () => {
       createdAtISO: new Date().toISOString(),
     };
 
-    // Use DataContext instead of local state
     if (dataContext?.addTransaction) {
       dataContext.addTransaction(payload);
     }
@@ -1416,14 +1425,14 @@ const useEnhancedBudgetEngine = () => {
     if (Math.abs(transaction.amount) > 5000) {
       addNotification({
         title: resolveBudgetText('notifications.largeTransaction', "Large transaction added"),
-        message: `${transaction.description} - ${formatCurrency(Math.abs(transaction.amount), transaction.currency, language)}`,
+        message: `${transaction.description} - ${formatCurrency(Math.abs(transaction.amount), transaction.currency || currency, language || 'en')}`,
         type: transaction.amount > 0 ? "success" : "warning",
       });
     }
   }, [addNotification, resolveBudgetText, getPeriodLabel, language, dataContext, safeYMD, todayYMD]);
 
   // Update transaction
-  const updateTransaction = useCallback((id: string, updates: TransactionPatch) => {
+  const updateTransaction = useCallback((id: string, updates: PlannerTransactionPatch) => {
     if (dataContext?.updateTransaction) {
       dataContext.updateTransaction(id, updates);
     }
@@ -1477,9 +1486,9 @@ const useEnhancedBudgetEngine = () => {
     notifications,
 
     // Data
-    transactions: uiTransactions, // Expose normalized transactions as secondary source if needed, but prefer uiTransactions
-    uiTransactions,            // <--- NEW: Normalized Safe Transactions
-    visibleTransactions: displayTransactions,       // Aggregated recurring rows for UI
+    transactions: uiTransactions,
+    uiTransactions,
+    visibleTransactions: displayTransactions,
     categories,
     todayYMD,
 
@@ -1535,9 +1544,28 @@ const EnhancedTransactionModal: React.FC<{
   const { t, categories, todayYMD, language } = engine;
   const [showMetaPanel, setShowMetaPanel] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Standardized closing
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    if (isOpen) window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => { document.body.style.overflow = 'unset'; };
+  }, [isOpen]);
+
   const resolveModalText = useCallback((key: string, fallback: string) => {
     const value = t(key);
-    const tail = key.split('.').pop() || key;
+    const tail = (key.split('.').pop() as string) || key;
     return value && value !== key && value !== tail
       ? value
       : getBudgetLocalizedText(key, language, fallback);
@@ -1573,7 +1601,6 @@ const EnhancedTransactionModal: React.FC<{
         tags: transaction.tags || [],
         notes: transaction.notes || "",
         priority: transaction.priority || "medium",
-        // Force priority valid
       });
       setShowMetaPanel(Boolean(transaction.tags?.length) || Boolean(transaction.notes?.trim()));
     } else {
@@ -1594,7 +1621,23 @@ const EnhancedTransactionModal: React.FC<{
     }
     setTagInput("");
     setFormError(null);
-  }, [mode, transaction, engine.currency, todayYMD, presetType, isOpen]); // Added isOpen to reset on open
+  }, [mode, transaction, engine.currency, todayYMD, presetType, isOpen]);
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, onClose]);
 
   const handleSubmit = () => {
     const amount = parseFloat(form.amount);
@@ -1608,7 +1651,6 @@ const EnhancedTransactionModal: React.FC<{
     const transactionLabel = form.description.trim();
 
     if (mode === "edit" && transaction) {
-      // Only send changed fields as patch to avoid triggering unnecessary recurring regeneration
       const patch: PlannerTransactionPatch = {
         description: form.description.trim(),
         amount: form.type === "income" ? Math.abs(amount) : -Math.abs(amount),
@@ -1623,7 +1665,6 @@ const EnhancedTransactionModal: React.FC<{
         status: "completed" as TransactionStatus,
       };
 
-      // Only include recurring-related fields if they actually changed
       if (transaction.period !== form.period) {
         patch.period = form.period;
         patch.recurring = isRecurring;
@@ -1660,6 +1701,7 @@ const EnhancedTransactionModal: React.FC<{
       engine.addTransaction(transactionData);
     }
 
+    localStorage.removeItem('budget-transaction-draft');
     onClose();
   };
 
@@ -1669,18 +1711,12 @@ const EnhancedTransactionModal: React.FC<{
       .map(tag => tag.trim().replace(/\s+/g, " "))
       .filter(Boolean);
 
-    if (nextTags.length === 0) {
-      return;
-    }
+    if (nextTags.length === 0) return;
 
     setForm(prev => {
       const existing = new Set(prev.tags.map(tag => tag.toLocaleLowerCase()));
       const uniqueTags = nextTags.filter(tag => !existing.has(tag.toLocaleLowerCase()));
-
-      if (uniqueTags.length === 0) {
-        return prev;
-      }
-
+      if (uniqueTags.length === 0) return prev;
       return { ...prev, tags: [...prev.tags, ...uniqueTags] };
     });
     setTagInput("");
@@ -1694,11 +1730,15 @@ const EnhancedTransactionModal: React.FC<{
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+      onClick={onClose}
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
+        onClick={(e) => e.stopPropagation()}
         className="w-full max-w-4xl rounded-[2rem] bg-slate-950/95 border border-slate-700/80 shadow-2xl shadow-black/50 overflow-hidden"
       >
         <div className="p-6 border-b border-slate-700/80 bg-slate-900/60">
@@ -1719,7 +1759,6 @@ const EnhancedTransactionModal: React.FC<{
 
         <div className="p-8 max-h-[75vh] overflow-y-auto">
           <div className="grid grid-cols-1 gap-6">
-            {/* Description Row */}
             <div>
               <label className="block text-sm font-bold text-gray-400 mb-2">
                 {t('transactions.description') || 'Leiras'}
@@ -1736,7 +1775,6 @@ const EnhancedTransactionModal: React.FC<{
               />
             </div>
 
-            {/* Amount Row */}
             <div>
               <label className="block text-sm font-bold text-white mb-2">
                 {t('transactions.amount') || 'Osszeg'}
@@ -1771,7 +1809,6 @@ const EnhancedTransactionModal: React.FC<{
             </div>
           </div>
 
-          {/* Date Row */}
           <div className="mt-6 px-2 min-w-0">
             <div className="space-y-4">
               <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase">
@@ -1794,7 +1831,6 @@ const EnhancedTransactionModal: React.FC<{
             </div>
           </div>
 
-          {/* Metadata Panel */}
           <div className="mt-6 px-2">
             <div className="rounded-[1.5rem] border border-slate-700/80 bg-slate-900/55 overflow-hidden">
               <button
@@ -1857,9 +1893,6 @@ const EnhancedTransactionModal: React.FC<{
                             <Plus size={18} />
                           </button>
                         </div>
-                        <p className="text-xs text-slate-400">
-                          {resolveModalText('transactions.tagHint', 'You can add multiple tags separated by commas.')}
-                        </p>
                         <div className="flex flex-wrap gap-2 min-h-[32px]">
                           {form.tags.map(tag => (
                             <Tag
@@ -1890,7 +1923,6 @@ const EnhancedTransactionModal: React.FC<{
             </div>
           </div>
 
-          {/* Type Selector Row */}
           <div className="mt-6 px-2">
             <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">
               {t('transactions.type') || 'Tipus'}
@@ -1919,7 +1951,6 @@ const EnhancedTransactionModal: React.FC<{
             </div>
           </div>
 
-          {/* Categories - Full Width Row */}
           <div className="mt-8 px-2">
             <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-4">
               {t('transactions.category') || 'KATEGORIA'}
@@ -1949,7 +1980,6 @@ const EnhancedTransactionModal: React.FC<{
             </div>
           </div>
 
-          {/* Additional Fields - Also Full Width */}
           <div className="mt-8 px-2 pb-6">
             <div className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1957,25 +1987,6 @@ const EnhancedTransactionModal: React.FC<{
                   <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">
                     {t('transactions.period') || 'Gyakorisag'}
                   </label>
-                  <div className="relative">
-                    <select
-                      value={form.period}
-                      onChange={(e) => setForm(prev => ({ ...prev, period: e.target.value as TransactionPeriod }))}
-                      className="w-full pl-5 pr-10 py-3 rounded-full border border-slate-700/80 bg-slate-900/80 text-white font-bold outline-none cursor-pointer hover:border-slate-500 transition-colors appearance-none focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
-                    >
-                      <option value="oneTime">{t('period.oneTime') || 'Egyszeri'}</option>
-                      <option value="daily">{t('period.daily') || 'Napi'}</option>
-                      <option value="weekly">{t('period.weekly') || 'Heti'}</option>
-                      <option value="monthly">{t('period.monthly') || 'Havi'}</option>
-                      <option value="yearly">{t('period.yearly') || 'Eves'}</option>
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
-                      <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path></svg>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
                   <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">
                     {t('transactions.priority') || 'Prioritas'}
                   </label>
@@ -2095,7 +2106,7 @@ const EnhancedBudgetView: React.FC = () => {
 
   const resolveText = useCallback((key: string, fallback: string) => {
     const value = t(key);
-    const tail = key.split('.').pop() || key;
+    const tail = (key.split('.').pop() as string) || key;
     if (!value || value === key || value === tail) {
       return getBudgetLocalizedText(key, language, fallback);
     }

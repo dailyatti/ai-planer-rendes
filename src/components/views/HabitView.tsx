@@ -228,6 +228,15 @@ function Modal({ open, onClose, title, children, footer }: ModalProps) {
         return () => window.removeEventListener('keydown', h);
     }, [onClose]);
 
+    useEffect(() => {
+        if (open) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [open]);
+
     return (
         <AnimatePresence>
             {open && (
@@ -288,6 +297,32 @@ export default function HabitView() {
 
     const [dayISO, setDayISO] = useState<string | null>(null);
     const todayISO = toLocalISODate(new Date());
+
+    // Draft Persistence
+    useEffect(() => {
+        if (showAdd && !editHabit) {
+            const draft = { draftName, draftDesc, draftEmoji, draftColor, draftPeriod, draftMode, draftTarget };
+            localStorage.setItem('habit-draft', JSON.stringify(draft));
+        }
+    }, [showAdd, editHabit, draftName, draftDesc, draftEmoji, draftColor, draftPeriod, draftMode, draftTarget]);
+
+    useEffect(() => {
+        const saved = localStorage.getItem('habit-draft');
+        if (saved) {
+            try {
+                const draft = JSON.parse(saved);
+                setDraftName(draft.draftName || '');
+                setDraftDesc(draft.draftDesc || '');
+                setDraftEmoji(draft.draftEmoji || EMOJIS[0]);
+                setDraftColor(draft.draftColor || COLORS[0]);
+                setDraftPeriod(draft.draftPeriod || 'daily');
+                setDraftMode(draft.draftMode || 'binary');
+                setDraftTarget(draft.draftTarget || 1);
+            } catch (e) {
+                console.error("Failed to load habit draft", e);
+            }
+        }
+    }, []);
 
     useEffect(() => {
         try {
@@ -375,6 +410,7 @@ export default function HabitView() {
         }
 
         saveHabits(nextHabits);
+        localStorage.removeItem('habit-draft');
         setShowAdd(false);
     };
 

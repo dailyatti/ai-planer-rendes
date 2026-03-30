@@ -20,6 +20,39 @@ const YearlyView: React.FC = () => {
     priority: 'medium' as 'low' | 'medium' | 'high',
   });
 
+  // Modal Standardization & Persistence
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') resetEditForm();
+    };
+    if (showEditForm) {
+      window.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [showEditForm]);
+
+  React.useEffect(() => {
+    if (showEditForm && !editingPlan) {
+      localStorage.setItem('yearly-plan-draft', JSON.stringify(editFormData));
+    }
+  }, [showEditForm, editingPlan, editFormData]);
+
+  React.useEffect(() => {
+    const saved = localStorage.getItem('yearly-plan-draft');
+    if (saved && !showEditForm) {
+      try {
+        const draft = JSON.parse(saved);
+        setEditFormData(draft);
+      } catch (e) {
+        console.error("Failed to load yearly draft", e);
+      }
+    }
+  }, [showEditForm]);
+
   const monthKeys = [
     'months.january', 'months.february', 'months.march', 'months.april', 'months.may', 'months.june',
     'months.july', 'months.august', 'months.september', 'months.october', 'months.november', 'months.december'
@@ -107,6 +140,7 @@ const YearlyView: React.FC = () => {
         priority: editFormData.priority,
       });
     }
+    localStorage.removeItem('yearly-plan-draft');
     setShowEditForm(false);
     setEditingPlan(null);
     setEditFormData({ title: '', description: '', priority: 'medium' });

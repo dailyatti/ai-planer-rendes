@@ -24,9 +24,29 @@ const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({ isOpen,
     // Recalculate when inputs change
     const calculateConversion = useCallback(() => {
         // If using live rates, we rely on the stored rates in CurrencyService (which should be updated)
-        // If we want to FORCE live rate fetch, user clicks "Refresh Rates"
         const converted = CurrencyService.convert(amount, fromCurrency, toCurrency);
         setResult(converted);
+    }, [amount, fromCurrency, toCurrency]);
+
+    // Load from localStorage on mount
+    useEffect(() => {
+        const saved = localStorage.getItem('currency-converter-settings');
+        if (saved) {
+            try {
+                const settings = JSON.parse(saved);
+                if (settings.amount !== undefined) setAmount(settings.amount);
+                if (settings.fromCurrency) setFromCurrency(settings.fromCurrency);
+                if (settings.toCurrency) setToCurrency(settings.toCurrency);
+            } catch (e) {
+                console.error("Failed to load currency converter settings", e);
+            }
+        }
+    }, []);
+
+    // Save to localStorage when changed
+    useEffect(() => {
+        const settings = { amount, fromCurrency, toCurrency };
+        localStorage.setItem('currency-converter-settings', JSON.stringify(settings));
     }, [amount, fromCurrency, toCurrency]);
 
     useEffect(() => {
@@ -45,14 +65,34 @@ const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({ isOpen,
         calculateConversion(); // Recalculate with new rates
     };
 
+    useEffect(() => {
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+
+        if (isOpen) {
+            document.addEventListener('keydown', handleEscape);
+            document.body.style.overflow = 'hidden';
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleEscape);
+            document.body.style.overflow = 'unset';
+        };
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+        <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md transition-all duration-300"
+            onClick={onClose}
+        >
             <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                onClick={(e) => e.stopPropagation()}
                 className="w-full max-w-md rounded-3xl bg-gradient-to-b from-gray-900 to-gray-950 border border-white/10 shadow-2xl overflow-hidden"
             >
                 <div className="p-6 border-b border-white/10 flex items-center justify-between">

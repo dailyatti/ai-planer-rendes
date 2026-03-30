@@ -78,6 +78,27 @@ const NotesView: React.FC = () => {
   }, [newNote, editingId]);
 
   useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isRecording) stopDictation();
+        setShowAddForm(false);
+        setEditingId(null);
+      }
+    };
+    if (showAddForm) window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [showAddForm, isRecording]);
+
+  useEffect(() => {
+    if (showAddForm) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => { document.body.style.overflow = 'unset'; };
+  }, [showAddForm]);
+
+  useEffect(() => {
     const browserWindow = window as BrowserWindowWithSpeech;
     const SpeechRecognition = browserWindow.SpeechRecognition || browserWindow.webkitSpeechRecognition;
     setDictationSupported(!!SpeechRecognition);
@@ -196,8 +217,10 @@ const NotesView: React.FC = () => {
       });
     }
 
-    setNewNote({ title: '', content: '', tags: [], priority: 'medium', order: '' });
-    StorageService.remove('notes-draft');
+    if (!editingId) {
+      setNewNote({ title: '', content: '', tags: [], priority: 'medium', order: '' });
+      StorageService.remove('notes-draft');
+    }
     setShowAddForm(false);
   };
 
@@ -257,7 +280,11 @@ const NotesView: React.FC = () => {
           </div>
 
           <button
-            onClick={() => setShowAddForm(true)}
+            onClick={() => {
+              const savedDraft = StorageService.get<typeof newNote>('notes-draft');
+              if (savedDraft) setNewNote(savedDraft);
+              setShowAddForm(true);
+            }}
             className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors duration-200 shadow-md hover:shadow-lg"
           >
             <Plus size={20} />
@@ -303,8 +330,18 @@ const NotesView: React.FC = () => {
       </div>
 
       {showAddForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
+          onClick={() => {
+            if (isRecording) stopDictation();
+            setShowAddForm(false);
+            setEditingId(null);
+          }}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               {editingId ? t('notes.editNote') : t('notes.createNote')}
             </h3>
@@ -428,9 +465,11 @@ const NotesView: React.FC = () => {
                   onClick={() => {
                     if (isRecording) stopDictation();
                     setShowAddForm(false);
+                    if (editingId) {
+                      const savedDraft = StorageService.get<typeof newNote>('notes-draft');
+                      setNewNote(savedDraft || { title: '', content: '', tags: [], priority: 'medium', order: '' });
+                    }
                     setEditingId(null);
-                    setNewNote({ title: '', content: '', tags: [], priority: 'medium', order: '' });
-                    StorageService.remove('notes-draft');
                   }}
                   className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
                 >
@@ -449,7 +488,11 @@ const NotesView: React.FC = () => {
             {searchTerm || selectedTag || filterPriority !== 'all' ? t('notes.noResults') : t('notes.noNotes')}
           </p>
           <button
-            onClick={() => setShowAddForm(true)}
+            onClick={() => {
+              const savedDraft = StorageService.get<typeof newNote>('notes-draft');
+              if (savedDraft) setNewNote(savedDraft);
+              setShowAddForm(true);
+            }}
             className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
           >
             {t('notes.createFirstNote')}

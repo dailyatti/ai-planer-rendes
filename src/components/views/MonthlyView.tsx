@@ -31,6 +31,39 @@ const MonthlyView: React.FC = () => {
     priority: 'medium' as 'low' | 'medium' | 'high',
   });
 
+  // Modal Standardization & Persistence
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') resetForm();
+    };
+    if (showAddForm) {
+      window.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [showAddForm]);
+
+  useEffect(() => {
+    if (showAddForm && !editingPlan) {
+      localStorage.setItem('monthly-plan-draft', JSON.stringify(newPlan));
+    }
+  }, [showAddForm, editingPlan, newPlan]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('monthly-plan-draft');
+    if (saved && !showAddForm) {
+      try {
+        const draft = JSON.parse(saved);
+        setNewPlan(draft);
+      } catch (e) {
+        console.error("Failed to load monthly draft", e);
+      }
+    }
+  }, [showAddForm]);
+
   useEffect(() => {
     const saved = localStorage.getItem('planner.habits.v2');
     if (saved) setHabits(JSON.parse(saved));
@@ -117,7 +150,7 @@ const MonthlyView: React.FC = () => {
         linkedNotes: [],
       });
     }
-
+    localStorage.removeItem('monthly-plan-draft');
     resetForm();
   };
 
