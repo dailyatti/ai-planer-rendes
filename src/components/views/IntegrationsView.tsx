@@ -5,7 +5,7 @@ import {
     Cloud, Settings,
     Key, Eye, EyeOff,
     Mic, TestTube, CheckCircle2, XCircle,
-    Globe, Zap, BrainCircuit, Bot
+    Globe, Zap, BrainCircuit, Bot, Trash2
 } from 'lucide-react';
 import { useLanguage, LANGUAGE_NAMES, Language } from '../../contexts/LanguageContext';
 import { useSettings } from '../../contexts/SettingsContext';
@@ -144,6 +144,16 @@ const IntegrationsView: React.FC = () => {
                 } else {
                     throw new Error('Invalid Manus Key');
                 }
+            } else if (selectedIntegration === 'openai') {
+                const response = await fetch('https://api.openai.com/v1/models', {
+                    headers: { 'Authorization': `Bearer ${tempKey}` }
+                });
+                if (response.ok) {
+                    setTestStatus('success');
+                    setTestMessage(t('integrations.connectionSuccess') || 'Connection Successful');
+                } else {
+                    throw new Error('Invalid OpenAI Key');
+                }
             } else {
                 // Fake validation for others
                 await new Promise(resolve => setTimeout(resolve, 1500));
@@ -182,6 +192,17 @@ const IntegrationsView: React.FC = () => {
         setTempKey('');
         setTempModel('');
         setTempBaseUrl('');
+    };
+
+    const handleDisconnect = (id: string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        const integration = availableIntegrations.find(i => i.id === id);
+        if (integration?.provider) {
+            updateSettings({
+                aiConfig: { provider: null, apiKey: '', model: '', baseUrl: '' }
+            });
+            AIService.clearProvider();
+        }
     };
 
 
@@ -290,23 +311,30 @@ const IntegrationsView: React.FC = () => {
                                                     </span>
                                                 ))}
                                             </div>
-                                            <button
-                                                onClick={() => handleConnect(integration.id)}
-                                                className={`w-full py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 ${integration.connected
-                                                    ? 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                                    : 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30 hover:shadow-primary-500/50 hover:-translate-y-0.5'
-                                                    }`}
-                                            >
-                                                {integration.connected ? (
-                                                    <>
+                                            {integration.connected ? (
+                                                <div className="flex gap-2 w-full">
+                                                    <button
+                                                        onClick={(e) => handleDisconnect(integration.id, e)}
+                                                        className="w-12 py-2.5 rounded-xl font-semibold flex items-center justify-center transition-all duration-300 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
+                                                        title="Eltávolítás"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleConnect(integration.id)}
+                                                        className="flex-1 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+                                                    >
                                                         <Settings size={18} /> {t('integrations.configure')}
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Key size={18} /> {t('integrations.connect')}
-                                                    </>
-                                                )}
-                                            </button>
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleConnect(integration.id)}
+                                                    className="w-full py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30 hover:shadow-primary-500/50 hover:-translate-y-0.5"
+                                                >
+                                                    <Key size={18} /> {t('integrations.connect')}
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -348,9 +376,14 @@ const IntegrationsView: React.FC = () => {
                                                 <h3 className="font-bold text-gray-900 dark:text-white text-lg">{integration.name}</h3>
                                                 <span className="badge badge-success mt-1.5"><Check size={12} /> {t('integrations.connected')}</span>
                                             </div>
-                                            <button onClick={() => handleConnect(integration.id)} className="btn-secondary">
-                                                <Settings size={18} />
-                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                <button onClick={(e) => handleDisconnect(integration.id, e)} className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Eltávolítás">
+                                                    <Trash2 size={18} />
+                                                </button>
+                                                <button onClick={() => handleConnect(integration.id)} className="btn-secondary">
+                                                    <Settings size={18} />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 );
