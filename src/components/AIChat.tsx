@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, X, Send, Maximize2, Minimize2, Loader2, Sparkles } from 'lucide-react';
+import { Bot, X, Send, Maximize2, Minimize2, Loader2, Sparkles, CalendarPlus, CheckCircle2 } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useData } from '../contexts/DataContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -12,14 +12,64 @@ interface Message {
   content: string;
 }
 
+const JsonTaskAction = ({ jsonStr, addPlan, t }: { jsonStr: string, addPlan: any, t: any }) => {
+    const [added, setAdded] = useState(false);
+    let parsed: any[];
+    try {
+        parsed = JSON.parse(jsonStr);
+        if (!Array.isArray(parsed) || parsed.length === 0 || !('title' in parsed[0])) return null;
+    } catch(e) {
+        return null;
+    }
+
+    const handleAdd = () => {
+        parsed.forEach(p => {
+            addPlan({
+                title: p.title || 'Új feladat',
+                description: p.description || '',
+                date: p.date ? new Date(p.date) : new Date(),
+                completed: false,
+                priority: p.priority || 'medium',
+                linkedNotes: []
+            });
+        });
+        setAdded(true);
+    };
+
+    return (
+        <div className="bg-gray-100 dark:bg-gray-900 rounded-xl p-3 my-3 border border-gray-200 dark:border-gray-700 font-sans">
+            <h4 className="text-[11px] font-bold uppercase tracking-wider mb-2 text-gray-500">
+                {t?.('ai.generatedTasks') || 'Generált Feladatok a Naptárhoz'} ({parsed.length})
+            </h4>
+            <div className="space-y-2 mb-3">
+                {parsed.map((p, i) => (
+                    <div key={i} className="text-sm bg-white dark:bg-gray-800 p-2.5 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm">
+                        <div className="font-bold text-gray-900 dark:text-gray-100">{p.title}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{p.date} • {p.priority}</div>
+                    </div>
+                ))}
+            </div>
+            <button
+                onClick={handleAdd}
+                disabled={added}
+                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${added ? 'bg-emerald-500 text-white cursor-default shadow-md shadow-emerald-500/20' : 'bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 shadow-md shadow-purple-500/20 text-white'}`}
+            >
+                {added ? <CheckCircle2 size={16} /> : <CalendarPlus size={16} />} 
+                {added ? (t?.('ai.tasksAdded') || 'Hozzáadva a naptárhoz') : (t?.('ai.addTasks') || 'Terv beütemezése a Naptárba')}
+            </button>
+        </div>
+    );
+};
+
 export const AIChat: React.FC = () => {
     const { settings } = useSettings();
-    const { language } = useLanguage();
+    const { language, t } = useLanguage();
     const {
         transactions,
         goals,
         invoices,
-        budgetSettings
+        budgetSettings,
+        addPlan
     } = useData();
 
     const [isOpen, setIsOpen] = useState(false);
@@ -49,8 +99,8 @@ export const AIChat: React.FC = () => {
         const pendingInvoices = invoices.filter(i => i.status === 'sent').length;
 
         const infoText = language === 'hu' 
-            ? `Te egy "PhD szintű" okos asszisztens vagy a ContentPlanner Pro rendszerben.\nFelhasználó Pénzügyei: Egyenleg ${CurrencyService.format(balance, currentCurrency)}.\nAktív Célok: ${activeGoals} db.\nFüggő számlák: ${pendingInvoices} db.\nVálaszolj precízen, felhasználóbarát módon!`
-            : `You are a "PhD-level" smart assistant in ContentPlanner Pro.\nUser Finances: Balance ${CurrencyService.format(balance, currentCurrency)}.\nActive Goals: ${activeGoals}.\nPending Invoices: ${pendingInvoices}.\nAnswer precisely and professionally!`;
+            ? `Te egy "PhD szintű" okos asszisztens vagy a ContentPlanner Pro rendszerben.\nFelhasználó Pénzügyei: Egyenleg ${CurrencyService.format(balance, currentCurrency)}.\nAktív Célok: ${activeGoals} db.\nFüggő számlák: ${pendingInvoices} db.\n\nFONTOS: Ha a felhasználó egy feladatot, terveket vagy naptári eseményt kér egy "napra", VÁLASZOLJ EGY JSON KÓDBLOKKVAL (\`\`\`json). A JSON legyen egy TÖMB, mely tartalmazza az eseményeket. Formátum: [{"title":"Cím", "description":"Részletek", "date":"YYYY-MM-DD", "priority":"medium|high|low"}]\nLégy precíz és professzionális!`
+            : `You are a "PhD-level" smart assistant in ContentPlanner Pro.\nUser Finances: Balance ${CurrencyService.format(balance, currentCurrency)}.\nActive Goals: ${activeGoals}.\nPending Invoices: ${pendingInvoices}.\n\nIMPORTANT: If the user asks to schedule tasks or plan events for specific days, OUTPUT A JSON CODE BLOCK (\`\`\`json). The JSON must be an ARRAY of tasks. Format: [{"title":"Title", "description":"Details", "date":"YYYY-MM-DD", "priority":"medium|high|low"}]\nAnswer precisely and professionally!`;
 
         return infoText;
     };
@@ -150,7 +200,31 @@ export const AIChat: React.FC = () => {
                                 }`}>
                                     {msg.role === 'assistant' ? (
                                         <div className="prose prose-sm dark:prose-invert prose-p:leading-relaxed prose-purple max-w-none">
-                                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                            <ReactMarkdown
+                                                components={{
+                                                    code({node, className, children, ...props}) {
+                                                        const match = /language-(\w+)/.exec(className || '');
+                                                        const isJson = match && match[1] === 'json';
+                                                        
+                                                        // Fallback check since inline was removed in react-markdown v9
+                                                        const isInline = !match;
+
+                                                        if (!isInline && isJson) {
+                                                            const jsonStr = String(children).replace(/\\n$/, '');
+                                                            try {
+                                                                const parsed = JSON.parse(jsonStr);
+                                                                if (Array.isArray(parsed) && parsed.length > 0 && ('title' in parsed[0])) {
+                                                                    return <JsonTaskAction jsonStr={jsonStr} addPlan={addPlan} t={t} />;
+                                                                }
+                                                            } catch(e) { }
+                                                        }
+                                                        
+                                                        return <code className={className} {...props}>{children}</code>;
+                                                    }
+                                                }}
+                                            >
+                                                {msg.content}
+                                            </ReactMarkdown>
                                         </div>
                                     ) : (
                                         <div className="text-sm font-medium">{msg.content}</div>
