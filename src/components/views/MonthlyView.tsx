@@ -362,8 +362,16 @@ const MonthlyView: React.FC = () => {
             return (
               <div
                 key={day.toISOString()}
-                className={`min-h-32 p-2 bg-white dark:bg-gray-800 transition-colors duration-200 relative ${!isCurrentMonth(day) ? 'opacity-40' : ''
-                  } ${isToday(day) ? 'bg-purple-50/50 dark:bg-purple-900/10' : ''}`}
+                onClick={() => {
+                  if (isCurrentMonth(day)) {
+                    setSelectedDay(day);
+                    setEditingPlan(null);
+                    setShowAddForm(true);
+                  }
+                }}
+                className={`group/day min-h-32 p-2 bg-white dark:bg-gray-800 transition-all duration-200 relative ${isCurrentMonth(day) ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50' : 'opacity-40'} ${
+                  isToday(day) ? 'bg-purple-50/50 dark:bg-purple-900/10' : ''
+                }`}
               >
                 <div className="flex items-center justify-between mb-1.5 ">
                   <span className={`text-sm font-semibold ${isToday(day)
@@ -380,13 +388,10 @@ const MonthlyView: React.FC = () => {
                         setEditingPlan(null);
                         setShowAddForm(true);
                       }}
-                      className="w-5 h-5 flex items-center justify-center rounded-full text-gray-300 dark:text-gray-600 hover:text-orange-500 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all opacity-0 group-hover:opacity-100"
-                      style={{ opacity: undefined }}
-                      onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-                      onMouseLeave={(e) => (e.currentTarget.style.opacity = '')}
-                      title={t('weekly.addTask')}
+                      className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 border border-transparent hover:border-orange-500 hover:text-white hover:bg-orange-500 transition-all opacity-40 group-hover/day:opacity-100 shadow-sm"
+                      title={t('weekly.addTask') || 'Új feladat'}
                     >
-                      <Plus size={14} />
+                      <Plus size={14} strokeWidth={3} />
                     </button>
                   )}
                 </div>
