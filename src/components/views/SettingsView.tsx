@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Save, Download, Upload, Palette, Bell, Globe, Shield, Moon, Sun, RefreshCw } from 'lucide-react';
+import { Settings, Save, Download, Upload, Palette, Bell, Globe, Shield, Moon, Sun, RefreshCw, Users, FileJson, Trash2, Edit2, CheckCircle } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useLanguage, Language } from '../../contexts/LanguageContext';
@@ -8,8 +8,9 @@ import { CurrencyService } from '../../services/CurrencyService';
 import { AVAILABLE_CURRENCIES } from '../../constants/currencyData';
 // import { AIService } from '../../services/AIService';
 import { DataTransferService } from '../../services/DataTransferService';
+import { JsonProfile } from '../../types/planner';
 
-type SettingsSection = 'general' | 'budget' | 'appearance' | 'notifications' | 'data';
+type SettingsSection = 'general' | 'budget' | 'appearance' | 'notifications' | 'data' | 'network';
 
 const SettingsView: React.FC = () => {
   const { budgetSettings, updateBudgetSettings, clearAllData } = useData();
@@ -21,6 +22,12 @@ const SettingsView: React.FC = () => {
   const [exchangeRates, setExchangeRates] = useState<Record<string, number>>(CurrencyService.getAllRates());
   const [isFetchingRates, setIsFetchingRates] = useState(false);
   const [rateMessage, setRateMessage] = useState<string | null>(null);
+
+  // Profiles State
+  const [profiles, setProfiles] = useState<JsonProfile[]>(DataTransferService.getProfiles());
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState<JsonProfile | null>(null);
+  const [applyBudgetSettings, setApplyBudgetSettings] = useState(false);
 
   const currencies = AVAILABLE_CURRENCIES.map(c => c.code);
   const languages: { code: Language; name: string; nativeName: string }[] = [
@@ -59,6 +66,7 @@ const SettingsView: React.FC = () => {
     { id: 'appearance', label: t('settings.appearance'), icon: Palette },
     { id: 'notifications', label: t('settings.notifications'), icon: Bell },
     { id: 'data', label: t('settings.dataPrivacy'), icon: Shield },
+    { id: 'network', label: 'Csapat Profilok', icon: Users },
   ];
 
   return (
@@ -622,9 +630,259 @@ const SettingsView: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* Network / Profiles Settings */}
+            {activeSection === 'network' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Csapat Profilok Kezelése</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Itt töltheted fel és kezelheted a csapattársaid vagy más felhasználók kimentett JSON profiljait.
+                  </p>
+                </div>
+
+                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  <div className="bg-gray-50 dark:bg-gray-700/50 p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                    <h4 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                      <FileJson size={18} /> Mentett Profilok
+                    </h4>
+                    <label className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm cursor-pointer transition-colors flex items-center gap-2">
+                      <Upload size={16} />
+                      <span>Új Profil Feltöltése</span>
+                      <input
+                        type="file"
+                        accept=".json"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          e.target.value = ''; // reset
+
+                          const name = prompt('Add meg a profil nevét (pl. Attila jsonja):', file.name.replace('.json', ''));
+                          if (!name) return;
+
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            try {
+                              JSON.parse(event.target?.result as string); // Validate
+                              const success = DataTransferService.saveProfile(name, event.target?.result as string);
+                              if (success) {
+                                setProfiles(DataTransferService.getProfiles());
+                              } else {
+                                alert('Nem sikerült menteni a profilt. Lehet, hogy betelt a tárhely.');
+                              }
+                            } catch {
+                              alert('Érvénytelen JSON fájl!');
+                            }
+                          };
+                          reader.readAsText(file);
+                        }}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {profiles.length === 0 ? (
+                      <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                        Még nincsenek elmentett profilok.
+                      </div>
+                    ) : (
+                      profiles.map(profile => (
+                        <div key={profile.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                          <div>
+                            <div className="font-medium text-gray-900 dark:text-white">{profile.name}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Hozzáadva: {new Date(profile.createdAt).toLocaleString()}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setSelectedProfile(profile);
+                                setApplyBudgetSettings(false); // Default: don't overwrite budget
+                                setShowProfileModal(true);
+                              }}
+                              className="px-3 py-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors flex items-center gap-1 text-sm font-medium"
+                            >
+                              <CheckCircle size={14} /> Alkalmaz
+                            </button>
+                            <button
+                              onClick={() => {
+                                const newName = prompt('Új név:', profile.name);
+                                if (newName && newName.trim()) {
+                                  DataTransferService.renameProfile(profile.id, newName.trim());
+                                  setProfiles(DataTransferService.getProfiles());
+                                }
+                              }}
+                              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700 rounded transition-colors"
+                              title="Átnevez"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Biztosan törlöd a(z) ${profile.name} profilt?`)) {
+                                  DataTransferService.deleteProfile(profile.id);
+                                  setProfiles(DataTransferService.getProfiles());
+                                }
+                              }}
+                              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-gray-700 rounded transition-colors"
+                              title="Törlés"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+                
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
+                  <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-1">Tipp</h4>
+                  <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                    Zökkenőmentes adatcseréhez javasolt, hogy mielőtt valaki JSON-ját betöltenéd felülírással, a saját adataidból is készíts és ments el egy profilt ide, hogy visszatérhess rá!
+                  </p>
+                  <button 
+                    onClick={() => {
+                      DataTransferService.exportAll(); // Only to invoke local generation
+                      // Wait, we don't want to download, we want to directly save
+                      const data: Record<string, unknown> = {};
+                      const prefixPlanner = 'planner-';
+                      const prefixSequence = 'invoice_sequence_';
+                      const prefixDigital = 'digitalplanner-';
+                      const prefixContent = 'contentplanner-';
+
+                      for (let i = 0; i < localStorage.length; i++) {
+                          const key = localStorage.key(i);
+                          if (key && (
+                              key.startsWith(prefixPlanner) ||
+                              key.startsWith(prefixSequence) ||
+                              key.startsWith(prefixDigital) ||
+                              key.startsWith(prefixContent)
+                          )) {
+                              data[key] = localStorage.getItem(key);
+                          }
+                      }
+                      const name = prompt('Milyen néven mentsem el a jelenlegi bázisodat?', 'Saját mentés');
+                      if(name) {
+                        DataTransferService.saveProfile(name, JSON.stringify(data));
+                        setProfiles(DataTransferService.getProfiles());
+                      }
+                    }}
+                    className="mt-3 text-sm bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/50 dark:hover:bg-yellow-800 text-yellow-800 dark:text-yellow-100 px-4 py-2 rounded transition-colors"
+                  >
+                    Jelenlegi állapot mentése új profilként
+                  </button>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       </div>
+
+      {/* Profile Apply Modal */}
+      {showProfileModal && selectedProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Profil Alkalmazása: {selectedProfile.name}</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Hogyan szeretnéd betölteni ezeket az adatokat?</p>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 mb-4">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={applyBudgetSettings}
+                    onChange={(e) => setApplyBudgetSettings(e.target.checked)}
+                    className="mt-1 flex-shrink-0"
+                  />
+                  <div>
+                    <div className="font-medium text-gray-900 dark:text-white">A profilban szereplő költségvetés betöltése</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      Ha bekapcsolod, a jelenlegi költségvetési beállításaid felülíródnak a profil tulajdonosának adataival. Ha kikapcsolod, a Te jelenlegi költségvetésed marad érvényben az új adatok mellett is.
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <button
+                onClick={async () => {
+                  if (confirm('Biztosan felülírod a jelenlegi adataidat ezzel a profillal? Minden korábbi listád törlődik!')) {
+                    try {
+                      // Save current budget if we need to keep it
+                      const currentBudget = localStorage.getItem('planner-budget-settings');
+                      
+                      const data = JSON.parse(selectedProfile.data);
+                      await DataTransferService.importAll(data);
+                      
+                      // Restore current budget if the checkbox was UNCHECKED
+                      if (!applyBudgetSettings && currentBudget) {
+                        localStorage.setItem('planner-budget-settings', currentBudget);
+                      }
+                      
+                      window.location.reload();
+                    } catch (e) {
+                      alert('Hiba történt a profil betöltésekor.');
+                    }
+                  }
+                }}
+                className="w-full text-left p-4 rounded-xl border-2 border-transparent bg-red-50 hover:border-red-500 dark:bg-red-900/20 transition-all group"
+              >
+                <div className="font-semibold text-red-700 dark:text-red-400 mb-1 group-hover:text-red-800">
+                  ⚠️ Teljes Csere (Minden korábbi adat törlése)
+                </div>
+                <div className="text-sm text-red-600/80 dark:text-red-300">
+                  Töröl minden jelenlegi adatot (kivéve a költségvetést, ha azt felül fentről kikapcsoltad), és betölti az új profil tartalmát.
+                </div>
+              </button>
+
+              <button
+                onClick={async () => {
+                  if (confirm('A meglévő adataid mellé fűzzük a profil tartalmát?')) {
+                    try {
+                      const data = JSON.parse(selectedProfile.data);
+                      
+                      // If user checked the box to apply the budget from the JSON, we need to manually extract it and apply it alongside the merge
+                      if (applyBudgetSettings && data['planner-budget-settings']) {
+                        localStorage.setItem('planner-budget-settings', typeof data['planner-budget-settings'] === 'string' ? data['planner-budget-settings'] : JSON.stringify(data['planner-budget-settings']));
+                      }
+                      
+                      await DataTransferService.importMerge(data);
+                      window.location.reload();
+                    } catch (e) {
+                      alert('Hiba történt az összefűzéskor.');
+                    }
+                  }
+                }}
+                className="w-full text-left p-4 rounded-xl border-2 border-transparent bg-blue-50 hover:border-blue-500 dark:bg-blue-900/20 transition-all group"
+              >
+                <div className="font-semibold text-blue-700 dark:text-blue-400 mb-1 group-hover:text-blue-800">
+                  ➕ Hozzáadás / Összefűzés (Merge)
+                </div>
+                <div className="text-sm text-blue-600/80 dark:text-blue-300">
+                  Bemásolja a tranzakciókat és a feladatokat az új profilból a Te jelenlegi listáid végére.
+                </div>
+              </button>
+            </div>
+
+            <div className="p-4 bg-gray-50 dark:bg-gray-800/80 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowProfileModal(false);
+                  setSelectedProfile(null);
+                }}
+                className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                Mégse
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

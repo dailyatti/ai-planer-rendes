@@ -202,3 +202,10 @@ export interface SyncEvent {
   message?: string;
   timestamp: Date;
 }
+
+export interface JsonProfile {
+  id: string;
+  name: string;
+  data: string; // The raw JSON string
+  createdAt: Date;
+}
