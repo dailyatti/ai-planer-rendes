@@ -5,7 +5,7 @@ import {
     Cloud, Settings,
     Key, Eye, EyeOff,
     Mic, TestTube, CheckCircle2, XCircle,
-    Globe, Zap
+    Globe, Zap, BrainCircuit, Bot
 } from 'lucide-react';
 import { useLanguage, LANGUAGE_NAMES, Language } from '../../contexts/LanguageContext';
 import { useSettings } from '../../contexts/SettingsContext';
@@ -25,6 +25,10 @@ const IntegrationsView: React.FC = () => {
     const activeProvider = settings.aiConfig?.provider || null;
 
     const [tempKey, setTempKey] = useState('');
+    const [tempModel, setTempModel] = useState('');
+    const [tempBaseUrl, setTempBaseUrl] = useState('');
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    
     const [showKey, setShowKey] = useState(false);
     const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
     const [testMessage, setTestMessage] = useState('');
@@ -34,7 +38,7 @@ const IntegrationsView: React.FC = () => {
     // Actually AIService should just be used for API calls.
     // We can rely on SettingsContext now.
 
-    // Integration definitions - only Gemini now
+    // Integration definitions
     const availableIntegrations = [
         {
             id: 'gemini',
@@ -45,12 +49,42 @@ const IntegrationsView: React.FC = () => {
             connected: activeProvider === 'gemini',
             provider: 'gemini' as AIProvider,
             features: [
-                t('integrations.unified.feat1') || 'Szöveg generálás (Gemini Pro)',
-                t('integrations.unified.feat2') || 'Hang asszisztens (Gemini Live)',
-                t('integrations.unified.feat3') || 'Tartalom ötletek'
+                'Szöveg generálás (Gemini 2.5 Pro)',
+                'Hang asszisztens (Gemini Live)',
+                'PhD paraméterek: Egyedi Model'
             ],
             helpLink: 'https://aistudio.google.com/app/apikey'
         },
+        {
+            id: 'openai',
+            name: 'OpenAI (ChatGPT)',
+            description: 'A legkorszerűbb GPT-4o és o1, o3 modellek integrációja.',
+            icon: BrainCircuit,
+            color: 'from-emerald-500 to-teal-600',
+            connected: activeProvider === 'openai',
+            provider: 'openai' as AIProvider,
+            features: [
+                'Szöveg generálás (GPT-4o)',
+                'Tudásbázis integráció',
+                'PhD paraméterek: Egyedi Model & URL'
+            ],
+            helpLink: 'https://platform.openai.com/api-keys'
+        },
+        {
+            id: 'manus',
+            name: 'Manus AI',
+            description: 'Fejlett, aszinkron és okos ágens feladatok delegálása a Manus AI számára.',
+            icon: Bot,
+            color: 'from-purple-500 to-pink-600',
+            connected: activeProvider === 'manus',
+            provider: 'manus' as AIProvider,
+            features: [
+                'Manus AI Ügynökök',
+                'Analitikai operációk',
+                'PhD paraméterek: Egyedi Model & URL'
+            ],
+            helpLink: 'https://open.manus.im/docs/api-reference'
+        }
     ];
 
 
@@ -59,8 +93,14 @@ const IntegrationsView: React.FC = () => {
         if (integration) {
             setSelectedIntegration(integrationId);
             // If already connected, show current key
-            const currentKey = integration.connected ? settings.aiConfig?.apiKey : '';
-            setTempKey(currentKey || '');
+            const currentKey = integration.connected ? settings.aiConfig?.apiKey || '' : '';
+            const currentModel = integration.connected ? settings.aiConfig?.model || '' : '';
+            const currentBaseUrl = integration.connected ? settings.aiConfig?.baseUrl || '' : '';
+            
+            setTempKey(currentKey);
+            setTempModel(currentModel);
+            setTempBaseUrl(currentBaseUrl);
+            setShowAdvanced(!!currentModel || !!currentBaseUrl);
             setShowApiModal(true);
             setTestStatus('idle');
             setTestMessage('');
@@ -106,16 +146,20 @@ const IntegrationsView: React.FC = () => {
             updateSettings({
                 aiConfig: {
                     provider: integration.provider,
-                    apiKey: tempKey
+                    apiKey: tempKey,
+                    model: tempModel,
+                    baseUrl: tempBaseUrl
                 }
             });
 
-            // Legacy/Service update (optional but good for consistency if AIService is used elsewhere)
-            AIService.setProvider(integration.provider, tempKey);
+            // Legacy/Service update
+            AIService.setProvider(integration.provider, tempKey, tempModel, tempBaseUrl);
         }
         setShowApiModal(false);
         setSelectedIntegration(null);
         setTempKey('');
+        setTempModel('');
+        setTempBaseUrl('');
     };
 
 
@@ -483,7 +527,14 @@ const IntegrationsView: React.FC = () => {
                                         {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
                                     </button>
                                 </div>
-                                <div className="mt-2 text-right">
+                                <div className="mt-3 flex items-center justify-between">
+                                    <button 
+                                        type="button"
+                                        onClick={() => setShowAdvanced(!showAdvanced)}
+                                        className="text-xs font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors"
+                                    >
+                                        {showAdvanced ? 'Továbbfejlesztett bezárása ▲' : 'PhD Szintű Beállítások (Modell, Proxy) ▼'}
+                                    </button>
                                     <a
                                         href={selectedIntegrationObj.helpLink}
                                         target="_blank"
@@ -493,6 +544,42 @@ const IntegrationsView: React.FC = () => {
                                         {t('integrations.getKey')} <ExternalLink size={10} />
                                     </a>
                                 </div>
+
+                                {showAdvanced && (
+                                    <div className="mt-4 space-y-4 p-4 rounded-xl relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800 border border-gray-200 dark:border-gray-700 shadow-inner">
+                                        <div className="absolute top-0 right-0 p-2 opacity-10">
+                                            <Settings size={64} />
+                                        </div>
+                                        <div className="relative z-10 w-full mb-2">
+                                            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Haladó paraméterek</div>
+                                            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                                                Modell Név Felülírása (Opcionális)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={tempModel}
+                                                onChange={e => setTempModel(e.target.value)}
+                                                className="input-field text-sm w-full bg-white dark:bg-gray-900 shadow-sm"
+                                                placeholder={`pl. ${selectedIntegrationObj.id === 'openai' ? 'gpt-4o' : selectedIntegrationObj.id === 'gemini' ? 'gemini-2.5-pro' : 'manus-1.6'}`}
+                                            />
+                                        </div>
+                                        <div className="relative z-10 w-full">
+                                            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                                                Base URL (Proxy / Endpoint)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={tempBaseUrl}
+                                                onChange={e => setTempBaseUrl(e.target.value)}
+                                                className="input-field text-sm w-full bg-white dark:bg-gray-900 shadow-sm"
+                                                placeholder={selectedIntegrationObj.id === 'manus' ? 'https://api.manus.ai/v1/chat/completions' : 'pl. https://api.openai.com/v1/chat/completions'}
+                                            />
+                                            <div className="text-[10px] text-gray-400 mt-1 pl-1">
+                                                Akkor használd, ha egyedi API Gateway-t (LiteLLM stb.) használsz.
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {testStatus !== 'idle' && (

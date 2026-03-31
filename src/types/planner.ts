@@ -1,4 +1,4 @@
-export type ViewType = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'notes' | 'goals' | 'drawing' | 'budget' | 'invoicing' | 'statistics' | 'habits' | 'integrations' | 'settings';
+export type ViewType = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'notes' | 'goals' | 'drawing' | 'budget' | 'invoicing' | 'statistics' | 'habits' | 'integrations' | 'settings' | 'pomodoro';
 
 export type TransactionPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'oneTime';
 

@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 export type TimeZone = 'UTC' | 'Europe/Budapest' | 'America/New_York' | 'Europe/London' | 'Europe/Berlin' | 'Europe/Paris' | 'Europe/Rome' | 'America/Los_Angeles';
 export type DateFormat = 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD';
 export type Currency = 'USD' | 'EUR' | 'GBP' | 'HUF' | 'CAD' | 'AUD' | 'JPY' | 'CHF' | 'SEK' | 'NOK' | 'DKK';
-export type AIProvider = 'openai' | 'gemini' | null;
+export type AIProvider = 'openai' | 'gemini' | 'manus' | null;
 
 interface GeneralSettings {
   timeZone: TimeZone;
@@ -30,6 +30,8 @@ interface PrivacySettings {
 interface AIConfig {
   provider: AIProvider;
   apiKey: string;
+  model?: string;
+  baseUrl?: string;
 }
 
 interface AppSettings {
@@ -61,7 +63,9 @@ const defaultSettings: AppSettings = {
   },
   aiConfig: {
     provider: null,
-    apiKey: ''
+    apiKey: '',
+    model: '',
+    baseUrl: ''
   }
 };
 
@@ -100,7 +104,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               ...initialSettings,
               aiConfig: {
                 provider: parsedAI.provider || 'gemini',
-                apiKey: parsedAI.apiKey || ''
+                apiKey: parsedAI.apiKey || '',
+                model: parsedAI.model || '',
+                baseUrl: parsedAI.baseUrl || ''
               }
             };
           }
