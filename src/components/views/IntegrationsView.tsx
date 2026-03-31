@@ -122,6 +122,28 @@ const IntegrationsView: React.FC = () => {
                 } else {
                     throw new Error('Invalid API Key');
                 }
+            } else if (selectedIntegration === 'manus') {
+                const url = tempBaseUrl || 'https://api.manus.im/v1/chat/completions';
+                const modelName = tempModel || 'manus-1.6';
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${tempKey}`,
+                        'API_KEY': tempKey
+                    },
+                    body: JSON.stringify({
+                        model: modelName,
+                        messages: [{ role: 'user', content: 'test' }],
+                        max_tokens: 10
+                    })
+                });
+                if (response.ok) {
+                    setTestStatus('success');
+                    setTestMessage(t('integrations.connectionSuccess') || 'Connection Successful');
+                } else {
+                    throw new Error('Invalid Manus Key');
+                }
             } else {
                 // Fake validation for others
                 await new Promise(resolve => setTimeout(resolve, 1500));

@@ -160,14 +160,15 @@ class AIServiceClass {
      * Manus AI szöveg generálás - Alapértelmezetten OpenAI kompatibilis struktúrát használ (például proxy esetén)
      */
     private async generateTextManus(options: TextGenerationOptions): Promise<TextGenerationResult> {
-        const url = this.config.baseUrl || 'https://api.manus.ai/v1/chat/completions';
+        const url = this.config.baseUrl || 'https://api.manus.im/v1/chat/completions';
         const modelName = this.config.model || 'manus-1.6';
 
         const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.config.apiKey}`
+                'Authorization': `Bearer ${this.config.apiKey}`,
+                'API_KEY': this.config.apiKey
             },
             body: JSON.stringify({
                 model: modelName,
