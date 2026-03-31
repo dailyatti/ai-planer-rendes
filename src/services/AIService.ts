@@ -163,6 +163,12 @@ class AIServiceClass {
         const url = this.config.baseUrl || 'https://api.manus.im/v1/chat/completions';
         const modelName = this.config.model || 'manus-1.6';
 
+        // Fix: Manus AI API may not support 'system' roles natively in all wrapper instances. 
+        // We inject the system instructions directly into the first user message to guarantee compatibility.
+        const combinedPrompt = options.systemPrompt 
+            ? `Rendszer utasítások (System Instructions): ${options.systemPrompt}\n\nKérés (User): ${options.prompt}`
+            : options.prompt;
+
         const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -173,8 +179,7 @@ class AIServiceClass {
             body: JSON.stringify({
                 model: modelName,
                 messages: [
-                    ...(options.systemPrompt ? [{ role: 'system', content: options.systemPrompt }] : []),
-                    { role: 'user', content: options.prompt }
+                    { role: 'user', content: combinedPrompt }
                 ],
                 max_tokens: options.maxTokens || 1000,
                 temperature: options.temperature || 0.7
