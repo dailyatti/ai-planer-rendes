@@ -83,7 +83,7 @@ const IntegrationsView: React.FC = () => {
                 'Analitikai operációk',
                 'PhD paraméterek: Egyedi Model & URL'
             ],
-            helpLink: 'https://open.manus.im/docs/api-reference'
+            helpLink: 'https://manus.im/app#settings/integrations/api'
         }
     ];
 
