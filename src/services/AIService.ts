@@ -161,7 +161,7 @@ class AIServiceClass {
      */
     private async generateTextManus(options: TextGenerationOptions): Promise<TextGenerationResult> {
         const url = this.config.baseUrl || 'https://api.manus.im/v1/chat/completions';
-        const modelName = this.config.model || 'manus-1.6';
+        const modelName = this.config.model || 'manus';
 
         // Fix: Manus AI API may not support 'system' roles natively in all wrapper instances. 
         // We inject the system instructions directly into the first user message to guarantee compatibility.
@@ -173,8 +173,7 @@ class AIServiceClass {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.config.apiKey}`,
-                'API_KEY': this.config.apiKey
+                'Authorization': `Bearer ${this.config.apiKey}`
             },
             body: JSON.stringify({
                 model: modelName,

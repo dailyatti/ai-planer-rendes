@@ -124,17 +124,16 @@ const IntegrationsView: React.FC = () => {
                 }
             } else if (selectedIntegration === 'manus') {
                 const url = tempBaseUrl || 'https://api.manus.im/v1/chat/completions';
-                const modelName = tempModel || 'manus-1.6';
+                const modelName = tempModel || 'manus';
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${tempKey}`,
-                        'API_KEY': tempKey
+                        'Authorization': `Bearer ${tempKey}`
                     },
                     body: JSON.stringify({
                         model: modelName,
-                        messages: [{ role: 'user', content: 'test' }],
+                        messages: [{ role: 'user', content: 'hello' }],
                         max_tokens: 10
                     })
                 });
@@ -142,7 +141,8 @@ const IntegrationsView: React.FC = () => {
                     setTestStatus('success');
                     setTestMessage(t('integrations.connectionSuccess') || 'Connection Successful');
                 } else {
-                    throw new Error('Invalid Manus Key');
+                    const errorJson = await response.json().catch(() => ({}));
+                    throw new Error(errorJson?.error?.message || 'Invalid Manus Key');
                 }
             } else if (selectedIntegration === 'openai') {
                 const response = await fetch('https://api.openai.com/v1/models', {
@@ -615,7 +615,7 @@ const IntegrationsView: React.FC = () => {
                                                 value={tempModel}
                                                 onChange={e => setTempModel(e.target.value)}
                                                 className="input-field text-sm w-full bg-white dark:bg-gray-900 shadow-sm"
-                                                placeholder={`pl. ${selectedIntegrationObj.id === 'openai' ? 'gpt-4o' : selectedIntegrationObj.id === 'gemini' ? 'gemini-2.5-pro' : 'manus-1.6'}`}
+                                                placeholder={`pl. ${selectedIntegrationObj.id === 'openai' ? 'gpt-4o' : selectedIntegrationObj.id === 'gemini' ? 'gemini-2.5-pro' : 'manus'}`}
                                             />
                                         </div>
                                         <div className="relative z-10 w-full">
@@ -627,7 +627,7 @@ const IntegrationsView: React.FC = () => {
                                                 value={tempBaseUrl}
                                                 onChange={e => setTempBaseUrl(e.target.value)}
                                                 className="input-field text-sm w-full bg-white dark:bg-gray-900 shadow-sm"
-                                                placeholder={selectedIntegrationObj.id === 'manus' ? 'https://api.manus.ai/v1/chat/completions' : 'pl. https://api.openai.com/v1/chat/completions'}
+                                                placeholder={selectedIntegrationObj.id === 'manus' ? 'https://api.manus.im/v1/chat/completions' : 'pl. https://api.openai.com/v1/chat/completions'}
                                             />
                                             <div className="text-[10px] text-gray-400 mt-1 pl-1">
                                                 Akkor használd, ha egyedi API Gateway-t (LiteLLM stb.) használsz.
