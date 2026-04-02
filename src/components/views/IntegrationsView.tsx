@@ -5,13 +5,11 @@ import {
     Cloud, Settings,
     Key, Eye, EyeOff,
     Mic, TestTube, CheckCircle2, XCircle,
-    Globe, Zap, BrainCircuit, Bot, Trash2
+    Globe, Zap, BrainCircuit, Trash2
 } from 'lucide-react';
 import { useLanguage, LANGUAGE_NAMES, Language } from '../../contexts/LanguageContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { AIService, AIProvider } from '../../services/AIService';
-
-
 
 const IntegrationsView: React.FC = () => {
     const { language, setLanguage, t } = useLanguage();
@@ -20,8 +18,6 @@ const IntegrationsView: React.FC = () => {
     const [showApiModal, setShowApiModal] = useState(false);
     const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
 
-    // Use SettingsContext for active provider
-    // const [activeProvider, setActiveProvider] = useState<AIProvider>(AIService.getActiveProvider()); 
     const activeProvider = settings.aiConfig?.provider || null;
 
     const [tempKey, setTempKey] = useState('');
@@ -32,11 +28,6 @@ const IntegrationsView: React.FC = () => {
     const [showKey, setShowKey] = useState(false);
     const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
     const [testMessage, setTestMessage] = useState('');
-
-    // Sync with AIService was removed in favor of SettingsContext
-    // But we still want to keep AIService updated for internal usage if it reads from config
-    // Actually AIService should just be used for API calls.
-    // We can rely on SettingsContext now.
 
     // Integration definitions
     const availableIntegrations = [
@@ -69,30 +60,13 @@ const IntegrationsView: React.FC = () => {
                 'PhD paraméterek: Egyedi Model & URL'
             ],
             helpLink: 'https://platform.openai.com/api-keys'
-        },
-        {
-            id: 'manus',
-            name: 'Manus AI',
-            description: 'Fejlett, aszinkron és okos ágens feladatok delegálása a Manus AI számára.',
-            icon: Bot,
-            color: 'from-purple-500 to-pink-600',
-            connected: activeProvider === 'manus',
-            provider: 'manus' as AIProvider,
-            features: [
-                'Manus AI Ügynökök',
-                'Analitikai operációk',
-                'PhD paraméterek: Egyedi Model & URL'
-            ],
-            helpLink: 'https://manus.ai/settings'
         }
     ];
-
 
     const handleConnect = (integrationId: string) => {
         const integration = availableIntegrations.find(i => i.id === integrationId);
         if (integration) {
             setSelectedIntegration(integrationId);
-            // If already connected, show current key
             const currentKey = integration.connected ? settings.aiConfig?.apiKey || '' : '';
             const currentModel = integration.connected ? settings.aiConfig?.model || '' : '';
             const currentBaseUrl = integration.connected ? settings.aiConfig?.baseUrl || '' : '';
@@ -122,51 +96,6 @@ const IntegrationsView: React.FC = () => {
                 } else {
                     throw new Error('Invalid API Key');
                 }
-            } else if (selectedIntegration === 'manus') {
-                if (tempBaseUrl) {
-                    // Proxy mód (OpenAI-kompatibilis endpoint)
-                    const modelName = tempModel || 'manus';
-                    const response = await fetch(tempBaseUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${tempKey}`
-                        },
-                        body: JSON.stringify({
-                            model: modelName,
-                            messages: [{ role: 'user', content: 'hello' }],
-                            max_tokens: 10
-                        })
-                    });
-                    if (response.ok) {
-                        setTestStatus('success');
-                        setTestMessage(t('integrations.connectionSuccess') || 'Connection Successful');
-                    } else {
-                        const errorJson = await response.json().catch(() => ({}));
-                        throw new Error(errorJson?.error?.message || 'Invalid Manus Proxy Key');
-                    }
-                } else {
-                    // Natív Manus API a mi Netlify Proxynkon keresztül (CORS elkerülése)
-                    const response = await fetch('/api/manus/tasks', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            apiKey: tempKey,
-                            prompt: 'hello'
-                        })
-                    });
-                    
-                    if (response.ok || response.status === 201) {
-                         // Nem kell task pollingot csinálni, ha visszaadta a task ID-t, a kulcs jó
-                        setTestStatus('success');
-                        setTestMessage(t('integrations.connectionSuccess') || 'Connection Successful');
-                    } else {
-                        const errorJson = await response.json().catch(() => ({}));
-                        throw new Error(errorJson?.error || errorJson?.message || 'Invalid Manus API Key');
-                    }
-                }
             } else if (selectedIntegration === 'openai') {
                 const response = await fetch('https://api.openai.com/v1/models', {
                     headers: { 'Authorization': `Bearer ${tempKey}` }
@@ -177,19 +106,10 @@ const IntegrationsView: React.FC = () => {
                 } else {
                     throw new Error('Invalid OpenAI Key');
                 }
-            } else {
-                // Fake validation for others
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                if (tempKey.length > 5) {
-                    setTestStatus('success');
-                    setTestMessage(t('integrations.connectionSuccess') || 'Connection Successful');
-                } else {
-                    throw new Error('Invalid Format');
-                }
             }
-        } catch {
+        } catch (err: any) {
             setTestStatus('error');
-            setTestMessage(t('integrations.connectionFailed') || 'Connection Failed');
+            setTestMessage(err.message || t('integrations.connectionFailed') || 'Connection Failed');
         }
     };
 
@@ -197,7 +117,6 @@ const IntegrationsView: React.FC = () => {
         if (!selectedIntegration || !tempKey) return;
         const integration = availableIntegrations.find(i => i.id === selectedIntegration);
         if (integration?.provider) {
-            // Update SettingsContext
             updateSettings({
                 aiConfig: {
                     provider: integration.provider,
@@ -206,8 +125,6 @@ const IntegrationsView: React.FC = () => {
                     baseUrl: tempBaseUrl
                 }
             });
-
-            // Legacy/Service update
             AIService.setProvider(integration.provider, tempKey, tempModel, tempBaseUrl);
         }
         setShowApiModal(false);
@@ -227,7 +144,6 @@ const IntegrationsView: React.FC = () => {
             AIService.clearProvider();
         }
     };
-
 
     const connectedIntegrations = availableIntegrations.filter(i => i.connected);
     const selectedIntegrationObj = availableIntegrations.find(i => i.id === selectedIntegration);
@@ -326,7 +242,6 @@ const IntegrationsView: React.FC = () => {
                                             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 leading-relaxed line-clamp-2">
                                                 {integration.description}
                                             </p>
-                                            {/* Features */}
                                             <div className="flex flex-wrap gap-2 mb-5">
                                                 {integration.features.map((feature, idx) => (
                                                     <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-50/80 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 text-xs font-medium text-gray-600 dark:text-gray-400">
@@ -416,10 +331,9 @@ const IntegrationsView: React.FC = () => {
                 </div>
             )}
 
-            {/* Settings Tab - Now with Instructions */}
+            {/* Settings Tab */}
             {activeTab === 'settings' && (
                 <div className="space-y-6 animate-fade-in">
-                    {/* Sync Settings Card */}
                     <div className="card glass-panel">
                         <h3 className="section-title flex items-center gap-2">
                             <RefreshCw size={20} className="text-primary-500" />
@@ -444,7 +358,6 @@ const IntegrationsView: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Integration Instructions */}
                     <div className="card glass-panel">
                         <h3 className="section-title flex items-center gap-2 mb-6">
                             <FileText size={20} className="text-blue-500" />
@@ -452,9 +365,6 @@ const IntegrationsView: React.FC = () => {
                         </h3>
 
                         <div className="space-y-6">
-                            {/* Gemini Instructions */}
-
-                            {/* Gemini Instructions */}
                             <div className="p-5 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800/30">
                                 <div className="flex items-center gap-3 mb-4">
                                     <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md">
@@ -471,87 +381,6 @@ const IntegrationsView: React.FC = () => {
                                         <li>{t('integrations.gemini.step3') || 'Create a new API key or use an existing one'}</li>
                                         <li>{t('integrations.gemini.step4') || 'Copy the key and paste it in the integration settings'}</li>
                                     </ol>
-                                    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800/30">
-                                        <p className="text-blue-800 dark:text-blue-300 text-xs font-medium">
-                                            💡 {t('integrations.gemini.tip') || 'Tip: Gemini offers a generous free tier. Perfect for voice assistant and AI features!'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Google Calendar Instructions */}
-                            <div className="p-5 rounded-xl bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border border-red-100 dark:border-red-800/30 opacity-75">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="p-2 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 shadow-md">
-                                        <Calendar size={20} className="text-white" />
-                                    </div>
-                                    <h4 className="font-bold text-gray-900 dark:text-white text-lg">Google Calendar</h4>
-                                    <span className="badge bg-amber-100 text-amber-700 text-xs">⏳ {t('integrations.comingSoon')}</span>
-                                </div>
-                                <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
-                                    <p className="font-medium">{t('integrations.plannedFeatures') || 'Planned features:'}</p>
-                                    <ul className="list-disc list-inside space-y-1 ml-2">
-                                        <li>{t('integrations.gcal.feature1') || 'Sync your plans automatically with Google Calendar'}</li>
-                                        <li>{t('integrations.gcal.feature2') || 'Import calendar events as plan items'}</li>
-                                        <li>{t('integrations.gcal.feature3') || 'Two-way synchronization support'}</li>
-                                    </ul>
-                                </div>
-                            </div>
-
-                            {/* Notion Instructions */}
-                            <div className="p-5 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800/50 dark:to-gray-700/50 border border-gray-200 dark:border-gray-700 opacity-75">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="p-2 rounded-lg bg-gradient-to-br from-gray-700 to-gray-900 shadow-md">
-                                        <FileText size={20} className="text-white" />
-                                    </div>
-                                    <h4 className="font-bold text-gray-900 dark:text-white text-lg">Notion</h4>
-                                    <span className="badge bg-amber-100 text-amber-700 text-xs">⏳ {t('integrations.comingSoon')}</span>
-                                </div>
-                                <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
-                                    <p className="font-medium">{t('integrations.plannedFeatures') || 'Planned features:'}</p>
-                                    <ul className="list-disc list-inside space-y-1 ml-2">
-                                        <li>{t('integrations.notion.feature1') || 'Export notes to Notion databases'}</li>
-                                        <li>{t('integrations.notion.feature2') || 'Sync goals and progress tracking'}</li>
-                                        <li>{t('integrations.notion.feature3') || 'Import Notion pages as notes'}</li>
-                                    </ul>
-                                </div>
-                            </div>
-
-                            {/* Todoist Instructions */}
-                            <div className="p-5 rounded-xl bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border border-red-100 dark:border-red-800/30 opacity-75">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="p-2 rounded-lg bg-gradient-to-br from-red-500 to-red-600 shadow-md">
-                                        <CheckSquare size={20} className="text-white" />
-                                    </div>
-                                    <h4 className="font-bold text-gray-900 dark:text-white text-lg">Todoist</h4>
-                                    <span className="badge bg-amber-100 text-amber-700 text-xs">⏳ {t('integrations.comingSoon')}</span>
-                                </div>
-                                <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
-                                    <p className="font-medium">{t('integrations.plannedFeatures') || 'Planned features:'}</p>
-                                    <ul className="list-disc list-inside space-y-1 ml-2">
-                                        <li>{t('integrations.todoist.feature1') || 'Import Todoist tasks as plan items'}</li>
-                                        <li>{t('integrations.todoist.feature2') || 'Sync task completion status'}</li>
-                                        <li>{t('integrations.todoist.feature3') || 'Priority mapping between apps'}</li>
-                                    </ul>
-                                </div>
-                            </div>
-
-                            {/* Outlook Instructions */}
-                            <div className="p-5 rounded-xl bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-900/20 dark:to-sky-900/20 border border-blue-100 dark:border-blue-800/30 opacity-75">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 shadow-md">
-                                        <Mail size={20} className="text-white" />
-                                    </div>
-                                    <h4 className="font-bold text-gray-900 dark:text-white text-lg">Microsoft Outlook</h4>
-                                    <span className="badge bg-amber-100 text-amber-700 text-xs">⏳ {t('integrations.comingSoon')}</span>
-                                </div>
-                                <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
-                                    <p className="font-medium">{t('integrations.plannedFeatures') || 'Planned features:'}</p>
-                                    <ul className="list-disc list-inside space-y-1 ml-2">
-                                        <li>{t('integrations.outlook.feature1') || 'Calendar synchronization with Outlook'}</li>
-                                        <li>{t('integrations.outlook.feature2') || 'Email reminders for tasks'}</li>
-                                        <li>{t('integrations.outlook.feature3') || 'Microsoft 365 integration'}</li>
-                                    </ul>
                                 </div>
                             </div>
                         </div>
@@ -638,7 +467,7 @@ const IntegrationsView: React.FC = () => {
                                                 value={tempModel}
                                                 onChange={e => setTempModel(e.target.value)}
                                                 className="input-field text-sm w-full bg-white dark:bg-gray-900 shadow-sm"
-                                                placeholder={`pl. ${selectedIntegrationObj.id === 'openai' ? 'gpt-4o' : selectedIntegrationObj.id === 'gemini' ? 'gemini-2.5-pro' : 'manus'}`}
+                                                placeholder={`pl. ${selectedIntegrationObj.id === 'openai' ? 'gpt-4o' : 'gemini-2.5-pro'}`}
                                             />
                                         </div>
                                         <div className="relative z-10 w-full">
@@ -650,7 +479,7 @@ const IntegrationsView: React.FC = () => {
                                                 value={tempBaseUrl}
                                                 onChange={e => setTempBaseUrl(e.target.value)}
                                                 className="input-field text-sm w-full bg-white dark:bg-gray-900 shadow-sm"
-                                                placeholder={selectedIntegrationObj.id === 'manus' ? 'https://api.manus.ai/v1/chat/completions (proxy)' : 'pl. https://api.openai.com/v1/chat/completions'}
+                                                placeholder={'pl. https://api.openai.com/v1/chat/completions'}
                                             />
                                             <div className="text-[10px] text-gray-400 mt-1 pl-1">
                                                 Akkor használd, ha egyedi API Gateway-t (LiteLLM stb.) használsz.

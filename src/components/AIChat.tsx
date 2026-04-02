@@ -133,7 +133,7 @@ export const AIChat: React.FC = () => {
         }
     };
 
-    const providerName = settings.aiConfig.provider === 'manus' ? 'Manus AI' : settings.aiConfig.provider === 'openai' ? 'OpenAI' : 'Gemini';
+    const providerName = settings.aiConfig.provider === 'openai' ? 'OpenAI' : 'Gemini';
 
     return (
         <>

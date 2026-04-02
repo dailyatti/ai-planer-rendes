@@ -7,7 +7,7 @@
  * Egyszerre csak egy API lehet aktív
  */
 
-export type AIProvider = 'openai' | 'gemini' | 'manus' | null;
+export type AIProvider = 'openai' | 'gemini' | null;
 
 interface AIConfig {
     provider: AIProvider;
@@ -113,8 +113,6 @@ class AIServiceClass {
 
         if (this.config.provider === 'openai') {
             return this.generateTextOpenAI(options);
-        } else if (this.config.provider === 'manus') {
-            return this.generateTextManus(options);
         } else {
             return this.generateTextGemini(options);
         }
@@ -156,141 +154,7 @@ class AIServiceClass {
         };
     }
 
-    /**
-     * Manus AI szöveg generálás - A Manus natív task-alapú API-ját használja (api.manus.ai)
-     * Támogat egyedi Base URL-t is (pl. LiteLLM proxy OpenAI-kompatibilis formátummal)
-     */
-    private async generateTextManus(options: TextGenerationOptions): Promise<TextGenerationResult> {
-        const baseUrl = this.config.baseUrl;
 
-        // Ha van egyedi baseUrl, feltételezzük, hogy OpenAI-kompatibilis proxy (pl. LiteLLM)
-        if (baseUrl) {
-            return this.generateTextManusProxy(options, baseUrl);
-        }
-
-        // Natív Manus API (task-alapú, aszinkron)
-        const combinedPrompt = options.systemPrompt 
-            ? `${options.systemPrompt}\n\n${options.prompt}`
-            : options.prompt;
-
-        const createResponse = await fetch('/api/manus/tasks', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                apiKey: this.config.apiKey,
-                prompt: combinedPrompt
-            })
-        });
-
-        if (!createResponse.ok) {
-            const error = await createResponse.json().catch(() => ({}));
-            throw new Error(error.error || error.message || `Manus Proxy hiba: ${createResponse.statusText}`);
-        }
-
-        const taskData = await createResponse.json();
-        const taskId = taskData.id || taskData.task_id;
-
-        if (!taskId) {
-            // Ha a válasz azonnal tartalmaz szöveget (egyes wrapper-ek)
-            const directText = taskData.result?.text || taskData.output || taskData.choices?.[0]?.message?.content || '';
-            if (directText) {
-                return { text: directText, provider: 'manus' };
-            }
-            throw new Error('Manus API: Nem érkezett task ID vagy közvetlen válasz.');
-        }
-
-        // Pollozzuk a task állapotát amíg kész nem lesz
-        const maxAttempts = 60; // max ~60 másodperc
-        for (let attempt = 0; attempt < maxAttempts; attempt++) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            const statusResponse = await fetch(`/api/manus/tasks-status?taskId=${taskId}`, {
-                headers: {
-                    'API_KEY': this.config.apiKey
-                }
-            });
-
-            if (!statusResponse.ok) {
-               const error = await statusResponse.json().catch(() => ({}));
-               console.warn("Status error:", error);
-               continue;
-            }
-
-            const statusData = await statusResponse.json();
-            const status = statusData.status?.toLowerCase();
-
-            if (status === 'completed' || status === 'done' || status === 'finished') {
-                const rawResult = statusData.result || statusData.output || '';
-                let parsedText = '';
-                
-                if (Array.isArray(rawResult)) {
-                    // Extract text from output_text items
-                    const texts = rawResult.filter(r => r.type === 'output_text').map(r => r.text);
-                    if (texts.length > 0) {
-                        // If it echoed the system prompt, filter it out
-                        const filteredTexts = texts.filter(t => !t.includes('Te egy "PhD szintű" okos asszisztens vagy') && !t.includes('You are a "PhD-level" smart assistant'));
-                        parsedText = filteredTexts.length > 0 ? filteredTexts.join('\\n\\n') : texts[texts.length - 1]; // Use last if all filtered out
-                    } else {
-                        parsedText = JSON.stringify(rawResult); // Fallback
-                    }
-                } else if (typeof rawResult === 'object') {
-                    parsedText = rawResult.text || rawResult.output || JSON.stringify(rawResult);
-                } else {
-                    parsedText = rawResult;
-                }
-
-                return {
-                    text: parsedText,
-                    provider: 'manus'
-                };
-            }
-
-            if (status === 'failed' || status === 'error') {
-                throw new Error(statusData.error?.message || 'Manus task sikertelen.');
-            }
-        }
-
-        throw new Error('Manus API időtúllépés: a feladat nem fejeződött be időben.');
-    }
-
-    /**
-     * Manus proxy mód - OpenAI-kompatibilis endpoint (pl. LiteLLM)
-     */
-    private async generateTextManusProxy(options: TextGenerationOptions, proxyUrl: string): Promise<TextGenerationResult> {
-        const modelName = this.config.model || 'manus';
-        const combinedPrompt = options.systemPrompt 
-            ? `${options.systemPrompt}\n\n${options.prompt}`
-            : options.prompt;
-
-        const response = await fetch(proxyUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.config.apiKey}`
-            },
-            body: JSON.stringify({
-                model: modelName,
-                messages: [
-                    { role: 'user', content: combinedPrompt }
-                ],
-                max_tokens: options.maxTokens || 1000,
-                temperature: options.temperature || 0.7
-            })
-        });
-
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error.error?.message || `Manus Proxy API hiba: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        return {
-            text: data.choices?.[0]?.message?.content || '',
-            provider: 'manus'
-        };
-    }
 
     /**
      * Gemini szöveg generálás
@@ -364,7 +228,7 @@ class AIServiceClass {
             });
             return {
                 success: true,
-                message: `${this.config.provider === 'openai' ? 'OpenAI' : this.config.provider === 'manus' ? 'Manus AI' : 'Gemini'} sikeresen csatlakoztatva!`
+                message: `${this.config.provider === 'openai' ? 'OpenAI' : 'Gemini'} sikeresen csatlakoztatva!`
             };
         } catch (error) {
             return {
