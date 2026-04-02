@@ -222,9 +222,27 @@ class AIServiceClass {
             const status = statusData.status?.toLowerCase();
 
             if (status === 'completed' || status === 'done' || status === 'finished') {
-                const resultText = statusData.result?.text || statusData.output || statusData.result || '';
+                const rawResult = statusData.result || statusData.output || '';
+                let parsedText = '';
+                
+                if (Array.isArray(rawResult)) {
+                    // Extract text from output_text items
+                    const texts = rawResult.filter(r => r.type === 'output_text').map(r => r.text);
+                    if (texts.length > 0) {
+                        // If it echoed the system prompt, filter it out
+                        const filteredTexts = texts.filter(t => !t.includes('Te egy "PhD szintű" okos asszisztens vagy') && !t.includes('You are a "PhD-level" smart assistant'));
+                        parsedText = filteredTexts.length > 0 ? filteredTexts.join('\\n\\n') : texts[texts.length - 1]; // Use last if all filtered out
+                    } else {
+                        parsedText = JSON.stringify(rawResult); // Fallback
+                    }
+                } else if (typeof rawResult === 'object') {
+                    parsedText = rawResult.text || rawResult.output || JSON.stringify(rawResult);
+                } else {
+                    parsedText = rawResult;
+                }
+
                 return {
-                    text: typeof resultText === 'string' ? resultText : JSON.stringify(resultText),
+                    text: parsedText,
                     provider: 'manus'
                 };
             }
