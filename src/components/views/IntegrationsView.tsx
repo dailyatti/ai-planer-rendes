@@ -83,7 +83,7 @@ const IntegrationsView: React.FC = () => {
                 'Analitikai operációk',
                 'PhD paraméterek: Egyedi Model & URL'
             ],
-            helpLink: 'https://manus.im/app#settings/integrations/api'
+            helpLink: 'https://manus.ai/settings'
         }
     ];
 
@@ -123,26 +123,49 @@ const IntegrationsView: React.FC = () => {
                     throw new Error('Invalid API Key');
                 }
             } else if (selectedIntegration === 'manus') {
-                const url = tempBaseUrl || 'https://api.manus.im/v1/chat/completions';
-                const modelName = tempModel || 'manus';
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${tempKey}`
-                    },
-                    body: JSON.stringify({
-                        model: modelName,
-                        messages: [{ role: 'user', content: 'hello' }],
-                        max_tokens: 10
-                    })
-                });
-                if (response.ok) {
-                    setTestStatus('success');
-                    setTestMessage(t('integrations.connectionSuccess') || 'Connection Successful');
+                if (tempBaseUrl) {
+                    // Proxy mód (OpenAI-kompatibilis endpoint)
+                    const modelName = tempModel || 'manus';
+                    const response = await fetch(tempBaseUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${tempKey}`
+                        },
+                        body: JSON.stringify({
+                            model: modelName,
+                            messages: [{ role: 'user', content: 'hello' }],
+                            max_tokens: 10
+                        })
+                    });
+                    if (response.ok) {
+                        setTestStatus('success');
+                        setTestMessage(t('integrations.connectionSuccess') || 'Connection Successful');
+                    } else {
+                        const errorJson = await response.json().catch(() => ({}));
+                        throw new Error(errorJson?.error?.message || 'Invalid Manus Proxy Key');
+                    }
                 } else {
-                    const errorJson = await response.json().catch(() => ({}));
-                    throw new Error(errorJson?.error?.message || 'Invalid Manus Key');
+                    // Natív Manus API a mi Netlify Proxynkon keresztül (CORS elkerülése)
+                    const response = await fetch('/api/manus/tasks', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            apiKey: tempKey,
+                            prompt: 'hello'
+                        })
+                    });
+                    
+                    if (response.ok || response.status === 201) {
+                         // Nem kell task pollingot csinálni, ha visszaadta a task ID-t, a kulcs jó
+                        setTestStatus('success');
+                        setTestMessage(t('integrations.connectionSuccess') || 'Connection Successful');
+                    } else {
+                        const errorJson = await response.json().catch(() => ({}));
+                        throw new Error(errorJson?.error || errorJson?.message || 'Invalid Manus API Key');
+                    }
                 }
             } else if (selectedIntegration === 'openai') {
                 const response = await fetch('https://api.openai.com/v1/models', {
@@ -627,7 +650,7 @@ const IntegrationsView: React.FC = () => {
                                                 value={tempBaseUrl}
                                                 onChange={e => setTempBaseUrl(e.target.value)}
                                                 className="input-field text-sm w-full bg-white dark:bg-gray-900 shadow-sm"
-                                                placeholder={selectedIntegrationObj.id === 'manus' ? 'https://api.manus.im/v1/chat/completions' : 'pl. https://api.openai.com/v1/chat/completions'}
+                                                placeholder={selectedIntegrationObj.id === 'manus' ? 'https://api.manus.ai/v1/chat/completions (proxy)' : 'pl. https://api.openai.com/v1/chat/completions'}
                                             />
                                             <div className="text-[10px] text-gray-400 mt-1 pl-1">
                                                 Akkor használd, ha egyedi API Gateway-t (LiteLLM stb.) használsz.

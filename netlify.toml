@@ -8,6 +8,9 @@
   # Build command
   command = "npm run build"
 
+  # Functions directory
+  functions = "netlify/functions"
+
 [build.environment]
   # Node version
   NODE_VERSION = "20"
@@ -23,6 +26,12 @@
 # Branch deploy context
 [context.branch-deploy]
   command = "npm run build"
+
+# API Proxy for Serverless Functions
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
 
 # SPA Redirect - All routes to index.html for client-side routing
 [[redirects]]

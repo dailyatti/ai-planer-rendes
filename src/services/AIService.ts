@@ -157,19 +157,96 @@ class AIServiceClass {
     }
 
     /**
-     * Manus AI szöveg generálás - Alapértelmezetten OpenAI kompatibilis struktúrát használ (például proxy esetén)
+     * Manus AI szöveg generálás - A Manus natív task-alapú API-ját használja (api.manus.ai)
+     * Támogat egyedi Base URL-t is (pl. LiteLLM proxy OpenAI-kompatibilis formátummal)
      */
     private async generateTextManus(options: TextGenerationOptions): Promise<TextGenerationResult> {
-        const url = this.config.baseUrl || 'https://api.manus.im/v1/chat/completions';
-        const modelName = this.config.model || 'manus';
+        const baseUrl = this.config.baseUrl;
 
-        // Fix: Manus AI API may not support 'system' roles natively in all wrapper instances. 
-        // We inject the system instructions directly into the first user message to guarantee compatibility.
+        // Ha van egyedi baseUrl, feltételezzük, hogy OpenAI-kompatibilis proxy (pl. LiteLLM)
+        if (baseUrl) {
+            return this.generateTextManusProxy(options, baseUrl);
+        }
+
+        // Natív Manus API (task-alapú, aszinkron)
         const combinedPrompt = options.systemPrompt 
-            ? `Rendszer utasítások (System Instructions): ${options.systemPrompt}\n\nKérés (User): ${options.prompt}`
+            ? `${options.systemPrompt}\n\n${options.prompt}`
             : options.prompt;
 
-        const response = await fetch(url, {
+        const createResponse = await fetch('/api/manus/tasks', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                apiKey: this.config.apiKey,
+                prompt: combinedPrompt
+            })
+        });
+
+        if (!createResponse.ok) {
+            const error = await createResponse.json().catch(() => ({}));
+            throw new Error(error.error || error.message || `Manus Proxy hiba: ${createResponse.statusText}`);
+        }
+
+        const taskData = await createResponse.json();
+        const taskId = taskData.id || taskData.task_id;
+
+        if (!taskId) {
+            // Ha a válasz azonnal tartalmaz szöveget (egyes wrapper-ek)
+            const directText = taskData.result?.text || taskData.output || taskData.choices?.[0]?.message?.content || '';
+            if (directText) {
+                return { text: directText, provider: 'manus' };
+            }
+            throw new Error('Manus API: Nem érkezett task ID vagy közvetlen válasz.');
+        }
+
+        // Pollozzuk a task állapotát amíg kész nem lesz
+        const maxAttempts = 60; // max ~60 másodperc
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            const statusResponse = await fetch(`/api/manus/tasks-status?taskId=${taskId}`, {
+                headers: {
+                    'API_KEY': this.config.apiKey
+                }
+            });
+
+            if (!statusResponse.ok) {
+               const error = await statusResponse.json().catch(() => ({}));
+               console.warn("Status error:", error);
+               continue;
+            }
+
+            const statusData = await statusResponse.json();
+            const status = statusData.status?.toLowerCase();
+
+            if (status === 'completed' || status === 'done' || status === 'finished') {
+                const resultText = statusData.result?.text || statusData.output || statusData.result || '';
+                return {
+                    text: typeof resultText === 'string' ? resultText : JSON.stringify(resultText),
+                    provider: 'manus'
+                };
+            }
+
+            if (status === 'failed' || status === 'error') {
+                throw new Error(statusData.error?.message || 'Manus task sikertelen.');
+            }
+        }
+
+        throw new Error('Manus API időtúllépés: a feladat nem fejeződött be időben.');
+    }
+
+    /**
+     * Manus proxy mód - OpenAI-kompatibilis endpoint (pl. LiteLLM)
+     */
+    private async generateTextManusProxy(options: TextGenerationOptions, proxyUrl: string): Promise<TextGenerationResult> {
+        const modelName = this.config.model || 'manus';
+        const combinedPrompt = options.systemPrompt 
+            ? `${options.systemPrompt}\n\n${options.prompt}`
+            : options.prompt;
+
+        const response = await fetch(proxyUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -187,7 +264,7 @@ class AIServiceClass {
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
-            throw new Error(error.error?.message || `Manus API hiba: ${response.statusText}`);
+            throw new Error(error.error?.message || `Manus Proxy API hiba: ${response.statusText}`);
         }
 
         const data = await response.json();
