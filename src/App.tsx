@@ -8,7 +8,6 @@ import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
 import { VoiceAssistant } from './components/VoiceAssistant';
-import { AIChat } from './components/AIChat';
 import { ViewType } from './types/planner';
 import { CurrencyService } from './services/CurrencyService';
 import { MigrationService } from './services/MigrationService'; // Import added
@@ -249,13 +248,11 @@ radial-gradient(at 10% 80%, hsla(355, 85%, 50%, 0.06) 0px, transparent 50%)
       {/* Voice Assistant - Floating button */}
       <VoiceAssistant
         apiKey={settings.aiConfig?.provider === 'gemini' ? settings.aiConfig.apiKey : (import.meta.env.VITE_GEMINI_API_KEY || '')}
-        onCommand={handleVoiceCommand}
+        onCommand={handleVoiceCommand as (command: unknown) => void}
         currentLanguage={language}
         currentView={activeView}
       />
 
-      {/* AI Chat - Floating chat panel */}
-      <AIChat />
     </div>
   );
 }
