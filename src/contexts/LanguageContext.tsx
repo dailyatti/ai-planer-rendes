@@ -969,6 +969,18 @@ const translations: Translations = {
   'voice.connectionFailed': { en: 'Connection failed', hu: 'Sikertelen kapcsolódás' },
   'voice.disconnect': { en: 'Disconnect voice assistant', ko: 'Disconnect voice assistant', hu: 'Hangasszisztens leválasztása', de: 'Sprachassistent trennen', ro: 'Deconectare asistent vocal', sk: 'Odpojiť hlasového asistenta', hr: 'Disconnect voice assistant', fr: 'Disconnect voice assistant', es: 'Disconnect voice assistant', it: 'Disconnect voice assistant', pl: 'Disconnect voice assistant', cn: 'Disconnect voice assistant', jp: 'Disconnect voice assistant', pt: 'Disconnect voice assistant', tr: 'Disconnect voice assistant', ar: 'Disconnect voice assistant', ru: 'Disconnect voice assistant', hi: 'Disconnect voice assistant', bn: 'Disconnect voice assistant', ur: 'Disconnect voice assistant', th: 'Disconnect voice assistant', id: 'Disconnect voice assistant' },
   'voice.start': { en: 'Start voice assistant', ko: 'Start voice assistant', hu: 'Hangasszisztens indítása', de: 'Sprachassistent starten', ro: 'Pornire asistent vocal', sk: 'Spustiť hlasového asistenta', hr: 'Start voice assistant', fr: 'Start voice assistant', es: 'Start voice assistant', it: 'Start voice assistant', pl: 'Start voice assistant', cn: 'Start voice assistant', jp: 'Start voice assistant', pt: 'Start voice assistant', tr: 'Start voice assistant', ar: 'Start voice assistant', ru: 'Start voice assistant', hi: 'Start voice assistant', bn: 'Start voice assistant', ur: 'Start voice assistant', th: 'Start voice assistant', id: 'Start voice assistant' },
+  'voice.liveTitle': { en: 'Gemini Live', hu: 'Gemini Live' },
+  'voice.textAssistantTitle': { en: 'Text Assistant', hu: 'Szöveges asszisztens' },
+  'voice.systemDisconnected': { en: 'Disconnected.', hu: 'Kapcsolat bontva.' },
+  'voice.textAssistantConnected': { en: 'Text assistant connected.', hu: 'Szöveges asszisztens csatlakozott.' },
+  'voice.voiceAssistantConnected': { en: 'Voice assistant connected.', hu: 'Hangasszisztens csatlakozott.' },
+  'voice.connectionClosed': { en: 'Connection closed', hu: 'Kapcsolat bontva' },
+  'voice.errorPrefix': { en: 'Error', hu: 'Hiba' },
+  'voice.executingTool': { en: 'Executing tool:', hu: 'Eszköz fut:' },
+  'voice.microphoneDenied': { en: 'Microphone denied. The assistant switched to chat-only mode.', hu: 'A mikrofonhozzáférés meg lett tagadva. Az asszisztens chat módra váltott.' },
+  'voice.textConnectionFailed': { en: 'Could not connect the text assistant.', hu: 'A szöveges asszisztens nem tudott csatlakozni.' },
+  'voice.connectionNotReady': { en: 'Connection is not ready yet. Try again in a moment.', hu: 'A kapcsolat még nem áll készen. Próbáld meg újra egy pillanat múlva.' },
+  'voice.sendFailed': { en: 'Failed to send message', hu: 'Az üzenet küldése nem sikerült' },
   // Notes View Additional Keys
   'notes.newNote': { en: 'New Note', ko: 'New Note', hu: 'Új Jegyzet', ro: 'Notă Nouă', sk: 'Nová Poznámka', hr: 'Nova Bilješka', de: 'Neue Notiz', fr: 'Nouvelle Note', es: 'Nueva Nota', it: 'Nuova Nota', pl: 'Nowa Notatka', cn: '新笔记', jp: '新規ノート', pt: 'Nova Nota', tr: 'Yeni Not', ar: 'ملاحظة جديدة', ru: 'Новая Заметка', hi: 'नया नोट', bn: 'নতুন নোট', ur: 'نیا نوٹ', th: 'โน้ตใหม่', id: 'Catatan Baru' },
   'notes.searchPlaceholder': { en: 'Search notes...', ko: 'Search notes...', hu: 'Jegyzetek keresése...', ro: 'Căutați notițe...', sk: 'Hľadať poznámky...', hr: 'Pretraži bilješke...', de: 'Notizen suchen...', fr: 'Rechercher des notes...', es: 'Buscar notas...', it: 'Cerca note...', pl: 'Szukaj notatek...', cn: '搜索笔记...', jp: 'ノートを検索...', pt: 'Pesquisar notas...', tr: 'Notları ara...', ar: 'البحث في الملاحظات...', ru: 'Поиск заметок...', hi: 'नोट्स खोजें...', bn: 'নোট খুঁজুন...', ur: 'نوٹس تلاش کریں...', th: 'ค้นหาโน้ต...', id: 'Cari catatan...' },
@@ -1041,6 +1053,40 @@ const translations: Translations = {
   'integrations.every15Mins': { en: 'Every 15 mins', ko: 'Every 15 mins', hu: '15 percenként', ro: 'La fiecare 15 min', sk: 'Každých 15 minút', hr: 'Every 15 mins', de: 'Alle 15 Min', fr: 'Toutes les 15 min', es: 'Cada 15 min', it: 'Ogni 15 min', pl: 'Co 15 min', cn: '每15分钟', jp: '15分ごと', pt: 'Every 15 mins', tr: 'Her 15 dakikada', ar: 'كل 15 دقيقة', ru: 'Каждые 15 мин', hi: 'हर 15 मिनट', bn: 'Every 15 mins', ur: 'Every 15 mins', th: 'Every 15 mins', id: 'Every 15 mins' },
   'integrations.everyHour': { en: 'Every hour', ko: 'Every hour', hu: 'Óránként', ro: 'La fiecare oră', sk: 'Každú hodinu', hr: 'Every hour', de: 'Stündlich', fr: 'Toutes les heures', es: 'Cada hora', it: 'Ogni ora', pl: 'Co godzinę', cn: '每小时', jp: '毎時', pt: 'Every hour', tr: 'Her saat', ar: 'كل ساعة', ru: 'Каждый час', hi: 'हर घंटे', bn: 'Every hour', ur: 'Every hour', th: 'Every hour', id: 'Every hour' },
   'integrations.manualOnly': { en: 'Manual only', ko: 'Manual only', hu: 'Manuális', ro: 'Doar manual', sk: 'Len manuálne', hr: 'Manual only', de: 'Nur manuell', fr: 'Manuel uniquement', es: 'Solo manual', it: 'Solo manuale', pl: 'Tylko ręcznie', cn: '仅手动', jp: '手動のみ', pt: 'Manual only', tr: 'Sadece manuel', ar: 'يدوي فقط', ru: 'Только вручную', hi: 'केवल मैनुअल', bn: 'Manual only', ur: 'Manual only', th: 'Manual only', id: 'Manual only' },
+  'integrations.notConnected': { en: 'Not connected', hu: 'Nincs csatlakoztatva' },
+  'integrations.remove': { en: 'Remove integration', hu: 'Integráció eltávolítása' },
+  'integrations.setupGuide': { en: 'Integration Setup Guide', hu: 'Integrációs útmutató' },
+  'integrations.configured': { en: 'Configured', hu: 'Beállítva' },
+  'integrations.howToSetup': { en: 'How to set it up:', hu: 'Beállítási lépések:' },
+  'integrations.showAdvanced': { en: 'Advanced settings', hu: 'Haladó beállítások' },
+  'integrations.hideAdvanced': { en: 'Hide advanced settings', hu: 'Haladó beállítások elrejtése' },
+  'integrations.advancedParameters': { en: 'Advanced parameters', hu: 'Haladó paraméterek' },
+  'integrations.textModelLabel': { en: 'Text model override', hu: 'Szöveges modell felülírása' },
+  'integrations.textModelHelp': { en: 'Used by the main text assistant and text generation features.', hu: 'A fő szöveges asszisztens és a szöveggeneráló funkciók ezt használják.' },
+  'integrations.liveTextModelLabel': { en: 'Live text assistant model', hu: 'Live szöveges asszisztens modell' },
+  'integrations.liveTextModelHelp': { en: 'Used when the floating assistant runs in text-only live mode.', hu: 'A lebegő asszisztens szöveges live módja ezt használja.' },
+  'integrations.liveAudioModelLabel': { en: 'Live voice assistant model', hu: 'Live hangasszisztens modell' },
+  'integrations.liveAudioModelHelp': { en: 'Used when the floating assistant runs in voice mode.', hu: 'A lebegő asszisztens hang módja ezt használja.' },
+  'integrations.baseUrlLabel': { en: 'Base URL / endpoint', hu: 'Base URL / végpont' },
+  'integrations.baseUrlHelpOpenAI': { en: 'Optional. Use only when routing OpenAI through a custom Responses API compatible gateway.', hu: 'Opcionális. Csak akkor használd, ha az OpenAI hívásokat egy Responses API kompatibilis átjárón viszed át.' },
+  'integrations.baseUrlHelpGemini': { en: 'Optional text endpoint override. The live assistant still uses the official Gemini Live API.', hu: 'Opcionális szöveges végpont felülírás. A live asszisztens továbbra is a hivatalos Gemini Live API-t használja.' },
+  'integrations.geminiEndpointPlaceholder': { en: 'Optional custom generateContent endpoint', hu: 'Opcionális egyedi generateContent végpont' },
+  'integrations.responsesEndpointRequired': { en: 'OpenAI base URL must point to a Responses API endpoint.', hu: 'Az OpenAI base URL-nek Responses API végpontra kell mutatnia.' },
+  'integrations.invalidTextModel': { en: 'Text model is not available for this Gemini key', hu: 'A szöveges modell nem érhető el ezzel a Gemini kulccsal' },
+  'integrations.invalidLiveTextModel': { en: 'Live text model is not available for this Gemini key', hu: 'A live szöveges modell nem érhető el ezzel a Gemini kulccsal' },
+  'integrations.invalidLiveAudioModel': { en: 'Live audio model is not available for this Gemini key', hu: 'A live hangmodell nem érhető el ezzel a Gemini kulccsal' },
+  'integrations.gemini.descUnified': { en: 'Latest Gemini text and live assistant stack with separate editable models for text, live chat, and live voice.', hu: 'A legfrissebb Gemini szöveges és live asszisztens stack külön szerkeszthető modellekkel a szöveghez, a live chathez és a live hanghoz.' },
+  'integrations.gemini.featureTextModel': { en: 'Latest Gemini text model', hu: 'Legújabb Gemini szöveges modell' },
+  'integrations.gemini.featureLiveText': { en: 'Dedicated live text assistant model', hu: 'Külön live szöveges asszisztens modell' },
+  'integrations.gemini.featureLiveVoice': { en: 'Dedicated live voice assistant model', hu: 'Külön live hangasszisztens modell' },
+  'integrations.openai.descUnified': { en: 'Responses API based OpenAI setup with editable model and endpoint controls.', hu: 'Responses API alapú OpenAI beállítás szerkeszthető modellel és végpontvezérléssel.' },
+  'integrations.openai.featureResponses': { en: 'Latest OpenAI Responses API', hu: 'Legújabb OpenAI Responses API' },
+  'integrations.openai.featureKnowledge': { en: 'Text assistant and knowledge workflows', hu: 'Szöveges asszisztens és tudásworkflow-k' },
+  'integrations.openai.featureAdvanced': { en: 'Editable model and endpoint', hu: 'Szerkeszthető modell és végpont' },
+  'integrations.gemini.step1': { en: 'Open Google AI Studio and sign in with the Google account that owns the API project.', hu: 'Nyisd meg a Google AI Studio felületét, és jelentkezz be azzal a Google fiókkal, amelyikhez az API projekt tartozik.' },
+  'integrations.gemini.step2': { en: 'Generate or copy an API key from the API keys section.', hu: 'Az API keys résznél hozz létre vagy másolj ki egy API kulcsot.' },
+  'integrations.gemini.step3': { en: 'Keep the text model and live assistant models separate unless you know a specific model supports both flows.', hu: 'A szöveges modellt és a live asszisztens modelleket külön kezeld, hacsak nem tudod biztosan, hogy ugyanaz a modell mindkét folyamatot támogatja.' },
+  'integrations.gemini.step4': { en: 'Test the connection before saving so invalid models or keys fail immediately.', hu: 'Mentés előtt teszteld a kapcsolatot, hogy a hibás kulcs vagy modell azonnal kiderüljön.' },
 
   // Navigation
   'nav.menu': { en: 'Menu', hu: 'Menü' },
@@ -1392,6 +1438,8 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     localStorage.setItem('language', language);
+    document.documentElement.dir = languageDirections[language] || 'ltr';
+    document.documentElement.lang = language;
   }, [language]);
 
   const changeLanguage = (lang: Language) => {

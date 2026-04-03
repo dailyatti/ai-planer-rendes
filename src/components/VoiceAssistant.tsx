@@ -10,19 +10,15 @@ import { useData } from '../contexts/DataContext';
 import { FinancialEngine } from '../utils/FinancialEngine';
 import { CurrencyService } from '../services/CurrencyService';
 import {
-    DEFAULT_GEMINI_LIVE_MODEL,
+    DEFAULT_GEMINI_AUDIO_LIVE_MODEL,
     DEFAULT_GEMINI_TEXT_LIVE_MODEL,
     isGeminiNativeAudioLiveModel,
     isGeminiTextLiveModel,
 } from '../config/aiDefaults';
+import { AIConfig } from '../types/ai';
 
 interface VoiceAssistantProps {
-    config: {
-        provider: 'openai' | 'gemini' | null;
-        apiKey: string;
-        model?: string;
-        baseUrl?: string;
-    };
+    config: AIConfig;
     onCommand?: (command: unknown) => void;
     currentLanguage: string;
     currentView: string;
@@ -265,15 +261,16 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
     }, [currentLanguage]);
 
     const getLiveModel = useCallback((skipAudio: boolean) => {
-        const configuredModel = config.model?.trim();
         if (skipAudio) {
-            if (isGeminiTextLiveModel(configuredModel)) return configuredModel!;
+            const configuredTextLiveModel = config.liveTextModel?.trim() || config.model?.trim();
+            if (isGeminiTextLiveModel(configuredTextLiveModel)) return configuredTextLiveModel!;
             return DEFAULT_GEMINI_TEXT_LIVE_MODEL;
         }
 
-        if (isGeminiNativeAudioLiveModel(configuredModel)) return configuredModel!;
-        return DEFAULT_GEMINI_LIVE_MODEL;
-    }, [config.model]);
+        const configuredAudioLiveModel = config.liveAudioModel?.trim() || config.model?.trim();
+        if (isGeminiNativeAudioLiveModel(configuredAudioLiveModel)) return configuredAudioLiveModel!;
+        return DEFAULT_GEMINI_AUDIO_LIVE_MODEL;
+    }, [config.liveAudioModel, config.liveTextModel, config.model]);
 
     const cleanupMediaResources = useCallback(async () => {
         if (volumeFrameRef.current !== null) {
@@ -329,9 +326,9 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
             setIsActive(false);
             setIsTextMode(false);
             setIsConnecting(false);
-            addMessage('system', currentLanguage === 'hu' ? 'Lecsatlakozva.' : 'Disconnected.');
+            addMessage('system', t('voice.systemDisconnected'));
         }
-    }, [addMessage, cleanupMediaResources, currentLanguage]);
+    }, [addMessage, cleanupMediaResources, t]);
 
     // cleanup on unmount
     useEffect(() => {
@@ -508,7 +505,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                     streamRef.current = stream;
                 } catch {
                     stream = null;
-                    toast.error(currentLanguage === 'hu' ? 'Mikrofon engedély megtagadva (csak chat mód).' : 'Microphone denied (chat only).');
+                    toast.error(t('voice.microphoneDenied'));
                 }
             }
 
@@ -583,7 +580,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                                 for (const fc of calls) {
                                     const args = (fc.args || {}) as any;
 
-                                    addMessage('system', `Executing: ${fc.name}`);
+                                    addMessage('system', `${t('voice.executingTool')} ${fc.name}`);
 
                                     let result: any = { ok: true, message: 'Done' };
 
@@ -694,9 +691,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                         setIsConnecting(false);
                         setIsTextMode(false);
                         sessionRef.current = null;
-                        addMessage('system', currentLanguage === 'hu'
-                            ? `Kapcsolat bontva. Kód: ${code}, Ok: ${reason}`
-                            : `Connection closed. Code: ${code}, Reason: ${reason}`);
+                        addMessage('system', `${t('voice.connectionClosed')}: ${code} | ${reason}`);
                     },
 
                     onerror: async (e: any) => {
@@ -706,7 +701,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                         setIsConnecting(false);
                         setIsTextMode(false);
                         sessionRef.current = null;
-                        addMessage('system', `Error: ${e?.message || 'Unknown'}`);
+                        addMessage('system', `${t('voice.errorPrefix')}: ${e?.message || 'Unknown'}`);
                     },
                 },
             });
@@ -718,9 +713,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
 
             addMessage(
                 'system',
-                currentLanguage === 'hu'
-                    ? (skipAudio ? 'Szöveges asszisztens csatlakozott.' : 'Hangasszisztens csatlakozott.')
-                    : (skipAudio ? 'Text assistant connected.' : 'Voice assistant connected.'),
+                skipAudio ? t('voice.textAssistantConnected') : t('voice.voiceAssistantConnected'),
             );
 
             // Fix 1007 error: Send a silent audio frame immediately to establish audio context
@@ -804,11 +797,11 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                 await startSession(true);
                 s = sessionRef.current;
                 if (!s) {
-                    throw new Error('Could not establish connection for text message.');
+                    throw new Error(t('voice.textConnectionFailed'));
                 }
             } catch (err) {
                 console.error('Failed to auto-connect for text:', err);
-                toast.error('Could not connect to send message.');
+                toast.error(t('voice.textConnectionFailed'));
                 return;
             }
         }
@@ -823,13 +816,13 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
             });
         } catch (e: any) {
             if (e.message?.includes('socket not ready')) {
-                toast.error('Connection not ready. Please try again in a moment.');
+                toast.error(t('voice.connectionNotReady'));
             } else {
                 console.error('[VoiceAssistant] sendClientContent failed:', e);
-                toast.error('Failed to send text: ' + (e?.message || 'Unknown error'));
+                toast.error(`${t('voice.sendFailed')}: ${e?.message || 'Unknown error'}`);
             }
         }
-    }, [addMessage, inputText, startSession]);
+    }, [addMessage, inputText, startSession, t]);
 
     const VisualAssistOverlay = () => {
         if (!showVisualAssist) return null;
@@ -881,7 +874,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                     >
                         <div className="p-4 bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-between">
                             <h3 className="text-white font-semibold flex items-center gap-2">
-                                <Sparkles size={16} /> {isTextMode ? t('voice.title') : 'Gemini Live'}
+                                <Sparkles size={16} /> {isTextMode ? t('voice.textAssistantTitle') : t('voice.liveTitle')}
                             </h3>
                             <button
                                 onClick={() => setShowChat(false)}

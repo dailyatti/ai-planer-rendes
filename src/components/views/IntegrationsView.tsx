@@ -1,165 +1,265 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     Link2, Check, X, RefreshCw, ExternalLink,
-    Calendar, FileText, CheckSquare, Mail,
-    Cloud, Settings,
+    FileText, Cloud, Settings,
     Key, Eye, EyeOff,
     Mic, TestTube, CheckCircle2, XCircle,
     Globe, Zap, BrainCircuit, Trash2
 } from 'lucide-react';
 import { useLanguage, LANGUAGE_NAMES, Language } from '../../contexts/LanguageContext';
 import { useSettings } from '../../contexts/SettingsContext';
-import { AIService, AIProvider } from '../../services/AIService';
-import { DEFAULT_GEMINI_PRO_MODEL, DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL } from '../../config/aiDefaults';
+import { AIService } from '../../services/AIService';
+import {
+    DEFAULT_GEMINI_AUDIO_LIVE_MODEL,
+    DEFAULT_GEMINI_TEXT_LIVE_MODEL,
+    DEFAULT_GEMINI_TEXT_MODEL,
+    DEFAULT_OPENAI_BASE_URL,
+    DEFAULT_OPENAI_MODEL,
+    EMPTY_AI_CONFIG,
+    isLikelyResponsesEndpoint,
+    normalizeAIConfig,
+} from '../../config/aiDefaults';
+import { AIConfig, AIProvider } from '../../types/ai';
+
+type IntegrationId = 'gemini' | 'openai';
+
+const matchesGeminiModel = (availableModels: string[], targetModel: string) => {
+    if (!targetModel) return false;
+
+    return availableModels.some((modelName) =>
+        modelName === targetModel ||
+        modelName.endsWith(`/${targetModel}`) ||
+        modelName.includes(targetModel),
+    );
+};
 
 const IntegrationsView: React.FC = () => {
-    const { language, setLanguage, t } = useLanguage();
+    const { language, changeLanguage, t } = useLanguage();
     const { settings, updateSettings } = useSettings();
     const [activeTab, setActiveTab] = useState<'available' | 'connected' | 'settings'>('available');
     const [showApiModal, setShowApiModal] = useState(false);
-    const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
+    const [selectedIntegration, setSelectedIntegration] = useState<IntegrationId | null>(null);
 
     const activeProvider = settings.aiConfig?.provider || null;
 
     const [tempKey, setTempKey] = useState('');
     const [tempModel, setTempModel] = useState('');
     const [tempBaseUrl, setTempBaseUrl] = useState('');
+    const [tempLiveTextModel, setTempLiveTextModel] = useState('');
+    const [tempLiveAudioModel, setTempLiveAudioModel] = useState('');
     const [showAdvanced, setShowAdvanced] = useState(false);
-    
+
     const [showKey, setShowKey] = useState(false);
     const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
     const [testMessage, setTestMessage] = useState('');
 
-    // Integration definitions
-    const availableIntegrations = [
+    const availableIntegrations = useMemo(() => ([
         {
-            id: 'gemini',
+            id: 'gemini' as const,
             name: 'Google Gemini',
-            description: t('integrations.gemini.descUnified') || 'Teljeskörű AI: szöveg generálás + hang asszisztens',
+            description: t('integrations.gemini.descUnified'),
             icon: Mic,
             color: 'from-blue-500 to-indigo-600',
             connected: activeProvider === 'gemini',
             provider: 'gemini' as AIProvider,
             features: [
-                'Szöveg generálás (Gemini 2.5 Pro)',
-                'Hang asszisztens (Gemini Live)',
-                'PhD paraméterek: Egyedi Model'
+                t('integrations.gemini.featureTextModel'),
+                t('integrations.gemini.featureLiveText'),
+                t('integrations.gemini.featureLiveVoice'),
             ],
-            helpLink: 'https://aistudio.google.com/app/apikey'
+            helpLink: 'https://aistudio.google.com/app/apikey',
         },
         {
-            id: 'openai',
-            name: 'OpenAI (ChatGPT)',
-            description: 'A legkorszerűbb GPT-4o és o1, o3 modellek integrációja.',
+            id: 'openai' as const,
+            name: 'OpenAI',
+            description: t('integrations.openai.descUnified'),
             icon: BrainCircuit,
             color: 'from-emerald-500 to-teal-600',
             connected: activeProvider === 'openai',
             provider: 'openai' as AIProvider,
             features: [
-                'Szöveg generálás (GPT-4o)',
-                'Tudásbázis integráció',
-                'PhD paraméterek: Egyedi Model & URL'
+                t('integrations.openai.featureResponses'),
+                t('integrations.openai.featureKnowledge'),
+                t('integrations.openai.featureAdvanced'),
             ],
-            helpLink: 'https://platform.openai.com/api-keys'
-        }
-    ];
+            helpLink: 'https://platform.openai.com/api-keys',
+        },
+    ]), [activeProvider, t]);
 
-    const handleConnect = (integrationId: string) => {
-        const integration = availableIntegrations.find(i => i.id === integrationId);
-        if (integration) {
-            setSelectedIntegration(integrationId);
-            const currentKey = integration.connected ? settings.aiConfig?.apiKey || '' : '';
-            const currentModel = integration.connected
-                ? settings.aiConfig?.model || ''
+    const selectedIntegrationObj = availableIntegrations.find((integration) => integration.id === selectedIntegration);
+    const selectedIsGemini = selectedIntegrationObj?.provider === 'gemini';
+
+    const buildDraftConfig = (provider: AIProvider, apiKey: string): AIConfig =>
+        normalizeAIConfig({
+            provider,
+            apiKey,
+            model: tempModel,
+            baseUrl: tempBaseUrl,
+            liveTextModel: tempLiveTextModel,
+            liveAudioModel: tempLiveAudioModel,
+        });
+
+    const handleConnect = (integrationId: IntegrationId) => {
+        const integration = availableIntegrations.find((item) => item.id === integrationId);
+        if (!integration) return;
+
+        const savedConfig = integration.connected
+            ? normalizeAIConfig(settings.aiConfig)
+            : null;
+
+        setSelectedIntegration(integrationId);
+        setTempKey(savedConfig?.provider === integration.provider ? savedConfig.apiKey : '');
+        setTempModel(
+            savedConfig?.provider === integration.provider
+                ? savedConfig.model || ''
                 : integration.provider === 'openai'
                     ? DEFAULT_OPENAI_MODEL
-                    : DEFAULT_GEMINI_PRO_MODEL;
-            const currentBaseUrl = integration.connected
-                ? settings.aiConfig?.baseUrl || ''
-                : integration.provider === 'openai'
-                    ? DEFAULT_OPENAI_BASE_URL
-                    : '';
-            
-            setTempKey(currentKey);
-            setTempModel(currentModel);
-            setTempBaseUrl(currentBaseUrl);
-            setShowAdvanced(!!currentModel || !!currentBaseUrl);
-            setShowApiModal(true);
-            setTestStatus('idle');
-            setTestMessage('');
+                    : DEFAULT_GEMINI_TEXT_MODEL,
+        );
+        setTempBaseUrl(savedConfig?.provider === integration.provider ? savedConfig.baseUrl || '' : '');
+        setTempLiveTextModel(
+            savedConfig?.provider === integration.provider
+                ? savedConfig.liveTextModel || DEFAULT_GEMINI_TEXT_LIVE_MODEL
+                : DEFAULT_GEMINI_TEXT_LIVE_MODEL,
+        );
+        setTempLiveAudioModel(
+            savedConfig?.provider === integration.provider
+                ? savedConfig.liveAudioModel || DEFAULT_GEMINI_AUDIO_LIVE_MODEL
+                : DEFAULT_GEMINI_AUDIO_LIVE_MODEL,
+        );
+        setShowAdvanced(false);
+        setShowApiModal(true);
+        setShowKey(false);
+        setTestStatus('idle');
+        setTestMessage('');
+    };
+
+    const testGeminiConnection = async (draftConfig: AIConfig) => {
+        const modelsResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${draftConfig.apiKey}`);
+        const modelsData = await modelsResponse.json();
+        if (!modelsResponse.ok) {
+            throw new Error(modelsData.error?.message || t('integrations.connectionFailed'));
+        }
+
+        const availableModels = (modelsData.models || []).map((model: { name?: string }) => model.name || '');
+        if (!matchesGeminiModel(availableModels, draftConfig.model || '')) {
+            throw new Error(`${t('integrations.invalidTextModel')}: ${draftConfig.model}`);
+        }
+        if (!matchesGeminiModel(availableModels, draftConfig.liveTextModel || '')) {
+            throw new Error(`${t('integrations.invalidLiveTextModel')}: ${draftConfig.liveTextModel}`);
+        }
+        if (!matchesGeminiModel(availableModels, draftConfig.liveAudioModel || '')) {
+            throw new Error(`${t('integrations.invalidLiveAudioModel')}: ${draftConfig.liveAudioModel}`);
+        }
+
+        let textEndpoint = draftConfig.baseUrl?.trim();
+        if (!textEndpoint) {
+            textEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${draftConfig.model}:generateContent?key=${draftConfig.apiKey}`;
+        } else if (!textEndpoint.includes('?key=')) {
+            textEndpoint = `${textEndpoint}${textEndpoint.includes('?') ? '&' : '?'}key=${draftConfig.apiKey}`;
+        }
+
+        const response = await fetch(textEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{ text: 'Reply with one word: ready' }],
+                }],
+                generationConfig: {
+                    maxOutputTokens: 16,
+                    temperature: 0,
+                },
+            }),
+        });
+
+        const responseData = await response.json();
+        if (!response.ok) {
+            throw new Error(responseData.error?.message || t('integrations.connectionFailed'));
+        }
+    };
+
+    const testOpenAIConnection = async (draftConfig: AIConfig) => {
+        const testUrl = draftConfig.baseUrl || DEFAULT_OPENAI_BASE_URL;
+        if (!isLikelyResponsesEndpoint(testUrl)) {
+            throw new Error(t('integrations.responsesEndpointRequired'));
+        }
+
+        const response = await fetch(testUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${draftConfig.apiKey}`,
+            },
+            body: JSON.stringify({
+                model: draftConfig.model || DEFAULT_OPENAI_MODEL,
+                input: [{ role: 'user', content: [{ type: 'input_text', text: 'Reply with one word: ready' }] }],
+                max_output_tokens: 16,
+            }),
+        });
+
+        const responseData = await response.json();
+        if (!response.ok) {
+            throw new Error(responseData.error?.message || t('integrations.connectionFailed'));
         }
     };
 
     const handleTestConnection = async () => {
-        if (!selectedIntegration || !tempKey) return;
+        if (!selectedIntegrationObj || !tempKey.trim()) return;
 
         setTestStatus('testing');
         setTestMessage('');
 
         try {
-            if (selectedIntegration === 'gemini') {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${tempKey}`);
-                if (response.ok) {
-                    setTestStatus('success');
-                    setTestMessage(t('integrations.connectionSuccess') || 'Connection Successful');
-                } else {
-                    throw new Error('Invalid API Key');
-                }
-            } else if (selectedIntegration === 'openai') {
-                const response = await fetch('https://api.openai.com/v1/models', {
-                    headers: { 'Authorization': `Bearer ${tempKey}` }
-                });
-                if (response.ok) {
-                    setTestStatus('success');
-                    setTestMessage(t('integrations.connectionSuccess') || 'Connection Successful');
-                } else {
-                    throw new Error('Invalid OpenAI Key');
-                }
+            const draftConfig = buildDraftConfig(selectedIntegrationObj.provider, tempKey.trim());
+
+            if (selectedIntegrationObj.provider === 'gemini') {
+                await testGeminiConnection(draftConfig);
+            } else {
+                await testOpenAIConnection(draftConfig);
             }
-        } catch (err: any) {
+
+            setTestStatus('success');
+            setTestMessage(t('integrations.connectionSuccess'));
+        } catch (error: unknown) {
             setTestStatus('error');
-            setTestMessage(err.message || t('integrations.connectionFailed') || 'Connection Failed');
+            setTestMessage(error instanceof Error ? error.message : t('integrations.connectionFailed'));
         }
     };
 
     const handleSaveKey = () => {
-        if (!selectedIntegration || !tempKey) return;
-        const integration = availableIntegrations.find(i => i.id === selectedIntegration);
-        if (integration?.provider) {
-            updateSettings({
-                aiConfig: {
-                    provider: integration.provider,
-                    apiKey: tempKey,
-                    model: tempModel,
-                    baseUrl: tempBaseUrl
-                }
-            });
-            AIService.setProvider(integration.provider, tempKey, tempModel, tempBaseUrl);
-        }
+        if (!selectedIntegrationObj || !tempKey.trim()) return;
+
+        const nextConfig = buildDraftConfig(selectedIntegrationObj.provider, tempKey.trim());
+        updateSettings({ aiConfig: nextConfig });
+        AIService.setProvider(nextConfig);
+
         setShowApiModal(false);
         setSelectedIntegration(null);
         setTempKey('');
         setTempModel('');
         setTempBaseUrl('');
+        setTempLiveTextModel('');
+        setTempLiveAudioModel('');
+        setTestStatus('idle');
+        setTestMessage('');
     };
 
-    const handleDisconnect = (id: string, e?: React.MouseEvent) => {
-        if (e) e.stopPropagation();
-        const integration = availableIntegrations.find(i => i.id === id);
-        if (integration?.provider) {
-            updateSettings({
-                aiConfig: { provider: null, apiKey: '', model: '', baseUrl: '' }
-            });
-            AIService.clearProvider();
-        }
+    const handleDisconnect = (id: IntegrationId, event?: React.MouseEvent) => {
+        event?.stopPropagation();
+        const integration = availableIntegrations.find((item) => item.id === id);
+        if (!integration?.provider) return;
+
+        updateSettings({ aiConfig: { ...EMPTY_AI_CONFIG } });
+        AIService.clearProvider();
     };
 
-    const connectedIntegrations = availableIntegrations.filter(i => i.connected);
-    const selectedIntegrationObj = availableIntegrations.find(i => i.id === selectedIntegration);
+    const connectedIntegrations = availableIntegrations.filter((integration) => integration.connected);
 
     return (
         <div className="view-container">
-            {/* Header */}
             <div className="mb-8">
                 <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
                     <div>
@@ -172,7 +272,6 @@ const IntegrationsView: React.FC = () => {
                         <p className="view-subtitle max-w-2xl">{t('integrations.subtitle')}</p>
                     </div>
 
-                    {/* Language Selector */}
                     <div className="flex items-center gap-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-2 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
                         <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
                             <Globe size={20} />
@@ -183,7 +282,7 @@ const IntegrationsView: React.FC = () => {
                             </label>
                             <select
                                 value={language}
-                                onChange={(e) => setLanguage(e.target.value as Language)}
+                                onChange={(event) => changeLanguage(event.target.value as Language)}
                                 className="bg-transparent font-semibold text-gray-900 dark:text-white border-none p-0 pr-8 focus:ring-0 cursor-pointer min-w-[140px]"
                             >
                                 {Object.entries(LANGUAGE_NAMES).map(([code, name]) => (
@@ -194,14 +293,13 @@ const IntegrationsView: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Tabs */}
                 <div className="mt-8">
                     <div className="tab-group bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm p-1.5 rounded-2xl inline-flex">
                         {[
                             { id: 'available', label: t('integrations.available'), icon: Zap },
                             { id: 'connected', label: t('integrations.connected'), icon: Check },
-                            { id: 'settings', label: t('settings.title'), icon: Settings }
-                        ].map(tab => (
+                            { id: 'settings', label: t('settings.title'), icon: Settings },
+                        ].map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as 'available' | 'connected' | 'settings')}
@@ -219,11 +317,9 @@ const IntegrationsView: React.FC = () => {
                     </div>
                 </div>
             </div>
-
-            {/* Available Integrations */}
             {activeTab === 'available' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-                    {availableIntegrations.map(integration => {
+                    {availableIntegrations.map((integration) => {
                         const Icon = integration.icon;
                         return (
                             <div key={integration.id} className="group relative">
@@ -244,7 +340,7 @@ const IntegrationsView: React.FC = () => {
                                                     </span>
                                                 ) : (
                                                     <span className="badge bg-gray-100/80 dark:bg-gray-700/80 text-gray-600 dark:text-gray-400 shrink-0 backdrop-blur-md">
-                                                        {t('integrations.notConnected') || 'Not Connected'}
+                                                        {t('integrations.notConnected')}
                                                     </span>
                                                 )}
                                             </div>
@@ -252,8 +348,11 @@ const IntegrationsView: React.FC = () => {
                                                 {integration.description}
                                             </p>
                                             <div className="flex flex-wrap gap-2 mb-5">
-                                                {integration.features.map((feature, idx) => (
-                                                    <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-50/80 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 text-xs font-medium text-gray-600 dark:text-gray-400">
+                                                {integration.features.map((feature) => (
+                                                    <span
+                                                        key={feature}
+                                                        className="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-50/80 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 text-xs font-medium text-gray-600 dark:text-gray-400"
+                                                    >
                                                         {feature}
                                                     </span>
                                                 ))}
@@ -261,9 +360,9 @@ const IntegrationsView: React.FC = () => {
                                             {integration.connected ? (
                                                 <div className="flex gap-2 w-full">
                                                     <button
-                                                        onClick={(e) => handleDisconnect(integration.id, e)}
+                                                        onClick={(event) => handleDisconnect(integration.id, event)}
                                                         className="w-12 py-2.5 rounded-xl font-semibold flex items-center justify-center transition-all duration-300 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
-                                                        title="Eltávolítás"
+                                                        title={t('integrations.remove')}
                                                     >
                                                         <Trash2 size={18} />
                                                     </button>
@@ -291,7 +390,6 @@ const IntegrationsView: React.FC = () => {
                 </div>
             )}
 
-            {/* Connected Tab */}
             {activeTab === 'connected' && (
                 <div className="animate-fade-in">
                     {connectedIntegrations.length === 0 ? (
@@ -311,7 +409,7 @@ const IntegrationsView: React.FC = () => {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {connectedIntegrations.map(integration => {
+                            {connectedIntegrations.map((integration) => {
                                 const Icon = integration.icon;
                                 return (
                                     <div key={integration.id} className="card glass-panel group">
@@ -324,7 +422,11 @@ const IntegrationsView: React.FC = () => {
                                                 <span className="badge badge-success mt-1.5"><Check size={12} /> {t('integrations.connected')}</span>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <button onClick={(e) => handleDisconnect(integration.id, e)} className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Eltávolítás">
+                                                <button
+                                                    onClick={(event) => handleDisconnect(integration.id, event)}
+                                                    className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                                    title={t('integrations.remove')}
+                                                >
                                                     <Trash2 size={18} />
                                                 </button>
                                                 <button onClick={() => handleConnect(integration.id)} className="btn-secondary">
@@ -340,7 +442,6 @@ const IntegrationsView: React.FC = () => {
                 </div>
             )}
 
-            {/* Settings Tab */}
             {activeTab === 'settings' && (
                 <div className="space-y-6 animate-fade-in">
                     <div className="card glass-panel">
@@ -370,7 +471,7 @@ const IntegrationsView: React.FC = () => {
                     <div className="card glass-panel">
                         <h3 className="section-title flex items-center gap-2 mb-6">
                             <FileText size={20} className="text-blue-500" />
-                            {t('integrations.setupGuide') || 'Integration Setup Guide'}
+                            {t('integrations.setupGuide')}
                         </h3>
 
                         <div className="space-y-6">
@@ -379,16 +480,16 @@ const IntegrationsView: React.FC = () => {
                                     <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md">
                                         <Mic size={20} className="text-white" />
                                     </div>
-                                    <h4 className="font-bold text-gray-900 dark:text-white text-lg">Google Gemini AI</h4>
+                                    <h4 className="font-bold text-gray-900 dark:text-white text-lg">Google Gemini</h4>
                                     {activeProvider === 'gemini' && <span className="badge badge-success text-xs"><Check size={12} /> {t('integrations.configured')}</span>}
                                 </div>
                                 <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
-                                    <p className="font-medium">{t('integrations.howToSetup') || 'How to setup:'}</p>
+                                    <p className="font-medium">{t('integrations.howToSetup')}</p>
                                     <ol className="list-decimal list-inside space-y-2 ml-2">
-                                        <li>{t('integrations.gemini.step1') || 'Visit aistudio.google.com and sign in with your Google account'}</li>
-                                        <li>{t('integrations.gemini.step2') || 'Click "Get API Key" in the left sidebar'}</li>
-                                        <li>{t('integrations.gemini.step3') || 'Create a new API key or use an existing one'}</li>
-                                        <li>{t('integrations.gemini.step4') || 'Copy the key and paste it in the integration settings'}</li>
+                                        <li>{t('integrations.gemini.step1')}</li>
+                                        <li>{t('integrations.gemini.step2')}</li>
+                                        <li>{t('integrations.gemini.step3')}</li>
+                                        <li>{t('integrations.gemini.step4')}</li>
                                     </ol>
                                 </div>
                             </div>
@@ -396,11 +497,9 @@ const IntegrationsView: React.FC = () => {
                     </div>
                 </div>
             )}
-
-            {/* API Key Modal */}
             {showApiModal && selectedIntegrationObj && (
                 <div className="modal-backdrop backdrop-blur-sm" onClick={() => setShowApiModal(false)}>
-                    <div className="modal-panel w-full max-w-md p-0 overflow-hidden shadow-2xl shadow-black/20" onClick={e => e.stopPropagation()}>
+                    <div className="modal-panel w-full max-w-md p-0 overflow-hidden shadow-2xl shadow-black/20" onClick={(event) => event.stopPropagation()}>
                         <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-md">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
@@ -430,9 +529,9 @@ const IntegrationsView: React.FC = () => {
                                     <input
                                         type={showKey ? 'text' : 'password'}
                                         value={tempKey}
-                                        onChange={e => setTempKey(e.target.value)}
+                                        onChange={(event) => setTempKey(event.target.value)}
                                         className="input-field pl-10 pr-10 font-mono text-sm shadow-sm"
-                                        placeholder="sk-..."
+                                        placeholder={selectedIsGemini ? 'AIza...' : 'sk-proj-...'}
                                         autoFocus
                                     />
                                     <button
@@ -444,12 +543,12 @@ const IntegrationsView: React.FC = () => {
                                     </button>
                                 </div>
                                 <div className="mt-3 flex items-center justify-between">
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={() => setShowAdvanced(!showAdvanced)}
                                         className="text-xs font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors"
                                     >
-                                        {showAdvanced ? 'Továbbfejlesztett bezárása ▲' : 'PhD Szintű Beállítások (Modell, Proxy) ▼'}
+                                        {showAdvanced ? t('integrations.hideAdvanced') : t('integrations.showAdvanced')}
                                     </button>
                                     <a
                                         href={selectedIntegrationObj.helpLink}
@@ -467,31 +566,71 @@ const IntegrationsView: React.FC = () => {
                                             <Settings size={64} />
                                         </div>
                                         <div className="relative z-10 w-full mb-2">
-                                            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Haladó paraméterek</div>
+                                            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">{t('integrations.advancedParameters')}</div>
                                             <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                                                Modell Név Felülírása (Opcionális)
+                                                {t('integrations.textModelLabel')}
                                             </label>
                                             <input
                                                 type="text"
                                                 value={tempModel}
-                                                onChange={e => setTempModel(e.target.value)}
+                                                onChange={(event) => setTempModel(event.target.value)}
                                                 className="input-field text-sm w-full bg-white dark:bg-gray-900 shadow-sm"
-                                                placeholder={`pl. ${selectedIntegrationObj.id === 'openai' ? 'gpt-4o' : 'gemini-2.5-pro'}`}
+                                                placeholder={selectedIsGemini ? DEFAULT_GEMINI_TEXT_MODEL : DEFAULT_OPENAI_MODEL}
                                             />
+                                            <div className="text-[10px] text-gray-400 mt-1 pl-1">
+                                                {t('integrations.textModelHelp')}
+                                            </div>
                                         </div>
+
+                                        {selectedIsGemini && (
+                                            <>
+                                                <div className="relative z-10 w-full">
+                                                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                                                        {t('integrations.liveTextModelLabel')}
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={tempLiveTextModel}
+                                                        onChange={(event) => setTempLiveTextModel(event.target.value)}
+                                                        className="input-field text-sm w-full bg-white dark:bg-gray-900 shadow-sm"
+                                                        placeholder={DEFAULT_GEMINI_TEXT_LIVE_MODEL}
+                                                    />
+                                                    <div className="text-[10px] text-gray-400 mt-1 pl-1">
+                                                        {t('integrations.liveTextModelHelp')}
+                                                    </div>
+                                                </div>
+
+                                                <div className="relative z-10 w-full">
+                                                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                                                        {t('integrations.liveAudioModelLabel')}
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={tempLiveAudioModel}
+                                                        onChange={(event) => setTempLiveAudioModel(event.target.value)}
+                                                        className="input-field text-sm w-full bg-white dark:bg-gray-900 shadow-sm"
+                                                        placeholder={DEFAULT_GEMINI_AUDIO_LIVE_MODEL}
+                                                    />
+                                                    <div className="text-[10px] text-gray-400 mt-1 pl-1">
+                                                        {t('integrations.liveAudioModelHelp')}
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+
                                         <div className="relative z-10 w-full">
                                             <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                                                Base URL (Proxy / Endpoint)
+                                                {t('integrations.baseUrlLabel')}
                                             </label>
                                             <input
                                                 type="text"
                                                 value={tempBaseUrl}
-                                                onChange={e => setTempBaseUrl(e.target.value)}
+                                                onChange={(event) => setTempBaseUrl(event.target.value)}
                                                 className="input-field text-sm w-full bg-white dark:bg-gray-900 shadow-sm"
-                                                placeholder={'pl. https://api.openai.com/v1/chat/completions'}
+                                                placeholder={selectedIsGemini ? t('integrations.geminiEndpointPlaceholder') : DEFAULT_OPENAI_BASE_URL}
                                             />
                                             <div className="text-[10px] text-gray-400 mt-1 pl-1">
-                                                Akkor használd, ha egyedi API Gateway-t (LiteLLM stb.) használsz.
+                                                {selectedIsGemini ? t('integrations.baseUrlHelpGemini') : t('integrations.baseUrlHelpOpenAI')}
                                             </div>
                                         </div>
                                     </div>
@@ -514,15 +653,19 @@ const IntegrationsView: React.FC = () => {
 
                             <div className="flex flex-col gap-3 pt-2">
                                 <button
-                                    onClick={handleTestConnection}
-                                    disabled={!tempKey || testStatus === 'testing'}
+                                    onClick={() => void handleTestConnection()}
+                                    disabled={!tempKey.trim() || testStatus === 'testing'}
                                     className="btn-secondary justify-center w-full transition-all"
                                 >
                                     <TestTube size={18} /> {t('integrations.testConnection')}
                                 </button>
                                 <div className="flex gap-3">
                                     <button onClick={() => setShowApiModal(false)} className="btn-ghost flex-1 justify-center transition-colors">{t('common.cancel')}</button>
-                                    <button onClick={handleSaveKey} disabled={!tempKey} className="btn-primary flex-1 justify-center shadow-lg shadow-primary-500/20 transition-all hover:shadow-primary-500/40">
+                                    <button
+                                        onClick={handleSaveKey}
+                                        disabled={!tempKey.trim()}
+                                        className="btn-primary flex-1 justify-center shadow-lg shadow-primary-500/20 transition-all hover:shadow-primary-500/40"
+                                    >
                                         <Check size={18} /> {t('common.save')}
                                     </button>
                                 </div>

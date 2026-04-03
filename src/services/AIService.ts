@@ -2,17 +2,11 @@ import {
   DEFAULT_GEMINI_TEXT_MODEL,
   DEFAULT_OPENAI_BASE_URL,
   DEFAULT_OPENAI_MODEL,
+  EMPTY_AI_CONFIG,
   isLikelyResponsesEndpoint,
+  normalizeAIConfig,
 } from '../config/aiDefaults';
-
-export type AIProvider = 'openai' | 'gemini' | null;
-
-interface AIConfig {
-  provider: AIProvider;
-  apiKey: string;
-  model?: string;
-  baseUrl?: string;
-}
+import { AIConfig, AIProvider } from '../types/ai';
 
 interface TextGenerationOptions {
   prompt: string;
@@ -28,15 +22,15 @@ interface TextGenerationResult {
 }
 
 class AIServiceClass {
-  private config: AIConfig = { provider: null, apiKey: '', model: '', baseUrl: '' };
+  private config: AIConfig = { ...EMPTY_AI_CONFIG };
 
-  setProvider(provider: AIProvider, apiKey: string, model?: string, baseUrl?: string): void {
-    this.config = { provider, apiKey, model: model || '', baseUrl: baseUrl || '' };
+  setProvider(config: AIConfig): void {
+    this.config = normalizeAIConfig(config);
     this.saveConfig();
   }
 
   clearProvider(): void {
-    this.config = { provider: null, apiKey: '', model: '', baseUrl: '' };
+    this.config = { ...EMPTY_AI_CONFIG };
     this.saveConfig();
   }
 
@@ -56,16 +50,10 @@ class AIServiceClass {
     try {
       const saved = localStorage.getItem('digitalplanner_ai_config');
       if (saved) {
-        const parsed = JSON.parse(saved);
-        this.config = {
-          provider: parsed.provider || null,
-          apiKey: parsed.apiKey || '',
-          model: parsed.model || '',
-          baseUrl: parsed.baseUrl || '',
-        };
+        this.config = normalizeAIConfig(JSON.parse(saved));
       }
-    } catch (e) {
-      console.error('AIService: Failed to load config', e);
+    } catch (error) {
+      console.error('AIService: Failed to load config', error);
     }
   }
 
@@ -73,14 +61,14 @@ class AIServiceClass {
     try {
       localStorage.setItem('digitalplanner_ai_config', JSON.stringify(this.config));
       localStorage.removeItem('contentplanner_ai_config');
-    } catch (e) {
-      console.error('AIService: Failed to save config', e);
+    } catch (error) {
+      console.error('AIService: Failed to save config', error);
     }
   }
 
   async generateText(options: TextGenerationOptions): Promise<TextGenerationResult> {
     if (!this.isConfigured()) {
-      throw new Error('Nincs AI szolgáltató beállítva. Menj az Integrációk menübe.');
+      throw new Error('No AI provider is configured. Open Integrations to connect one.');
     }
 
     if (this.config.provider === 'openai') {
@@ -93,7 +81,7 @@ class AIServiceClass {
   private async generateTextOpenAI(options: TextGenerationOptions): Promise<TextGenerationResult> {
     const configuredUrl = this.config.baseUrl?.trim();
     if (configuredUrl && !isLikelyResponsesEndpoint(configuredUrl)) {
-      throw new Error('A custom OpenAI URL-nak a Responses API végpontjára kell mutatnia.');
+      throw new Error('The custom OpenAI URL must point to a Responses API endpoint.');
     }
 
     const url = configuredUrl || DEFAULT_OPENAI_BASE_URL;
@@ -113,14 +101,14 @@ class AIServiceClass {
             : []),
           { role: 'user', content: [{ type: 'input_text', text: options.prompt }] },
         ],
-        max_output_tokens: options.maxTokens || 1000,
-        temperature: options.temperature || 0.7,
+        max_output_tokens: options.maxTokens ?? 1000,
+        temperature: options.temperature ?? 0.7,
       }),
     });
 
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error?.message || 'OpenAI API hiba');
+      throw new Error(data.error?.message || 'OpenAI API error');
     }
 
     const text =
@@ -132,7 +120,7 @@ class AIServiceClass {
       '';
 
     if (!text) {
-      throw new Error('Üres választ küldött az OpenAI.');
+      throw new Error('OpenAI returned an empty response.');
     }
 
     return {
@@ -162,20 +150,20 @@ class AIServiceClass {
             parts: [{ text: options.systemPrompt ? `${options.systemPrompt}\n\n${options.prompt}` : options.prompt }],
           }],
           generationConfig: {
-            maxOutputTokens: options.maxTokens || 1000,
-            temperature: options.temperature || 0.7,
+            maxOutputTokens: options.maxTokens ?? 1000,
+            temperature: options.temperature ?? 0.7,
           },
         }),
       });
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error?.message || `Gemini API Error (${response.status})`);
+        throw new Error(data.error?.message || `Gemini API error (${response.status})`);
       }
 
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) {
-        throw new Error('Üres választ küldött az AI.');
+        throw new Error('Gemini returned an empty response.');
       }
 
       return {
@@ -183,7 +171,7 @@ class AIServiceClass {
         provider: 'gemini',
       };
     } catch (error: unknown) {
-      console.error('Gemini API Error:', error);
+      console.error('Gemini API error:', error);
       if (error instanceof Error) throw error;
       throw new Error('Unknown Gemini error');
     }
@@ -191,27 +179,28 @@ class AIServiceClass {
 
   async testConnection(): Promise<{ success: boolean; message: string }> {
     if (!this.isConfigured()) {
-      return { success: false, message: 'Nincs API kulcs beállítva' };
+      return { success: false, message: 'No API key is configured.' };
     }
 
     try {
       await this.generateText({
-        prompt: 'Válaszolj egyetlen szóval: működik',
-        maxTokens: 10,
+        prompt: 'Reply with one word: working',
+        maxTokens: 64,
+        temperature: 0,
       });
       return {
         success: true,
-        message: `${this.config.provider === 'openai' ? 'OpenAI' : 'Gemini'} sikeresen csatlakoztatva!`,
+        message: `${this.config.provider === 'openai' ? 'OpenAI' : 'Gemini'} connected successfully.`,
       };
     } catch (error) {
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Ismeretlen hiba',
+        message: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
 
-  getVoiceConfig(): { provider: AIProvider; apiKey: string; model?: string; baseUrl?: string } {
+  getVoiceConfig(): AIConfig {
     return { ...this.config };
   }
 }

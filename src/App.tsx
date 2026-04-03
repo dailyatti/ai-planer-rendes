@@ -11,7 +11,11 @@ import { VoiceAssistant } from './components/VoiceAssistant';
 import { ViewType } from './types/planner';
 import { CurrencyService } from './services/CurrencyService';
 import { MigrationService } from './services/MigrationService'; // Import added
-import { DEFAULT_GEMINI_LIVE_MODEL } from './config/aiDefaults';
+import {
+  DEFAULT_GEMINI_AUDIO_LIVE_MODEL,
+  DEFAULT_GEMINI_TEXT_LIVE_MODEL,
+  DEFAULT_GEMINI_TEXT_MODEL,
+} from './config/aiDefaults';
 
 type VoiceCommand = {
   type: string;
@@ -259,7 +263,9 @@ radial-gradient(at 10% 80%, hsla(355, 85%, 50%, 0.06) 0px, transparent 50%)
             : {
                 provider: import.meta.env.VITE_GEMINI_API_KEY ? 'gemini' : null,
                 apiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
-                model: DEFAULT_GEMINI_LIVE_MODEL,
+                model: DEFAULT_GEMINI_TEXT_MODEL,
+                liveTextModel: DEFAULT_GEMINI_TEXT_LIVE_MODEL,
+                liveAudioModel: DEFAULT_GEMINI_AUDIO_LIVE_MODEL,
                 baseUrl: '',
               }
         }

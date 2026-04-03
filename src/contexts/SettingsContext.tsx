@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AIService } from '../services/AIService';
+import { EMPTY_AI_CONFIG, normalizeAIConfig } from '../config/aiDefaults';
+import { AIConfig } from '../types/ai';
 
 export type TimeZone = 'UTC' | 'Europe/Budapest' | 'America/New_York' | 'Europe/London' | 'Europe/Berlin' | 'Europe/Paris' | 'Europe/Rome' | 'America/Los_Angeles';
 export type DateFormat = 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD';
 export type Currency = 'USD' | 'EUR' | 'GBP' | 'HUF' | 'CAD' | 'AUD' | 'JPY' | 'CHF' | 'SEK' | 'NOK' | 'DKK';
-export type AIProvider = 'openai' | 'gemini' | null;
 
 interface GeneralSettings {
   timeZone: TimeZone;
@@ -26,13 +27,6 @@ interface NotificationSettings {
 interface PrivacySettings {
   analytics: boolean;
   crashReports: boolean;
-}
-
-interface AIConfig {
-  provider: AIProvider;
-  apiKey: string;
-  model?: string;
-  baseUrl?: string;
 }
 
 interface AppSettings {
@@ -63,11 +57,8 @@ const defaultSettings: AppSettings = {
     crashReports: true,
   },
   aiConfig: {
-    provider: null,
-    apiKey: '',
-    model: '',
-    baseUrl: ''
-  }
+    ...EMPTY_AI_CONFIG,
+  },
 };
 
 interface SettingsContextType {
@@ -103,17 +94,23 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const parsedAI = JSON.parse(legacyAI);
             initialSettings = {
               ...initialSettings,
-              aiConfig: {
+              aiConfig: normalizeAIConfig({
                 provider: parsedAI.provider || 'gemini',
                 apiKey: parsedAI.apiKey || '',
                 model: parsedAI.model || '',
-                baseUrl: parsedAI.baseUrl || ''
-              }
+                baseUrl: parsedAI.baseUrl || '',
+                liveTextModel: parsedAI.liveTextModel || '',
+                liveAudioModel: parsedAI.liveAudioModel || '',
+              }),
             };
           }
         } catch (e) { console.error('Error migrating AI config', e); }
       }
-      return initialSettings;
+
+      return {
+        ...initialSettings,
+        aiConfig: normalizeAIConfig(initialSettings.aiConfig),
+      };
     } catch (error) {
       console.error('Error loading settings:', error);
       return defaultSettings;
@@ -125,9 +122,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [settings]);
 
   useEffect(() => {
-    const { provider, apiKey, model, baseUrl } = settings.aiConfig;
+    const { provider, apiKey } = settings.aiConfig;
     if (provider && apiKey) {
-      AIService.setProvider(provider, apiKey, model, baseUrl);
+      AIService.setProvider(settings.aiConfig);
     } else {
       AIService.clearProvider();
     }
@@ -140,7 +137,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       general: { ...prev.general, ...updates.general },
       notifications: { ...prev.notifications, ...updates.notifications },
       privacy: { ...prev.privacy, ...updates.privacy },
-      aiConfig: { ...prev.aiConfig, ...updates.aiConfig },
+      aiConfig: normalizeAIConfig({ ...prev.aiConfig, ...updates.aiConfig }),
     }));
   };
 
