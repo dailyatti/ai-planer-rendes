@@ -6,6 +6,12 @@ import { useLanguage, LANGUAGE_NAMES } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
 import { AIService } from '../services/AIService';
 import { AIConfig } from '../types/ai';
+import { AssistantAction, AssistantPlan } from '../types/assistant';
+import {
+  buildAssistantPlanningPrompt,
+  extractAssistantPlan,
+  inferLocalAssistantPlan,
+} from '../utils/assistantPlan';
 
 interface VoiceAssistantProps {
   config: AIConfig;
@@ -20,21 +26,6 @@ interface ChatMessage {
   timestamp: number;
 }
 
-const NAV_TARGETS: Array<{ target: string; aliases: string[] }> = [
-  { target: 'daily', aliases: ['daily', 'napi'] },
-  { target: 'weekly', aliases: ['weekly', 'heti'] },
-  { target: 'monthly', aliases: ['monthly', 'havi'] },
-  { target: 'yearly', aliases: ['yearly', 'éves', 'eves'] },
-  { target: 'notes', aliases: ['notes', 'jegyzet'] },
-  { target: 'goals', aliases: ['goals', 'cél', 'cel'] },
-  { target: 'budget', aliases: ['budget', 'költségvetés', 'koltsegvetes'] },
-  { target: 'invoicing', aliases: ['invoicing', 'száml', 'szaml'] },
-  { target: 'statistics', aliases: ['statistics', 'statisztika'] },
-  { target: 'habits', aliases: ['habits', 'szokás', 'szokas'] },
-  { target: 'integrations', aliases: ['integrations', 'integration'] },
-  { target: 'settings', aliases: ['settings', 'beállítás', 'beallitas'] },
-];
-
 export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
   config,
   onCommand,
@@ -42,7 +33,17 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
   currentView,
 }) => {
   const { t } = useLanguage();
-  const { plans, goals, transactions } = useData();
+  const {
+    plans,
+    goals,
+    transactions,
+    addPlan,
+    addGoal,
+    addNote,
+    addTransaction,
+    invoices,
+    clients,
+  } = useData();
 
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -60,23 +61,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     setMessages((prev) => [...prev, { role, text, timestamp: Date.now() }]);
   }, []);
 
-  const maybeHandleNavigationShortcut = useCallback((text: string) => {
-    const normalized = text.toLowerCase();
-    const navIntent = ['open', 'go to', 'navigate', 'nyisd', 'menj', 'válts', 'valts']
-      .some((trigger) => normalized.includes(trigger));
-    if (!navIntent) return false;
-
-    const match = NAV_TARGETS.find((entry) =>
-      entry.aliases.some((alias) => normalized.includes(alias)),
-    );
-    if (!match) return false;
-
-    onCommand?.({ type: 'navigation', target: match.target });
-    addMessage('system', `Opened: ${match.target}`);
-    return true;
-  }, [addMessage, onCommand]);
-
-  const buildSystemPrompt = useCallback(() => {
+  const buildSnapshot = useCallback(() => {
     const languageName = LANGUAGE_NAMES[currentLanguage as keyof typeof LANGUAGE_NAMES] || 'English';
     const totalTasks = plans.length;
     const completedTasks = plans.filter((plan) => plan.completed).length;
@@ -84,19 +69,175 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     const avgGoalProgress = totalGoals
       ? Math.round(goals.reduce((sum, goal) => sum + Number(goal.progress || 0), 0) / totalGoals)
       : 0;
-    const balance = Math.round(transactions.reduce((sum, tx) =>
-      sum + (tx.type === 'income' ? Number(tx.amount || 0) : -Number(tx.amount || 0)), 0));
+    const balance = Math.round(
+      transactions.reduce((sum, tx) => sum + (tx.type === 'income' ? Number(tx.amount || 0) : -Number(tx.amount || 0)), 0),
+    );
 
-    return `You are an assistant inside a productivity app.
-Always respond in ${languageName}.
-Keep answers actionable and concise.
+    return `Language: ${languageName}
 Current app view: ${currentView}
-Live app snapshot:
 - Tasks: ${completedTasks}/${totalTasks} completed
 - Goals: ${totalGoals} total, average progress ${avgGoalProgress}%
 - Financial balance estimate: ${balance}
-If user asks navigation (open/go to), give a short confirmation phrase.`;
-  }, [currentLanguage, currentView, goals, plans, transactions]);
+- Pending invoices: ${invoices.filter((invoice) => invoice.status === 'sent').length}
+- Clients: ${clients.length}`;
+  }, [clients.length, currentLanguage, currentView, goals, invoices, plans, transactions]);
+
+  const formatDateTime = useCallback((date: Date): string => {
+    try {
+      return new Intl.DateTimeFormat(currentLanguage === 'hu' ? 'hu-HU' : 'en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(date);
+    } catch {
+      return date.toLocaleString();
+    }
+  }, [currentLanguage]);
+
+  const buildExecutionReply = useCallback((action: AssistantAction, details?: string): string => {
+    const hu = currentLanguage === 'hu';
+    switch (action.type) {
+      case 'navigation':
+        return hu ? `Megnyitottam: ${action.target}.` : `Opened: ${action.target}.`;
+      case 'create_task':
+        return hu
+          ? `Felvettem a feladatot: ${action.data.title}${details ? ` (${details})` : ''}.`
+          : `Created task: ${action.data.title}${details ? ` (${details})` : ''}.`;
+      case 'create_note':
+        return hu ? `Létrehoztam a jegyzetet: ${action.data.title}.` : `Created note: ${action.data.title}.`;
+      case 'create_goal':
+        return hu ? `Létrehoztam a célt: ${action.data.title}.` : `Created goal: ${action.data.title}.`;
+      case 'create_transaction':
+        return hu
+          ? `Rögzítettem a ${action.data.type === 'income' ? 'bevételt' : 'kiadást'}: ${action.data.amount} ${action.data.currency || 'USD'}.`
+          : `Recorded ${action.data.type === 'income' ? 'income' : 'expense'}: ${action.data.amount} ${action.data.currency || 'USD'}.`;
+      case 'schedule_pending':
+        return hu ? 'A függő számlákat feladatként ütemeztem.' : 'Scheduled pending invoices as tasks.';
+      case 'toggle_theme':
+        return hu ? 'Frissítettem a témát.' : 'Updated the theme.';
+      case 'pomodoro':
+        return hu ? 'Megnyitottam a Pomodoro nézetet.' : 'Opened the Pomodoro view.';
+      default:
+        return hu ? 'A kérést végrehajtottam.' : 'Request executed.';
+    }
+  }, [currentLanguage]);
+
+  const executeAction = useCallback((action: AssistantAction): string => {
+    switch (action.type) {
+      case 'navigation':
+        onCommand?.(action);
+        return buildExecutionReply(action);
+
+      case 'create_task': {
+        const parsedDate = action.data.date ? new Date(action.data.date) : null;
+        const validDate = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : null;
+        addPlan({
+          title: action.data.title,
+          description: action.data.description || '',
+          date: validDate ?? new Date(),
+          startTime: validDate ?? undefined,
+          priority: action.data.priority || 'medium',
+          completed: false,
+          linkedNotes: [],
+        });
+        return buildExecutionReply(action, validDate ? formatDateTime(validDate) : undefined);
+      }
+
+      case 'create_note':
+        addNote({
+          title: action.data.title,
+          content: action.data.content,
+          linkedPlans: [],
+          tags: [],
+        });
+        return buildExecutionReply(action);
+
+      case 'create_goal': {
+        const parsedTargetDate = action.data.targetDate ? new Date(action.data.targetDate) : null;
+        const validTargetDate = parsedTargetDate && !Number.isNaN(parsedTargetDate.getTime()) ? parsedTargetDate : undefined;
+        addGoal({
+          title: action.data.title,
+          description: action.data.description || '',
+          targetDate: validTargetDate,
+          progress: 0,
+          status: 'not-started',
+          priority: action.data.priority || 'medium',
+        });
+        return buildExecutionReply(action);
+      }
+
+      case 'create_transaction':
+        addTransaction({
+          type: action.data.type || 'expense',
+          amount: Number(action.data.amount),
+          currency: action.data.currency || 'USD',
+          category: action.data.category || (action.data.type === 'income' ? 'Income' : 'General'),
+          description: action.data.description || 'Assistant entry',
+          date: new Date(),
+          recurring: false,
+          period: 'oneTime',
+        });
+        return buildExecutionReply(action);
+
+      case 'schedule_pending': {
+        const pendingInvoices = invoices.filter((invoice) => invoice.status === 'sent');
+        pendingInvoices.forEach((invoice) => {
+          const client = clients.find((item) => item.id === invoice.clientId);
+          addPlan({
+            title: `Invoice #${invoice.invoiceNumber} payment follow-up`,
+            description: client ? `Client: ${client.name}` : 'Pending invoice follow-up',
+            date: new Date(invoice.dueDate),
+            startTime: new Date(invoice.dueDate),
+            priority: 'medium',
+            completed: false,
+            linkedNotes: [],
+          });
+        });
+        return buildExecutionReply(action);
+      }
+
+      case 'toggle_theme': {
+        const html = document.documentElement;
+        if (action.target === 'dark') html.classList.add('dark');
+        else if (action.target === 'light') html.classList.remove('dark');
+        else html.classList.toggle('dark');
+        onCommand?.(action);
+        return buildExecutionReply(action);
+      }
+
+      case 'pomodoro':
+        onCommand?.(action);
+        return buildExecutionReply(action);
+
+      default:
+        return currentLanguage === 'hu' ? 'Ismeretlen művelet.' : 'Unknown action.';
+    }
+  }, [addGoal, addNote, addPlan, addTransaction, buildExecutionReply, clients, currentLanguage, formatDateTime, invoices, onCommand]);
+
+  const executePlan = useCallback((plan: AssistantPlan): boolean => {
+    if (plan.actions.length === 0) return false;
+    const replies = plan.actions.map(executeAction);
+    addMessage('assistant', replies.join('\n'));
+    return true;
+  }, [addMessage, executeAction]);
+
+  const planWithAI = useCallback(async (text: string): Promise<AssistantPlan | null> => {
+    AIService.setProvider(config);
+    const response = await AIService.generateText({
+      prompt: text,
+      systemPrompt: buildAssistantPlanningPrompt({
+        currentLanguage,
+        currentView,
+        now: new Date(),
+        snapshot: buildSnapshot(),
+      }),
+      maxTokens: 700,
+      temperature: 0,
+    });
+    return extractAssistantPlan(response.text);
+  }, [buildSnapshot, config, currentLanguage, currentView]);
 
   const handleSendText = useCallback(async () => {
     const text = inputText.trim();
@@ -105,7 +246,8 @@ If user asks navigation (open/go to), give a short confirmation phrase.`;
     setInputText('');
     addMessage('user', text);
 
-    if (maybeHandleNavigationShortcut(text)) {
+    const localPlan = inferLocalAssistantPlan(text, new Date());
+    if (localPlan && executePlan(localPlan)) {
       return;
     }
 
@@ -118,14 +260,24 @@ If user asks navigation (open/go to), give a short confirmation phrase.`;
 
     setIsSending(true);
     try {
+      const planned = await planWithAI(text);
+      if (planned && executePlan(planned)) {
+        return;
+      }
+
+      if (planned?.reply) {
+        addMessage('assistant', planned.reply);
+        return;
+      }
+
       AIService.setProvider(config);
-      const response = await AIService.generateText({
+      const fallback = await AIService.generateText({
         prompt: text,
-        systemPrompt: buildSystemPrompt(),
-        maxTokens: 900,
+        systemPrompt: `You are a concise productivity assistant. Respond in ${LANGUAGE_NAMES[currentLanguage as keyof typeof LANGUAGE_NAMES] || 'English'}. Do not use citations or source references.`,
+        maxTokens: 500,
         temperature: 0.2,
       });
-      addMessage('assistant', response.text);
+      addMessage('assistant', fallback.text.replace(/\[\d+\]/g, '').trim());
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       addMessage('system', `Error: ${message}`);
@@ -133,7 +285,7 @@ If user asks navigation (open/go to), give a short confirmation phrase.`;
     } finally {
       setIsSending(false);
     }
-  }, [addMessage, buildSystemPrompt, config, inputText, isConfigured, isSending, maybeHandleNavigationShortcut]);
+  }, [addMessage, config, currentLanguage, executePlan, inputText, isConfigured, isSending, planWithAI]);
 
   const openChat = useCallback(() => {
     setOpen(true);
@@ -179,7 +331,7 @@ If user asks navigation (open/go to), give a short confirmation phrase.`;
               {messages.map((msg, idx) => (
                 <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div
-                    className={`max-w-[86%] p-3 rounded-2xl text-sm ${
+                    className={`max-w-[86%] whitespace-pre-line p-3 rounded-2xl text-sm ${
                       msg.role === 'user'
                         ? 'bg-indigo-500 text-white rounded-br-none'
                         : msg.role === 'system'
