@@ -12,9 +12,8 @@ import { ViewType } from './types/planner';
 import { CurrencyService } from './services/CurrencyService';
 import { MigrationService } from './services/MigrationService'; // Import added
 import {
-  DEFAULT_GEMINI_AUDIO_LIVE_MODEL,
-  DEFAULT_GEMINI_TEXT_LIVE_MODEL,
-  DEFAULT_GEMINI_TEXT_MODEL,
+  DEFAULT_PERPLEXITY_BASE_URL,
+  DEFAULT_PERPLEXITY_MODEL,
 } from './config/aiDefaults';
 
 type VoiceCommand = {
@@ -261,12 +260,10 @@ radial-gradient(at 10% 80%, hsla(355, 85%, 50%, 0.06) 0px, transparent 50%)
           settings.aiConfig?.provider
             ? settings.aiConfig
             : {
-                provider: import.meta.env.VITE_GEMINI_API_KEY ? 'gemini' : null,
-                apiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
-                model: DEFAULT_GEMINI_TEXT_MODEL,
-                liveTextModel: DEFAULT_GEMINI_TEXT_LIVE_MODEL,
-                liveAudioModel: DEFAULT_GEMINI_AUDIO_LIVE_MODEL,
-                baseUrl: '',
+                provider: import.meta.env.VITE_PERPLEXITY_API_KEY ? 'perplexity' : null,
+                apiKey: import.meta.env.VITE_PERPLEXITY_API_KEY || '',
+                model: DEFAULT_PERPLEXITY_MODEL,
+                baseUrl: DEFAULT_PERPLEXITY_BASE_URL,
               }
         }
         onCommand={handleVoiceCommand as (command: unknown) => void}

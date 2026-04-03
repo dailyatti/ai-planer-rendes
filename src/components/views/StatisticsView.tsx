@@ -34,6 +34,7 @@ import {
 import { useData } from '../../contexts/DataContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useSettings } from '../../contexts/SettingsContext';
+import { AIService } from '../../services/AIService';
 import LinkifiedText from '../common/LinkifiedText';
 
 type TimeRange = 'week' | 'month' | 'year' | 'all';
@@ -339,7 +340,9 @@ const StatisticsView: React.FC = () => {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const apiKey = settings.aiConfig?.provider === 'gemini' ? settings.aiConfig.apiKey : (import.meta.env.VITE_GEMINI_API_KEY || '');
+  const apiKey = settings.aiConfig?.provider === 'perplexity'
+    ? settings.aiConfig.apiKey
+    : (import.meta.env.VITE_PERPLEXITY_API_KEY || '');
 
   const locale = useMemo(() => {
     const locales: Record<string, string> = {
@@ -639,20 +642,20 @@ ${habitSummary || 'No active habit rows.'}
 
 Give the answer in 4 short sections: overview, what is working, what is at risk, and next actions.`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        }),
+      AIService.setProvider({
+        provider: 'perplexity',
+        apiKey,
+        model: settings.aiConfig?.model || 'sonar-pro',
+        baseUrl: settings.aiConfig?.baseUrl || 'https://api.perplexity.ai/chat/completions',
       });
 
-      const data = await response.json();
-      if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-        setAiSummary(data.candidates[0].content.parts[0].text);
-      } else {
-        setAiSummary(t('statistics.aiErrorFetch'));
-      }
+      const result = await AIService.generateText({
+        prompt,
+        maxTokens: 1200,
+        temperature: 0.2,
+      });
+
+      setAiSummary(result.text || t('statistics.aiErrorFetch'));
     } catch (error) {
       console.error(error);
       setAiSummary(t('statistics.aiErrorNetwork'));

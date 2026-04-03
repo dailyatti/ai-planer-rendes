@@ -9,7 +9,7 @@ ContentPlanner Pro is a "PhD-level" professional application designed for conten
 ### 🧠 Advanced AI Assistant
 - **Hybrid Voice/Text Control**: Speak naturally or type commands (Chat Mode).
 - **Financial Context Aware**: Answers questions like *"How much money will I have next year?"* using real-time data.
-- **Multi-Model Support**: Powered by **Gemini 1.5 Flash** (default) or OpenAI.
+- **Single-Provider Stack**: Powered by **Perplexity Sonar Pro**.
 
 ### 💰 Professional Financial Engine
 - **Multi-Currency Budgeting**: Support for **28+ currencies** (HUF, EUR, USD, etc.).
@@ -24,7 +24,7 @@ ContentPlanner Pro is a "PhD-level" professional application designed for conten
 ## 🛠️ Technology Stack
 - **Frontend**: React, TypeScript, Vite
 - **Profiling**: TailwindCSS (Modern, Responsive)
-- **AI**: Google Gemini API / OpenAI API
+- **AI**: Perplexity Sonar API
 - **Charts**: Recharts
 - **Icons**: Lucide React
 
@@ -46,7 +46,7 @@ ContentPlanner Pro is a "PhD-level" professional application designed for conten
    ```
 
 ## 📝 Configuration
-- Go to **Settings > Integrations** to configure your API Keys (Gemini/OpenAI).
+- Go to **Settings > Integrations** to configure your Perplexity API key.
 - Go to **Settings > Budget** to set your base currency and exchange rates.
 
 ---

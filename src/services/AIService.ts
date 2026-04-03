@@ -1,9 +1,7 @@
 import {
-  DEFAULT_GEMINI_TEXT_MODEL,
-  DEFAULT_OPENAI_BASE_URL,
-  DEFAULT_OPENAI_MODEL,
+  DEFAULT_PERPLEXITY_BASE_URL,
+  DEFAULT_PERPLEXITY_MODEL,
   EMPTY_AI_CONFIG,
-  isLikelyResponsesEndpoint,
   normalizeAIConfig,
 } from '../config/aiDefaults';
 import { AIConfig, AIProvider } from '../types/ai';
@@ -43,7 +41,7 @@ class AIServiceClass {
   }
 
   isConfigured(): boolean {
-    return this.config.provider !== null && this.config.apiKey.length > 0;
+    return this.config.provider === 'perplexity' && this.config.apiKey.length > 0;
   }
 
   loadConfig(): void {
@@ -68,24 +66,19 @@ class AIServiceClass {
 
   async generateText(options: TextGenerationOptions): Promise<TextGenerationResult> {
     if (!this.isConfigured()) {
-      throw new Error('No AI provider is configured. Open Integrations to connect one.');
+      throw new Error('No AI provider is configured. Open Integrations to connect Perplexity.');
     }
 
-    if (this.config.provider === 'openai') {
-      return this.generateTextOpenAI(options);
-    }
-
-    return this.generateTextGemini(options);
+    return this.generateTextPerplexity(options);
   }
 
-  private async generateTextOpenAI(options: TextGenerationOptions): Promise<TextGenerationResult> {
-    const configuredUrl = this.config.baseUrl?.trim();
-    if (configuredUrl && !isLikelyResponsesEndpoint(configuredUrl)) {
-      throw new Error('The custom OpenAI URL must point to a Responses API endpoint.');
-    }
-
-    const url = configuredUrl || DEFAULT_OPENAI_BASE_URL;
-    const modelName = options.model || this.config.model || DEFAULT_OPENAI_MODEL;
+  private async generateTextPerplexity(options: TextGenerationOptions): Promise<TextGenerationResult> {
+    const url = this.config.baseUrl?.trim() || DEFAULT_PERPLEXITY_BASE_URL;
+    const modelName = options.model || this.config.model || DEFAULT_PERPLEXITY_MODEL;
+    const messages = [
+      ...(options.systemPrompt ? [{ role: 'system', content: options.systemPrompt }] : []),
+      { role: 'user', content: options.prompt },
+    ];
 
     const response = await fetch(url, {
       method: 'POST',
@@ -95,86 +88,26 @@ class AIServiceClass {
       },
       body: JSON.stringify({
         model: modelName,
-        input: [
-          ...(options.systemPrompt
-            ? [{ role: 'system', content: [{ type: 'input_text', text: options.systemPrompt }] }]
-            : []),
-          { role: 'user', content: [{ type: 'input_text', text: options.prompt }] },
-        ],
-        max_output_tokens: options.maxTokens ?? 1000,
-        temperature: options.temperature ?? 0.7,
+        messages,
+        max_tokens: options.maxTokens ?? 1000,
+        temperature: options.temperature ?? 0.2,
       }),
     });
 
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error?.message || 'OpenAI API error');
+      throw new Error(data.error?.message || 'Perplexity API error');
     }
 
-    const text =
-      data.output_text ||
-      data.output
-        ?.flatMap((item: { content?: Array<{ text?: string }> }) => item.content || [])
-        ?.map((part: { text?: string }) => part.text || '')
-        ?.join('') ||
-      '';
-
+    const text = data.choices?.[0]?.message?.content || '';
     if (!text) {
-      throw new Error('OpenAI returned an empty response.');
+      throw new Error('Perplexity returned an empty response.');
     }
 
     return {
       text,
-      provider: 'openai',
+      provider: 'perplexity',
     };
-  }
-
-  private async generateTextGemini(options: TextGenerationOptions): Promise<TextGenerationResult> {
-    const modelName = options.model || this.config.model || DEFAULT_GEMINI_TEXT_MODEL;
-
-    let url = this.config.baseUrl?.trim();
-    if (!url) {
-      url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.config.apiKey}`;
-    } else if (!url.includes('?key=')) {
-      url = `${url}?key=${this.config.apiKey}`;
-    }
-
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{ text: options.systemPrompt ? `${options.systemPrompt}\n\n${options.prompt}` : options.prompt }],
-          }],
-          generationConfig: {
-            maxOutputTokens: options.maxTokens ?? 1000,
-            temperature: options.temperature ?? 0.7,
-          },
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error?.message || `Gemini API error (${response.status})`);
-      }
-
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) {
-        throw new Error('Gemini returned an empty response.');
-      }
-
-      return {
-        text,
-        provider: 'gemini',
-      };
-    } catch (error: unknown) {
-      console.error('Gemini API error:', error);
-      if (error instanceof Error) throw error;
-      throw new Error('Unknown Gemini error');
-    }
   }
 
   async testConnection(): Promise<{ success: boolean; message: string }> {
@@ -184,13 +117,14 @@ class AIServiceClass {
 
     try {
       await this.generateText({
-        prompt: 'Reply with one word: working',
-        maxTokens: 64,
+        prompt: 'Reply with one word: ready',
+        maxTokens: 32,
         temperature: 0,
       });
+
       return {
         success: true,
-        message: `${this.config.provider === 'openai' ? 'OpenAI' : 'Gemini'} connected successfully.`,
+        message: 'Perplexity connected successfully.',
       };
     } catch (error) {
       return {
