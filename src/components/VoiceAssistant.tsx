@@ -9,7 +9,7 @@ import { useLanguage, LANGUAGE_NAMES } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
 import { FinancialEngine } from '../utils/FinancialEngine';
 import { CurrencyService } from '../services/CurrencyService';
-import { DEFAULT_GEMINI_LIVE_MODEL } from '../config/aiDefaults';
+import { DEFAULT_GEMINI_LIVE_MODEL, isGeminiLiveModel } from '../config/aiDefaults';
 
 interface VoiceAssistantProps {
     config: {
@@ -259,7 +259,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
     }, [currentLanguage]);
 
     const getLiveModel = useCallback((_skipAudio: boolean) => {
-        if (config.model?.trim()) return config.model.trim();
+        if (isGeminiLiveModel(config.model?.trim())) return config.model!.trim();
         return DEFAULT_GEMINI_LIVE_MODEL;
     }, [config.model]);
 
