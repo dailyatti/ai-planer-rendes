@@ -37,6 +37,11 @@ const GOAL_TRIGGERS = ['goal', 'cel', 'hozz letre celt', 'uj cel'];
 const EXPENSE_TRIGGERS = ['expense', 'kiadas', 'koltes', 'elkoltottem', 'paid'];
 const INCOME_TRIGGERS = ['income', 'bevetel', 'kerestem', 'received'];
 
+type DetectedAction = {
+  action: AssistantAction;
+  index: number;
+};
+
 const normalizeText = (value: string): string =>
   value
     .toLowerCase()
@@ -52,6 +57,13 @@ const toLocalIso = (date: Date): string =>
 
 const hasTrigger = (normalizedText: string, triggers: string[]): boolean =>
   triggers.some((trigger) => normalizedText.includes(trigger));
+
+const getFirstTriggerIndex = (normalizedText: string, triggers: string[]): number => {
+  const indexes = triggers
+    .map((trigger) => normalizedText.indexOf(trigger))
+    .filter((index) => index >= 0);
+  return indexes.length > 0 ? Math.min(...indexes) : -1;
+};
 
 const parseTime = (normalizedText: string): { hours: number; minutes: number } | null => {
   const explicit = normalizedText.match(/\b(\d{1,2})[:.](\d{2})\b/);
@@ -149,18 +161,64 @@ const extractTaskTitle = (rawText: string): string => {
     return cleanTitle(rawText.slice(start));
   }
 
-  const triggerMatch = normalizedText.match(
-    /\b(?:ird be|ird fel|jegyezd fel|jegyezd be|add hozza|hozz letre feladatot|create task|add task|schedule|remind me(?: to)?)\b(.+)$/,
+  const rawTriggerMatch = rawText.match(
+    /\b(?:írd be|ird be|írd fel|ird fel|jegyezd fel|jegyezd be|add hozzá|add hozza|hozz létre feladatot|hozz letre feladatot|create task|add task|schedule|remind me(?: to)?)\b(.+)$/i,
   );
-  if (triggerMatch) {
-    const start = normalizedText.indexOf(triggerMatch[1]);
-    return cleanTitle(rawText.slice(start));
+  if (rawTriggerMatch) {
+    return cleanTitle(rawTriggerMatch[1]);
   }
 
-  return cleanTitle(rawText);
+  return stripCommandPrefixes(rawText, [
+    /\b(?:írd be|ird be|írd fel|ird fel|jegyezd fel|jegyezd be|add hozzá|add hozza)\b/gi,
+    /hozz\s+l[ée]tre\s+feladatot/gi,
+    /\b(?:create task|add task|schedule|remind me(?: to)?)\b/gi,
+  ]);
 };
 
-const detectNavigation = (normalizedText: string): AssistantAction | null => {
+const stripCommandPrefixes = (rawText: string, patterns: RegExp[]): string => {
+  let cleaned = rawText;
+  patterns.forEach((pattern) => {
+    cleaned = cleaned.replace(pattern, '');
+  });
+  return cleanTitle(cleaned);
+};
+
+const parseAmount = (normalizedText: string): { amount: number; currency: string } | null => {
+  const explicitAfter = normalizedText.match(/(\d+(?:[.,]\d{1,2})?)\s*(huf|ft|forint|eur|euro|usd|dollar|gbp|pound|ron|lei|€|\$)\b/);
+  const explicitBefore = normalizedText.match(/(€|\$)\s*(\d+(?:[.,]\d{1,2})?)/);
+
+  const getCurrency = (token: string): string => {
+    if (/(huf|ft|forint)/.test(token)) return 'HUF';
+    if (/(eur|euro|€)/.test(token)) return 'EUR';
+    if (/(usd|dollar|\$)/.test(token)) return 'USD';
+    if (/(gbp|pound)/.test(token)) return 'GBP';
+    if (/(ron|lei)/.test(token)) return 'RON';
+    return 'USD';
+  };
+
+  if (explicitAfter) {
+    const amount = Number(explicitAfter[1].replace(',', '.'));
+    if (Number.isFinite(amount)) {
+      return { amount, currency: getCurrency(explicitAfter[2]) };
+    }
+  }
+
+  if (explicitBefore) {
+    const amount = Number(explicitBefore[2].replace(',', '.'));
+    if (Number.isFinite(amount)) {
+      return { amount, currency: getCurrency(explicitBefore[1]) };
+    }
+  }
+
+  const numbers = Array.from(normalizedText.matchAll(/\d+(?:[.,]\d{1,2})?/g))
+    .map((match) => Number(match[0].replace(',', '.')))
+    .filter((value) => Number.isFinite(value));
+
+  if (numbers.length === 0) return null;
+  return { amount: numbers[numbers.length - 1], currency: 'USD' };
+};
+
+const detectNavigation = (normalizedText: string): DetectedAction | null => {
   const navigationIntent = ['open', 'go to', 'navigate', 'show', 'switch to', 'nyisd', 'menj', 'valts', 'mutasd']
     .some((trigger) => normalizedText.includes(trigger));
   if (!navigationIntent) return null;
@@ -169,88 +227,102 @@ const detectNavigation = (normalizedText: string): AssistantAction | null => {
   if (!match) return null;
 
   return {
-    type: 'navigation',
-    target: match.target,
+    index: getFirstTriggerIndex(normalizedText, ['open', 'go to', 'navigate', 'show', 'switch to', 'nyisd', 'menj', 'valts', 'mutasd']),
+    action: {
+      type: 'navigation',
+      target: match.target,
+    },
   };
 };
 
-const detectTransaction = (rawText: string): AssistantAction | null => {
+const detectTransaction = (rawText: string): DetectedAction | null => {
   const normalizedText = normalizeText(rawText);
   const looksFinancial = hasTrigger(normalizedText, EXPENSE_TRIGGERS) || hasTrigger(normalizedText, INCOME_TRIGGERS);
   if (!looksFinancial) return null;
 
-  const amountMatch = normalizedText.match(/(\d+(?:[.,]\d{1,2})?)/);
-  if (!amountMatch) return null;
-
-  const amount = Number(amountMatch[1].replace(',', '.'));
-  if (!Number.isFinite(amount)) return null;
-
-  let currency = 'USD';
-  if (/\bhuf\b|\bft\b|forint/.test(normalizedText)) currency = 'HUF';
-  if (/\beur\b|\beuro\b|€/.test(normalizedText)) currency = 'EUR';
-  if (/\busd\b|\bdollar\b|\$/.test(normalizedText)) currency = 'USD';
-  if (/\bgbp\b|\bpound\b/.test(normalizedText)) currency = 'GBP';
-  if (/\bron\b|\blei\b/.test(normalizedText)) currency = 'RON';
+  const parsedAmount = parseAmount(normalizedText);
+  if (!parsedAmount) return null;
 
   const type = hasTrigger(normalizedText, INCOME_TRIGGERS) ? 'income' : 'expense';
-  const cleaned = cleanTitle(
+  const cleaned = stripCommandPrefixes(
     rawText
-      .replace(amountMatch[0], '')
-      .replace(/€|\$/g, '')
-      .replace(/\b(huf|ft|forint|eur|euro|usd|dollar|gbp|pound|ron|lei)\b/gi, '')
-      .replace(/\b(expense|income|kiadas|koltes|elkoltottem|bevetel|paid|received)\b/gi, ''),
+      .replace(/\d+(?:[.,]\d{1,2})?/g, '')
+      .replace(/[€$]/g, ''),
+    [
+      /\b(?:expense|income|kiadas|koltes|elkoltottem|bevetel|paid|received)\b/gi,
+      /\b(?:huf|ft|forint|eur|euro|usd|dollar|gbp|pound|ron|lei)\b/gi,
+    ],
   );
 
   return {
-    type: 'create_transaction',
-    data: {
-      amount,
-      currency,
-      type,
-      description: cleaned || (type === 'income' ? 'Assistant income entry' : 'Assistant expense entry'),
-      category: type === 'income' ? 'Income' : 'General',
+    index: getFirstTriggerIndex(normalizedText, [...EXPENSE_TRIGGERS, ...INCOME_TRIGGERS]),
+    action: {
+      type: 'create_transaction',
+      data: {
+        amount: parsedAmount.amount,
+        currency: parsedAmount.currency,
+        type,
+        description: cleaned || (type === 'income' ? 'Assistant income entry' : 'Assistant expense entry'),
+        category: type === 'income' ? 'Income' : 'General',
+      },
     },
   };
 };
 
-const detectNote = (rawText: string): AssistantAction | null => {
+const detectNote = (rawText: string): DetectedAction | null => {
   const normalizedText = normalizeText(rawText);
   if (!hasTrigger(normalizedText, NOTE_TRIGGERS)) return null;
 
-  const content = cleanTitle(
-    rawText.replace(/\b(jegyzet|note|keszits jegyzetet|hozz letre jegyzetet)\b/gi, ''),
+  const content = stripCommandPrefixes(
+    rawText,
+    [
+      /\b(?:jegyzet|note)\b/gi,
+      /k[ée]sz[íi]ts\s+jegyzetet/gi,
+      /hozz\s+l[ée]tre\s+jegyzetet/gi,
+    ],
   );
   if (!content) return null;
 
   return {
-    type: 'create_note',
-    data: {
-      title: content.length > 48 ? `${content.slice(0, 45).trim()}...` : content,
-      content,
+    index: getFirstTriggerIndex(normalizedText, NOTE_TRIGGERS),
+    action: {
+      type: 'create_note',
+      data: {
+        title: content.length > 48 ? `${content.slice(0, 45).trim()}...` : content,
+        content,
+      },
     },
   };
 };
 
-const detectGoal = (rawText: string): AssistantAction | null => {
+const detectGoal = (rawText: string): DetectedAction | null => {
   const normalizedText = normalizeText(rawText);
   if (!hasTrigger(normalizedText, GOAL_TRIGGERS)) return null;
 
-  const title = cleanTitle(
-    rawText.replace(/\b(goal|cel|hozz letre celt|uj cel)\b/gi, ''),
+  const title = stripCommandPrefixes(
+    rawText,
+    [
+      /\b(?:goal|c[ée]l|cel)\b/gi,
+      /hozz\s+l[ée]tre\s+c[ée]lt/gi,
+      /[úu]j\s+c[ée]l/gi,
+    ],
   );
   if (!title) return null;
 
   return {
-    type: 'create_goal',
-    data: {
-      title,
-      description: '',
-      priority: 'medium',
+    index: getFirstTriggerIndex(normalizedText, GOAL_TRIGGERS),
+    action: {
+      type: 'create_goal',
+      data: {
+        title,
+        description: '',
+        priority: 'medium',
+      },
     },
   };
 };
 
-const detectTask = (rawText: string, now: Date): AssistantAction | null => {
+const detectTask = (rawText: string, now: Date): DetectedAction | null => {
   const normalizedText = normalizeText(rawText);
   if (!hasTrigger(normalizedText, TASK_TRIGGERS)) return null;
 
@@ -259,12 +331,15 @@ const detectTask = (rawText: string, now: Date): AssistantAction | null => {
 
   const scheduledDate = withParsedTime(parseDate(normalizedText, now), normalizedText, now);
   return {
-    type: 'create_task',
-    data: {
-      title,
-      description: '',
-      date: scheduledDate ? toLocalIso(scheduledDate) : undefined,
-      priority: 'medium',
+    index: getFirstTriggerIndex(normalizedText, TASK_TRIGGERS),
+    action: {
+      type: 'create_task',
+      data: {
+        title,
+        description: '',
+        date: scheduledDate ? toLocalIso(scheduledDate) : undefined,
+        priority: 'medium',
+      },
     },
   };
 };
@@ -434,45 +509,25 @@ export const inferLocalAssistantPlan = (rawText: string, now: Date): AssistantPl
   const normalizedText = normalizeText(rawText);
   if (!normalizedText) return null;
 
-  const navigation = detectNavigation(normalizedText);
-  if (navigation) {
-    return {
-      reply: '',
-      actions: [navigation],
-    };
-  }
+  const detected: DetectedAction[] = [
+    detectNavigation(normalizedText),
+    detectTask(rawText, now),
+    detectNote(rawText),
+    detectGoal(rawText),
+    detectTransaction(rawText),
+  ].filter((item): item is DetectedAction => item !== null);
 
-  const task = detectTask(rawText, now);
-  if (task) {
-    return {
-      reply: '',
-      actions: [task],
-    };
-  }
+  if (detected.length === 0) return null;
 
-  const note = detectNote(rawText);
-  if (note) {
-    return {
-      reply: '',
-      actions: [note],
-    };
-  }
+  const uniqueActions = detected
+    .sort((left, right) => left.index - right.index)
+    .filter((item, index, array) =>
+      array.findIndex((candidate) => JSON.stringify(candidate.action) === JSON.stringify(item.action)) === index,
+    )
+    .map((item) => item.action);
 
-  const goal = detectGoal(rawText);
-  if (goal) {
-    return {
-      reply: '',
-      actions: [goal],
-    };
-  }
-
-  const transaction = detectTransaction(rawText);
-  if (transaction) {
-    return {
-      reply: '',
-      actions: [transaction],
-    };
-  }
-
-  return null;
+  return {
+    reply: '',
+    actions: uniqueActions,
+  };
 };

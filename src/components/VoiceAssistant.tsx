@@ -106,21 +106,21 @@ Current app view: ${currentView}
           ? `Felvettem a feladatot: ${action.data.title}${details ? ` (${details})` : ''}.`
           : `Created task: ${action.data.title}${details ? ` (${details})` : ''}.`;
       case 'create_note':
-        return hu ? `Létrehoztam a jegyzetet: ${action.data.title}.` : `Created note: ${action.data.title}.`;
+        return hu ? `Letrehoztam a jegyzetet: ${action.data.title}.` : `Created note: ${action.data.title}.`;
       case 'create_goal':
-        return hu ? `Létrehoztam a célt: ${action.data.title}.` : `Created goal: ${action.data.title}.`;
+        return hu ? `Letrehoztam a celt: ${action.data.title}.` : `Created goal: ${action.data.title}.`;
       case 'create_transaction':
         return hu
-          ? `Rögzítettem a ${action.data.type === 'income' ? 'bevételt' : 'kiadást'}: ${action.data.amount} ${action.data.currency || 'USD'}.`
+          ? `Rogzitettem a ${action.data.type === 'income' ? 'bevetelt' : 'kiadast'}: ${action.data.amount} ${action.data.currency || 'USD'}.`
           : `Recorded ${action.data.type === 'income' ? 'income' : 'expense'}: ${action.data.amount} ${action.data.currency || 'USD'}.`;
       case 'schedule_pending':
-        return hu ? 'A függő számlákat feladatként ütemeztem.' : 'Scheduled pending invoices as tasks.';
+        return hu ? 'A fuggo szamlakat feladatkent utemeztem.' : 'Scheduled pending invoices as tasks.';
       case 'toggle_theme':
-        return hu ? 'Frissítettem a témát.' : 'Updated the theme.';
+        return hu ? 'Frissitettem a temat.' : 'Updated the theme.';
       case 'pomodoro':
-        return hu ? 'Megnyitottam a Pomodoro nézetet.' : 'Opened the Pomodoro view.';
+        return hu ? 'Megnyitottam a Pomodoro nezetet.' : 'Opened the Pomodoro view.';
       default:
-        return hu ? 'A kérést végrehajtottam.' : 'Request executed.';
+        return hu ? 'Vegrehajtottam a muveletet.' : 'Request executed.';
     }
   }, [currentLanguage]);
 
@@ -212,7 +212,7 @@ Current app view: ${currentView}
         return buildExecutionReply(action);
 
       default:
-        return currentLanguage === 'hu' ? 'Ismeretlen művelet.' : 'Unknown action.';
+        return currentLanguage === 'hu' ? 'Ismeretlen muvelet.' : 'Unknown action.';
     }
   }, [addGoal, addNote, addPlan, addTransaction, buildExecutionReply, clients, currentLanguage, formatDateTime, invoices, onCommand]);
 
@@ -246,12 +246,12 @@ Current app view: ${currentView}
     setInputText('');
     addMessage('user', text);
 
-    const localPlan = inferLocalAssistantPlan(text, new Date());
-    if (localPlan && executePlan(localPlan)) {
-      return;
-    }
-
     if (!isConfigured) {
+      const localPlan = inferLocalAssistantPlan(text, new Date());
+      if (localPlan && executePlan(localPlan)) {
+        return;
+      }
+
       const msg = 'Perplexity API key is missing. Open Integrations and connect it first.';
       addMessage('system', msg);
       toast.error(msg);
@@ -262,6 +262,11 @@ Current app view: ${currentView}
     try {
       const planned = await planWithAI(text);
       if (planned && executePlan(planned)) {
+        return;
+      }
+
+      const localPlan = inferLocalAssistantPlan(text, new Date());
+      if (localPlan && executePlan(localPlan)) {
         return;
       }
 
