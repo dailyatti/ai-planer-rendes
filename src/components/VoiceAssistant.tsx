@@ -120,6 +120,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     const streamRef = useRef<MediaStream | null>(null);
     const processorRef = useRef<ScriptProcessorNode | null>(null);
     const sessionRef = useRef<any>(null);
+    const volumeFrameRef = useRef<number | null>(null);
 
     const onCommandRef = useRef(onCommand);
     const chatEndRef = useRef<HTMLDivElement>(null);
@@ -263,6 +264,42 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
         return DEFAULT_GEMINI_LIVE_MODEL;
     }, [config.model]);
 
+    const cleanupMediaResources = useCallback(async () => {
+        if (volumeFrameRef.current !== null) {
+            cancelAnimationFrame(volumeFrameRef.current);
+            volumeFrameRef.current = null;
+        }
+
+        if (processorRef.current) {
+            try {
+                processorRef.current.disconnect();
+                processorRef.current.onaudioprocess = null;
+            } catch { /* ignore cleanup disconnect errors */ }
+            processorRef.current = null;
+        }
+
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach((t) => t.stop());
+            streamRef.current = null;
+        }
+
+        if (inputAudioContextRef.current) {
+            try {
+                await inputAudioContextRef.current.close();
+            } catch { /* ignore cleanup close errors */ }
+            inputAudioContextRef.current = null;
+        }
+
+        if (audioContextRef.current) {
+            try {
+                await audioContextRef.current.close();
+            } catch { /* ignore cleanup close errors */ }
+            audioContextRef.current = null;
+        }
+
+        setVolume(0);
+    }, []);
+
     // ===== disconnect =====
     const disconnect = useCallback(async () => {
         try {
@@ -277,39 +314,13 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                 }
             }
         } finally {
-            if (processorRef.current) {
-                try {
-                    processorRef.current.disconnect();
-                } catch { /* ignore cleanup disconnect errors */ }
-                processorRef.current = null;
-            }
-
-            if (streamRef.current) {
-                streamRef.current.getTracks().forEach((t) => t.stop());
-                streamRef.current = null;
-            }
-
-            if (inputAudioContextRef.current) {
-                try {
-                    await inputAudioContextRef.current.close();
-                } catch { /* ignore cleanup close errors */ }
-                inputAudioContextRef.current = null;
-            }
-
-            if (audioContextRef.current) {
-                try {
-                    await audioContextRef.current.close();
-                } catch { /* ignore cleanup close errors */ }
-                audioContextRef.current = null;
-            }
-
+            await cleanupMediaResources();
             setIsActive(false);
             setIsTextMode(false);
             setIsConnecting(false);
-            setVolume(0);
             addMessage('system', currentLanguage === 'hu' ? 'Lecsatlakozva.' : 'Disconnected.');
         }
-    }, [addMessage, currentLanguage]);
+    }, [addMessage, cleanupMediaResources, currentLanguage]);
 
     // cleanup on unmount
     useEffect(() => {
@@ -480,7 +491,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
 
             // mic
             let stream: MediaStream | null = null;
-            if (!skipAudio && inputCtx) {
+            if (!skipAudio) {
                 try {
                     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     streamRef.current = stream;
@@ -512,7 +523,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                     analyser.getByteFrequencyData(arr);
                     const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
                     setVolume(avg);
-                    requestAnimationFrame(tick);
+                    volumeFrameRef.current = requestAnimationFrame(tick);
                 };
                 tick();
             }
@@ -663,10 +674,11 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                         }
                     },
 
-                    onclose: (event: any) => {
+                    onclose: async (event: any) => {
                         console.error('[VoiceAssistant] onclose:', event);
                         const code = event?.code || 'unknown';
                         const reason = event?.reason || 'No reason provided';
+                        await cleanupMediaResources();
                         setIsActive(false);
                         setIsConnecting(false);
                         setIsTextMode(false);
@@ -676,8 +688,9 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                             : `Connection closed. Code: ${code}, Reason: ${reason}`);
                     },
 
-                    onerror: (e: any) => {
+                    onerror: async (e: any) => {
                         console.error('[VoiceAssistant] onerror:', e);
+                        await cleanupMediaResources();
                         setIsActive(false);
                         setIsConnecting(false);
                         setIsTextMode(false);
@@ -701,7 +714,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
 
             // Fix 1007 error: Send a silent audio frame immediately to establish audio context
             // Some models reject connections that don't immediately send audio data
-            if (!skipAudio) {
+            if (!skipAudio && inputCtx) {
                 try {
                     const silentFrame = new Float32Array(512).fill(0);
                     const pcm = createPcmBlob(silentFrame, inputCtx.sampleRate);
@@ -739,6 +752,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
             }
         } catch (e: any) {
             console.error('[VoiceAssistant] Connection error:', e);
+            await cleanupMediaResources();
             toast.error(`${t('voice.connectionFailed')}: ${e?.message || 'Unknown error'}`);
             setIsConnecting(false);
             setIsActive(false);
@@ -753,6 +767,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
         currentLanguage,
         addMessage,
         analyzeViewport,
+        cleanupMediaResources,
         disconnect,
         generateStateReport,
         getSystemInstruction,
