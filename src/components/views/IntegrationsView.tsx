@@ -10,6 +10,7 @@ import {
 import { useLanguage, LANGUAGE_NAMES, Language } from '../../contexts/LanguageContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { AIService, AIProvider } from '../../services/AIService';
+import { DEFAULT_GEMINI_PRO_MODEL, DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL } from '../../config/aiDefaults';
 
 const IntegrationsView: React.FC = () => {
     const { language, setLanguage, t } = useLanguage();
@@ -68,8 +69,16 @@ const IntegrationsView: React.FC = () => {
         if (integration) {
             setSelectedIntegration(integrationId);
             const currentKey = integration.connected ? settings.aiConfig?.apiKey || '' : '';
-            const currentModel = integration.connected ? settings.aiConfig?.model || '' : '';
-            const currentBaseUrl = integration.connected ? settings.aiConfig?.baseUrl || '' : '';
+            const currentModel = integration.connected
+                ? settings.aiConfig?.model || ''
+                : integration.provider === 'openai'
+                    ? DEFAULT_OPENAI_MODEL
+                    : DEFAULT_GEMINI_PRO_MODEL;
+            const currentBaseUrl = integration.connected
+                ? settings.aiConfig?.baseUrl || ''
+                : integration.provider === 'openai'
+                    ? DEFAULT_OPENAI_BASE_URL
+                    : '';
             
             setTempKey(currentKey);
             setTempModel(currentModel);

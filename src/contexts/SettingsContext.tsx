@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { AIService } from '../services/AIService';
 
 export type TimeZone = 'UTC' | 'Europe/Budapest' | 'America/New_York' | 'Europe/London' | 'Europe/Berlin' | 'Europe/Paris' | 'Europe/Rome' | 'America/Los_Angeles';
 export type DateFormat = 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD';
@@ -122,6 +123,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     localStorage.setItem('digitalplanner-settings', JSON.stringify(settings));
   }, [settings]);
+
+  useEffect(() => {
+    const { provider, apiKey, model, baseUrl } = settings.aiConfig;
+    if (provider && apiKey) {
+      AIService.setProvider(provider, apiKey, model, baseUrl);
+    } else {
+      AIService.clearProvider();
+    }
+  }, [settings.aiConfig]);
 
   const updateSettings = (updates: Partial<AppSettings>) => {
     setSettings(prev => ({

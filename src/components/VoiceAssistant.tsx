@@ -9,9 +9,15 @@ import { useLanguage, LANGUAGE_NAMES } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
 import { FinancialEngine } from '../utils/FinancialEngine';
 import { CurrencyService } from '../services/CurrencyService';
+import { DEFAULT_GEMINI_LIVE_MODEL } from '../config/aiDefaults';
 
 interface VoiceAssistantProps {
-    apiKey: string;
+    config: {
+        provider: 'openai' | 'gemini' | null;
+        apiKey: string;
+        model?: string;
+        baseUrl?: string;
+    };
     onCommand?: (command: unknown) => void;
     currentLanguage: string;
     currentView: string;
@@ -81,7 +87,7 @@ function createPcmBlob(data: Float32Array, sampleRate: number): { data: string; 
 }
 
 export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
-    apiKey,
+    config,
     onCommand,
     currentLanguage,
     currentView,
@@ -100,6 +106,13 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     const [showChat, setShowChat] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState('');
+
+    const isGeminiConfigured = config.provider === 'gemini' && Boolean(config.apiKey);
+    const assistantUnavailableReason = !config.apiKey
+        ? t('voice.apiKeyMissing')
+        : config.provider !== 'gemini'
+            ? t('voice.geminiOnly')
+            : '';
 
     // Refs
     const audioContextRef = useRef<AudioContext | null>(null);
@@ -245,6 +258,11 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
         return isHu ? huInstruction : baseInstruction.replace('app.', `app.\nToday's date is: ${todayStr}.`);
     }, [currentLanguage]);
 
+    const getLiveModel = useCallback((_skipAudio: boolean) => {
+        if (config.model?.trim()) return config.model.trim();
+        return DEFAULT_GEMINI_LIVE_MODEL;
+    }, [config.model]);
+
     // ===== disconnect =====
     const disconnect = useCallback(async () => {
         try {
@@ -304,20 +322,25 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
     const startSession = useCallback(async (skipAudio = false) => {
         if (isActive || isConnecting || sessionRef.current) return;
 
-        if (!apiKey) {
-            toast.error('API Key is required');
+        if (!config.apiKey) {
+            toast.error(t('voice.apiKeyMissing'));
             return;
         }
 
-        if (skipAudio) setIsTextMode(true);
+        if (config.provider !== 'gemini') {
+            toast.error(t('voice.geminiOnly'));
+            return;
+        }
+
+        setIsTextMode(skipAudio);
         setIsConnecting(true);
         setShowChat(true);
 
         try {
-            const ai = new GoogleGenAI({ apiKey });
+            const ai = new GoogleGenAI({ apiKey: config.apiKey });
 
             if (!ai.live || typeof ai.live.connect !== 'function') {
-                throw new Error('Gemini Live API not supported in this SDK version.');
+                throw new Error(t('voice.liveUnsupported'));
             }
 
             // tools
@@ -448,14 +471,16 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
             ];
 
             // output audio context
-            const outputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+            const outputCtx = skipAudio
+                ? null
+                : new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
             audioContextRef.current = outputCtx;
-            const outputGain = outputCtx.createGain();
-            outputGain.connect(outputCtx.destination);
+            const outputGain = outputCtx?.createGain() || null;
+            outputGain?.connect(outputCtx!.destination);
 
             // mic
             let stream: MediaStream | null = null;
-            if (!skipAudio) {
+            if (!skipAudio && inputCtx) {
                 try {
                     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     streamRef.current = stream;
@@ -467,13 +492,15 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
 
             // input audio ctx
             const micRate = stream?.getAudioTracks()?.[0]?.getSettings()?.sampleRate;
-            const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({
-                sampleRate: micRate || 48000,
-            });
+            const inputCtx = stream
+                ? new (window.AudioContext || (window as any).webkitAudioContext)({
+                    sampleRate: micRate || 48000,
+                })
+                : null;
             inputAudioContextRef.current = inputCtx;
 
             // volume meter
-            if (stream) {
+            if (stream && inputCtx) {
                 const analyser = inputCtx.createAnalyser();
                 analyser.fftSize = 512;
                 const src = inputCtx.createMediaStreamSource(stream);
@@ -491,11 +518,11 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
             }
 
             const session = await ai.live.connect({
-                model: 'gemini-2.0-flash-exp',
+                model: getLiveModel(skipAudio),
                 config: {
                     tools,
                     systemInstruction: getSystemInstruction(),
-                    responseModalities: [Modality.AUDIO],
+                    responseModalities: [skipAudio ? Modality.TEXT : Modality.AUDIO],
                 },
                 callbacks: {
                     onopen: async () => {
@@ -516,6 +543,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                                 if (!inline?.data) continue;
 
                                 const audioBytes = decode(inline.data);
+                                if (!outputCtx || !outputGain) continue;
                                 const buffer = await decodeAudioData(audioBytes, outputCtx, 24000, 1);
 
                                 const src = outputCtx.createBufferSource();
@@ -584,13 +612,8 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                                         }
 
                                         case 'manage_invoices': {
-                                            if (args.action === 'SCHEDULE_PENDING') {
-                                                onCommandRef.current?.({ type: 'schedule_pending' });
-                                                result = { ok: true, message: 'Scheduled pending invoices' };
-                                            } else if (args.action === 'LINK') {
-                                                onCommandRef.current?.({ type: 'link_invoice', invoiceId: args.invoiceId });
-                                                result = { ok: true, message: `Linked invoice ${args.invoiceId}` };
-                                            }
+                                            onCommandRef.current?.({ type: 'manage_invoices', data: args });
+                                            result = { ok: true, message: args.action === 'LINK' ? `Linked invoice ${args.invoiceId}` : 'Scheduled pending invoices' };
                                             break;
                                         }
 
@@ -646,6 +669,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                         const reason = event?.reason || 'No reason provided';
                         setIsActive(false);
                         setIsConnecting(false);
+                        setIsTextMode(false);
                         sessionRef.current = null;
                         addMessage('system', currentLanguage === 'hu'
                             ? `Kapcsolat bontva. Kód: ${code}, Ok: ${reason}`
@@ -656,6 +680,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                         console.error('[VoiceAssistant] onerror:', e);
                         setIsActive(false);
                         setIsConnecting(false);
+                        setIsTextMode(false);
                         sessionRef.current = null;
                         addMessage('system', `Error: ${e?.message || 'Unknown'}`);
                     },
@@ -667,7 +692,12 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
             setIsActive(true);
             setIsConnecting(false);
 
-            addMessage('system', currentLanguage === 'hu' ? 'Kapcsolódva. Mondjad mit csináljak.' : 'Connected. Tell me what to do.');
+            addMessage(
+                'system',
+                currentLanguage === 'hu'
+                    ? (skipAudio ? 'Szöveges asszisztens csatlakozott.' : 'Hangasszisztens csatlakozott.')
+                    : (skipAudio ? 'Text assistant connected.' : 'Voice assistant connected.'),
+            );
 
             // Fix 1007 error: Send a silent audio frame immediately to establish audio context
             // Some models reject connections that don't immediately send audio data
@@ -688,7 +718,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
             analyzeViewport();
 
             // attach mic streaming AFTER session created
-            if (stream) {
+            if (stream && inputCtx) {
                 const src = inputCtx.createMediaStreamSource(stream);
                 const sp = inputCtx.createScriptProcessor(4096, 1, 1);
                 processorRef.current = sp;
@@ -709,13 +739,15 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
             }
         } catch (e: any) {
             console.error('[VoiceAssistant] Connection error:', e);
-            toast.error('Connection failed: ' + (e?.message || 'Unknown error'));
+            toast.error(`${t('voice.connectionFailed')}: ${e?.message || 'Unknown error'}`);
             setIsConnecting(false);
             setIsActive(false);
+            setIsTextMode(false);
             sessionRef.current = null;
         }
     }, [
-        apiKey,
+        config.apiKey,
+        config.provider,
         isActive,
         isConnecting,
         currentLanguage,
@@ -724,6 +756,8 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
         disconnect,
         generateStateReport,
         getSystemInstruction,
+        getLiveModel,
+        t,
     ]);
 
     // ===== send text to model =====
@@ -821,7 +855,7 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                     >
                         <div className="p-4 bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-between">
                             <h3 className="text-white font-semibold flex items-center gap-2">
-                                <Sparkles size={16} /> Gemini Live
+                                <Sparkles size={16} /> {isTextMode ? t('voice.title') : 'Gemini Live'}
                             </h3>
                             <button
                                 onClick={() => setShowChat(false)}
@@ -891,8 +925,10 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={() => void startSession(true)}
+                        disabled={!isGeminiConfigured}
                         className="p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg text-gray-600 dark:text-gray-300 hover:text-indigo-500 border border-gray-100 dark:border-gray-700 tooltip tooltip-left"
                         data-tip={t('voice.textMode')}
+                        title={assistantUnavailableReason || t('voice.textMode')}
                     >
                         <Keyboard size={24} />
                     </motion.button>
@@ -900,9 +936,11 @@ SOHA ne mondd el, hogy mit fogsz csinálni, csak CSINÁLD (hívd a tool-t).`;
 
                 <motion.button
                     onClick={() => (isActive ? void disconnect() : void startSession(false))}
+                    disabled={!isActive && !isGeminiConfigured}
+                    title={assistantUnavailableReason || (isActive ? t('voice.disconnect') : t('voice.start'))}
                     className={`p-4 rounded-full shadow-2xl backdrop-blur-xl border transition-all duration-300 group ${isActive && !isTextMode
                         ? 'bg-red-500/10 border-red-500/50 hover:bg-red-500/20'
-                        : 'bg-indigo-500/10 border-indigo-500/50 hover:bg-indigo-500/20'
+                        : 'bg-indigo-500/10 border-indigo-500/50 hover:bg-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed'
                         }`}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}

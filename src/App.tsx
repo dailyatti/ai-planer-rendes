@@ -11,10 +11,12 @@ import { VoiceAssistant } from './components/VoiceAssistant';
 import { ViewType } from './types/planner';
 import { CurrencyService } from './services/CurrencyService';
 import { MigrationService } from './services/MigrationService'; // Import added
+import { DEFAULT_GEMINI_LIVE_MODEL } from './config/aiDefaults';
 
 type VoiceCommand = {
   type: string;
   target?: string;
+  invoiceId?: string;
   data?: {
     [key: string]: unknown;
     title?: string;
@@ -90,6 +92,7 @@ function AppContent() {
         'invoicing': 'invoicing',
         'pomodoro': 'pomodoro',
         'statistics': 'statistics',
+        'stats': 'statistics',
         'habits': 'habits',
         'integrations': 'integrations',
         'settings': 'settings',
@@ -171,6 +174,9 @@ function AppContent() {
     }
 
     // New: Handle manage_invoices linking
+    if (command.type === 'link_invoice' && command.invoiceId) {
+      console.log(`Link invoice ${String(command.invoiceId)}`);
+    }
     if (command.type === 'manage_invoices' && command.data && command.data.action === 'LINK' && command.data.invoiceId) {
       console.log(`Link invoice ${String(command.data.invoiceId)}`);
       // Implement linking logic as needed.
@@ -247,7 +253,16 @@ radial-gradient(at 10% 80%, hsla(355, 85%, 50%, 0.06) 0px, transparent 50%)
 
       {/* Voice Assistant - Floating button */}
       <VoiceAssistant
-        apiKey={settings.aiConfig?.provider === 'gemini' ? settings.aiConfig.apiKey : (import.meta.env.VITE_GEMINI_API_KEY || '')}
+        config={
+          settings.aiConfig?.provider
+            ? settings.aiConfig
+            : {
+                provider: import.meta.env.VITE_GEMINI_API_KEY ? 'gemini' : null,
+                apiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
+                model: DEFAULT_GEMINI_LIVE_MODEL,
+                baseUrl: '',
+              }
+        }
         onCommand={handleVoiceCommand as (command: unknown) => void}
         currentLanguage={language}
         currentView={activeView}
