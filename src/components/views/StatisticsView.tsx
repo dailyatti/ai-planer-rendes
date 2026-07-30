@@ -35,6 +35,10 @@ import { useData } from '../../contexts/DataContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { AIService } from '../../services/AIService';
+import {
+  DEFAULT_DEEPSEEK_BASE_URL,
+  DEFAULT_DEEPSEEK_MODEL,
+} from '../../config/aiDefaults';
 import LinkifiedText from '../common/LinkifiedText';
 
 type TimeRange = 'week' | 'month' | 'year' | 'all';
@@ -340,9 +344,9 @@ const StatisticsView: React.FC = () => {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const apiKey = settings.aiConfig?.provider === 'perplexity'
+  const apiKey = settings.aiConfig?.provider === 'deepseek'
     ? settings.aiConfig.apiKey
-    : (import.meta.env.VITE_PERPLEXITY_API_KEY || '');
+    : (import.meta.env.VITE_DEEPSEEK_API_KEY || '');
 
   const locale = useMemo(() => {
     const locales: Record<string, string> = {
@@ -381,7 +385,13 @@ const StatisticsView: React.FC = () => {
     };
   }, []);
 
-  const now = new Date();
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const today = startOfDay(now);
   const rangeEnd = endOfDay(now);
 
@@ -643,10 +653,10 @@ ${habitSummary || 'No active habit rows.'}
 Give the answer in 4 short sections: overview, what is working, what is at risk, and next actions.`;
 
       AIService.setProvider({
-        provider: 'perplexity',
+        provider: 'deepseek',
         apiKey,
-        model: settings.aiConfig?.model || 'sonar-pro',
-        baseUrl: settings.aiConfig?.baseUrl || 'https://api.perplexity.ai/chat/completions',
+        model: settings.aiConfig?.model || DEFAULT_DEEPSEEK_MODEL,
+        baseUrl: settings.aiConfig?.baseUrl || DEFAULT_DEEPSEEK_BASE_URL,
       });
 
       const result = await AIService.generateText({

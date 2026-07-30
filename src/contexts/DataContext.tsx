@@ -117,7 +117,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const triggerRecurring = () => setRecurringTick(t => t + 1);
 
   // Helper for local YMD parsing (drift-proof)
-  const parseYMDLocal = (ymd: string): Date => {
+  const parseYMDLocal = useCallback((ymd: string): Date => {
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd);
     if (!m) return new Date(ymd); // Fallback to standard
     const y = Number(m[1]);
@@ -125,17 +125,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const d = Number(m[3]);
     // Set to noon to avoid drift to previous/next day during zone transitions
     return new Date(y, mo, d, 12, 0, 0, 0);
-  };
+  }, []);
 
-  const isYMD = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const isYMD = useCallback((s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s), []);
 
   // Robust date normalizer that respects strict YMD but falls back safely
-  const normalizeDate = (raw: unknown): Date => {
+  const normalizeDate = useCallback((raw: unknown): Date => {
     if (raw instanceof Date) return raw;
     if (typeof raw === 'string') return isYMD(raw) ? parseYMDLocal(raw) : new Date(raw);
     if (typeof raw === 'number') return new Date(raw);
     return new Date(NaN);
-  };
+  }, [isYMD, parseYMDLocal]);
 
   // FIX #4: Guard ref to prevent infinite loops when transactions is in dependency
   const processingRecurringRef = useRef(false);
@@ -164,7 +164,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Prevent date drift for monthly (Jan 31 -> Feb 28/29)
-  const addMonthsClamped = (d: Date, months: number) => {
+  const addMonthsClamped = useCallback((d: Date, months: number) => {
     const date = new Date(d);
     const day = date.getDate();
     date.setMonth(date.getMonth() + months);
@@ -172,9 +172,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       date.setDate(0);
     }
     return date;
-  };
+  }, []);
 
-  const advanceByPeriod = (d: Date, period: Transaction['period']) => {
+  const advanceByPeriod = useCallback((d: Date, period: Transaction['period']) => {
     const next = new Date(d);
     switch (period) {
       case 'daily': next.setDate(next.getDate() + 1); break;
@@ -188,7 +188,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       default: next.setDate(next.getDate() + 1); break;
     }
     return next;
-  };
+  }, [addMonthsClamped]);
 
   const isMasterTx = (t: Transaction) => t.kind === 'master';
 
@@ -317,7 +317,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
     loadData();
-  }, []);
+  }, [normalizeDate]);
 
   // Update financial stats when relevant data changes
   // FIX: Added dependency on budgetSettings.currency so stats update on currency change
@@ -445,6 +445,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 kind: 'history',
                 date: new Date(currentDate),
                 effectiveDateYMD: dayKey, // Explicit sync for engine alignment
+                dueDateYMD: master.expenseKind && master.expenseKind !== 'standard'
+                  ? dayKey
+                  : master.dueDateYMD,
                 recurring: false,
                 createdAtISO: new Date().toISOString(),
               });
@@ -462,7 +465,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             changed = true;
           }
 
-          return { ...master, date: new Date(nextDate) };
+          const nextYMD = toYMDLocal(nextDate);
+          return {
+            ...master,
+            date: new Date(nextDate),
+            effectiveDateYMD: nextYMD,
+            dueDateYMD: master.expenseKind && master.expenseKind !== 'standard'
+              ? nextYMD
+              : master.dueDateYMD,
+          };
         });
 
         if (!changed) return prev;
@@ -471,7 +482,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       processingRecurringRef.current = false;
     }
-  }, [isInitialized, recurringTick]); // Triggered ONLY by tick or init, NOT by skips change
+  }, [advanceByPeriod, isInitialized, recurringTick]); // Triggered ONLY by tick or init, NOT by skips change
 
 
   // Side Effect Processor for Deletions

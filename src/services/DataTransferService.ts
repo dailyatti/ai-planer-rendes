@@ -1,5 +1,14 @@
 import { JsonProfile } from '../types/planner';
 
+const getRecordId = (value: unknown): string | number | undefined => {
+    if (!value || typeof value !== 'object' || !('id' in value)) return undefined;
+    const id = (value as { id?: unknown }).id;
+    return typeof id === 'string' || typeof id === 'number' ? id : undefined;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
 /**
  * DataTransferService
  * Handles the export and import of all application data.
@@ -168,16 +177,19 @@ export const DataTransferService = {
 
                 // If it exists locally, we try to merge if it's an array
                 try {
-                    const existingValue = JSON.parse(existingValueStr);
+                    const existingValue: unknown = JSON.parse(existingValueStr);
                     
                     if (Array.isArray(existingValue) && Array.isArray(newValue)) {
                         // Merge arrays
                         // Could deduplicate by ID if objects have ID
-                        const existingIds = new Set(existingValue.map(item => typeof item === 'object' && item !== null ? (item as any).id : undefined).filter(Boolean));
+                        const existingIds = new Set(
+                            existingValue
+                                .map(getRecordId)
+                                .filter((id): id is string | number => id !== undefined)
+                        );
                         const itemsToAdd = newValue.filter(item => {
-                            if (typeof item === 'object' && item !== null && (item as any).id) {
-                                return !existingIds.has((item as any).id);
-                            }
+                            const id = getRecordId(item);
+                            if (id !== undefined) return !existingIds.has(id);
                             // If no ID, append it
                             return true;
                         });
@@ -185,9 +197,9 @@ export const DataTransferService = {
                         const mergedArray = [...existingValue, ...itemsToAdd];
                         localStorage.setItem(key, JSON.stringify(mergedArray));
                         itemsMerged++;
-                    } else if (typeof existingValue === 'object' && !Array.isArray(existingValue) && typeof newValue === 'object' && !Array.isArray(newValue)) {
+                    } else if (isRecord(existingValue) && isRecord(newValue)) {
                         // Merge objects
-                        const mergedObj = { ...existingValue, ...(newValue as Record<string, unknown>) };
+                        const mergedObj = { ...existingValue, ...newValue };
                         localStorage.setItem(key, JSON.stringify(mergedObj));
                         itemsMerged++;
                     } else {
@@ -195,14 +207,14 @@ export const DataTransferService = {
                         localStorage.setItem(key, typeof newValue === 'string' ? newValue : JSON.stringify(newValue));
                         itemsMerged++;
                     }
-                } catch (e) {
+                } catch {
                     // Not a JSON string (maybe raw string), just overwrite
                     localStorage.setItem(key, String(newValue));
                     itemsMerged++;
                 }
             }
 
-            return { success: true, message: `Successfully merged data.` };
+            return { success: true, message: `Successfully merged ${itemsMerged} data groups.` };
         } catch (error) {
             console.error('Merge failed:', error);
             return { success: false, message: 'An unexpected error occurred during merge.' };

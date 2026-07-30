@@ -12,8 +12,8 @@ import { ViewType } from './types/planner';
 import { CurrencyService } from './services/CurrencyService';
 import { MigrationService } from './services/MigrationService'; // Import added
 import {
-  DEFAULT_PERPLEXITY_BASE_URL,
-  DEFAULT_PERPLEXITY_MODEL,
+  DEFAULT_DEEPSEEK_BASE_URL,
+  DEFAULT_DEEPSEEK_MODEL,
 } from './config/aiDefaults';
 
 type VoiceCommand = {
@@ -260,10 +260,10 @@ radial-gradient(at 10% 80%, hsla(355, 85%, 50%, 0.06) 0px, transparent 50%)
           settings.aiConfig?.provider
             ? settings.aiConfig
             : {
-                provider: import.meta.env.VITE_PERPLEXITY_API_KEY ? 'perplexity' : null,
-                apiKey: import.meta.env.VITE_PERPLEXITY_API_KEY || '',
-                model: DEFAULT_PERPLEXITY_MODEL,
-                baseUrl: DEFAULT_PERPLEXITY_BASE_URL,
+                provider: import.meta.env.VITE_DEEPSEEK_API_KEY ? 'deepseek' : null,
+                apiKey: import.meta.env.VITE_DEEPSEEK_API_KEY || '',
+                model: DEFAULT_DEEPSEEK_MODEL,
+                baseUrl: DEFAULT_DEEPSEEK_BASE_URL,
               }
         }
         onCommand={handleVoiceCommand as (command: unknown) => void}

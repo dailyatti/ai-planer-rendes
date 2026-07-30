@@ -24,5 +24,12 @@ export default tseslint.config(
         { allowConstantExport: true },
       ],
     },
+  },
+  {
+    files: ['src/contexts/**/*.tsx'],
+    rules: {
+      // Context modules intentionally export their provider, hook, and shared constants together.
+      'react-refresh/only-export-components': 'off',
+    },
   }
 );

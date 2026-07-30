@@ -273,7 +273,7 @@ const InvoicingView: React.FC = () => {
             overdueAmount: summary.overdue,
             totalClients
         };
-    }, [invoices, clients, getFinancialSummary]);
+    }, [clients, getFinancialSummary]);
 
     const previewCompany = useMemo(() => {
         if (!previewInvoice) return companyInfo;

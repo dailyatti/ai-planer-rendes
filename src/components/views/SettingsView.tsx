@@ -825,7 +825,7 @@ const SettingsView: React.FC = () => {
                       }
                       
                       window.location.reload();
-                    } catch (e) {
+                    } catch {
                       alert('Hiba történt a profil betöltésekor.');
                     }
                   }
@@ -853,7 +853,7 @@ const SettingsView: React.FC = () => {
                       
                       await DataTransferService.importMerge(data);
                       window.location.reload();
-                    } catch (e) {
+                    } catch {
                       alert('Hiba történt az összefűzéskor.');
                     }
                   }

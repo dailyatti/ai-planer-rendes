@@ -434,6 +434,54 @@ const coerceAction = (value: unknown): AssistantAction | null => {
     };
   }
 
+  if (value.type === 'create_payable' && typeof value.data.description === 'string') {
+    const amount = typeof value.data.amount === 'number'
+      ? value.data.amount
+      : typeof value.data.amount === 'string'
+        ? Number(value.data.amount)
+        : Number.NaN;
+    if (!Number.isFinite(amount) || (value.data.kind !== 'bill' && value.data.kind !== 'subscription')) return null;
+
+    return {
+      type: 'create_payable',
+      data: {
+        description: value.data.description,
+        amount,
+        currency: typeof value.data.currency === 'string' ? value.data.currency : undefined,
+        category: typeof value.data.category === 'string' ? value.data.category : undefined,
+        payee: typeof value.data.payee === 'string' ? value.data.payee : undefined,
+        dueDate: typeof value.data.dueDate === 'string' ? value.data.dueDate : undefined,
+        kind: value.data.kind,
+        autoPay: typeof value.data.autoPay === 'boolean' ? value.data.autoPay : undefined,
+        period: value.data.period === 'daily'
+          || value.data.period === 'weekly'
+          || value.data.period === 'monthly'
+          || value.data.period === 'yearly'
+          ? value.data.period
+          : undefined,
+      },
+    };
+  }
+
+  if (value.type === 'complete_task' && typeof value.data.title === 'string') {
+    return { type: 'complete_task', data: { title: value.data.title } };
+  }
+
+  if (value.type === 'update_goal_progress' && typeof value.data.title === 'string') {
+    const progress = typeof value.data.progress === 'number'
+      ? value.data.progress
+      : Number(value.data.progress);
+    if (!Number.isFinite(progress)) return null;
+    return {
+      type: 'update_goal_progress',
+      data: { title: value.data.title, progress: Math.max(0, Math.min(100, progress)) },
+    };
+  }
+
+  if (value.type === 'mark_payable_paid' && typeof value.data.description === 'string') {
+    return { type: 'mark_payable_paid', data: { description: value.data.description } };
+  }
+
   return null;
 };
 
@@ -464,6 +512,10 @@ Supported actions:
 - create_note -> data: { title, content }
 - create_goal -> data: { title, description?, targetDate?, priority? }
 - create_transaction -> data: { amount, currency?, category?, description?, type? }
+- create_payable -> data: { description, amount, kind: bill|subscription, currency?, category?, payee?, dueDate?, autoPay?, period? }
+- complete_task -> data: { title } (match a task from the snapshot)
+- update_goal_progress -> data: { title, progress } where progress is 0..100
+- mark_payable_paid -> data: { description } (match an unpaid bill or subscription from the snapshot)
 - schedule_pending
 - toggle_theme -> target: light|dark
 - pomodoro -> target?: start|pause|resume|stop
@@ -471,6 +523,8 @@ Supported actions:
 If the user asks for multiple operations, include multiple actions in order.
 If the user is just chatting or asking for analysis, return actions as [].
 If the request is too ambiguous to execute safely, ask one short clarification in reply and return actions as [].
+Never create, update, or mark an item unless the user explicitly asks for that change.
+For updates, copy the existing title or description exactly from the snapshot.
 
 Return exactly this JSON shape:
 {

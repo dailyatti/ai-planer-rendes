@@ -41,6 +41,39 @@ export type AssistantAction =
       };
     }
   | {
+      type: 'create_payable';
+      data: {
+        description: string;
+        amount: number;
+        currency?: string;
+        category?: string;
+        payee?: string;
+        dueDate?: string;
+        kind: 'bill' | 'subscription';
+        autoPay?: boolean;
+        period?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+      };
+    }
+  | {
+      type: 'complete_task';
+      data: {
+        title: string;
+      };
+    }
+  | {
+      type: 'update_goal_progress';
+      data: {
+        title: string;
+        progress: number;
+      };
+    }
+  | {
+      type: 'mark_payable_paid';
+      data: {
+        description: string;
+      };
+    }
+  | {
       type: 'schedule_pending';
     }
   | {

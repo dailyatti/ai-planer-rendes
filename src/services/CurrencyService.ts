@@ -7,7 +7,7 @@ import { AVAILABLE_CURRENCIES, DEFAULT_RATES, LANGUAGE_CURRENCY_MAP } from '../c
  * - Unlimited currencies (not just 3)
  * - Manual exchange rate input
  * - Language-based default currency
- * - AI-powered rate fetching (via Perplexity)
+ * - AI-powered rate fetching (via DeepSeek)
  * - localStorage persistence
  */
 
@@ -177,7 +177,7 @@ class CurrencyServiceClass {
                 return { success: true, message: 'Árfolyamok frissítve (API)', method: 'api' };
             }
 
-            // Priority 2: AI (Perplexity) - Good for when API is unavailable
+            // Priority 2: AI (DeepSeek) - useful when the primary API is unavailable
             if (AIService.isConfigured()) {
                 const aiResult = await this.fetchRatesWithAI();
                 if (aiResult.success) {
@@ -243,7 +243,7 @@ class CurrencyServiceClass {
     }
 
     /**
-     * Fetch exchange rates using AI (Perplexity)
+     * Fetch exchange rates using AI (DeepSeek)
      */
     async fetchRatesWithAI(): Promise<{ success: boolean; message: string }> {
         if (!AIService.isConfigured()) {

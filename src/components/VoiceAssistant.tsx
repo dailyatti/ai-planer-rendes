@@ -5,6 +5,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import { useLanguage, LANGUAGE_NAMES } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
 import { AIService } from '../services/AIService';
+import { DEFAULT_AI_PERMISSIONS } from '../config/aiDefaults';
 import { AIConfig } from '../types/ai';
 import { AssistantAction, AssistantPlan } from '../types/assistant';
 import {
@@ -36,11 +37,16 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
   const {
     plans,
     goals,
+    notes,
     transactions,
+    subscriptions,
     addPlan,
     addGoal,
     addNote,
     addTransaction,
+    updatePlan,
+    updateGoal,
+    updateTransaction,
     invoices,
     clients,
   } = useData();
@@ -51,7 +57,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
   const [isSending, setIsSending] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const isConfigured = config.provider === 'perplexity' && Boolean(config.apiKey);
+  const isConfigured = config.provider === 'deepseek' && Boolean(config.apiKey);
 
   useEffect(() => {
     if (open) chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -63,6 +69,7 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
 
   const buildSnapshot = useCallback(() => {
     const languageName = LANGUAGE_NAMES[currentLanguage as keyof typeof LANGUAGE_NAMES] || 'English';
+    const permissions = { ...DEFAULT_AI_PERMISSIONS, ...config.permissions };
     const totalTasks = plans.length;
     const completedTasks = plans.filter((plan) => plan.completed).length;
     const totalGoals = goals.length;
@@ -70,17 +77,78 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
       ? Math.round(goals.reduce((sum, goal) => sum + Number(goal.progress || 0), 0) / totalGoals)
       : 0;
     const balance = Math.round(
-      transactions.reduce((sum, tx) => sum + (tx.type === 'income' ? Number(tx.amount || 0) : -Number(tx.amount || 0)), 0),
+      transactions.reduce(
+        (sum, tx) => sum + (tx.type === 'income' ? Math.abs(Number(tx.amount || 0)) : -Math.abs(Number(tx.amount || 0))),
+        0,
+      ),
     );
 
-    return `Language: ${languageName}
+    const sections = [`Language: ${languageName}
 Current app view: ${currentView}
+- Available data is restricted by the permissions selected in Integrations.`];
+
+    if (permissions.plannerContext) {
+      sections.push(`Planner summary:
 - Tasks: ${completedTasks}/${totalTasks} completed
 - Goals: ${totalGoals} total, average progress ${avgGoalProgress}%
-- Financial balance estimate: ${balance}
-- Pending invoices: ${invoices.filter((invoice) => invoice.status === 'sent').length}
-- Clients: ${clients.length}`;
-  }, [clients.length, currentLanguage, currentView, goals, invoices, plans, transactions]);
+- Open tasks: ${JSON.stringify(plans.filter((plan) => !plan.completed).slice(0, 20).map((plan) => ({
+  title: plan.title,
+  date: plan.date instanceof Date ? plan.date.toISOString() : plan.date,
+  priority: plan.priority,
+})))}
+- Goals: ${JSON.stringify(goals.slice(0, 15).map((goal) => ({
+  title: goal.title,
+  progress: goal.progress,
+  status: goal.status,
+  targetDate: goal.targetDate instanceof Date ? goal.targetDate.toISOString() : goal.targetDate,
+})))}
+- Recent notes: ${JSON.stringify(notes.slice(-10).map((note) => ({
+  title: note.title,
+  content: note.content.slice(0, 300),
+})))}`);
+    }
+
+    if (permissions.financialContext) {
+      sections.push(`Financial summary:
+- Balance estimate: ${balance}
+- Budget currency: ${transactions.find((item) => item.currency)?.currency || 'USD'}
+- Bills and subscriptions: ${JSON.stringify(transactions
+  .filter((item) => item.expenseKind === 'bill' || item.expenseKind === 'subscription')
+  .slice(-25)
+  .map((item) => ({
+    description: item.description,
+    payee: item.payee,
+    amount: Math.abs(Number(item.amount || 0)),
+    currency: item.currency,
+    kind: item.expenseKind,
+    dueDate: item.dueDateYMD || item.effectiveDateYMD,
+    paymentStatus: item.paymentStatus,
+    autoPay: item.autoPay,
+  })))}
+- Legacy subscriptions: ${JSON.stringify(subscriptions.slice(0, 15).map((item) => ({
+  name: item.name,
+  cost: item.cost,
+  currency: item.currency,
+  billingCycle: item.billingCycle,
+  nextPayment: item.nextPayment,
+  active: item.isActive,
+})))}`);
+    }
+
+    if (permissions.invoicingContext) {
+      sections.push(`Invoicing summary:
+- Invoices: ${JSON.stringify(invoices.slice(-20).map((invoice) => ({
+  number: invoice.invoiceNumber,
+  client: clients.find((client) => client.id === invoice.clientId)?.name || 'Unknown client',
+  total: invoice.total,
+  currency: invoice.currency,
+  status: invoice.status,
+  dueDate: invoice.dueDate,
+})))}`);
+    }
+
+    return sections.join('\n\n');
+  }, [clients, config.permissions, currentLanguage, currentView, goals, invoices, notes, plans, subscriptions, transactions]);
 
   const formatDateTime = useCallback((date: Date): string => {
     try {
@@ -98,29 +166,50 @@ Current app view: ${currentView}
 
   const buildExecutionReply = useCallback((action: AssistantAction, details?: string): string => {
     const hu = currentLanguage === 'hu';
+    const de = currentLanguage === 'de';
     switch (action.type) {
       case 'navigation':
-        return hu ? `Megnyitottam: ${action.target}.` : `Opened: ${action.target}.`;
+        return hu ? `Megnyitottam: ${action.target}.` : de ? `Geöffnet: ${action.target}.` : `Opened: ${action.target}.`;
       case 'create_task':
         return hu
           ? `Felvettem a feladatot: ${action.data.title}${details ? ` (${details})` : ''}.`
-          : `Created task: ${action.data.title}${details ? ` (${details})` : ''}.`;
+          : de
+            ? `Aufgabe erstellt: ${action.data.title}${details ? ` (${details})` : ''}.`
+            : `Created task: ${action.data.title}${details ? ` (${details})` : ''}.`;
       case 'create_note':
-        return hu ? `Letrehoztam a jegyzetet: ${action.data.title}.` : `Created note: ${action.data.title}.`;
+        return hu ? `Létrehoztam a jegyzetet: ${action.data.title}.` : de ? `Notiz erstellt: ${action.data.title}.` : `Created note: ${action.data.title}.`;
       case 'create_goal':
-        return hu ? `Letrehoztam a celt: ${action.data.title}.` : `Created goal: ${action.data.title}.`;
+        return hu ? `Létrehoztam a célt: ${action.data.title}.` : de ? `Ziel erstellt: ${action.data.title}.` : `Created goal: ${action.data.title}.`;
       case 'create_transaction':
         return hu
-          ? `Rogzitettem a ${action.data.type === 'income' ? 'bevetelt' : 'kiadast'}: ${action.data.amount} ${action.data.currency || 'USD'}.`
-          : `Recorded ${action.data.type === 'income' ? 'income' : 'expense'}: ${action.data.amount} ${action.data.currency || 'USD'}.`;
+          ? `Rögzítettem a ${action.data.type === 'income' ? 'bevételt' : 'kiadást'}: ${action.data.amount} ${action.data.currency || 'USD'}.`
+          : de
+            ? `${action.data.type === 'income' ? 'Einnahme' : 'Ausgabe'} erfasst: ${action.data.amount} ${action.data.currency || 'USD'}.`
+            : `Recorded ${action.data.type === 'income' ? 'income' : 'expense'}: ${action.data.amount} ${action.data.currency || 'USD'}.`;
+      case 'create_payable':
+        return hu
+          ? `Rögzítettem: ${action.data.description} (${action.data.amount} ${action.data.currency || 'USD'}).`
+          : de
+            ? `Zahlungsposten erstellt: ${action.data.description} (${action.data.amount} ${action.data.currency || 'USD'}).`
+            : `Created payable: ${action.data.description} (${action.data.amount} ${action.data.currency || 'USD'}).`;
+      case 'complete_task':
+        return hu ? `Befejezettnek jelöltem: ${action.data.title}.` : de ? `Aufgabe abgeschlossen: ${action.data.title}.` : `Completed task: ${action.data.title}.`;
+      case 'update_goal_progress':
+        return hu
+          ? `A(z) ${action.data.title} cél haladása ${action.data.progress}%.`
+          : de
+            ? `Fortschritt für ${action.data.title} auf ${action.data.progress}% aktualisiert.`
+            : `Updated ${action.data.title} to ${action.data.progress}%.`;
+      case 'mark_payable_paid':
+        return hu ? `Fizetettnek jelöltem: ${action.data.description}.` : de ? `Als bezahlt markiert: ${action.data.description}.` : `Marked as paid: ${action.data.description}.`;
       case 'schedule_pending':
-        return hu ? 'A fuggo szamlakat feladatkent utemeztem.' : 'Scheduled pending invoices as tasks.';
+        return hu ? 'A függő számlákat feladatként ütemeztem.' : de ? 'Offene Rechnungen als Aufgaben eingeplant.' : 'Scheduled pending invoices as tasks.';
       case 'toggle_theme':
-        return hu ? 'Frissitettem a temat.' : 'Updated the theme.';
+        return hu ? 'Frissítettem a témát.' : de ? 'Design aktualisiert.' : 'Updated the theme.';
       case 'pomodoro':
-        return hu ? 'Megnyitottam a Pomodoro nezetet.' : 'Opened the Pomodoro view.';
+        return hu ? 'Megnyitottam a Pomodoro nézetet.' : de ? 'Pomodoro-Ansicht geöffnet.' : 'Opened the Pomodoro view.';
       default:
-        return hu ? 'Vegrehajtottam a muveletet.' : 'Request executed.';
+        return hu ? 'Végrehajtottam a műveletet.' : de ? 'Aktion ausgeführt.' : 'Request executed.';
     }
   }, [currentLanguage]);
 
@@ -171,7 +260,9 @@ Current app view: ${currentView}
       case 'create_transaction':
         addTransaction({
           type: action.data.type || 'expense',
-          amount: Number(action.data.amount),
+          amount: action.data.type === 'income'
+            ? Math.abs(Number(action.data.amount))
+            : -Math.abs(Number(action.data.amount)),
           currency: action.data.currency || 'USD',
           category: action.data.category || (action.data.type === 'income' ? 'Income' : 'General'),
           description: action.data.description || 'Assistant entry',
@@ -180,6 +271,88 @@ Current app view: ${currentView}
           period: 'oneTime',
         });
         return buildExecutionReply(action);
+
+      case 'create_payable': {
+        const dueDate = action.data.dueDate && /^\d{4}-\d{2}-\d{2}/.test(action.data.dueDate)
+          ? action.data.dueDate.slice(0, 10)
+          : new Date().toISOString().slice(0, 10);
+        const recurring = action.data.kind === 'subscription';
+        addTransaction({
+          type: 'expense',
+          amount: -Math.abs(Number(action.data.amount)),
+          currency: action.data.currency || 'USD',
+          category: action.data.category || 'Other',
+          description: action.data.description,
+          date: dueDate,
+          effectiveDateYMD: dueDate,
+          dueDateYMD: dueDate,
+          payee: action.data.payee,
+          paymentStatus: 'unpaid',
+          status: 'pending',
+          expenseKind: action.data.kind,
+          autoPay: Boolean(action.data.autoPay),
+          recurring,
+          period: recurring ? (action.data.period || 'monthly') : 'oneTime',
+          kind: recurring ? 'master' : 'history',
+          priority: 'medium',
+        });
+        return buildExecutionReply(action);
+      }
+
+      case 'complete_task': {
+        const matches = plans.filter((plan) => (
+          plan.title.toLocaleLowerCase() === action.data.title.toLocaleLowerCase()
+        ));
+        if (matches.length !== 1) {
+          return currentLanguage === 'hu'
+            ? `Nem találtam egyértelműen ezt a feladatot: ${action.data.title}.`
+            : currentLanguage === 'de'
+              ? `Diese Aufgabe konnte nicht eindeutig zugeordnet werden: ${action.data.title}.`
+              : `I could not uniquely match task: ${action.data.title}.`;
+        }
+        updatePlan(matches[0].id, { completed: true });
+        return buildExecutionReply(action);
+      }
+
+      case 'update_goal_progress': {
+        const matches = goals.filter((goal) => (
+          goal.title.toLocaleLowerCase() === action.data.title.toLocaleLowerCase()
+        ));
+        if (matches.length !== 1) {
+          return currentLanguage === 'hu'
+            ? `Nem találtam egyértelműen ezt a célt: ${action.data.title}.`
+            : currentLanguage === 'de'
+              ? `Dieses Ziel konnte nicht eindeutig zugeordnet werden: ${action.data.title}.`
+              : `I could not uniquely match goal: ${action.data.title}.`;
+        }
+        const progress = Math.max(0, Math.min(100, action.data.progress));
+        updateGoal(matches[0].id, {
+          progress,
+          status: progress >= 100 ? 'completed' : progress > 0 ? 'in-progress' : 'not-started',
+        });
+        return buildExecutionReply({ ...action, data: { ...action.data, progress } });
+      }
+
+      case 'mark_payable_paid': {
+        const matches = transactions.filter((item) => (
+          (item.expenseKind === 'bill' || item.expenseKind === 'subscription')
+          && item.paymentStatus !== 'paid'
+          && item.description.toLocaleLowerCase() === action.data.description.toLocaleLowerCase()
+        ));
+        if (matches.length !== 1) {
+          return currentLanguage === 'hu'
+            ? `Nem találtam egyértelműen ezt a fizetendő tételt: ${action.data.description}.`
+            : currentLanguage === 'de'
+              ? `Dieser Zahlungsposten konnte nicht eindeutig zugeordnet werden: ${action.data.description}.`
+              : `I could not uniquely match payable: ${action.data.description}.`;
+        }
+        updateTransaction(matches[0].id, {
+          paymentStatus: 'paid',
+          status: 'completed',
+          paidAtISO: new Date().toISOString(),
+        });
+        return buildExecutionReply(action);
+      }
 
       case 'schedule_pending': {
         const pendingInvoices = invoices.filter((invoice) => invoice.status === 'sent');
@@ -212,16 +385,27 @@ Current app view: ${currentView}
         return buildExecutionReply(action);
 
       default:
-        return currentLanguage === 'hu' ? 'Ismeretlen muvelet.' : 'Unknown action.';
+        return currentLanguage === 'hu' ? 'Ismeretlen művelet.' : currentLanguage === 'de' ? 'Unbekannte Aktion.' : 'Unknown action.';
     }
-  }, [addGoal, addNote, addPlan, addTransaction, buildExecutionReply, clients, currentLanguage, formatDateTime, invoices, onCommand]);
+  }, [addGoal, addNote, addPlan, addTransaction, buildExecutionReply, clients, currentLanguage, formatDateTime, goals, invoices, onCommand, plans, transactions, updateGoal, updatePlan, updateTransaction]);
 
-  const executePlan = useCallback((plan: AssistantPlan): boolean => {
+  const executePlan = useCallback((plan: AssistantPlan, allowWriteActions = true): boolean => {
     if (plan.actions.length === 0) return false;
+    if (!allowWriteActions) {
+      addMessage(
+        'system',
+        currentLanguage === 'hu'
+          ? 'A DeepSeek műveletet javasolt, de az írási jogosultság ki van kapcsolva az Integrációkban.'
+          : currentLanguage === 'de'
+            ? 'DeepSeek hat eine Aktion vorgeschlagen, aber der Schreibzugriff ist in den Integrationen deaktiviert.'
+            : 'DeepSeek suggested an action, but write access is disabled in Integrations.',
+      );
+      return true;
+    }
     const replies = plan.actions.map(executeAction);
     addMessage('assistant', replies.join('\n'));
     return true;
-  }, [addMessage, executeAction]);
+  }, [addMessage, currentLanguage, executeAction]);
 
   const planWithAI = useCallback(async (text: string): Promise<AssistantPlan | null> => {
     AIService.setProvider(config);
@@ -252,7 +436,11 @@ Current app view: ${currentView}
         return;
       }
 
-      const msg = 'Perplexity API key is missing. Open Integrations and connect it first.';
+      const msg = currentLanguage === 'hu'
+        ? 'Hiányzik a DeepSeek API-kulcs. Először csatlakoztasd az Integrációkban.'
+        : currentLanguage === 'de'
+          ? 'Der DeepSeek-API-Schlüssel fehlt. Verbinde DeepSeek zuerst in den Integrationen.'
+          : 'DeepSeek API key is missing. Open Integrations and connect it first.';
       addMessage('system', msg);
       toast.error(msg);
       return;
@@ -261,7 +449,7 @@ Current app view: ${currentView}
     setIsSending(true);
     try {
       const planned = await planWithAI(text);
-      if (planned && executePlan(planned)) {
+      if (planned && executePlan(planned, config.permissions?.writeActions ?? true)) {
         return;
       }
 
@@ -296,10 +484,18 @@ Current app view: ${currentView}
     setOpen(true);
     if (messages.length === 0) {
       addMessage('system', isConfigured
-        ? 'Perplexity Sonar Pro assistant is ready.'
-        : 'Connect Perplexity in Integrations to start.');
+        ? currentLanguage === 'hu'
+          ? 'A DeepSeek V4 asszisztens használatra kész.'
+          : currentLanguage === 'de'
+            ? 'Der DeepSeek-V4-Assistent ist einsatzbereit.'
+            : 'DeepSeek V4 assistant is ready.'
+        : currentLanguage === 'hu'
+          ? 'A kezdéshez csatlakoztasd a DeepSeeket az Integrációkban.'
+          : currentLanguage === 'de'
+            ? 'Verbinde DeepSeek in den Integrationen, um zu beginnen.'
+            : 'Connect DeepSeek in Integrations to start.');
     }
-  }, [addMessage, isConfigured, messages.length]);
+  }, [addMessage, currentLanguage, isConfigured, messages.length]);
 
   return (
     <>
@@ -321,7 +517,7 @@ Current app view: ${currentView}
           >
             <div className="p-4 bg-gradient-to-r from-indigo-500 to-fuchsia-600 flex items-center justify-between">
               <h3 className="text-white font-semibold flex items-center gap-2">
-                <Sparkles size={16} /> Perplexity Sonar Pro
+                <Sparkles size={16} /> DeepSeek V4
               </h3>
               <button
                 onClick={() => setOpen(false)}
@@ -389,7 +585,7 @@ Current app view: ${currentView}
             whileTap={{ scale: 0.96 }}
             onClick={openChat}
             className="p-4 rounded-full shadow-2xl backdrop-blur-xl border bg-indigo-500/10 border-indigo-500/50 hover:bg-indigo-500/20 transition-all duration-300"
-            title={isConfigured ? 'Perplexity Sonar Pro' : 'Connect Perplexity in Integrations'}
+            title={isConfigured ? 'DeepSeek V4' : 'Connect DeepSeek in Integrations'}
           >
             <MessageSquare className="w-8 h-8 text-indigo-400" />
           </motion.button>

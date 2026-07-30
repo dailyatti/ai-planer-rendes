@@ -1,6 +1,8 @@
 export type ViewType = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'notes' | 'goals' | 'drawing' | 'budget' | 'invoicing' | 'statistics' | 'habits' | 'integrations' | 'settings' | 'pomodoro';
 
 export type TransactionPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'oneTime';
+export type ExpenseKind = 'standard' | 'bill' | 'subscription';
+export type BillPaymentStatus = 'unpaid' | 'paid';
 
 export type PriorityLevel = 'high' | 'medium' | 'low';
 
@@ -96,6 +98,14 @@ export interface Transaction {
   reminderId?: string;
   notes?: string;
   createdAtISO?: string;
+
+  // Payables and subscription tracking
+  expenseKind?: ExpenseKind;
+  payee?: string;
+  dueDateYMD?: string;
+  paymentStatus?: BillPaymentStatus;
+  autoPay?: boolean;
+  paidAtISO?: string;
 }
 
 export interface BudgetGoal {

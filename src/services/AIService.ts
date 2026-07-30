@@ -1,6 +1,6 @@
 import {
-  DEFAULT_PERPLEXITY_BASE_URL,
-  DEFAULT_PERPLEXITY_MODEL,
+  DEFAULT_DEEPSEEK_BASE_URL,
+  DEFAULT_DEEPSEEK_MODEL,
   EMPTY_AI_CONFIG,
   normalizeAIConfig,
 } from '../config/aiDefaults';
@@ -41,7 +41,7 @@ class AIServiceClass {
   }
 
   isConfigured(): boolean {
-    return this.config.provider === 'perplexity' && this.config.apiKey.length > 0;
+    return this.config.provider === 'deepseek' && this.config.apiKey.length > 0;
   }
 
   loadConfig(): void {
@@ -66,15 +66,15 @@ class AIServiceClass {
 
   async generateText(options: TextGenerationOptions): Promise<TextGenerationResult> {
     if (!this.isConfigured()) {
-      throw new Error('No AI provider is configured. Open Integrations to connect Perplexity.');
+      throw new Error('No AI provider is configured. Open Integrations to connect DeepSeek.');
     }
 
-    return this.generateTextPerplexity(options);
+    return this.generateTextDeepSeek(options);
   }
 
-  private async generateTextPerplexity(options: TextGenerationOptions): Promise<TextGenerationResult> {
-    const url = this.config.baseUrl?.trim() || DEFAULT_PERPLEXITY_BASE_URL;
-    const modelName = options.model || this.config.model || DEFAULT_PERPLEXITY_MODEL;
+  private async generateTextDeepSeek(options: TextGenerationOptions): Promise<TextGenerationResult> {
+    const url = this.config.baseUrl?.trim() || DEFAULT_DEEPSEEK_BASE_URL;
+    const modelName = options.model || this.config.model || DEFAULT_DEEPSEEK_MODEL;
     const messages = [
       ...(options.systemPrompt ? [{ role: 'system', content: options.systemPrompt }] : []),
       { role: 'user', content: options.prompt },
@@ -91,22 +91,24 @@ class AIServiceClass {
         messages,
         max_tokens: options.maxTokens ?? 1000,
         temperature: options.temperature ?? 0.2,
+        thinking: { type: 'enabled' },
+        reasoning_effort: 'high',
       }),
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(data.error?.message || 'Perplexity API error');
+      throw new Error(data.error?.message || `DeepSeek API error (${response.status})`);
     }
 
     const text = data.choices?.[0]?.message?.content || '';
     if (!text) {
-      throw new Error('Perplexity returned an empty response.');
+      throw new Error('DeepSeek returned an empty response.');
     }
 
     return {
       text,
-      provider: 'perplexity',
+      provider: 'deepseek',
     };
   }
 
@@ -124,7 +126,7 @@ class AIServiceClass {
 
       return {
         success: true,
-        message: 'Perplexity connected successfully.',
+        message: 'DeepSeek connected successfully.',
       };
     } catch (error) {
       return {

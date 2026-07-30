@@ -9,7 +9,7 @@ ContentPlanner Pro is a "PhD-level" professional application designed for conten
 ### 🧠 Advanced AI Assistant
 - **Hybrid Voice/Text Control**: Speak naturally or type commands (Chat Mode).
 - **Financial Context Aware**: Answers questions like *"How much money will I have next year?"* using real-time data.
-- **Single-Provider Stack**: Powered by **Perplexity Sonar Pro**.
+- **Single-Provider Stack**: Powered by **DeepSeek V4 Pro** with thinking mode.
 
 ### 💰 Professional Financial Engine
 - **Multi-Currency Budgeting**: Support for **28+ currencies** (HUF, EUR, USD, etc.).
@@ -24,7 +24,7 @@ ContentPlanner Pro is a "PhD-level" professional application designed for conten
 ## 🛠️ Technology Stack
 - **Frontend**: React, TypeScript, Vite
 - **Profiling**: TailwindCSS (Modern, Responsive)
-- **AI**: Perplexity Sonar API
+- **AI**: DeepSeek V4 API
 - **Charts**: Recharts
 - **Icons**: Lucide React
 
@@ -46,7 +46,7 @@ ContentPlanner Pro is a "PhD-level" professional application designed for conten
    ```
 
 ## 📝 Configuration
-- Go to **Settings > Integrations** to configure your Perplexity API key.
+- Go to **Settings > Integrations** to configure your DeepSeek API key and choose V4 Pro or V4 Flash.
 - Go to **Settings > Budget** to set your base currency and exchange rates.
 
 ---

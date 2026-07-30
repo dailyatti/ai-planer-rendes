@@ -95,7 +95,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             initialSettings = {
               ...initialSettings,
               aiConfig: normalizeAIConfig({
-                provider: parsedAI.provider || 'perplexity',
+                provider: parsedAI.provider || null,
                 apiKey: parsedAI.apiKey || '',
                 model: parsedAI.model || '',
                 baseUrl: parsedAI.baseUrl || '',
