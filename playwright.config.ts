@@ -9,7 +9,7 @@ export default defineConfig({
   reporter: 'list',
   use: {
     baseURL: 'http://localhost:5174',
-    headless: false,
+    headless: true,
     screenshot: 'on',
     video: 'off',
     trace: 'off',

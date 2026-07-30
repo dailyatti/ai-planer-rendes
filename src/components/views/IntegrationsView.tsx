@@ -8,6 +8,7 @@ import {
   Key,
   Link2,
   RefreshCw,
+  ShieldCheck,
   Settings,
   TestTube,
   Trash2,
@@ -18,12 +19,14 @@ import { useLanguage, LANGUAGE_NAMES, Language } from '../../contexts/LanguageCo
 import { useSettings } from '../../contexts/SettingsContext';
 import { AIService } from '../../services/AIService';
 import {
-  DEFAULT_PERPLEXITY_BASE_URL,
-  DEFAULT_PERPLEXITY_MODEL,
+  DEFAULT_DEEPSEEK_BASE_URL,
+  DEFAULT_DEEPSEEK_MODEL,
+  DEFAULT_AI_PERMISSIONS,
   EMPTY_AI_CONFIG,
+  FAST_DEEPSEEK_MODEL,
   normalizeAIConfig,
 } from '../../config/aiDefaults';
-import { AIConfig } from '../../types/ai';
+import { AIConfig, AIPermissions } from '../../types/ai';
 
 const IntegrationsView: React.FC = () => {
   const { language, changeLanguage, t } = useLanguage();
@@ -33,18 +36,20 @@ const IntegrationsView: React.FC = () => {
   const [showKey, setShowKey] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [tempKey, setTempKey] = useState('');
-  const [tempModel, setTempModel] = useState(DEFAULT_PERPLEXITY_MODEL);
-  const [tempBaseUrl, setTempBaseUrl] = useState(DEFAULT_PERPLEXITY_BASE_URL);
+  const [tempModel, setTempModel] = useState(DEFAULT_DEEPSEEK_MODEL);
+  const [tempBaseUrl, setTempBaseUrl] = useState(DEFAULT_DEEPSEEK_BASE_URL);
+  const [tempPermissions, setTempPermissions] = useState<AIPermissions>({ ...DEFAULT_AI_PERMISSIONS });
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testMessage, setTestMessage] = useState('');
 
-  const isConnected = settings.aiConfig?.provider === 'perplexity' && Boolean(settings.aiConfig.apiKey);
+  const isConnected = settings.aiConfig?.provider === 'deepseek' && Boolean(settings.aiConfig.apiKey);
   const activeConfig = useMemo(() => normalizeAIConfig(settings.aiConfig), [settings.aiConfig]);
 
   const openModal = () => {
     setTempKey(isConnected ? activeConfig.apiKey : '');
-    setTempModel(isConnected ? (activeConfig.model || DEFAULT_PERPLEXITY_MODEL) : DEFAULT_PERPLEXITY_MODEL);
-    setTempBaseUrl(isConnected ? (activeConfig.baseUrl || DEFAULT_PERPLEXITY_BASE_URL) : DEFAULT_PERPLEXITY_BASE_URL);
+    setTempModel(isConnected ? (activeConfig.model || DEFAULT_DEEPSEEK_MODEL) : DEFAULT_DEEPSEEK_MODEL);
+    setTempBaseUrl(isConnected ? (activeConfig.baseUrl || DEFAULT_DEEPSEEK_BASE_URL) : DEFAULT_DEEPSEEK_BASE_URL);
+    setTempPermissions({ ...DEFAULT_AI_PERMISSIONS, ...activeConfig.permissions });
     setShowKey(false);
     setShowAdvanced(false);
     setTestStatus('idle');
@@ -53,10 +58,11 @@ const IntegrationsView: React.FC = () => {
   };
 
   const buildDraftConfig = (): AIConfig => normalizeAIConfig({
-    provider: 'perplexity',
+    provider: 'deepseek',
     apiKey: tempKey.trim(),
     model: tempModel.trim(),
     baseUrl: tempBaseUrl.trim(),
+    permissions: tempPermissions,
   });
 
   const handleTestConnection = async () => {
@@ -66,17 +72,19 @@ const IntegrationsView: React.FC = () => {
 
     try {
       const draftConfig = buildDraftConfig();
-      const response = await fetch(draftConfig.baseUrl || DEFAULT_PERPLEXITY_BASE_URL, {
+      const response = await fetch(draftConfig.baseUrl || DEFAULT_DEEPSEEK_BASE_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${draftConfig.apiKey}`,
         },
         body: JSON.stringify({
-          model: draftConfig.model || DEFAULT_PERPLEXITY_MODEL,
+          model: draftConfig.model || DEFAULT_DEEPSEEK_MODEL,
           messages: [{ role: 'user', content: 'Reply with one word: ready' }],
           max_tokens: 16,
           temperature: 0,
+          thinking: { type: 'enabled' },
+          reasoning_effort: 'high',
         }),
       });
 
@@ -147,7 +155,7 @@ const IntegrationsView: React.FC = () => {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-2 gap-3">
-                <h3 className="font-bold text-lg text-gray-900 dark:text-white truncate">Perplexity Sonar Pro</h3>
+                <h3 className="font-bold text-lg text-gray-900 dark:text-white truncate">{t('integrations.deepseekName')}</h3>
                 {isConnected ? (
                   <span className="badge badge-success shrink-0">
                     <Check size={12} /> {t('integrations.connected')}
@@ -159,17 +167,17 @@ const IntegrationsView: React.FC = () => {
                 )}
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 leading-relaxed">
-                Unified web-aware AI provider. Model is editable, default is <span className="font-mono">sonar-pro</span>.
+                {t('integrations.deepseekDescription')} {t('integrations.defaultModel')}: <span className="font-mono">deepseek-v4-pro</span>.
               </p>
               <div className="flex flex-wrap gap-2 mb-5">
                 <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Web-native answers
+                  {t('integrations.contextFeature')}
                 </span>
                 <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Sonar Pro model
+                  {t('integrations.thinkingFeature')}
                 </span>
                 <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Editable endpoint
+                  {t('integrations.modelsFeature')}
                 </span>
               </div>
 
@@ -206,7 +214,7 @@ const IntegrationsView: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('integrations.configure')}</h3>
-                    <p className="text-xs text-gray-500 font-medium">Perplexity Sonar Pro</p>
+                    <p className="text-xs text-gray-500 font-medium">{t('integrations.deepseekName')}</p>
                   </div>
                 </div>
                 <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
@@ -227,7 +235,7 @@ const IntegrationsView: React.FC = () => {
                     value={tempKey}
                     onChange={(event) => setTempKey(event.target.value)}
                     className="input-field pl-10 pr-10 font-mono text-sm shadow-sm"
-                    placeholder="pplx-..."
+                    placeholder="sk-..."
                     autoFocus
                   />
                   <button
@@ -247,7 +255,7 @@ const IntegrationsView: React.FC = () => {
                     {showAdvanced ? t('integrations.hideAdvanced') : t('integrations.showAdvanced')}
                   </button>
                   <a
-                    href="https://www.perplexity.ai/settings/api"
+                    href="https://platform.deepseek.com/api_keys"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline inline-flex items-center gap-1 transition-colors"
@@ -257,26 +265,63 @@ const IntegrationsView: React.FC = () => {
                 </div>
               </div>
 
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 p-4 dark:border-indigo-900/60 dark:bg-indigo-950/30">
+                <div className="mb-3 flex items-start gap-3">
+                  <ShieldCheck size={19} className="mt-0.5 shrink-0 text-indigo-600 dark:text-indigo-400" />
+                  <div>
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">{t('integrations.assistantAccess')}</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-gray-600 dark:text-gray-400">
+                      {t('integrations.dataNotice')}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {([
+                    ['plannerContext', t('integrations.permissionPlanner')],
+                    ['financialContext', t('integrations.permissionFinancial')],
+                    ['invoicingContext', t('integrations.permissionInvoicing')],
+                    ['writeActions', t('integrations.permissionWrite')],
+                  ] as Array<[keyof AIPermissions, string]>).map(([permission, label]) => (
+                    <label
+                      key={permission}
+                      className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/80 bg-white/80 px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-300"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={tempPermissions[permission]}
+                        onChange={(event) => setTempPermissions((previous) => ({
+                          ...previous,
+                          [permission]: event.target.checked,
+                        }))}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               {showAdvanced && (
                 <div className="space-y-4 p-4 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800 border border-gray-200 dark:border-gray-700 shadow-inner">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Model</label>
-                    <input
-                      type="text"
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">{t('integrations.modelLabel')}</label>
+                    <select
                       value={tempModel}
                       onChange={(event) => setTempModel(event.target.value)}
                       className="input-field text-sm w-full bg-white dark:bg-gray-900 shadow-sm"
-                      placeholder={DEFAULT_PERPLEXITY_MODEL}
-                    />
+                    >
+                      <option value={DEFAULT_DEEPSEEK_MODEL}>{t('integrations.deepseekPro')}</option>
+                      <option value={FAST_DEEPSEEK_MODEL}>{t('integrations.deepseekFlash')}</option>
+                    </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Base URL</label>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">{t('integrations.baseUrlLabel')}</label>
                     <input
                       type="text"
                       value={tempBaseUrl}
                       onChange={(event) => setTempBaseUrl(event.target.value)}
                       className="input-field text-sm w-full bg-white dark:bg-gray-900 shadow-sm"
-                      placeholder={DEFAULT_PERPLEXITY_BASE_URL}
+                      placeholder={DEFAULT_DEEPSEEK_BASE_URL}
                     />
                   </div>
                 </div>

@@ -49,7 +49,13 @@ import {
   PieChart as PieChartIcon,
   ShoppingBag as ShoppingBagIcon,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ReceiptText,
+  CreditCard,
+  Clock3,
+  AlertTriangle,
+  CheckCircle,
+  Building2
 } from "lucide-react";
 
 // Context imports
@@ -59,7 +65,21 @@ import { AVAILABLE_CURRENCIES } from "../../constants/currencyData";
 import { CurrencyService } from "../../services/CurrencyService";
 import { useBudgetAnalytics } from "./useBudgetAnalytics";
 import CurrencyConverterModal from "./CurrencyConverterModal";
-import { Transaction, TransactionPatch as PlannerTransactionPatch } from "../../types/planner";
+import {
+  Transaction,
+  TransactionPatch as PlannerTransactionPatch,
+  type BillPaymentStatus,
+  type ExpenseKind,
+} from "../../types/planner";
+import {
+  getBillDueDateYMD,
+  getBillState,
+  monthlyEquivalent,
+  normalizeExpenseKind,
+  normalizePaymentStatus,
+  toLocalYMD,
+  type BillState,
+} from "../../utils/billUtils";
 
 const EMPTY_ARRAY: Transaction[] = [];
 
@@ -110,12 +130,19 @@ export type BudgetTransaction = {
   recurring?: boolean;
   occurrenceCount?: number;
   sourceIds?: string[];
+  expenseKind: ExpenseKind;
+  payee?: string;
+  dueDateYMD?: string;
+  paymentStatus: BillPaymentStatus;
+  autoPay: boolean;
+  paidAtISO?: string;
 };
 
-type TransactionPatch = PlannerTransactionPatch;
 type BalanceMode = "realizedOnly" | "includeScheduled";
 type ViewMode = "cards" | "list" | "compact";
 type ChartType = "area" | "bar" | "radar";
+type BudgetTab = "dashboard" | "transactions" | "bills" | "analytics" | "goals" | "settings";
+type BillFilter = "all" | "unpaid" | "overdue" | "dueSoon" | "paid";
 
 type CategoryKey =
   | "software" | "marketing" | "office" | "travel" | "service"
@@ -899,6 +926,12 @@ const useEnhancedBudgetEngine = () => {
         date: (tx.date ?? effectiveDateYMD) as Date | string,
         kind: tx.kind as 'master' | 'history' | undefined,
         recurring: Boolean(tx.recurring),
+        expenseKind: normalizeExpenseKind(tx.expenseKind),
+        payee: typeof tx.payee === "string" ? tx.payee : undefined,
+        dueDateYMD: typeof tx.dueDateYMD === "string" ? tx.dueDateYMD : undefined,
+        paymentStatus: normalizePaymentStatus(tx.paymentStatus, tx.status as TransactionStatus | undefined),
+        autoPay: Boolean(tx.autoPay),
+        paidAtISO: typeof tx.paidAtISO === "string" ? tx.paidAtISO : undefined,
       } as BudgetTransaction;
     });
   }, [transactions, safeCategory, safeYMD]);
@@ -1226,7 +1259,7 @@ const useEnhancedBudgetEngine = () => {
       URL.revokeObjectURL(url);
     } else if (format === 'csv') {
       const headers = [
-        "id", "createdAtISO", "effectiveDateYMD", "time", "description", "type", "amount", "currency", "category", "period", "status", "priority", "tags", "notes"
+        "id", "createdAtISO", "effectiveDateYMD", "time", "description", "type", "amount", "currency", "category", "period", "status", "priority", "expenseKind", "payee", "dueDateYMD", "paymentStatus", "autoPay", "paidAtISO", "tags", "notes"
       ];
 
       const rows = uiTransactions.map(tx => ([
@@ -1242,6 +1275,12 @@ const useEnhancedBudgetEngine = () => {
         tx.period,
         tx.status,
         tx.priority,
+        tx.expenseKind,
+        tx.payee ?? "",
+        tx.dueDateYMD ?? "",
+        tx.paymentStatus,
+        String(tx.autoPay),
+        tx.paidAtISO ?? "",
         (tx.tags ?? []).join("|"),
         (tx.notes ?? "").replace(/"/g, '""'),
       ]));
@@ -1349,6 +1388,12 @@ const useEnhancedBudgetEngine = () => {
           attachmentUrl: typeof rawTx.attachmentUrl === 'string' ? rawTx.attachmentUrl : undefined,
           location: typeof rawTx.location === 'string' ? rawTx.location : undefined,
           reminderId: typeof rawTx.reminderId === 'string' ? rawTx.reminderId : undefined,
+          expenseKind: normalizeExpenseKind(rawTx.expenseKind),
+          payee: typeof rawTx.payee === 'string' ? rawTx.payee : undefined,
+          dueDateYMD: typeof rawTx.dueDateYMD === 'string' ? rawTx.dueDateYMD : undefined,
+          paymentStatus: normalizePaymentStatus(rawTx.paymentStatus, rawTx.status),
+          autoPay: Boolean(rawTx.autoPay),
+          paidAtISO: typeof rawTx.paidAtISO === 'string' ? rawTx.paidAtISO : undefined,
           createdAtISO: new Date().toISOString(),
         };
 
@@ -1368,7 +1413,7 @@ const useEnhancedBudgetEngine = () => {
     } catch (error) {
       console.error("Import failed", error);
     }
-  }, [dataContext, t, addNotification, safeCategory, safeYMD, todayYMD, currency]);
+  }, [dataContext, addNotification, resolveBudgetText, safeCategory, safeYMD, todayYMD, currency]);
 
   // Add transaction
   const addTransaction = useCallback((transaction: Omit<Transaction, 'id'>) => {
@@ -1395,6 +1440,12 @@ const useEnhancedBudgetEngine = () => {
       attachmentUrl: transaction.attachmentUrl,
       location: transaction.location,
       reminderId: transaction.reminderId,
+      expenseKind: normalizeExpenseKind(transaction.expenseKind),
+      payee: transaction.payee,
+      dueDateYMD: transaction.dueDateYMD,
+      paymentStatus: transaction.paymentStatus,
+      autoPay: transaction.autoPay,
+      paidAtISO: transaction.paidAtISO,
       createdAtISO: new Date().toISOString(),
     };
 
@@ -1429,7 +1480,7 @@ const useEnhancedBudgetEngine = () => {
         type: transaction.amount > 0 ? "success" : "warning",
       });
     }
-  }, [addNotification, resolveBudgetText, getPeriodLabel, language, dataContext, safeYMD, todayYMD]);
+  }, [addNotification, resolveBudgetText, getPeriodLabel, language, dataContext, safeYMD, todayYMD, currency]);
 
   // Update transaction
   const updateTransaction = useCallback((id: string, updates: PlannerTransactionPatch) => {
@@ -1515,6 +1566,7 @@ const useEnhancedBudgetEngine = () => {
     // Utils
     formatCurrency: (amount: number, curr?: string) =>
       formatCurrency(amount, curr || currency, language),
+    getPeriodLabel,
     formatDate: (ymd: string) => {
       const date = parseYMD(ymd);
       if (!date) return "-";
@@ -1540,7 +1592,16 @@ const EnhancedTransactionModal: React.FC<{
   transaction?: BudgetTransaction;
   engine: ReturnType<typeof useEnhancedBudgetEngine>;
   presetType?: TransactionType;
-}> = ({ isOpen, onClose, mode, transaction, engine, presetType = "expense" }) => {
+  presetExpenseKind?: ExpenseKind;
+}> = ({
+  isOpen,
+  onClose,
+  mode,
+  transaction,
+  engine,
+  presetType = "expense",
+  presetExpenseKind = "standard",
+}) => {
   const { t, categories, todayYMD, language } = engine;
   const [showMetaPanel, setShowMetaPanel] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -1579,10 +1640,14 @@ const EnhancedTransactionModal: React.FC<{
     date: todayYMD,
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     type: presetType as TransactionType,
-    period: "oneTime" as TransactionPeriod,
+    period: (presetExpenseKind === "subscription" ? "monthly" : "oneTime") as TransactionPeriod,
     tags: [] as string[],
     notes: "",
     priority: "medium" as PriorityLevel,
+    expenseKind: presetExpenseKind,
+    payee: "",
+    paymentStatus: "paid" as BillPaymentStatus,
+    autoPay: false,
   });
 
   const [tagInput, setTagInput] = useState("");
@@ -1601,6 +1666,10 @@ const EnhancedTransactionModal: React.FC<{
         tags: transaction.tags || [],
         notes: transaction.notes || "",
         priority: transaction.priority || "medium",
+        expenseKind: transaction.expenseKind,
+        payee: transaction.payee || "",
+        paymentStatus: transaction.paymentStatus,
+        autoPay: transaction.autoPay,
       });
       setShowMetaPanel(Boolean(transaction.tags?.length) || Boolean(transaction.notes?.trim()));
     } else {
@@ -1612,16 +1681,20 @@ const EnhancedTransactionModal: React.FC<{
         date: todayYMD,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         type: presetType,
-        period: "oneTime",
+        period: presetExpenseKind === "subscription" ? "monthly" : "oneTime",
         tags: [],
         notes: "",
         priority: "medium",
+        expenseKind: presetType === "expense" ? presetExpenseKind : "standard",
+        payee: "",
+        paymentStatus: presetExpenseKind === "standard" ? "paid" : "unpaid",
+        autoPay: false,
       });
       setShowMetaPanel(false);
     }
     setTagInput("");
     setFormError(null);
-  }, [mode, transaction, engine.currency, todayYMD, presetType, isOpen]);
+  }, [mode, transaction, engine.currency, todayYMD, presetExpenseKind, presetType, isOpen]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -1648,6 +1721,9 @@ const EnhancedTransactionModal: React.FC<{
 
     setFormError(null);
     const isRecurring = form.period !== "oneTime";
+    const isPayable = form.type === "expense" && form.expenseKind !== "standard";
+    const paymentStatus: BillPaymentStatus = isPayable ? form.paymentStatus : "paid";
+    const transactionStatus: TransactionStatus = paymentStatus === "unpaid" ? "pending" : "completed";
     const transactionLabel = form.description.trim();
 
     if (mode === "edit" && transaction) {
@@ -1662,7 +1738,13 @@ const EnhancedTransactionModal: React.FC<{
         tags: form.tags,
         notes: form.notes.trim() || undefined,
         priority: form.priority,
-        status: "completed" as TransactionStatus,
+        status: transactionStatus,
+        expenseKind: form.type === "income" ? "standard" : form.expenseKind,
+        payee: isPayable ? form.payee.trim() || undefined : undefined,
+        dueDateYMD: isPayable ? form.date : undefined,
+        paymentStatus,
+        autoPay: isPayable && form.autoPay,
+        paidAtISO: paymentStatus === "paid" ? (transaction.paidAtISO || new Date().toISOString()) : undefined,
       };
 
       if (transaction.period !== form.period) {
@@ -1693,10 +1775,16 @@ const EnhancedTransactionModal: React.FC<{
         tags: form.tags,
         notes: form.notes.trim() || undefined,
         priority: form.priority,
-        status: "completed" as TransactionStatus,
+        status: transactionStatus,
         date: form.date,
         kind: isRecurring ? 'master' : 'history',
         recurring: isRecurring,
+        expenseKind: form.type === "income" ? "standard" : form.expenseKind,
+        payee: isPayable ? form.payee.trim() || undefined : undefined,
+        dueDateYMD: isPayable ? form.date : undefined,
+        paymentStatus,
+        autoPay: isPayable && form.autoPay,
+        paidAtISO: paymentStatus === "paid" ? new Date().toISOString() : undefined,
       };
       engine.addTransaction(transactionData);
     }
@@ -1746,7 +1834,7 @@ const EnhancedTransactionModal: React.FC<{
             <h2 className="text-xl font-bold text-white">
               {mode === "edit"
                 ? t('transactions.editTransaction') || 'Edit Transaction'
-                : t('transactions.newTransaction') || 'Uj tranzakcio'}
+                : t('transactions.newTransaction') || 'Új tranzakció'}
             </h2>
             <button
               onClick={onClose}
@@ -1761,7 +1849,7 @@ const EnhancedTransactionModal: React.FC<{
           <div className="grid grid-cols-1 gap-6">
             <div>
               <label className="block text-sm font-bold text-gray-400 mb-2">
-                {t('transactions.description') || 'Leiras'}
+                {t('transactions.description') || 'Leírás'}
               </label>
               <AnimatedInput
                 value={form.description}
@@ -1769,7 +1857,7 @@ const EnhancedTransactionModal: React.FC<{
                   setForm(prev => ({ ...prev, description: e.target.value }));
                   if (formError) setFormError(null);
                 }}
-                placeholder={t('transactions.descriptionPlaceholder') || 'Pl.: ugyfel fizetes'}
+                placeholder={t('transactions.descriptionPlaceholder') || 'Pl.: ügyfélfizetés'}
                 error={!form.description.trim() && formError ? formError : undefined}
                 className="bg-slate-900/80 border-slate-700/80 rounded-full text-white px-5 shadow-none placeholder:text-slate-400 focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
               />
@@ -1812,7 +1900,9 @@ const EnhancedTransactionModal: React.FC<{
           <div className="mt-6 px-2 min-w-0">
             <div className="space-y-4">
               <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase">
-                {t('transactions.dateTime') || 'Datum es ido'}
+                {form.type === "expense" && form.expenseKind !== "standard"
+                  ? resolveModalText('bills.dueDateTime', 'Due date and time')
+                  : (t('transactions.dateTime') || 'Datum es ido')}
               </label>
               <div className="flex gap-3">
                 <AnimatedInput
@@ -1907,7 +1997,7 @@ const EnhancedTransactionModal: React.FC<{
 
                       <div>
                         <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">
-                          {t('transactions.notes') || 'Leiras (opcionalis)'}
+                          {t('transactions.notes') || 'Leírás (opcionális)'}
                         </label>
                         <textarea
                           value={form.notes}
@@ -1929,7 +2019,13 @@ const EnhancedTransactionModal: React.FC<{
             </label>
             <div className="flex gap-4 max-w-md">
               <button
-                onClick={() => setForm(prev => ({ ...prev, type: "income" }))}
+                onClick={() => setForm(prev => ({
+                  ...prev,
+                  type: "income",
+                  expenseKind: "standard",
+                  paymentStatus: "paid",
+                  autoPay: false,
+                }))}
                 className={`flex-1 py-3 px-6 rounded-full border-2 transition-all flex items-center justify-center gap-2 font-bold text-sm ${form.type === "income"
                   ? 'border-[#10b981] bg-[#10b981] text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]'
                   : 'border-[#10b981] bg-transparent text-[#10b981] hover:bg-[#10b981]/10'
@@ -1950,6 +2046,107 @@ const EnhancedTransactionModal: React.FC<{
               </button>
             </div>
           </div>
+
+          {form.type === "expense" && (
+            <div className="mt-8 px-2">
+              <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">
+                {resolveModalText('bills.classification', 'Expense classification')}
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {([
+                  {
+                    value: "standard" as const,
+                    label: resolveModalText('bills.standardExpense', 'Standard expense'),
+                    description: resolveModalText('bills.standardExpenseHint', 'An expense that is already paid'),
+                    icon: <ShoppingBagIcon size={20} />,
+                  },
+                  {
+                    value: "bill" as const,
+                    label: resolveModalText('bills.payableBill', 'Payable bill'),
+                    description: resolveModalText('bills.payableBillHint', 'Track an amount and its due date'),
+                    icon: <ReceiptText size={20} />,
+                  },
+                  {
+                    value: "subscription" as const,
+                    label: resolveModalText('bills.subscription', 'Subscription'),
+                    description: resolveModalText('bills.subscriptionHint', 'A recurring service or membership'),
+                    icon: <CreditCard size={20} />,
+                  },
+                ]).map(option => (
+                  <button
+                    type="button"
+                    key={option.value}
+                    onClick={() => setForm(prev => ({
+                      ...prev,
+                      expenseKind: option.value,
+                      paymentStatus: option.value === "standard" ? "paid" : "unpaid",
+                      period: option.value === "subscription" && prev.period === "oneTime" ? "monthly" : prev.period,
+                      autoPay: option.value === "standard" ? false : prev.autoPay,
+                    }))}
+                    className={cx(
+                      "rounded-[1.5rem] border p-4 text-left transition-all",
+                      form.expenseKind === option.value
+                        ? "border-indigo-400/70 bg-indigo-500/15 text-white shadow-lg shadow-indigo-500/10"
+                        : "border-slate-700/70 bg-slate-900/40 text-slate-300 hover:border-slate-500 hover:bg-slate-800/70",
+                    )}
+                  >
+                    <span className="flex items-center gap-2 font-bold">
+                      {option.icon}
+                      {option.label}
+                    </span>
+                    <span className="mt-2 block text-xs leading-5 text-slate-400">
+                      {option.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {form.expenseKind !== "standard" && (
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 rounded-[1.5rem] border border-slate-700/70 bg-slate-900/40 p-5">
+                  <div>
+                    <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">
+                      {resolveModalText('bills.payee', 'Payee / provider')}
+                    </label>
+                    <AnimatedInput
+                      value={form.payee}
+                      onChange={(e) => setForm(prev => ({ ...prev, payee: e.target.value }))}
+                      placeholder={resolveModalText('bills.payeePlaceholder', 'e.g. Netflix, electricity provider')}
+                      className="bg-slate-950/80 border-slate-700/80 rounded-full text-white px-5 shadow-none placeholder:text-slate-400 focus:border-indigo-400/60 focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">
+                      {resolveModalText('bills.paymentState', 'Payment state')}
+                    </label>
+                    <select
+                      value={form.paymentStatus}
+                      onChange={(e) => setForm(prev => ({ ...prev, paymentStatus: e.target.value as BillPaymentStatus }))}
+                      className="w-full px-5 py-3 rounded-full border border-slate-700/80 bg-slate-950/80 text-white font-bold outline-none focus:border-indigo-400/60 focus:ring-2 focus:ring-indigo-500/20"
+                    >
+                      <option value="unpaid">{resolveModalText('bills.unpaid', 'Unpaid')}</option>
+                      <option value="paid">{resolveModalText('bills.paid', 'Paid')}</option>
+                    </select>
+                  </div>
+                  <label className="md:col-span-2 flex items-center justify-between gap-4 rounded-[1.25rem] border border-slate-700/70 bg-slate-950/60 px-4 py-3 cursor-pointer">
+                    <span>
+                      <span className="block text-sm font-bold text-white">
+                        {resolveModalText('bills.autoPay', 'Automatic payment')}
+                      </span>
+                      <span className="mt-1 block text-xs text-slate-400">
+                        {resolveModalText('bills.autoPayHint', 'The provider charges this amount automatically')}
+                      </span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={form.autoPay}
+                      onChange={(e) => setForm(prev => ({ ...prev, autoPay: e.target.checked }))}
+                      className="h-5 w-5 accent-indigo-500"
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mt-8 px-2">
             <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-4">
@@ -1987,6 +2184,26 @@ const EnhancedTransactionModal: React.FC<{
                   <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">
                     {t('transactions.period') || 'Gyakorisag'}
                   </label>
+                  <div className="relative">
+                    <select
+                      value={form.period}
+                      onChange={(e) => setForm(prev => ({ ...prev, period: e.target.value as TransactionPeriod }))}
+                      className="w-full pl-5 pr-10 py-3 rounded-full border border-slate-700/80 bg-slate-900/80 text-white font-bold outline-none cursor-pointer hover:border-slate-500 transition-colors appearance-none focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
+                    >
+                      <option value="oneTime" disabled={form.expenseKind === "subscription"}>
+                        {resolveModalText('period.oneTime', 'One-time')}
+                      </option>
+                      <option value="daily">{resolveModalText('period.daily', 'Daily')}</option>
+                      <option value="weekly">{resolveModalText('period.weekly', 'Weekly')}</option>
+                      <option value="monthly">{resolveModalText('period.monthly', 'Monthly')}</option>
+                      <option value="yearly">{resolveModalText('period.yearly', 'Yearly')}</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                      <ChevronDown size={16} />
+                    </div>
+                  </div>
+                </div>
+                <div>
                   <label className="block text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">
                     {t('transactions.priority') || 'Prioritas'}
                   </label>
@@ -2001,7 +2218,7 @@ const EnhancedTransactionModal: React.FC<{
                       <option value="high">{t('priority.high') || 'Magas'}</option>
                     </select>
                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
-                      <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path></svg>
+                      <ChevronDown size={16} />
                     </div>
                   </div>
                 </div>
@@ -2043,8 +2260,11 @@ const EnhancedBudgetView: React.FC = () => {
   const engine = useEnhancedBudgetEngine();
   const { t, balanceStats, analytics, cashFlowProjection, notifications, currency, language, backtestSummary, forecastSummary, visibleTransactions, deleteTransactions, addNotification } = engine;
 
-  const [activeTab, setActiveTab] = useState<"dashboard" | "transactions" | "analytics" | "goals" | "settings">("dashboard");
+  const [activeTab, setActiveTab] = useState<BudgetTab>("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
+  const [billSearchQuery, setBillSearchQuery] = useState("");
+  const [billFilter, setBillFilter] = useState<BillFilter>("all");
+  const [billKindFilter, setBillKindFilter] = useState<"all" | "bill" | "subscription">("all");
 
 
   // ... inside component ...
@@ -2074,6 +2294,7 @@ const EnhancedBudgetView: React.FC = () => {
   // Quick actions
   // Quick Action Handlers
   const [presetType, setPresetType] = useState<TransactionType>("expense");
+  const [presetExpenseKind, setPresetExpenseKind] = useState<ExpenseKind>("standard");
 
   const quickActions = [
     {
@@ -2082,6 +2303,7 @@ const EnhancedBudgetView: React.FC = () => {
       color: "rose",
       action: () => {
         setPresetType("expense");
+        setPresetExpenseKind("standard");
         setEditingTransaction(null);
         setShowTransactionModal(true);
       }
@@ -2092,6 +2314,7 @@ const EnhancedBudgetView: React.FC = () => {
       color: "emerald",
       action: () => {
         setPresetType("income");
+        setPresetExpenseKind("standard");
         setEditingTransaction(null);
         setShowTransactionModal(true);
       }
@@ -2135,6 +2358,140 @@ const EnhancedBudgetView: React.FC = () => {
       return haystack.includes(query);
     });
   }, [visibleTransactions, searchQuery]);
+
+  const billItems = useMemo(() => {
+    const stateOrder: Record<BillState, number> = {
+      overdue: 0,
+      dueToday: 1,
+      dueSoon: 2,
+      upcoming: 3,
+      paid: 4,
+    };
+    const query = billSearchQuery.trim().toLowerCase();
+
+    return engine.uiTransactions
+      .filter(tx => tx.type === "expense" && tx.expenseKind !== "standard")
+      .map(tx => ({
+        ...tx,
+        billState: getBillState(tx, engine.todayYMD),
+        dueDateYMD: getBillDueDateYMD(tx),
+      }))
+      .filter(tx => billKindFilter === "all" || tx.expenseKind === billKindFilter)
+      .filter(tx => {
+        if (billFilter === "all") return true;
+        if (billFilter === "unpaid") return tx.billState !== "paid";
+        if (billFilter === "dueSoon") {
+          return tx.billState === "dueToday" || tx.billState === "dueSoon";
+        }
+        return tx.billState === billFilter;
+      })
+      .filter(tx => {
+        if (!query) return true;
+        return [
+          tx.description,
+          tx.payee || "",
+          tx.category,
+          tx.expenseKind,
+          ...(tx.tags || []),
+        ].join(" ").toLowerCase().includes(query);
+      })
+      .sort((a, b) => {
+        const stateDiff = stateOrder[a.billState] - stateOrder[b.billState];
+        if (stateDiff !== 0) return stateDiff;
+        return (a.dueDateYMD || "9999-12-31").localeCompare(b.dueDateYMD || "9999-12-31");
+      });
+  }, [
+    billFilter,
+    billKindFilter,
+    billSearchQuery,
+    engine.todayYMD,
+    engine.uiTransactions,
+  ]);
+
+  const billSummary = useMemo(() => {
+    const payables = engine.uiTransactions
+      .filter(tx => tx.type === "expense" && tx.expenseKind !== "standard")
+      .map(tx => ({ ...tx, billState: getBillState(tx, engine.todayYMD) }));
+
+    const convert = (tx: BudgetTransaction, amount: number) =>
+      CurrencyService.convert(Math.abs(amount), tx.currency || engine.currency, engine.currency);
+
+    const outstanding = payables
+      .filter(tx => tx.billState !== "paid" && tx.kind !== "master")
+      .reduce((sum, tx) => sum + convert(tx, tx.amount), 0);
+
+    const overdue = payables.filter(tx => tx.billState === "overdue").length;
+    const dueSoon = payables.filter(tx =>
+      tx.billState === "dueToday" || tx.billState === "dueSoon"
+    ).length;
+
+    const monthlySubscriptions = payables
+      .filter(tx => tx.expenseKind === "subscription" && (tx.kind === "master" || !tx.originId))
+      .reduce((sum, tx) => sum + convert(tx, monthlyEquivalent(tx.amount, tx.period)), 0);
+
+    return { outstanding, overdue, dueSoon, monthlySubscriptions };
+  }, [engine.currency, engine.todayYMD, engine.uiTransactions]);
+
+  const updateBillPayment = useCallback((transaction: BudgetTransaction, paid: boolean) => {
+    if (transaction.kind === "master") return;
+
+    const today = toLocalYMD(new Date());
+    const dueDateYMD = getBillDueDateYMD(transaction);
+    const patch: PlannerTransactionPatch = paid
+      ? {
+        status: "completed",
+        paymentStatus: "paid",
+        paidAtISO: new Date().toISOString(),
+        effectiveDateYMD: today,
+        date: today,
+      }
+      : {
+        status: "pending",
+        paymentStatus: "unpaid",
+        paidAtISO: undefined,
+        effectiveDateYMD: dueDateYMD,
+        date: dueDateYMD,
+      };
+
+    engine.updateTransaction(transaction.id, patch);
+    addNotification({
+      title: paid
+        ? resolveText('bills.markedPaid', 'Bill marked as paid')
+        : resolveText('bills.markedUnpaid', 'Bill marked as unpaid'),
+      message: transaction.description,
+      type: paid ? "success" : "warning",
+    });
+  }, [addNotification, engine, resolveText]);
+
+  const getBillStatePresentation = useCallback((state: BillState) => {
+    switch (state) {
+      case "paid":
+        return {
+          label: resolveText('bills.paid', 'Paid'),
+          className: "border-emerald-500/25 bg-emerald-500/10 text-emerald-400",
+        };
+      case "overdue":
+        return {
+          label: resolveText('bills.overdue', 'Overdue'),
+          className: "border-rose-500/25 bg-rose-500/10 text-rose-400",
+        };
+      case "dueToday":
+        return {
+          label: resolveText('bills.dueToday', 'Due today'),
+          className: "border-amber-500/25 bg-amber-500/10 text-amber-400",
+        };
+      case "dueSoon":
+        return {
+          label: resolveText('bills.dueSoon', 'Due soon'),
+          className: "border-sky-500/25 bg-sky-500/10 text-sky-400",
+        };
+      default:
+        return {
+          label: resolveText('bills.upcoming', 'Upcoming'),
+          className: "border-slate-500/25 bg-slate-500/10 text-slate-300",
+        };
+    }
+  }, [resolveText]);
 
   const handleDeleteAllVisible = useCallback(() => {
     if (filteredTransactions.length === 0) return;
@@ -2228,6 +2585,7 @@ const EnhancedBudgetView: React.FC = () => {
               <GradientButton
                 onClick={() => {
                   setPresetType("expense"); // Default to expense for quick add
+                  setPresetExpenseKind("standard");
                   setEditingTransaction(null);
                   setShowTransactionModal(true);
                 }}
@@ -2243,13 +2601,14 @@ const EnhancedBudgetView: React.FC = () => {
             {[
               { id: "dashboard", label: t('tabs.dashboard') || 'Dashboard', icon: <BarChart3 size={16} /> },
               { id: "transactions", label: t('tabs.transactions') || 'Transactions', icon: <FileText size={16} /> },
+              { id: "bills", label: resolveText('tabs.bills', 'Bills'), icon: <ReceiptText size={16} /> },
               { id: "analytics", label: t('tabs.analytics') || 'Analytics', icon: <PieChartIcon size={16} /> },
               { id: "goals", label: t('tabs.goals') || 'Goals', icon: <Target size={16} /> },
               { id: "settings", label: t('tabs.settings') || 'Settings', icon: <Settings size={16} /> },
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as "dashboard" | "transactions" | "analytics" | "goals" | "settings")}
+                onClick={() => setActiveTab(tab.id as BudgetTab)}
                 className={`flex items-center gap-2 px-4 py-3 rounded-[var(--radius-xl)] font-bold transition-all ${activeTab === tab.id
                   ? 'bg-[rgb(var(--color-primary-500))]/10 text-[rgb(var(--color-primary-600))] dark:text-[rgb(var(--color-primary-400))] border border-[rgb(var(--color-primary-500))]/20'
                   : 'text-[rgb(var(--text-tertiary))] hover:text-[rgb(var(--text-primary))] hover:bg-[rgb(var(--surface-tertiary))]'
@@ -2651,7 +3010,12 @@ const EnhancedBudgetView: React.FC = () => {
                       {resolveText('budget.delete.deleteAll', 'Delete All')}
                     </button>
                     <GradientButton
-                      onClick={() => { setEditingTransaction(null); setShowTransactionModal(true); }}
+                      onClick={() => {
+                        setPresetType("expense");
+                        setPresetExpenseKind("standard");
+                        setEditingTransaction(null);
+                        setShowTransactionModal(true);
+                      }}
                       leftIcon={<Plus size={16} />}
                     >
                       {t('transactions.newTransaction')}
@@ -2745,6 +3109,222 @@ const EnhancedBudgetView: React.FC = () => {
                         : resolveText('transactions.noResults', 'No transactions match your search')}
                     </p>
                   </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "bills" && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                <GlassCard>
+                  <div className="p-5">
+                    <div className="flex items-center justify-between text-[rgb(var(--text-tertiary))]">
+                      <span className="text-xs font-black uppercase tracking-wider">
+                        {resolveText('bills.outstanding', 'Outstanding')}
+                      </span>
+                      <ReceiptText size={20} className="text-amber-400" />
+                    </div>
+                    <p className="mt-3 text-2xl font-black text-[rgb(var(--text-primary))]">
+                      {engine.formatCurrency(billSummary.outstanding)}
+                    </p>
+                  </div>
+                </GlassCard>
+                <GlassCard>
+                  <div className="p-5">
+                    <div className="flex items-center justify-between text-[rgb(var(--text-tertiary))]">
+                      <span className="text-xs font-black uppercase tracking-wider">
+                        {resolveText('bills.overdue', 'Overdue')}
+                      </span>
+                      <AlertTriangle size={20} className="text-rose-400" />
+                    </div>
+                    <p className="mt-3 text-2xl font-black text-rose-400">{billSummary.overdue}</p>
+                  </div>
+                </GlassCard>
+                <GlassCard>
+                  <div className="p-5">
+                    <div className="flex items-center justify-between text-[rgb(var(--text-tertiary))]">
+                      <span className="text-xs font-black uppercase tracking-wider">
+                        {resolveText('bills.nextSevenDays', 'Next 7 days')}
+                      </span>
+                      <Clock3 size={20} className="text-sky-400" />
+                    </div>
+                    <p className="mt-3 text-2xl font-black text-sky-400">{billSummary.dueSoon}</p>
+                  </div>
+                </GlassCard>
+                <GlassCard>
+                  <div className="p-5">
+                    <div className="flex items-center justify-between text-[rgb(var(--text-tertiary))]">
+                      <span className="text-xs font-black uppercase tracking-wider">
+                        {resolveText('bills.monthlySubscriptions', 'Monthly subscriptions')}
+                      </span>
+                      <CreditCard size={20} className="text-indigo-400" />
+                    </div>
+                    <p className="mt-3 text-2xl font-black text-indigo-400">
+                      {engine.formatCurrency(billSummary.monthlySubscriptions)}
+                    </p>
+                  </div>
+                </GlassCard>
+              </div>
+
+              <GlassCard>
+                <div className="p-4 space-y-4">
+                  <div className="flex flex-col lg:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[rgb(var(--text-tertiary))]" size={16} />
+                      <input
+                        type="search"
+                        value={billSearchQuery}
+                        onChange={(event) => setBillSearchQuery(event.target.value)}
+                        placeholder={resolveText('bills.search', 'Search bills and providers...')}
+                        className="w-full rounded-[var(--radius-xl)] border border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-elevated))] py-2.5 pl-10 pr-4 font-medium text-[rgb(var(--text-primary))] outline-none focus:border-indigo-500/50"
+                      />
+                    </div>
+                    <select
+                      value={billKindFilter}
+                      onChange={(event) => setBillKindFilter(event.target.value as typeof billKindFilter)}
+                      className="rounded-[var(--radius-xl)] border border-[rgb(var(--border-primary))] bg-[rgb(var(--surface-elevated))] px-4 py-2.5 font-bold text-[rgb(var(--text-primary))] outline-none"
+                    >
+                      <option value="all">{resolveText('bills.allTypes', 'All types')}</option>
+                      <option value="bill">{resolveText('bills.payableBills', 'Payable bills')}</option>
+                      <option value="subscription">{resolveText('bills.subscriptions', 'Subscriptions')}</option>
+                    </select>
+                    <GradientButton
+                      onClick={() => {
+                        setPresetType("expense");
+                        setPresetExpenseKind("bill");
+                        setEditingTransaction(null);
+                        setShowTransactionModal(true);
+                      }}
+                      leftIcon={<Plus size={16} />}
+                    >
+                      {resolveText('bills.addBill', 'Add bill')}
+                    </GradientButton>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {([
+                      ["all", resolveText('bills.filterAll', 'All')],
+                      ["unpaid", resolveText('bills.unpaid', 'Unpaid')],
+                      ["overdue", resolveText('bills.overdue', 'Overdue')],
+                      ["dueSoon", resolveText('bills.dueSoon', 'Due soon')],
+                      ["paid", resolveText('bills.paid', 'Paid')],
+                    ] as Array<[BillFilter, string]>).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setBillFilter(value)}
+                        className={cx(
+                          "rounded-full border px-3 py-1.5 text-xs font-bold transition-colors",
+                          billFilter === value
+                            ? "border-indigo-500/40 bg-indigo-500/15 text-indigo-300"
+                            : "border-[rgb(var(--border-primary))] text-[rgb(var(--text-tertiary))] hover:text-[rgb(var(--text-primary))]",
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </GlassCard>
+
+              <div className="space-y-3">
+                {billItems.map(bill => {
+                  const state = getBillStatePresentation(bill.billState);
+                  const isMaster = bill.kind === "master";
+
+                  return (
+                    <GlassCard key={bill.id} className="hover:border-[rgb(var(--border-secondary))] transition-colors">
+                      <div className="p-5 pr-20 sm:pr-24 flex flex-col xl:flex-row xl:items-center justify-between gap-5">
+                        <button
+                          type="button"
+                          className="flex min-w-0 items-start gap-4 text-left"
+                          onClick={() => {
+                            setEditingTransaction(bill);
+                            setShowTransactionModal(true);
+                          }}
+                        >
+                          <span className={cx(
+                            "mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-xl)] border",
+                            bill.expenseKind === "subscription"
+                              ? "border-indigo-500/20 bg-indigo-500/10 text-indigo-400"
+                              : "border-amber-500/20 bg-amber-500/10 text-amber-400",
+                          )}>
+                            {bill.expenseKind === "subscription" ? <CreditCard size={20} /> : <ReceiptText size={20} />}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <span className="truncate text-lg font-black text-[rgb(var(--text-primary))]">
+                                {bill.description}
+                              </span>
+                              <span className={cx("rounded-full border px-2 py-0.5 text-[10px] font-black uppercase", state.className)}>
+                                {state.label}
+                              </span>
+                              {bill.autoPay && (
+                                <span className="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2 py-0.5 text-[10px] font-black uppercase text-indigo-300">
+                                  {resolveText('bills.autoPay', 'Auto-pay')}
+                                </span>
+                              )}
+                            </span>
+                            <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-[rgb(var(--text-tertiary))]">
+                              <span className="inline-flex items-center gap-1">
+                                <Building2 size={13} />
+                                {bill.payee || resolveText('bills.noPayee', 'No provider')}
+                              </span>
+                              <span>
+                                {resolveText('bills.due', 'Due')}: {engine.formatDate(bill.dueDateYMD)}
+                              </span>
+                              <span>
+                                {bill.expenseKind === "subscription"
+                                  ? engine.getPeriodLabel(bill.period)
+                                  : engine.categories[bill.category]?.label || bill.category}
+                              </span>
+                            </span>
+                          </span>
+                        </button>
+
+                        <div className="flex flex-wrap items-center justify-between gap-4 xl:justify-end">
+                          <div className="text-left xl:text-right">
+                            <span className="block text-xl font-black text-[rgb(var(--text-primary))]">
+                              {engine.formatCurrency(Math.abs(bill.amount), bill.currency)}
+                            </span>
+                            {isMaster && (
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[rgb(var(--text-tertiary))]">
+                                {resolveText('bills.nextOccurrence', 'Next occurrence')}
+                              </span>
+                            )}
+                          </div>
+                          {!isMaster && (
+                            <button
+                              type="button"
+                              onClick={() => updateBillPayment(bill, bill.billState !== "paid")}
+                              className={cx(
+                                "inline-flex items-center gap-2 rounded-[var(--radius-xl)] border px-4 py-2.5 text-sm font-bold transition-colors",
+                                bill.billState === "paid"
+                                  ? "border-slate-400/50 text-slate-600 hover:bg-slate-500/10 dark:border-slate-500/30 dark:text-slate-300"
+                                  : "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10",
+                              )}
+                            >
+                              <CheckCircle size={16} />
+                              {bill.billState === "paid"
+                                ? resolveText('bills.markUnpaid', 'Mark unpaid')
+                                : resolveText('bills.markPaid', 'Mark paid')}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </GlassCard>
+                  );
+                })}
+
+                {billItems.length === 0 && (
+                  <GlassCard>
+                    <div className="px-6 py-14 text-center">
+                      <ReceiptText size={32} className="mx-auto text-[rgb(var(--text-tertiary))]" />
+                      <p className="mt-4 font-bold text-[rgb(var(--text-secondary))]">
+                        {resolveText('bills.empty', 'No bills match the selected filters')}
+                      </p>
+                    </div>
+                  </GlassCard>
                 )}
               </div>
             </div>
@@ -2906,6 +3486,7 @@ const EnhancedBudgetView: React.FC = () => {
             transaction={editingTransaction || undefined}
             engine={engine}
             presetType={presetType}
+            presetExpenseKind={presetExpenseKind}
           />
         )}
       </AnimatePresence>
@@ -3011,8 +3592,3 @@ const EnhancedBudgetView: React.FC = () => {
 };
 
 export default EnhancedBudgetView;
-
-
-
-
-

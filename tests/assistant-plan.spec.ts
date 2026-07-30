@@ -79,3 +79,48 @@ test('assistant planner extracts structured JSON response', () => {
   expect(parsed?.actions).toHaveLength(1);
   expect(parsed?.actions[0].type).toBe('create_note');
 });
+
+test('assistant planner accepts DeepSeek actions for bills and app updates', () => {
+  const plan = extractAssistantPlan(JSON.stringify({
+    reply: 'Done',
+    actions: [
+      {
+        type: 'create_payable',
+        data: {
+          description: 'Internet subscription',
+          amount: 29.9,
+          kind: 'subscription',
+          payee: 'Example ISP',
+          dueDate: '2026-08-05',
+          period: 'monthly',
+          autoPay: true,
+        },
+      },
+      { type: 'complete_task', data: { title: 'Submit report' } },
+      { type: 'update_goal_progress', data: { title: 'Launch project', progress: 75 } },
+      { type: 'mark_payable_paid', data: { description: 'Electricity' } },
+    ],
+  }));
+
+  expect(plan?.actions).toHaveLength(4);
+  expect(plan?.actions[0]).toMatchObject({
+    type: 'create_payable',
+    data: { kind: 'subscription', period: 'monthly', autoPay: true },
+  });
+  expect(plan?.actions[2]).toMatchObject({
+    type: 'update_goal_progress',
+    data: { progress: 75 },
+  });
+});
+
+test('assistant planner clamps unsafe goal progress values', () => {
+  const plan = extractAssistantPlan(JSON.stringify({
+    reply: '',
+    actions: [{ type: 'update_goal_progress', data: { title: 'Launch', progress: 180 } }],
+  }));
+
+  expect(plan?.actions[0]).toMatchObject({
+    type: 'update_goal_progress',
+    data: { progress: 100 },
+  });
+});

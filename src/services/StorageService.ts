@@ -69,8 +69,7 @@ export class StorageService {
 
     /**
      * Clear all app-specific keys (planner-, invoice_sequence_, digitalplanner-)
-     * NOTE: Does NOT delete 'v1.*' migration flags - those must survive to prevent
-     * MigrationService from running nuclear resets on the next page load.
+     * Migration flags are intentionally outside these prefixes.
      */
     static clear(): void {
         if (typeof window === 'undefined') return;

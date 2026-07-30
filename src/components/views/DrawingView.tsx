@@ -7,6 +7,7 @@ import {
   Undo2, Redo2, Trash2, Move, ZoomIn, ZoomOut,
   Palette, Grid3X3, Calculator, Plus, X
 } from 'lucide-react';
+import { evaluateArithmeticExpression } from '../../utils/arithmetic';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 // --- Types ---
@@ -233,7 +234,7 @@ const DrawingView: React.FC = () => {
   }, [fabricCanvas, saveToLocalStorage]);
 
   // --- Image Upload Logic (PhD Level) ---
-  const handleImageUpload = (file: File) => {
+  const handleImageUpload = useCallback((file: File) => {
     if (!file || !fabricCanvas) return;
 
     const reader = new FileReader();
@@ -270,7 +271,7 @@ const DrawingView: React.FC = () => {
       });
     };
     reader.readAsDataURL(file);
-  };
+  }, [fabricCanvas, saveToLocalStorage]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -282,7 +283,7 @@ const DrawingView: React.FC = () => {
         handleImageUpload(file);
       }
     }
-  }, [fabricCanvas, saveToLocalStorage]);
+  }, [handleImageUpload]);
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -795,7 +796,7 @@ const DrawingView: React.FC = () => {
                         .replace(/×/g, '*')
                         .replace(/÷/g, '/')
                         .replace(/[^0-9+\-*/.() ]/g, '');
-                      const result = String(eval(expr) || 0);
+                      const result = String(evaluateArithmeticExpression(expr));
                       setCalcHistory(prev => [...prev.slice(-9), { expr: calcInput, result }]);
                       setCalcInput(result);
                     } catch {
